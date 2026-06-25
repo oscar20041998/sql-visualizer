@@ -22,17 +22,15 @@ function AppFooter() {
         {/* Left: Name + Company */}
         <div className="flex items-center gap-3">
           {/* FPT Software logo mark */}
-          <div
-            className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center font-bold text-[11px] text-white"
-            style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }}
-            aria-label="FPT Software"
-          >
-            FPT
-          </div>
+          <img
+            src="/assets/images/fpt_software_logo.png"
+            alt="FPT Software Ho Chi Minh"
+            className="flex-shrink-0 w-7 h-7 object-contain"
+          />
           <div className="flex flex-col leading-tight">
-            <span className="text-xs font-semibold text-foreground">Võ Thanh Duy</span>
-            <span className="text-[10px] text-muted-foreground">
-              FPT Software Ho Chi Minh - FHM.CMS
+            <span className="text-[10px] text-muted-foreground">FHM.CMS</span>
+            <span className="text-xs font-semibold text-foreground">
+              FHM.CMS - DuyVT7 - Võ Thanh Duy
             </span>
           </div>
         </div>
