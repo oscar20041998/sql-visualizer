@@ -322,3 +322,27 @@
 .react-flow__background {
   background-color: var(--background) !important;
 }
+
+/* Ensure nodes and edges are visible and not affected by tailwind resets */
+.react-flow__node {
+  visibility: visible !important;
+}
+
+.react-flow__node-default {
+  background: var(--card) !important;
+  border: 2px solid var(--border) !important;
+  border-radius: 8px !important;
+}
+
+.react-flow__edge {
+  stroke: var(--border) !important;
+}
+
+.react-flow__edge.selected {
+  stroke: var(--primary) !important;
+  stroke-width: 2 !important;
+}
+
+.react-flow__handle {
+  background: var(--primary) !important;
+}

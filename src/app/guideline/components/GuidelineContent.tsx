@@ -20,10 +20,12 @@ import {
   CheckCircle2,
   Info,
   Lightbulb,
+  TrendingUp,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Icon from '@/components/ui/AppIcon';
 import { getT } from '@/lib/i18n';
+import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Section {
@@ -206,6 +208,40 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         { text: t.guidelineToolsExportTitle + ': ' + t.guidelineToolsExportCSVDesc },
         { text: t.guidelineToolsExportMermaid + ': ' + t.guidelineToolsExportMermaidDesc },
         { text: t.guidelineToolsExportCTESQL + ': ' + t.guidelineToolsExportCTESQLDesc },
+      ],
+    },
+    {
+      id: 'complexity-evaluation',
+      icon: TrendingUp,
+      color: '#ef4444',
+      title: t.guidelineComplexityEvaluationTitle,
+      subtitle: t.guidelineComplexityEvaluationSubtitle,
+      steps: [
+        {
+          label: t.guidelineComplexityEvalStep1Label,
+          desc: t.guidelineComplexityEvalStep1Desc,
+        },
+        {
+          label: t.guidelineComplexityEvalStep2Label,
+          desc: t.guidelineComplexityEvalStep2Desc,
+        },
+        {
+          label: t.guidelineComplexityEvalStep3Label,
+          desc: t.guidelineComplexityEvalStep3Desc,
+        },
+        {
+          label: t.guidelineComplexityEvalStep4Label,
+          desc: t.guidelineComplexityEvalStep4Desc,
+        },
+        {
+          label: t.guidelineComplexityEvalStep5Label,
+          desc: t.guidelineComplexityEvalStep5Desc,
+        },
+      ],
+      tips: [
+        { text: t.guidelineComplexityEvalTip1 },
+        { text: t.guidelineComplexityEvalTip2 },
+        { text: t.guidelineComplexityEvalTip3 },
       ],
     },
   ];
@@ -395,6 +431,11 @@ export default function GuidelineContent() {
         ))}
       </div>
 
+      {/* Score Weight Table */}
+      <div className="mt-8">
+        <ScoreWeightTable />
+      </div>
+
       {/* Keyboard / UI Shortcuts */}
       <div className="mt-6 rounded-2xl border border-border bg-card p-5">
         <div className="flex items-center gap-2 mb-4">
@@ -452,7 +493,7 @@ export default function GuidelineContent() {
       </div>
 
       <p className="text-center text-[10px] text-muted-foreground mt-8 pb-4">
-        SQLVisualizer — {t.guidelineBuiltFor}
+        SQL Visualizer — {t.guidelineBuiltFor}
       </p>
     </div>
   );

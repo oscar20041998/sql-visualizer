@@ -1,6 +1,20 @@
 // Backend integration point: Replace this entire module with actual dt-sql-parser calls
 // when integrating with a real parsing backend or when dt-sql-parser is fully initialized.
 
+import {
+  calculateQueryComplexity as scoreQueryComplexity,
+  type DetailedComplexityScore,
+} from './complexityScorer';
+import { getT, type Translations } from './i18n';
+
+// Import dt-sql-parser for AST-based SQL parsing with dialect support
+let parser: any = null;
+try {
+  parser = require('dt-sql-parser');
+} catch (e) {
+  console.warn('dt-sql-parser not available, using regex-based parsing');
+}
+
 export type SqlDialect = 'mysql' | 'postgresql' | 'sqlserver' | 'oracle';
 
 export type JoinType =
@@ -91,10 +105,405 @@ export interface AnalysisResult {
   ctes: CTE[];
   metrics: SqlMetrics;
   complexity: ComplexityScore;
+  detailedComplexity?: DetailedComplexityScore; // New: detailed scoring breakdown
   executionCost: ExecutionCostEstimate;
-  mainQueryFields: { field: string; origin: string; type: 'cte' | 'table' | 'expression' }[];
+  mainQueryFields: {
+    field: string;
+    alias: string;
+    origin: string;
+    sourceTable: string;
+    type: 'cte' | 'table' | 'expression';
+  }[];
   dialect: SqlDialect;
   rawSql: string;
+}
+
+/**
+ * Parse SQL with dialect awareness using dt-sql-parser
+ * Supports MySQL, PostgreSQL, SQL Server (T-SQL), and Oracle dialects
+ */
+function parseSqlWithDialect(sql: string, dialect: SqlDialect): any {
+  if (!parser) {
+    return null;
+  }
+
+  try {
+    // Map our dialect names to dt-sql-parser dialect names
+    const dialectMap: Record<SqlDialect, string> = {
+      mysql: 'mysql',
+      postgresql: 'postgresql',
+      sqlserver: 'tsql',
+      oracle: 'oracle',
+    };
+
+    const dtDialect = dialectMap[dialect] || dialect;
+
+    // Try to parse with the specified dialect
+    // dt-sql-parser's parse function signature: parse(sql, { dialect })
+    if (typeof parser.parse === 'function') {
+      return parser.parse(sql, { dialect: dtDialect });
+    }
+
+    // Alternative: try parser as a constructor/object with methods
+    if (parser.parser && typeof parser.parser.parse === 'function') {
+      return parser.parser.parse(sql, { dialect: dtDialect });
+    }
+
+    // If neither works, return null to fall back to regex
+    return null;
+  } catch (error) {
+    console.warn(`dt-sql-parser failed for dialect ${dialect}:`, error);
+    return null;
+  }
+}
+
+export function analyseByAST(
+  sql: string,
+  dialect: SqlDialect,
+  locale: 'en' | 'vi'
+): AnalysisResult {
+  try {
+    // Attempt to parse with dialect awareness
+    const result = parseSqlWithDialect(sql, dialect);
+
+    if (!result || typeof result !== 'object') {
+      // Fallback to regex-based extraction if parsing fails
+      return buildAnalysisResultFromRegex(sql, dialect, locale);
+    }
+
+    // Extract analysis from AST
+    const ast = result as any;
+    const tables = extractTablesFromAST(ast);
+    const joins = extractJoinsFromAST(ast);
+    const ctes = extractCTEsFromAST(ast);
+    const mainQueryFields = extractMainQueryFieldsFromAST(ast, tables, ctes);
+    const metrics = computeMetricsFromAST(ast, ctes, tables, joins);
+    const complexity = computeComplexity(metrics);
+    const t = getT(locale); // Use the provided locale
+    const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
+    const detailedComplexity = scoreQueryComplexity(sql);
+
+    return {
+      tables,
+      joins,
+      ctes,
+      metrics,
+      complexity,
+      detailedComplexity,
+      executionCost,
+      mainQueryFields,
+      dialect,
+      rawSql: sql,
+    };
+  } catch (error) {
+    // Fallback to regex-based extraction on any parser error
+    console.warn(
+      `Error parsing SQL for dialect ${dialect}, falling back to regex extraction:`,
+      error
+    );
+    return buildAnalysisResultFromRegex(sql, dialect, locale);
+  }
+}
+
+/**
+ * Fallback analyzer using regex when dt-sql-parser fails
+ */
+function buildAnalysisResultFromRegex(
+  sql: string,
+  dialect: SqlDialect,
+  locale: 'en' | 'vi'
+): AnalysisResult {
+  const tables = extractTables(sql);
+  const joins = extractJoins(sql, tables);
+  const ctes = extractCTEs(sql);
+  const mainQueryFields = extractMainQueryFields(sql, ctes, tables);
+  const metrics = computeMetrics(sql, ctes, tables, joins);
+  const complexity = computeComplexity(metrics);
+  const t = getT(locale); // Use the provided locale
+  const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
+  const detailedComplexity = scoreQueryComplexity(sql);
+
+  return {
+    tables,
+    joins,
+    ctes,
+    metrics,
+    complexity,
+    detailedComplexity,
+    executionCost,
+    mainQueryFields,
+    dialect,
+    rawSql: sql,
+  };
+}
+
+/**
+ * Extract tables from dt-sql-parser result
+ */
+function extractTablesFromAST(ast: any): TableNode[] {
+  const tables: Map<string, TableNode> = new Map();
+
+  // dt-sql-parser structure: ast can have various properties depending on query type
+  // Common properties: tableNameList, tables, from, joinList, etc.
+  const tableList = ast.tableNameList || ast.tables || ast.from || [];
+  const arrayList = Array.isArray(tableList) ? tableList : [tableList].filter(Boolean);
+
+  arrayList.forEach((tableRef: any, idx: number) => {
+    let tableName = '';
+    let alias = '';
+
+    if (typeof tableRef === 'string') {
+      tableName = tableRef;
+    } else if (tableRef && typeof tableRef === 'object') {
+      tableName = tableRef.tableName || tableRef.name || tableRef.table || '';
+      alias = tableRef.aliasName || tableRef.alias || '';
+    }
+
+    if (tableName && tableName.trim()) {
+      const key = tableName.toUpperCase();
+      if (!tables.has(key)) {
+        tables.set(key, {
+          id: `table-${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}-${idx}`,
+          name: tableName,
+          alias: alias && alias.toUpperCase() !== tableName.toUpperCase() ? alias : undefined,
+          columns: extractColumnsForTableFromAST(ast, tableName),
+          isSubquery: false,
+          isCTE: false,
+        });
+      }
+    }
+  });
+
+  return Array.from(tables.values());
+}
+
+/**
+ * Extract column references for a specific table from AST
+ */
+function extractColumnsForTableFromAST(ast: any, tableName: string): string[] {
+  const cols: Set<string> = new Set();
+
+  // Try to extract from various AST properties
+  const selectItems = ast.selectItems || ast.select || [];
+  const columnList = ast.columnList || ast.columns || [];
+
+  // Extract from select items
+  if (Array.isArray(selectItems)) {
+    selectItems.forEach((item: any) => {
+      const expr = typeof item === 'string' ? item : item.expr || item.name || JSON.stringify(item);
+      if (expr && expr.includes(tableName)) {
+        const colMatch = expr.match(new RegExp(`${tableName}\\.(\\w+)`, 'i'));
+        if (colMatch) cols.add(colMatch[1]);
+      }
+    });
+  }
+
+  // Extract from column list
+  if (Array.isArray(columnList)) {
+    columnList.forEach((col: any) => {
+      const colStr = typeof col === 'string' ? col : col.name || col.column || '';
+      if (colStr && colStr.includes(tableName)) {
+        const colMatch = colStr.match(new RegExp(`${tableName}\\.(\\w+)`, 'i'));
+        if (colMatch) cols.add(colMatch[1]);
+      }
+    });
+  }
+
+  return Array.from(cols).slice(0, 8);
+}
+
+/**
+ * Extract joins from dt-sql-parser AST
+ */
+function extractJoinsFromAST(ast: any): JoinEdge[] {
+  const joins: JoinEdge[] = [];
+  const joinList = ast.joinList || ast.joins || [];
+
+  if (!Array.isArray(joinList) || joinList.length === 0) {
+    return joins;
+  }
+
+  const tables = extractTablesFromAST(ast);
+
+  joinList.forEach((join: any, idx: number) => {
+    if (!join) return;
+
+    const joinType = (join.joinType || join.type || 'INNER JOIN').toUpperCase();
+    const rightTable = join.rightTable || join.table || join.to || '';
+    const condition = join.onCondition || join.condition || join.on || '';
+
+    if (rightTable && tables.length > 0) {
+      const sourceTable = tables[0];
+      const targetTable = tables.find(
+        (t) =>
+          t.name.toLowerCase() === rightTable.toString().toLowerCase() ||
+          t.alias?.toLowerCase() === rightTable.toString().toLowerCase()
+      );
+
+      if (sourceTable && targetTable && sourceTable.id !== targetTable.id) {
+        joins.push({
+          id: `join-${idx}`,
+          source: sourceTable.id,
+          target: targetTable.id,
+          joinType: joinType as JoinType,
+          condition: condition.toString(),
+        });
+      }
+    }
+  });
+
+  return joins;
+}
+
+/**
+ * Extract CTEs from dt-sql-parser AST
+ */
+function extractCTEsFromAST(ast: any): CTE[] {
+  const ctes: CTE[] = [];
+  const cteList = ast.cteDefinitions || ast.ctes || ast.with || [];
+
+  if (!Array.isArray(cteList)) {
+    return ctes;
+  }
+
+  cteList.forEach((cte: any, idx: number) => {
+    if (!cte) return;
+
+    const cteName = cte.name || cte.cteName || cte.aliasName || '';
+    const cteBody = cte.selectStatement || cte.query || cte.select || '';
+    const cteBodyStr = typeof cteBody === 'string' ? cteBody : JSON.stringify(cteBody);
+
+    if (cteName) {
+      ctes.push({
+        id: `cte-${idx}`,
+        name: cteName,
+        body: cteBodyStr,
+        tables: extractTables(cteBodyStr).map((t) => t.name),
+        fields: extractSelectFields(cteBodyStr).map((f) => f.field),
+        usageCount:
+          (ast.rawSQL || JSON.stringify(ast)).match(new RegExp(`\\b${cteName}\\b`, 'gi'))?.length ||
+          0,
+        dependencies: [],
+        isRecursive:
+          cteBodyStr.toUpperCase().includes('UNION ALL') &&
+          cteBodyStr.toUpperCase().includes(cteName),
+        estimatedComplexity: cteBodyStr.includes('JOIN') ? 'MEDIUM' : 'LOW',
+        isUnused: false,
+        columnReferences: extractSelectFields(cteBodyStr).map((f) => f.field),
+        lineCount: cteBodyStr.split('\n').length,
+        nestedSubqueries: [],
+      });
+    }
+  });
+
+  return ctes;
+}
+
+/**
+ * Extract main query fields from dt-sql-parser AST
+ */
+function extractMainQueryFieldsFromAST(
+  ast: any,
+  tables: TableNode[],
+  ctes: CTE[]
+): AnalysisResult['mainQueryFields'] {
+  const selectItems = ast.selectItems || [];
+  const fields: AnalysisResult['mainQueryFields'] = [];
+
+  selectItems.forEach((item: any) => {
+    const fieldExpr = typeof item === 'string' ? item : item.expr || item.name || '';
+    const fieldAlias = typeof item === 'object' ? item.alias || item.aliasName || '' : '';
+
+    if (fieldExpr) {
+      let sourceTable = 'unknown';
+      let origin = 'expression';
+      let type: 'cte' | 'table' | 'expression' = 'expression';
+
+      // Try to match to a table
+      const tableMatch = tables.find(
+        (t) =>
+          fieldExpr.toLowerCase().includes(t.name.toLowerCase()) ||
+          (t.alias && fieldExpr.toLowerCase().includes(t.alias.toLowerCase()))
+      );
+
+      if (tableMatch) {
+        sourceTable = tableMatch.name;
+        origin = tableMatch.name;
+        type = 'table';
+      }
+
+      // Try to match to a CTE
+      const cteMatch = ctes.find((c) =>
+        c.fields.some((f) => fieldExpr.toLowerCase().includes(f.toLowerCase()))
+      );
+
+      if (cteMatch) {
+        sourceTable = cteMatch.name;
+        origin = cteMatch.name;
+        type = 'cte';
+      }
+
+      fields.push({
+        field: fieldExpr,
+        alias: fieldAlias,
+        origin,
+        sourceTable,
+        type,
+      });
+    }
+  });
+
+  return fields;
+}
+
+/**
+ * Compute metrics from dt-sql-parser AST
+ */
+function computeMetricsFromAST(
+  ast: any,
+  ctes: CTE[],
+  tables: TableNode[],
+  joins: JoinEdge[]
+): SqlMetrics {
+  // Convert AST to string for pattern matching
+  const astStr = JSON.stringify(ast).toUpperCase();
+  const selectItems = ast.selectItems || ast.select || [];
+
+  return {
+    windowFunctions: (astStr.match(/OVER\s*\(/g) || []).length,
+    groupBy: (astStr.match(/GROUP\s+BY/g) || []).length,
+    orderBy: (astStr.match(/ORDER\s+BY/g) || []).length,
+    distinct: (astStr.match(/DISTINCT/g) || []).length,
+    subqueryDepth: computeSubqueryDepthFromAST(ast),
+    joinCount: joins.length,
+    cteCount: ctes.length,
+    tableCount: tables.length,
+    selectFields: Array.isArray(selectItems) ? selectItems.length : 0,
+  };
+}
+
+/**
+ * Compute subquery depth from AST
+ */
+function computeSubqueryDepthFromAST(ast: any): number {
+  let maxDepth = 0;
+
+  function traverse(node: any, depth: number) {
+    if (!node) return;
+
+    if (node.selectStatement || node.selectItems) {
+      maxDepth = Math.max(maxDepth, depth);
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach((item) => traverse(item, depth + 1));
+    } else if (typeof node === 'object') {
+      Object.values(node).forEach((value) => traverse(value, depth + 1));
+    }
+  }
+
+  traverse(ast, 0);
+  return Math.max(0, maxDepth - 1);
 }
 
 // ─── Regex-based extraction (client-side heuristic) ──────────────────────────
@@ -285,7 +694,8 @@ function extractCTEs(sql: string): CTE[] {
     const name = raw.name;
     const body = raw.body;
     const tables = extractTables(body).map((t) => t.name);
-    const fields = extractSelectFields(body);
+    const fieldsWithAlias = extractSelectFields(body);
+    const fields = fieldsWithAlias.map((f) => f.field); // Convert objects to strings for CTE
 
     // Column references from SELECT clause
     const colRefs: string[] = [];
@@ -476,7 +886,8 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
           const currentDepth = baseDepth + 1;
           const context = getContext(pos);
           const subTables = extractTables(innerBody).map((t) => t.name);
-          const subFields = extractSelectFields(innerBody);
+          const subFieldsWithAlias = extractSelectFields(innerBody);
+          const subFields = subFieldsWithAlias.map((f) => f.field); // Convert objects to strings for NestedSubquery
           const subLines = innerBody.split('\n').length;
           const hasJoins = /\bJOIN\b/i.test(innerBody);
           const hasAggregation = /\b(COUNT|SUM|AVG|MIN|MAX|GROUP\s+BY)\b/i.test(innerBody);
@@ -510,19 +921,26 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
   return results;
 }
 
-function extractSelectFields(sql: string): string[] {
+function extractSelectFields(sql: string): { field: string; alias: string }[] {
   const selectMatch = /SELECT\s+([\s\S]+?)\s+FROM/i.exec(sql);
   if (!selectMatch) return [];
   return selectMatch[1]
     .split(',')
-    .map((f) =>
-      f
-        .trim()
-        .replace(/\s+AS\s+\w+/i, '')
-        .trim()
-    )
-    .filter((f) => f.length > 0)
-    .slice(0, 12);
+    .map((f) => {
+      const trimmed = f.trim();
+      const asMatch = /(.+?)\s+(?:AS\s+)?(\w+)\s*$/i.exec(trimmed);
+      if (asMatch) {
+        const fieldPart = asMatch[1].trim();
+        const aliasPart = asMatch[2].trim();
+        // Check if this looks like an alias (field ends with different name)
+        if (fieldPart.toLowerCase() !== aliasPart.toLowerCase()) {
+          return { field: fieldPart, alias: aliasPart };
+        }
+      }
+      return { field: trimmed, alias: '' };
+    })
+    .filter((f) => f.field.length > 0)
+    .slice(0, 50);
 }
 
 function countPattern(sql: string, pattern: RegExp): number {
@@ -592,8 +1010,12 @@ function computeComplexity(metrics: SqlMetrics): ComplexityScore {
 function computeExecutionCost(
   metrics: SqlMetrics,
   complexity: ComplexityScore,
-  dialect: SqlDialect
+  dialect: SqlDialect,
+  t?: Translations
 ): ExecutionCostEstimate {
+  // Use provided translation object or get default English
+  const translation = t || getT('en');
+
   const dialectMultiplier: Record<SqlDialect, number> = {
     mysql: 1.0,
     postgresql: 0.85,
@@ -607,38 +1029,37 @@ function computeExecutionCost(
 
   const factors: ExecutionCostEstimate['factors'] = [
     {
-      name: 'Join Depth',
+      name: translation.executionCostFactorJoinDepth,
       impact: metrics.joinCount > 4 ? 'high' : metrics.joinCount > 2 ? 'medium' : 'low',
-      note: `${metrics.joinCount} join(s) detected`,
+      note: `${metrics.joinCount} ${translation.executionCostNoteJoinDepth}`,
     },
     {
-      name: 'Subquery Nesting',
+      name: translation.executionCostFactorSubqueryNesting,
       impact: metrics.subqueryDepth > 3 ? 'high' : metrics.subqueryDepth > 1 ? 'medium' : 'low',
-      note: `Max depth ~${metrics.subqueryDepth}`,
+      note: `${translation.executionCostNoteSubqueryNesting}${metrics.subqueryDepth}`,
     },
     {
-      name: 'Analytic Functions',
+      name: translation.executionCostFactorAnalyticFunctions,
       impact: metrics.windowFunctions > 2 ? 'high' : metrics.windowFunctions > 0 ? 'medium' : 'low',
-      note: `${metrics.windowFunctions} OVER() clause(s)`,
+      note: `${metrics.windowFunctions} ${translation.executionCostNoteAnalyticFunctions}`,
     },
     {
-      name: 'Dialect Overhead',
+      name: translation.executionCostFactorDialectOverhead,
       impact: dialect === 'oracle' || dialect === 'sqlserver' ? 'medium' : 'low',
-      note: `${dialect.toUpperCase()} optimizer assumed`,
+      note: `${dialect.toUpperCase()} ${translation.executionCostNoteDialectOverhead}`,
     },
     {
-      name: 'Standard Indexing',
+      name: translation.executionCostFactorStandardIndexing,
       impact: 'low',
-      note: 'Assumes standard B-tree indexes on join keys',
+      note: translation.executionCostNoteStandardIndexing,
     },
   ];
 
   const recommendations: Record<string, string> = {
-    LOW: 'Query appears lightweight. Standard indexing should handle this well.',
-    MEDIUM: 'Consider reviewing join order. Ensure indexed columns are used in ON conditions.',
-    HIGH: 'High complexity detected. Consider breaking into smaller queries or using materialized CTEs.',
-    'SUPER HIGH':
-      'Critical complexity. This query may cause full table scans. Strongly recommend query decomposition and index review.',
+    LOW: translation.executionCostRecommendationLow,
+    MEDIUM: translation.executionCostRecommendationMedium,
+    HIGH: translation.executionCostRecommendationHigh,
+    'SUPER HIGH': translation.executionCostRecommendationSuperHigh,
   };
 
   return {
@@ -656,23 +1077,77 @@ function extractMainQueryFields(
   tables: TableNode[]
 ): AnalysisResult['mainQueryFields'] {
   const fields = extractSelectFields(sql);
-  return fields.map((field) => {
-    const cteName = ctes.find((c) =>
-      c.fields.some((f) => field.toLowerCase().includes(f.toLowerCase()))
-    )?.name;
-    const tableName = tables.find(
-      (t) =>
-        field.toLowerCase().includes(t.name.toLowerCase()) ||
-        (t.alias && field.toLowerCase().includes(t.alias.toLowerCase()))
-    )?.name;
+  return fields.map(({ field, alias }) => {
+    // Try to extract table/CTE prefix (e.g., "t.name" -> "t")
+    const prefixMatch = /^(\w+)\./i.exec(field);
+    const prefix = prefixMatch ? prefixMatch[1].toLowerCase() : '';
 
-    if (cteName) return { field, origin: cteName, type: 'cte' as const };
-    if (tableName) return { field, origin: tableName, type: 'table' as const };
-    return { field, origin: 'expression', type: 'expression' as const };
+    // Find source table by prefix or field content
+    let sourceTable = '';
+    let type: 'cte' | 'table' | 'expression' = 'expression';
+    let origin = 'expression';
+
+    // Check if prefix matches a table alias or name
+    const matchedTable = tables.find(
+      (t) => (t.alias && t.alias.toLowerCase() === prefix) || t.name.toLowerCase() === prefix
+    );
+
+    if (matchedTable) {
+      sourceTable = matchedTable.name;
+      type = 'table';
+      origin = matchedTable.name;
+    } else {
+      // Try to find CTE
+      const matchedCTE = ctes.find(
+        (c) =>
+          c.name.toLowerCase() === prefix ||
+          c.fields.some((f) => field.toLowerCase().includes(f.toLowerCase()))
+      );
+
+      if (matchedCTE) {
+        sourceTable = matchedCTE.name;
+        type = 'cte';
+        origin = matchedCTE.name;
+      } else {
+        // Try to find by field content if no prefix
+        const fieldLower = field.toLowerCase();
+        const tableWithField = tables.find(
+          (t) =>
+            fieldLower.includes(t.name.toLowerCase()) ||
+            (t.alias && fieldLower.includes(t.alias.toLowerCase()))
+        );
+        const cteWithField = ctes.find((c) =>
+          c.fields.some((f) => fieldLower.includes(f.toLowerCase()))
+        );
+
+        if (tableWithField) {
+          sourceTable = tableWithField.name;
+          type = 'table';
+          origin = tableWithField.name;
+        } else if (cteWithField) {
+          sourceTable = cteWithField.name;
+          type = 'cte';
+          origin = cteWithField.name;
+        }
+      }
+    }
+
+    return {
+      field,
+      alias,
+      origin,
+      sourceTable,
+      type,
+    };
   });
 }
 
-export function analyzeSql(sql: string, dialect: SqlDialect): AnalysisResult {
+// -- SIMPLE PARSING -------------------------------------------------------------------------- //
+export function analyzeSql(
+  sql: string,
+  dialect: SqlDialect,
+  locale: string = 'en'
+): AnalysisResult {
   // Strip all SQL comments before scanning
   const stripped = stripSqlComments(sql);
   // Backend integration point: Replace with dt-sql-parser AST traversal
@@ -682,8 +1157,12 @@ export function analyzeSql(sql: string, dialect: SqlDialect): AnalysisResult {
   const ctes = extractCTEs(cleaned);
   const metrics = computeMetrics(cleaned, ctes, tables, joins);
   const complexity = computeComplexity(metrics);
-  const executionCost = computeExecutionCost(metrics, complexity, dialect);
+  const t = getT(locale as 'en' | 'vi');
+  const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
   const mainQueryFields = extractMainQueryFields(cleaned, ctes, tables);
+
+  // New: Calculate detailed complexity score using the comprehensive scoring engine
+  const detailedComplexity = scoreQueryComplexity(cleaned);
 
   return {
     tables,
@@ -691,6 +1170,7 @@ export function analyzeSql(sql: string, dialect: SqlDialect): AnalysisResult {
     ctes,
     metrics,
     complexity,
+    detailedComplexity,
     executionCost,
     mainQueryFields,
     dialect,
@@ -720,6 +1200,62 @@ export function resolveMyBatisParams(xml: string, params: Record<string, string>
     );
   if (sqlMatch) return sqlMatch[1].trim();
   return resolved;
+}
+
+/** Extract clean SQL and parameters from MyBatis XML content */
+export function parseMyBatisXml(xml: string): { sql: string; params: string[] } {
+  // Extract SQL body from MyBatis tags
+  const sqlMatch =
+    /<(?:select|insert|update|delete)[^>]*>([\s\S]*?)<\/(?:select|insert|update|delete)>/i.exec(
+      xml
+    );
+  if (!sqlMatch) return { sql: '', params: [] };
+
+  let sqlContent = sqlMatch[1];
+
+  // Extract parameters from #{} and ${} syntax
+  const paramPattern = /[#$]\{(\w+)\}/g;
+  const params: string[] = [];
+  let match;
+  while ((match = paramPattern.exec(xml)) !== null) {
+    if (!params.includes(match[1])) params.push(match[1]);
+  }
+
+  // Remove <if> tag conditions, keeping only the inner SQL
+  sqlContent = sqlContent.replace(/<if\s+test="[^"]*">\s*/gi, '');
+  sqlContent = sqlContent.replace(/<\/if\s*>/gi, '');
+
+  // Remove other MyBatis tags
+  sqlContent = sqlContent
+    .replace(/<(?:where|set|trim|foreach|choose|when|otherwise)[^>]*>/gi, '')
+    .replace(/<\/(?:where|set|trim|foreach|choose|when|otherwise)>/gi, '');
+
+  // Clean up whitespace and SQL formatting
+  sqlContent = sqlContent
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('<!--'))
+    .join('\n');
+
+  return { sql: sqlContent, params };
+}
+
+/** Get conditional parameters from <if> tags in MyBatis XML */
+export function getConditionalParams(xml: string): Record<string, string> {
+  const conditionalParams: Record<string, string> = {};
+  const ifPattern = /<if\s+test="([^"]+)">/gi;
+  let match;
+
+  while ((match = ifPattern.exec(xml)) !== null) {
+    const condition = match[1];
+    // Extract parameter names from conditions like: "minAmount != null", "status != null"
+    const paramMatch = /(\w+)\s*!=\s*null/i.exec(condition);
+    if (paramMatch) {
+      conditionalParams[paramMatch[1]] = condition;
+    }
+  }
+
+  return conditionalParams;
 }
 
 // Strip all SQL comments (-- single-line and /* */ multi-line) from a string

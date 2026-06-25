@@ -17,10 +17,15 @@ import {
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
+import AppImage from '@/components/ui/AppImage';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import ComplexityDashboard from '@/components/ui/ComplexityDashboard';
+import LintingAlerts from '@/components/ui/LintingAlerts';
 import {
-  analyzeSql,
+  analyseByAST,
   extractMyBatisParams,
-  resolveMyBatisParams,
+  parseMyBatisXml,
+  getConditionalParams,
   type SqlDialect,
 } from '@/lib/sqlAnalyzer';
 
@@ -82,11 +87,11 @@ const SAMPLE_MYBATIS = `<select id="findOrdersByCustomer" resultType="Order">
   LIMIT #{pageSize} OFFSET #{offset}
 </select>`;
 
-const DIALECTS: { value: SqlDialect; label: string }[] = [
-  { value: 'mysql', label: 'MySQL' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'sqlserver', label: 'SQL Server' },
-  { value: 'oracle', label: 'Oracle DB' },
+const DIALECTS: { value: SqlDialect; label: string; image: string }[] = [
+  { value: 'mysql', label: 'MySQL', image: '/assets/images/my_sql_logo.png' },
+  { value: 'postgresql', label: 'PostgreSQL', image: '/assets/images/postgresql_logo.jpg' },
+  { value: 'sqlserver', label: 'SQL Server', image: '/assets/images/mssql_logo.png' },
+  { value: 'oracle', label: 'Oracle DB', image: '/assets/images/oracle_logo.png' },
 ];
 
 export default function QueryInputContent() {
@@ -113,13 +118,16 @@ export default function QueryInputContent() {
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [dialectOpen, setDialectOpen] = useState(false);
-  const [previewVisible, setPreviewVisible] = useState(false);
+  const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
+  const currentDialect = DIALECTS.find((d) => d.value === dialect);
 
   // Detect params when MyBatis XML changes
   useEffect(() => {
-    if (inputMode === 'mybatis' && myBatisXml) {
+    if ((inputMode === 'mybatis' || inputMode === 'import-xml') && myBatisXml) {
       const params = extractMyBatisParams(myBatisXml);
       setDetectedParams(params);
+      const conditional = getConditionalParams(myBatisXml);
+      setConditionalParams(conditional);
       // Remove stale params
       const updated: Record<string, string> = {};
       params.forEach((p) => {
@@ -131,11 +139,52 @@ export default function QueryInputContent() {
 
   // Resolve params in real-time
   useEffect(() => {
-    if (inputMode === 'mybatis' && myBatisXml) {
-      const resolved = resolveMyBatisParams(myBatisXml, myBatisParams);
+    if (inputMode === 'sql') {
+      // For SQL mode, don't use resolved SQL - clear it
+      setResolvedSql('');
+    } else if ((inputMode === 'mybatis' || inputMode === 'import-xml') && myBatisXml) {
+      // Parse MyBatis XML to get clean SQL without any XML tags
+      const { sql: cleanSql } = parseMyBatisXml(myBatisXml);
+
+      // Replace parameters in the clean SQL
+      let resolved = cleanSql;
+      for (const [key, value] of Object.entries(myBatisParams)) {
+        if (value) {
+          resolved = resolved.replace(new RegExp(`[#$]\\{${key}\\}`, 'g'), value);
+        }
+      }
+
       setResolvedSql(resolved);
+    } else {
+      // No XML content yet
+      setResolvedSql('');
     }
-  }, [myBatisParams, myBatisXml, inputMode]);
+  }, [myBatisParams, myBatisXml, inputMode, setResolvedSql]);
+
+  const handleXmlFileImport = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const content = await file.text();
+        setMyBatisXml(content);
+
+        // Auto-switch to XML content tab after import
+        if (inputMode !== 'mybatis') {
+          setInputMode('mybatis');
+        }
+
+        toast.success(`File "${file.name}" imported successfully`);
+      } catch {
+        toast.error('Failed to read XML file');
+      }
+
+      // Reset file input
+      if (e.target) e.target.value = '';
+    },
+    [inputMode, setMyBatisXml, setInputMode]
+  );
 
   const handleAnalyze = useCallback(async () => {
     const sqlToAnalyze = inputMode === 'sql' ? rawSql : resolvedSql;
@@ -147,7 +196,7 @@ export default function QueryInputContent() {
     // Simulate async parsing (dt-sql-parser integration point)
     await new Promise((r) => setTimeout(r, 600));
     try {
-      const result = analyzeSql(sqlToAnalyze, dialect);
+      const result = analyseByAST(sqlToAnalyze, dialect, settings.locale);
       setAnalysisResult(result);
       toast.success(
         `Analysis complete — ${result.tables.length} tables, ${result.joins.length} joins detected`
@@ -168,6 +217,8 @@ export default function QueryInputContent() {
       setMyBatisParams({});
       setResolvedSql('');
     }
+    // Clear analysis result to lock navigation
+    setAnalysisResult(null);
   };
 
   const handleLoadSample = () => {
@@ -184,25 +235,15 @@ export default function QueryInputContent() {
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
-      {/* Loading Overlay */}
-      {isAnalyzing && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-          <div className="flex flex-col items-center gap-4 p-8 bg-card border border-border rounded-2xl shadow-2xl">
-            <div className="relative w-14 h-14">
-              <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
-              <div
-                className="absolute inset-2 rounded-full border-2 border-transparent border-t-accent animate-spin"
-                style={{ animationDuration: '0.6s', animationDirection: 'reverse' }}
-              />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-foreground">{t.analyzing}</p>
-              <p className="text-xs text-muted-foreground mt-1">Parsing SQL structure…</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <LoadingOverlay
+        visible={isAnalyzing}
+        title={t.analyzing}
+        description={t.parsingSQL}
+        hideDelay={300}
+        onHide={() => {
+          // Optional: Add any cleanup logic when loading completes
+        }}
+      />
 
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
@@ -220,7 +261,16 @@ export default function QueryInputContent() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-muted transition-all duration-150"
           >
             <span className="text-muted-foreground text-xs">{t.dialectLabel}:</span>
-            <span className="text-primary">{DIALECTS.find((d) => d.value === dialect)?.label}</span>
+            {currentDialect && (
+              <AppImage
+                src={currentDialect.image}
+                alt={currentDialect.label}
+                width={16}
+                height={16}
+                className="h-4 w-4 rounded-sm object-cover"
+              />
+            )}
+            <span className="text-primary">{currentDialect?.label}</span>
             <ChevronDown size={14} className="text-muted-foreground" />
           </button>
           {dialectOpen && (
@@ -242,6 +292,13 @@ export default function QueryInputContent() {
                     <CheckCircle2 size={12} className="text-primary flex-shrink-0" />
                   )}
                   {dialect !== d.value && <span className="w-3" />}
+                  <AppImage
+                    src={d.image}
+                    alt={d.label}
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 rounded-sm object-cover"
+                  />
                   {d.label}
                 </button>
               ))}
@@ -250,14 +307,14 @@ export default function QueryInputContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px]">
         {/* Left: Input Panel */}
         <div className="xl:col-span-2 space-y-4">
           {/* Tabs */}
-          <div className="flex items-center border-b border-border">
+          <div className="flex items-center border-b border-border overflow-x-auto">
             <button
               onClick={() => setInputMode('sql')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-150 -mb-px ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-150 -mb-px whitespace-nowrap ${
                 inputMode === 'sql'
                   ? 'tab-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -268,14 +325,25 @@ export default function QueryInputContent() {
             </button>
             <button
               onClick={() => setInputMode('mybatis')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-150 -mb-px ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-150 -mb-px whitespace-nowrap ${
                 inputMode === 'mybatis'
                   ? 'tab-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <FileCode size={14} />
-              {t.tabMyBatis}
+              XML Content
+            </button>
+            <button
+              onClick={() => setInputMode('import-xml')}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-150 -mb-px whitespace-nowrap ${
+                inputMode === 'import-xml'
+                  ? 'tab-active'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <BookOpen size={14} />
+              Import XML File
             </button>
           </div>
 
@@ -300,68 +368,102 @@ export default function QueryInputContent() {
             </div>
           )}
 
-          {/* MyBatis Textarea */}
-          {inputMode === 'mybatis' && (
+          {/* MyBatis/XML Textarea */}
+          {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
             <div className="space-y-4 animate-fade-in">
-              <div className="relative">
-                <textarea
-                  value={myBatisXml}
-                  onChange={(e) => setMyBatisXml(e.target.value)}
-                  placeholder={t.myBatisPlaceholder}
-                  className="w-full h-[280px] px-4 py-3 bg-card border border-border rounded-lg font-mono text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin code-block"
-                  spellCheck={false}
-                />
-              </div>
-
-              {/* Parameter Configuration */}
-              <div className="bg-card border border-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">{t.parametersTitle}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {detectedParams.length > 0
-                        ? `${detectedParams.length} ${t.paramDetected}`
-                        : t.parametersSubtitle}
+              {inputMode === 'import-xml' ? (
+                // File import UI
+                <div className="border-2 border-dashed border-border rounded-lg p-8 flex flex-col items-center gap-3 hover:border-primary/50 transition-colors cursor-pointer relative group">
+                  <input
+                    type="file"
+                    accept=".xml"
+                    onChange={handleXmlFileImport}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <FileCode
+                    size={32}
+                    className="text-muted-foreground group-hover:text-primary transition-colors"
+                  />
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-foreground">
+                      Drag XML file here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      MyBatis XML files will be automatically parsed
                     </p>
                   </div>
-                  {detectedParams.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-mono">
-                      {detectedParams.length}
-                    </span>
+                </div>
+              ) : (
+                // XML content textarea
+                <div className="relative">
+                  <textarea
+                    value={myBatisXml}
+                    onChange={(e) => setMyBatisXml(e.target.value)}
+                    placeholder={t.myBatisPlaceholder}
+                    className="w-full h-[280px] px-4 py-3 bg-card border border-border rounded-lg font-mono text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin code-block"
+                    spellCheck={false}
+                  />
+                </div>
+              )}
+
+              {/* Parameter Configuration */}
+              {myBatisXml && (
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Parameters</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {detectedParams.length > 0
+                          ? `${detectedParams.length} parameters detected`
+                          : 'No parameters found'}
+                      </p>
+                    </div>
+                    {detectedParams.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-mono">
+                        {detectedParams.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {detectedParams.length === 0 ? (
+                    <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                      <AlertCircle size={14} />
+                      <span>No parameters to configure</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {detectedParams.map((param) => (
+                        <div key={`param-${param}`} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-medium text-muted-foreground font-mono">
+                              #{'{'}
+                              {param}
+                              {'}'}
+                            </label>
+                            {conditionalParams[param] && (
+                              <span className="text-[9px] text-accent bg-accent/10 px-1.5 py-0.5 rounded font-mono">
+                                conditional
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={myBatisParams[param] || ''}
+                            onChange={(e) =>
+                              setMyBatisParams({
+                                ...myBatisParams,
+                                [param]: e.target.value,
+                              })
+                            }
+                            placeholder={`value for ${param}`}
+                            className="w-full px-3 py-1.5 bg-input border border-border rounded text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono transition-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-
-                {detectedParams.length === 0 ? (
-                  <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                    <AlertCircle size={14} />
-                    <span>{t.noParams}</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {detectedParams.map((param) => (
-                      <div key={`param-${param}`} className="space-y-1">
-                        <label className="block text-xs font-medium text-muted-foreground font-mono">
-                          #{'{'}
-                          {param}
-                          {'}'}
-                        </label>
-                        <input
-                          type="text"
-                          value={myBatisParams[param] || ''}
-                          onChange={(e) =>
-                            setMyBatisParams({
-                              ...myBatisParams,
-                              [param]: e.target.value,
-                            })
-                          }
-                          placeholder={`value for ${param}`}
-                          className="w-full px-3 py-1.5 bg-input border border-border rounded text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono transition-all"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
@@ -402,19 +504,19 @@ export default function QueryInputContent() {
         </div>
 
         {/* Right: Preview Panel */}
-        <div className="xl:col-span-1 space-y-4">
-          {/* Resolved SQL Preview */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="xl:col-span-2 space-y-4 h-full" style={{ maxHeight: '500px' }}>
+          {/* Resolved SQL Preview - Larger */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden h-full flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Eye size={14} className="text-primary" />
                 <span className="text-sm font-medium text-foreground">
-                  {inputMode === 'mybatis' ? t.resolvedPreviewTitle : 'SQL Preview'}
+                  {inputMode === 'sql' ? 'SQL Preview' : 'Resolved Query'}
                 </span>
               </div>
               <button
                 onClick={() => {
-                  const text = inputMode === 'sql' ? rawSql : resolvedSql;
+                  const text = currentSql;
                   navigator.clipboard.writeText(text);
                   toast.success(t.copied);
                 }}
@@ -423,71 +525,45 @@ export default function QueryInputContent() {
                 <Copy size={13} />
               </button>
             </div>
-            <div className="p-4 h-[200px] overflow-auto scrollbar-thin">
-              {(inputMode === 'sql' ? rawSql : resolvedSql) ? (
+            <div className="p-4 overflow-auto scrollbar-thin flex-grow max-h-full">
+              {currentSql ? (
                 <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words leading-relaxed">
-                  {inputMode === 'sql' ? rawSql : resolvedSql}
+                  {currentSql}
                 </pre>
               ) : (
                 <p className="text-xs text-muted-foreground italic">{t.resolvedPreviewEmpty}</p>
               )}
             </div>
           </div>
-
-          {/* Analysis Info Cards */}
-          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Configuration
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t.dialectLabel}</span>
-                <span className="font-mono text-primary text-xs px-2 py-0.5 rounded bg-primary/10">
-                  {DIALECTS.find((d) => d.value === dialect)?.label}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Input Mode</span>
-                <span className="font-mono text-accent text-xs px-2 py-0.5 rounded bg-accent/10">
-                  {inputMode === 'sql' ? 'Direct SQL' : 'MyBatis XML'}
-                </span>
-              </div>
-              {inputMode === 'mybatis' && detectedParams.length > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Parameters</span>
-                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted text-foreground">
-                    {Object.values(myBatisParams).filter(Boolean).length}/{detectedParams.length}{' '}
-                    filled
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Tips
-            </h3>
-            <ul className="space-y-2">
-              {[
-                'Use WITH...AS for CTEs to get full CTE analysis',
-                'JOIN conditions with table.column = table.column are auto-detected',
-                'MyBatis #{param} and ${param} syntax both supported',
-                'Switch dialect to adjust complexity scoring',
-              ].map((tip, i) => (
-                <li
-                  key={`tip-${i}`}
-                  className="flex items-start gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="text-primary mt-0.5 flex-shrink-0">›</span>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
+
+      {/* Bottom: Complexity & Linting */}
+      {currentSql && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Complexity Dashboard */}
+          <ComplexityDashboard sql={currentSql} showDetails={true} />
+
+          {/* Linting Alerts */}
+          <LintingAlerts sql={currentSql} compact={false} />
+        </div>
+      )}
+
+      {!currentSql && (
+        <div className="bg-card border border-border rounded-lg p-6 mt-6">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Tips
+          </h3>
+          <ul className="space-y-2">
+            {[t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].map((tip, i) => (
+              <li key={`tip-${i}`} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <span className="text-primary mt-0.5 flex-shrink-0">›</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

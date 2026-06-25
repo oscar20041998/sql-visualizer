@@ -24,7 +24,7 @@ interface AppState {
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
   isAnalyzing: boolean;
-  inputMode: 'sql' | 'mybatis';
+  inputMode: 'sql' | 'mybatis' | 'import-xml';
   selectedNodeId: string | null;
 
   // Actions
@@ -36,7 +36,7 @@ interface AppState {
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
   setIsAnalyzing: (v: boolean) => void;
-  setInputMode: (m: 'sql' | 'mybatis') => void;
+  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml') => void;
   setSelectedNodeId: (id: string | null) => void;
   resetAll: () => void;
 }

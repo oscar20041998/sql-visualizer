@@ -78,19 +78,27 @@ export default function Sidebar() {
           const Icon = item.icon;
           const label = t[item.key as keyof typeof t] as string;
           const isActive = pathname === item.href;
+          // Lock navigation for analysis pages when no data
+          const isLocked =
+            item.key !== 'navQueryInput' && item.key !== 'navSettings' && !analysisResult;
 
           return (
             <Link
               key={`nav-${item.href}`}
-              href={item.href}
-              title={collapsed ? label : undefined}
+              href={isLocked ? '#' : item.href}
+              onClick={(e) => {
+                if (isLocked) e.preventDefault();
+              }}
+              title={collapsed ? label : isLocked ? 'Analyze query first' : undefined}
               className={`
                 group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                 transition-all duration-150
                 ${
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  isLocked
+                    ? 'cursor-not-allowed opacity-40 text-muted-foreground'
+                    : isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }
               `}
             >
@@ -111,10 +119,14 @@ export default function Sidebar() {
                     <Zap size={10} className="text-primary opacity-60" />
                   </span>
                 )}
+              {/* Lock indicator for disabled items */}
+              {isLocked && !collapsed && (
+                <span className="ml-auto flex-shrink-0 text-xs text-muted-foreground/50">🔒</span>
+              )}
               {/* Tooltip for collapsed state */}
               {collapsed && (
                 <span className="absolute left-full ml-2 px-2 py-1 text-xs bg-card border border-border rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                  {label}
+                  {isLocked ? 'Analyze query first' : label}
                 </span>
               )}
             </Link>

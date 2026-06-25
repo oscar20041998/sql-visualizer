@@ -735,19 +735,25 @@ export default function CTEAnalysisContent() {
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8">
+                <tr className="border-b border-border bg-muted/30 sticky top-0">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
                     #
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-48 border-r border-border/30">
                     {t.fieldName}
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-40 border-r border-border/30">
+                    {t.fieldAlias || 'Alias'}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                    Source Table
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
                     {t.fieldOrigin}
                   </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">
                     {t.fieldType}
                   </th>
                 </tr>
@@ -758,18 +764,38 @@ export default function CTEAnalysisContent() {
                     key={`field-row-${i}-${field.field}`}
                     className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors"
                   >
-                    <td className="px-5 py-3 text-xs text-muted-foreground font-mono">{i + 1}</td>
-                    <td className="px-5 py-3">
-                      <span className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded">
-                        {field.field}
-                      </span>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono border-r border-border/30">
+                      {i + 1}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-3 border-r border-border/30">
+                      <code className="text-xs text-foreground bg-muted px-2 py-0.5 rounded font-mono break-words">
+                        {field.field}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      {field.alias ? (
+                        <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20 inline-block">
+                          {field.alias}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      {field.sourceTable ? (
+                        <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded inline-block">
+                          {field.sourceTable}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
                       <span className="text-xs font-mono text-muted-foreground">
                         {field.origin}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-3">
                       <OriginBadge type={field.type} t={t} />
                     </td>
                   </tr>

@@ -1,7 +1,7 @@
 const en = {
   // App
-  appName: 'SQLVisualizer',
-  appTagline: 'SQL & MyBatis Query Analyzer',
+  appName: 'SQL Visualizer',
+  appTagline: 'SQL & Query Analyzer',
 
   // Nav
   navQueryInput: 'Query Input',
@@ -31,12 +31,19 @@ const en = {
   noParams: 'No dynamic parameters detected in this XML',
   analyzeButton: 'Analyze Query',
   analyzing: 'Analyzing...',
+  parsingSQL: 'Parsing SQL structure...',
   clearButton: 'Clear',
   loadSample: 'Load Sample',
   resolvedPreviewTitle: 'Resolved SQL Preview',
   resolvedPreviewEmpty: 'Resolved SQL will appear here as you fill parameters',
   charCount: 'characters',
   linesCount: 'lines',
+
+  // Tips
+  tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
+  tipJoin: 'JOIN conditions with table.column = table.column are auto-detected',
+  tipMyBatis: 'MyBatis #{param} and ${param} syntax both supported',
+  tipDialect: 'Switch dialect to adjust complexity scoring',
 
   // Graph
   graphTitle: 'Relationship Graph',
@@ -145,6 +152,7 @@ const en = {
   cteFields: 'Selected Fields',
   mainQueryFields: 'Main Query Field Origins',
   fieldName: 'Field',
+  fieldAlias: 'Alias',
   fieldOrigin: 'Origin',
   fieldType: 'Type',
   originCTE: 'CTE',
@@ -235,7 +243,6 @@ const en = {
 
   // Guideline
   guidelineTitle: 'User Guide',
-  guidelineSubtitle: 'Everything you need to get the most out of SQLVisualizer',
   guidelineQuickStart: 'Quick Start',
   guidelineQuickStartDesc:
     "Go to Query Input → paste your SQL → click Analyze. All four screens (Graph, Metrics, CTE, Settings) will populate automatically with your query's data.",
@@ -334,43 +341,54 @@ const en = {
   guidelineToolsSubtitle: 'Complete feature overview and tool descriptions',
   guidelineToolsIntroTitle: 'All Powerful SQL Analysis Features',
   guidelineToolsIntroDesc:
-    'SQLVisualizer provides five integrated tools working together to analyze, visualize, and optimize your SQL queries. Use them individually or as a complete workflow.',
+    'SQL Visualizer provides five integrated tools working together to analyze, visualize, and optimize your SQL queries. Use them individually or as a complete workflow.',
   guidelineToolsQueryInputName: 'Query Input & Configuration',
   guidelineToolsQueryInputDesc:
     'The starting point for all analysis. Paste raw SQL or import MyBatis XML files with dynamic parameter support.',
-  guidelineToolsQueryInputFeatures: 'Dual input modes • Multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle) • Auto-analysis option • Sample queries • Character/line counter',
+  guidelineToolsQueryInputFeatures:
+    'Dual input modes • Multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle) • Auto-analysis option • Sample queries • Character/line counter',
   guidelineToolsGraphName: 'Relationship Graph Visualizer',
   guidelineToolsGraphDesc:
     'Interactive visualization of table relationships. See at a glance which tables join together and how data flows through your query.',
-  guidelineToolsGraphFeatures: 'Interactive nodes • Color-coded JOIN types • Multiple layout options • Mermaid diagram export • MiniMap navigation • CSV export of tables',
+  guidelineToolsGraphFeatures:
+    'Interactive nodes • Color-coded JOIN types • Multiple layout options • Mermaid diagram export • MiniMap navigation • CSV export of tables',
   guidelineToolsMetricsName: 'Metrics Dashboard',
   guidelineToolsMetricsDesc:
     'Quantify query complexity with objective metrics. Understand performance impact before execution and get specific optimization recommendations.',
-  guidelineToolsMetricsFeatures: 'Complexity gauge (0-100) • Breakdown by factors (JOINs, subqueries, functions) • Estimated execution cost • Per-factor recommendations • Interactive tooltips',
+  guidelineToolsMetricsFeatures:
+    'Complexity gauge (0-100) • Breakdown by factors (JOINs, subqueries, functions) • Estimated execution cost • Per-factor recommendations • Interactive tooltips',
   guidelineToolsCTEName: 'CTE Analysis',
   guidelineToolsCTEDesc:
     'Deep-dive into Common Table Expressions. See CTE structure, dependencies, field origins, and identify unused or problematic CTEs.',
-  guidelineToolsCTEFeatures: 'CTE detection & listing • Recursive/unused CTE flags • Field origin mapping • Nested subquery analysis • Copy CTE SQL • Bulk expand/collapse',
+  guidelineToolsCTEFeatures:
+    'CTE detection & listing • Recursive/unused CTE flags • Field origin mapping • Nested subquery analysis • Copy CTE SQL • Bulk expand/collapse',
   guidelineToolsSettingsName: 'Settings & Preferences',
   guidelineToolsSettingsDesc:
     'Customize the application to your preferences. Control appearance, language, graph visualization style, and analysis behavior.',
-  guidelineToolsSettingsFeatures: 'Dark/light theme • EN/VI language switching • Graph layout options (Dagre/Force/Grid) • Edge style selection • Auto-analyze toggle',
+  guidelineToolsSettingsFeatures:
+    'Dark/light theme • EN/VI language switching • Graph layout options (Dagre/Force/Grid) • Edge style selection • Auto-analyze toggle',
   guidelineToolsWorkflowTitle: 'Common Workflows',
   guidelineToolsWorkflowQuickAudit: 'Quick Audit (5 min)',
   guidelineToolsWorkflowQuickAuditDesc: 'Paste query → Check Metrics → Review CTE Analysis',
   guidelineToolsWorkflowDeepAnalysis: 'Deep Analysis (15 min)',
-  guidelineToolsWorkflowDeepAnalysisDesc: 'Paste query → Explore Graph → Review metrics → Export diagram and tables',
+  guidelineToolsWorkflowDeepAnalysisDesc:
+    'Paste query → Explore Graph → Review metrics → Export diagram and tables',
   guidelineToolsWorkflowOptimization: 'Optimization Work (30+ min)',
-  guidelineToolsWorkflowOptimizationDesc: 'Baseline metrics → Identify bottlenecks → Optimize → Compare improvements → Export results',
+  guidelineToolsWorkflowOptimizationDesc:
+    'Baseline metrics → Identify bottlenecks → Optimize → Compare improvements → Export results',
   guidelineToolsWorkflowTeamReview: 'Team Review (20 min)',
-  guidelineToolsWorkflowTeamReviewDesc: 'Load query → Export Mermaid → Discuss in meeting → Review CTE origins → Document',
+  guidelineToolsWorkflowTeamReviewDesc:
+    'Load query → Export Mermaid → Discuss in meeting → Review CTE origins → Document',
   guidelineToolsExportTitle: 'Export & Integration',
   guidelineToolsExportCSV: 'CSV Export (Tables)',
-  guidelineToolsExportCSVDesc: 'Export Extracted Tables section for spreadsheet analysis or database documentation.',
+  guidelineToolsExportCSVDesc:
+    'Export Extracted Tables section for spreadsheet analysis or database documentation.',
   guidelineToolsExportMermaid: 'Mermaid Diagram',
-  guidelineToolsExportMermaidDesc: 'Copy full Mermaid diagram syntax to clipboard. Paste into Mermaid renderers, wikis, or documentation tools.',
+  guidelineToolsExportMermaidDesc:
+    'Copy full Mermaid diagram syntax to clipboard. Paste into Mermaid renderers, wikis, or documentation tools.',
   guidelineToolsExportCTESQL: 'CTE SQL Copy',
-  guidelineToolsExportCTESQLDesc: 'Copy individual CTE bodies for reuse in other queries or standalone CTE optimization.',
+  guidelineToolsExportCTESQLDesc:
+    'Copy individual CTE bodies for reuse in other queries or standalone CTE optimization.',
 
   // Guideline - Quick Reference
   guidelineQuickRefQueryInput: 'Query Input',
@@ -399,7 +417,235 @@ const en = {
   complexityRecommendationSuperHigh:
     'Critical complexity. This query may cause full table scans. Strongly recommend query decomposition and index review.',
 
+  // Complexity Scoring - Dashboard
+  complexityDashboardTitle: 'Complexity Dashboard',
+  complexityProgressBar: 'Progress',
+  complexityKeywordsAndClauses: 'Keywords & Clauses',
+  complexitySelectFields: 'SELECT Fields',
+  complexityJoins: 'Joins',
+  complexityCTEsAndSubqueries: 'CTEs & Subqueries',
+  complexityLintingIssues: 'Linting Issues',
+
+  // Complexity Scoring - Breakdown
+  complexityBreakdownTitle: 'Detailed Complexity Score Breakdown',
+  complexityBreakdownKeywordsAndClauses: 'Keywords & Clauses',
+  complexityBreakdownSelectFields: 'SELECT Fields',
+  complexityBreakdownJoins: 'Joins',
+  complexityBreakdownCTEs: 'CTEs (WITH Clauses)',
+  complexityBreakdownSubqueries: 'Nested Subqueries',
+  complexityBreakdownWindowFunctions: 'Window Functions',
+  complexityBreakdownNoKeywords: 'No keywords detected',
+  complexityBreakdownFieldCount: 'Field Count',
+  complexityBreakdownAverageComplexity: 'Average Complexity',
+  complexityBreakdownMaxDepth: 'Max Depth',
+  complexityBreakdownScoreInterpretation: 'Score Interpretation',
+  complexityBreakdownSelectFieldsDesc:
+    'Complex SELECT expressions (scalar subqueries, CASE statements, functions) add to the overall score.',
+  complexityBreakdownJoinsDesc:
+    'Multiple joins increase query complexity through Cartesian products, optimizer challenges, and potential lock contention.',
+  complexityBreakdownCTEsDesc:
+    'Each CTE (Common Table Expression) adds structuring overhead but improves readability and may help query optimization.',
+  complexityBreakdownSubqueriesDesc:
+    'Deep subquery nesting prevents index usage and forces sequential evaluation. Consider refactoring with JOINs or CTEs.',
+  complexityBreakdownWindowFunctionsDesc:
+    'Each window function clause triggers a separate sort/partition pass. Group functions with the same PARTITION BY/ORDER BY when possible.',
+  complexityBreakdownJoinsCount: 'JOIN(s)',
+  complexityBreakdownCTEsCount: 'CTE(s)',
+  complexityBreakdownWindowFunctionsOverClause: 'OVER() Clause(s)',
+  complexityBreakdownScoreExplanation:
+    'Your query scores {score} out of {maxScore} possible points ({percentage}%). Higher scores indicate greater complexity and potential performance challenges.',
+  complexityBreakdownNestedSubqueriesLabel: 'Nested Subquery(ies), Max Depth',
+  sqlConstructDistribution: 'SQL Construct Distribution',
+
+  // Complexity Scoring - Linting
+  lintingAlertsTitle: 'SQL Anti-Patterns & Best Practice Violations',
+  lintingNoIssues: 'No linting issues detected. Query follows best practices.',
+  lintingSelectAll: 'SELECT_ALL',
+  lintingSelectAllMessage: 'Anti-pattern detected: Avoid using `SELECT *` in large-scale systems.',
+  lintingSelectAllSuggestion:
+    'Please explicitly define your projection columns to reduce I/O and network overhead.',
+  lintingDeepNesting: 'DEEP_NESTING',
+  lintingDeepNestingMessage: 'Deep nesting detected. This may degrade query optimization.',
+  lintingDeepNestingSuggestion: 'Consider refactoring using CTEs or breaking into smaller queries.',
+  lintingCrossJoin: 'CROSS_JOIN',
+  lintingCrossJoinMessage:
+    'CROSS JOIN produces Cartesian product. This can exponentially increase row counts.',
+  lintingCrossJoinSuggestion:
+    'Verify this is intentional. Consider adding proper join conditions to replace with INNER JOIN.',
+  lintingMissingWhere: 'MISSING_WHERE',
+  lintingMissingWhereMessage:
+    'Complex query without WHERE clause. May scan entire tables unnecessarily.',
+  lintingMissingWhereSuggestion: 'Add filtering predicates to reduce the working set.',
+
+  // Complexity Scoring - Guidelines
+  guidelineSubtitle:
+    'Understand how SQL Visualizer calculates query complexity and identifies performance risks.',
+  guidelineHowScoringWorks: 'How Scoring Works',
+  guidelineHowScoringWorksDetail:
+    "Every SQL keyword, clause, window function, and SELECT field expression contributes to your query's cumulative complexity score. The system walks through the query structure, assigns weights based on architectural impact, and calculates a final score that maps to a complexity level: LOW, MEDIUM, HIGH, or SUPER HIGH.",
+  guidelineLintingAndAntiPatterns: 'Linting & Anti-Patterns',
+  guidelineLintingAndAntiPatternsDetail:
+    'The linting engine scans for anti-patterns like SELECT *, deep nesting, CROSS JOINs, and missing WHERE clauses. Warnings alert you to potential performance risks that may not show up in the raw score alone.',
+  guidelineComplexityWeightMatrix: 'Complexity Weight Matrix',
+  guidelineComplexityWeightMatrixSubtitle:
+    'Each keyword and structure contributes the following points to the total complexity score.',
+  guidelineBaseClauses: 'Base Clauses',
+  guidelineJoins: 'Joins (Dynamic Progression)',
+  guidelineAggregationsAndSorting: 'Aggregations & Sorting',
+  guidelineAdvancedStructures: 'Advanced Structures',
+  guidelineWindowFunctions: 'Window Functions',
+  guidelineSelectFieldComplexity: 'SELECT Field Complexity',
+  guidelineComplexityLevelClassification: 'Complexity Level Classification',
+  guidelineComplexityLevelLow: 'Score: 0 – 20 points',
+  guidelineComplexityLevelLowDetail:
+    'Simple queries with minimal joins, no complex expressions, and straightforward aggregations. Should perform well on standard indexing.',
+  guidelineComplexityLevelMedium: 'Score: 21 – 50 points',
+  guidelineComplexityLevelMediumDetail:
+    'Moderate complexity with multiple joins, a few CTEs, or window functions. Consider reviewing join order and ensuring indexed columns are used in ON conditions.',
+  guidelineComplexityLevelHigh: 'Score: 51 – 100 points',
+  guidelineComplexityLevelHighDetail:
+    'High complexity with many joins, CTEs, or nested subqueries. Recommended to break into smaller queries or use materialized CTEs to avoid full table scans.',
+  guidelineComplexityLevelSuperHigh: 'Score: 101+ points',
+  guidelineComplexityLevelSuperHighDetail:
+    'Critical complexity. This query is at risk of causing full table scans, lock contention, and timeout errors in production. Strongly recommend query decomposition and comprehensive index review.',
+  guidelineAntiPatternExamples: 'Anti-Pattern Examples',
+  guidelineSelectAllAntiPattern: '🚫 SELECT * Anti-Pattern',
+  guidelineSelectAllDetail:
+    'Unbounded column selection forces the database to retrieve all columns, increasing I/O and network overhead.',
+  guidelineExplicitProjection: '✅ Explicit Projection',
+  guidelineExplicitProjectionDetail:
+    'Always name the columns you need. This reduces I/O and makes query intent clear.',
+  guidelineDeepNestingAntiPattern: '🚫 Deep Nesting',
+  guidelineDeepNestingDetail:
+    'Queries with 7+ levels of parentheses are hard to optimize and often indicate a need for refactoring.',
+  guidelineUseCTEsInstead: '✅ Use CTEs Instead',
+  guidelineUseCTEsDetail:
+    'Common Table Expressions improve readability and often help the optimizer.',
+  guidelineCrossJoinAntiPattern: '🚫 CROSS JOIN Risks',
+  guidelineCrossJoinDetail:
+    'Cartesian products multiply row counts exponentially. Always verify intent.',
+  guidelineAddJoinConditions: '✅ Add Join Conditions',
+  guidelineAddJoinConditionsDetail: 'Replace with proper INNER or LEFT JOIN.',
+
+  // Complexity Scoring Evaluation Section
+  guidelineComplexityEvaluationTitle: 'Complexity Scoring & Evaluation',
+  guidelineComplexityEvaluationSubtitle:
+    'Understand how SQL Visualizer scores query complexity and interprets results.',
+
+  // Complexity Evaluation Steps
+  guidelineComplexityEvalStep1Label: 'How Scoring Works',
+  guidelineComplexityEvalStep1Desc:
+    "Each SQL keyword, clause, window function, and SELECT field expression contributes to your query's cumulative complexity score. The system scans your query structure and assigns weights based on architectural impact.",
+
+  guidelineComplexityEvalStep2Label: 'Weight Matrix',
+  guidelineComplexityEvalStep2Desc:
+    'Different SQL constructs carry different weights:\n\n• Base Clauses (FROM=1, WHERE=2, DISTINCT=3)\n• Joins (INNER=4, LEFT=5, FULL OUTER=10, CROSS=10)\n• Aggregations (GROUP BY=4, HAVING=4)\n• Window Functions (OVER=6, PARTITION BY=3)\n• Advanced (CTEs=8, Nested Subqueries=12)\n\nMore complex constructs contribute more points.',
+
+  guidelineComplexityEvalStep3Label: 'Complexity Levels',
+  guidelineComplexityEvalStep3Desc:
+    'Scores map to complexity levels:\n\n• LOW (0-20): Simple queries, few joins, straightforward logic\n• MEDIUM (21-50): Multiple joins or CTEs, moderate complexity\n• HIGH (51-100): Many joins/subqueries, consider refactoring\n• SUPER HIGH (101+): Severe complexity risk, strong refactoring recommended',
+
+  guidelineComplexityEvalStep4Label: 'Linting & Anti-Patterns',
+  guidelineComplexityEvalStep4Desc:
+    'Linting rules detect SQL anti-patterns that may not appear in raw scores:\n\n• SELECT * – unbounded column projection\n• Deep Nesting (7+ levels) – defeats query optimizer\n• CROSS JOIN – exponential row growth\n• Missing WHERE – unnecessary table scans\n\nThese warnings help you identify performance risks beyond the numeric score.',
+
+  guidelineComplexityEvalStep5Label: 'Optimization Tips',
+  guidelineComplexityEvalStep5Desc:
+    'When your score is HIGH or SUPER HIGH:\n\n• Break into smaller queries or temp tables\n• Replace deep nesting with CTEs (Common Table Expressions)\n• Add explicit WHERE clauses to filter early\n• Verify JOIN conditions – avoid CROSS JOINs\n• Use window functions instead of subqueries where possible\n• Index columns used in JOIN conditions and WHERE clauses',
+
+  // Complexity Evaluation Tips
+  guidelineComplexityEvalTip1:
+    "💡 Pro Tip: A SUPER HIGH score doesn't always mean your query is wrong – it means you should review it carefully and consider optimization strategies.",
+  guidelineComplexityEvalTip2:
+    '📊 Dashboard View: Check the "Complexity Breakdown" in the Metrics Dashboard to see which components contribute most to your score.',
+  guidelineComplexityEvalTip3:
+    '🔍 Iterative Refactoring: Rewrite and re-analyze your query to watch the score improve as you optimize.',
+
+  // Score Weight Table
+  scoreTableTitle: 'Complete Score Weight Matrix',
+  scoreTableDescription: 'All SQL constructs and their assigned complexity weights.',
+  scoreTableConstructColumn: 'SQL Construct',
+  scoreTableWeightColumn: 'Weight (pts)',
+  scoreTableCategoryBaseClauses: 'Base Clauses',
+  scoreTableCategoryJoins: 'Join Types',
+  scoreTableCategoryAggregations: 'Aggregations & Sorting',
+  scoreTableCategoryAdvanced: 'Advanced Structures',
+  scoreTableCategoryWindowFunctions: 'Window Functions',
+  scoreTableCategorySelectFields: 'SELECT Field Types',
+
+  // Base Clauses
+  scoreTableFROM: 'FROM',
+  scoreTableWHERE: 'WHERE',
+  scoreTableDISTINCT: 'DISTINCT',
+
+  // Joins
+  scoreTableINNERJOIN: 'INNER JOIN',
+  scoreTableLEFTJOIN: 'LEFT JOIN',
+  scoreTableRIGHTJOIN: 'RIGHT JOIN',
+  scoreTableFULLOUTERJOIN: 'FULL OUTER JOIN',
+  scoreTableCROSSJOIN: 'CROSS JOIN',
+  scoreTableNATURALJOIN: 'NATURAL JOIN',
+
+  // Aggregations
+  scoreTableGROUPBY: 'GROUP BY',
+  scoreTableORDERBY: 'ORDER BY',
+  scoreTableHAVING: 'HAVING',
+
+  // Advanced Structures
+  scoreTableWITH: 'WITH (CTE)',
+  scoreTableNESTEDSUBQUERY: 'Nested Subquery (per level)',
+  scoreTableUNION: 'UNION',
+  scoreTableEXCEPT: 'EXCEPT',
+  scoreTableINTERSECT: 'INTERSECT',
+
+  // Window Functions
+  scoreTableOVER: 'OVER clause',
+  scoreTablePARTITIONBY: 'PARTITION BY',
+  scoreTableROWNUMBER: 'ROW_NUMBER()',
+  scoreTableRANK: 'RANK()',
+  scoreTableDENSERANK: 'DENSE_RANK()',
+
+  // SELECT Field Types
+  scoreTableRawField: 'Raw Column (e.g., t.column)',
+  scoreTableAliasField: 'Aliased Expression (e.g., AS alias)',
+  scoreTableConditionalField: 'Conditional (e.g., CASE WHEN)',
+  scoreTableSubqueryField: 'Scalar Subquery (e.g., (SELECT ...))',
+  scoreTableAggregateField: 'Aggregate Function (e.g., SUM, COUNT)',
+  scoreTableFunctionField: 'Scalar Function (e.g., UPPER, ROUND)',
+
+  // Metrics Dashboard - Tables & Fields
+  referencedTablesTitle: 'Referenced Tables',
+  referencedTablesCount: 'tables',
+  tableAlias: 'Alias',
+  sourceTable: 'Source Table',
+  noTablesDetected: 'No tables detected in this query',
+  noFieldsDetected: 'No fields detected in this query',
+  columnCount: 'cols',
+  columnLabel: 'Columns',
+  cteLabel: 'CTE',
+
+  // Execution Cost Factors
+  executionCostFactorJoinDepth: 'Join Depth',
+  executionCostFactorSubqueryNesting: 'Subquery Nesting',
+  executionCostFactorAnalyticFunctions: 'Analytic Functions',
+  executionCostFactorDialectOverhead: 'Dialect Overhead',
+  executionCostFactorStandardIndexing: 'Standard Indexing',
+  executionCostNoteJoinDepth: 'join(s) detected',
+  executionCostNoteSubqueryNesting: 'Max depth ~',
+  executionCostNoteAnalyticFunctions: 'OVER() clause(s)',
+  executionCostNoteDialectOverhead: 'optimizer assumed',
+  executionCostNoteStandardIndexing: 'Assumes standard B-tree indexes on join keys',
+  executionCostRecommendationLow:
+    'Query appears lightweight. Standard indexing should handle this well.',
+  executionCostRecommendationMedium:
+    'Consider reviewing join order. Ensure indexed columns are used in ON conditions.',
+  executionCostRecommendationHigh:
+    'High complexity detected. Consider breaking into smaller queries or using materialized CTEs.',
+  executionCostRecommendationSuperHigh:
+    'Critical complexity. This query may cause full table scans. Strongly recommend query decomposition and index review.',
+
   // Common
+
   copy: 'Copy',
   copied: 'Copied!',
   close: 'Close',

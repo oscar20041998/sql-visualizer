@@ -31,7 +31,9 @@ function AppFooter() {
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-xs font-semibold text-foreground">Võ Thanh Duy</span>
-            <span className="text-[10px] text-muted-foreground">FPT Software Ho Chi Minh</span>
+            <span className="text-[10px] text-muted-foreground">
+              FPT Software Ho Chi Minh - FHM.CMS
+            </span>
           </div>
         </div>
 

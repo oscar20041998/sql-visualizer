@@ -74,13 +74,13 @@ function SelectDropdown<T extends string>({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground hover:bg-muted transition-colors min-w-[160px] justify-between"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground hover:bg-muted transition-colors min-w-[200px] justify-between"
       >
         <span>{current?.label}</span>
         <ChevronDown size={13} className="text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px] animate-slide-up">
+        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-xl z-50 py-1 min-w-[220px] w-max max-w-[min(24rem,calc(100vw-2rem))] animate-slide-up">
           {options.map((opt) => (
             <button
               key={`opt-${opt.value}`}
@@ -88,7 +88,7 @@ function SelectDropdown<T extends string>({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
                 value === opt.value
                   ? 'text-primary bg-primary/10'
                   : 'text-foreground hover:bg-muted'
@@ -226,7 +226,7 @@ export default function SettingsContent() {
 
         {/* Right Content */}
         <div className="flex-1 min-w-0">
-          <div className="bg-card border border-border rounded-xl overflow-hidden animate-fade-in">
+          <div className="bg-card border border-border rounded-xl animate-fade-in">
             <div className="px-6 py-4 border-b border-border">
               <h2 className="text-sm font-semibold text-foreground">
                 {categoryLabels[activeCategory]}

@@ -17,6 +17,7 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import ComplexityGauge from './ComplexityGauge';
 import MetricsBarChart from './MetricsBarChart';
+import ComplexityBreakdown from '@/components/ui/ComplexityBreakdown';
 import Icon from '@/components/ui/AppIcon';
 
 function MetricCard({
@@ -303,8 +304,19 @@ export default function MetricsDashboardContent() {
         </div>
       </div>
 
+      {/* Detailed Complexity Breakdown (if available) */}
+      {analysisResult.detailedComplexity && (
+        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Zap size={15} className="text-primary" />
+            {t.complexityBreakdownTitle}
+          </h3>
+          <ComplexityBreakdown sql={analysisResult.rawSql} />
+        </div>
+      )}
+
       {/* Complexity Factors Breakdown */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Zap size={15} className="text-primary" />
           {t.factorsBreakdown}
@@ -336,6 +348,164 @@ export default function MetricsDashboardContent() {
             );
           })}
         </div>
+      </div>
+
+      {/* Referenced Tables Overview */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <GitBranch size={15} className="text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">{t.referencedTablesTitle}</h3>
+          <span className="ml-auto text-xs text-muted-foreground font-mono">
+            {analysisResult.tables.length} {t.referencedTablesCount}
+          </span>
+        </div>
+
+        {analysisResult.tables.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">{t.noTablesDetected}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+            {analysisResult.tables.map((table) => (
+              <div
+                key={`table-card-${table.id}`}
+                className="bg-muted/30 border border-border/50 rounded-lg p-4 hover:border-primary/30 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-mono text-sm font-semibold text-foreground">{table.name}</p>
+                    {table.alias && (
+                      <p className="text-xs text-muted-foreground">
+                        {t.tableAlias} {table.alias}
+                      </p>
+                    )}
+                  </div>
+                  <div className="px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary">
+                    {table.columns.length > 0
+                      ? `${table.columns.length} ${t.columnCount}`
+                      : `0 ${t.columnCount}`}
+                  </div>
+                </div>
+                {table.isCTE && (
+                  <div className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-600 mb-2">
+                    {t.cteLabel}
+                  </div>
+                )}
+                {table.columns.length > 0 && (
+                  <div className="text-xs text-muted-foreground space-y-1 border-t border-border/30 pt-2 mt-2">
+                    <p className="font-medium text-foreground/70 mb-1">{t.columnLabel}:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {table.columns.map((col, idx) => (
+                        <span
+                          key={`col-${table.id}-${idx}`}
+                          className="px-1.5 py-0.5 rounded bg-border/30 text-foreground/60 font-mono text-[10px]"
+                        >
+                          {col}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Main Query Fields */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <Hash size={15} className="text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">{t.mainQueryFields}</h3>
+          <span className="ml-auto text-xs text-muted-foreground font-mono">
+            {analysisResult.mainQueryFields.length}{' '}
+            {analysisResult.mainQueryFields.length !== 1 ? t.fieldName : t.fieldName}
+          </span>
+        </div>
+
+        {analysisResult.mainQueryFields.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">{t.noFieldsDetected}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/30 sticky top-0">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
+                    #
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-48 border-r border-border/30">
+                    {t.fieldName}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-40 border-r border-border/30">
+                    {t.fieldAlias}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                    {t.sourceTable}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                    {t.fieldOrigin}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">
+                    {t.fieldType}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {analysisResult.mainQueryFields.map((field, i) => (
+                  <tr
+                    key={`field-row-${i}-${field.field}`}
+                    className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono border-r border-border/30">
+                      {i + 1}
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      <code className="text-xs font-mono bg-muted/50 px-2 py-1 rounded text-foreground">
+                        {field.field}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      {field.alias ? (
+                        <code className="text-xs font-mono bg-muted/50 px-2 py-1 rounded text-foreground">
+                          {field.alias}
+                        </code>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      {field.sourceTable ? (
+                        <code className="text-xs font-mono text-foreground">
+                          {field.sourceTable}
+                        </code>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-r border-border/30">
+                      <span className="text-xs text-muted-foreground">{field.origin}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                          field.type === 'cte'
+                            ? 'bg-blue-500/10 text-blue-600'
+                            : field.type === 'table'
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : 'bg-amber-500/10 text-amber-600'
+                        }`}
+                      >
+                        {field.type}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
