@@ -76,15 +76,33 @@ Interactive visualization of table relationships and JOIN connections.
 
 ---
 
-### 3. **Metrics Dashboard** 📈
+### 3. **Metrics Dashboard with Complexity Scoring** 📈
 
 Quantified complexity analysis and performance heuristics for your SQL queries.
 
 **Capabilities:**
 
+- **Real-Time Complexity Dashboard:**
+  - Displays as you type in Query Input
+  - Shows complexity level (LOW/MEDIUM/HIGH/SUPER HIGH) with color badge
+  - Score progress bar (score / maximum possible)
+  - Quick breakdown cards showing contributing factors
+  - Instant linting alerts for anti-patterns
+
 - **Complexity Gauge:**
   - 0–100 complexity score with visual radial gauge
   - Color-coded severity: LOW (green) → MEDIUM (yellow) → HIGH (orange) → SUPER HIGH (red)
+  - Percentage of maximum complexity
+  - Interpretation guide
+
+- **Detailed Complexity Breakdown:**
+  - Keywords & Clauses analysis (FROM, WHERE, DISTINCT, GROUP BY, ORDER BY, HAVING, UNION, CTEs)
+  - SELECT Field Complexity (raw fields, aliases, conditionals, subqueries, aggregates, functions)
+  - JOIN Analysis (count and complexity per join type)
+  - CTE & Subquery Analysis (depth tracking, usage analysis)
+  - Window Function Analysis (OVER clauses, PARTITION BY, ranking functions)
+  - Expandable/collapsible sections for detailed inspection
+
 - **Complexity Factors Breakdown:**
   - Visualized as interactive bar chart
   - Individual metrics measured:
@@ -94,10 +112,17 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
     - GROUP BY clauses
     - ORDER BY clauses
     - DISTINCT operations
+
 - **Estimated Execution Cost:**
   - Client-side heuristic scoring
   - Based on query complexity, SQL dialect, and standard indexing assumptions
   - Relative performance guide (not absolute benchmark)
+  - Factor-specific recommendations:
+    - Join depth analysis
+    - Subquery nesting assessment
+    - Analytic function impact
+    - Dialect-specific overhead
+
 - **Interactive Tooltips:** Hover over metrics for exact values and recommendations
 - **Per-Factor Recommendations:** Guidance for optimizing each complexity component
 
@@ -109,7 +134,17 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
 - `groupByCount`: GROUP BY clause count
 - `orderByCount`: ORDER BY clause count
 - `distinctCount`: DISTINCT operation count
-- `hasUnionAll`: Whether query uses UNION/UNION ALL
+- `totalScore`: Cumulative complexity score (0+)
+- `complexityLevel`: Severity level (LOW/MEDIUM/HIGH/SUPER HIGH)
+
+**Complexity Level Interpretation:**
+
+| Level          | Score Range | Interpretation                        | Recommendation                                           |
+| -------------- | ----------- | ------------------------------------- | -------------------------------------------------------- |
+| **LOW**        | 0-20        | Simple query, well-optimized          | No action needed, good for frequent execution            |
+| **MEDIUM**     | 21-50       | Moderate complexity                   | Review indexes and join order                            |
+| **HIGH**       | 51-100      | Complex query with optimization risks | Consider decomposition, review query plan                |
+| **SUPER HIGH** | 101+        | Very complex, high risk               | Strong refactoring recommended, critical review required |
 
 **Use Cases:**
 
@@ -118,6 +153,155 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
 - Get recommendations for improving specific factors
 - Estimate relative performance impact
 - Benchmark against similar queries
+- Prevent overly complex queries from reaching production
+- Guide team code review discussions
+
+---
+
+### 3.5 **SQL Complexity Scoring Engine** 🎯
+
+Comprehensive complexity analysis using a sophisticated weight matrix to identify performance risks.
+
+**How Complexity Scoring Works:**
+
+The scoring engine walks through your SQL query and assigns points to various constructs based on their architectural impact:
+
+1. **Keyword Scoring** - Counts SQL keywords (FROM, WHERE, DISTINCT, GROUP BY, etc.)
+2. **JOIN Analysis** - Evaluates each JOIN type and counts relationships
+3. **SELECT Field Classification** - Analyzes each field's complexity level
+4. **CTE Detection** - Scores WITH clauses and their relationships
+5. **Window Function Analysis** - Detects OVER clauses and partition operations
+6. **Subquery Analysis** - Tracks nesting depth and complexity
+7. **Aggregation Tracking** - Counts aggregates and sorting operations
+
+**Complexity Weight Matrix:**
+
+| Category             | Construct                    | Weight           |
+| -------------------- | ---------------------------- | ---------------- |
+| **Base Clauses**     | FROM                         | 1 pt             |
+|                      | WHERE                        | 2 pts            |
+|                      | DISTINCT                     | 3 pts            |
+| **Aggregations**     | GROUP BY                     | 4 pts            |
+|                      | ORDER BY                     | 3 pts            |
+|                      | HAVING                       | 4 pts            |
+| **JOIN Types**       | INNER JOIN                   | 4 pts each       |
+|                      | LEFT / RIGHT JOIN            | 5 pts each       |
+|                      | FULL OUTER JOIN              | 10 pts           |
+|                      | CROSS JOIN                   | 10 pts           |
+|                      | NATURAL JOIN                 | 5 pts            |
+| **Advanced**         | WITH (CTE)                   | 8 pts each       |
+|                      | Nested Subquery              | 12 pts per level |
+|                      | UNION / EXCEPT / INTERSECT   | 6 pts each       |
+| **Window Functions** | OVER clause                  | 6 pts            |
+|                      | PARTITION BY                 | 3 pts            |
+|                      | ROW_NUMBER, RANK, DENSE_RANK | 6 pts each       |
+| **SELECT Fields**    | Raw field (column)           | 1 pt             |
+|                      | Aliased/Expression           | 3 pts            |
+|                      | CASE WHEN conditional        | 5 pts            |
+|                      | Scalar subquery              | 10 pts           |
+|                      | Aggregate function           | 4 pts            |
+|                      | Scalar function              | 3 pts            |
+
+**Linting Rules (Anti-Pattern Detection):**
+
+1. **SELECT \* Anti-Pattern** ⚠️
+   - Severity: Warning
+   - Why: Forces database to retrieve all columns, increasing I/O and network overhead
+   - Fix: Explicitly define projection columns
+
+2. **Deep Nesting** ⚠️
+   - Threshold: 7+ levels of parentheses
+   - Why: Defeats query optimizer, prevents index usage
+   - Fix: Use CTEs to flatten structure
+
+3. **CROSS JOIN Risk** ⚠️
+   - Severity: Warning
+   - Why: Produces Cartesian product, exponentially increases row count
+   - Fix: Add proper join conditions or use INNER/LEFT JOIN
+
+4. **Missing WHERE Clause** ⚠️
+   - Condition: Complex query without WHERE
+   - Why: May scan entire tables unnecessarily
+   - Fix: Add filtering predicates to reduce working set
+
+**Real-World Scoring Examples:**
+
+**Example 1: Simple Query (LOW - 8 points)**
+
+```sql
+SELECT id, order_number, total_amount
+FROM orders
+WHERE status = 'completed';
+```
+
+- FROM: 1pt
+- WHERE: 2pt
+- SELECT fields (3 raw): 3pt
+- Total: 6pt → **LOW** ✓
+
+**Example 2: Moderate Reporting Query (MEDIUM - 38 points)**
+
+```sql
+SELECT
+  DATE_TRUNC('month', o.created_at) as month,
+  c.region,
+  COUNT(DISTINCT o.id) as order_count,
+  SUM(oi.quantity * oi.unit_price) as revenue
+FROM orders o
+INNER JOIN order_items oi ON o.id = oi.order_id
+INNER JOIN customers c ON o.customer_id = c.id
+WHERE o.status = 'completed'
+  AND o.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+GROUP BY DATE_TRUNC('month', o.created_at), c.region
+ORDER BY month DESC, revenue DESC;
+```
+
+- FROM: 1pt
+- INNER JOINs: 8pt (2 × 4)
+- WHERE: 2pt
+- GROUP BY: 4pt
+- ORDER BY: 3pt
+- SELECT fields: 5pt (date function + raw + 2 aggregates)
+- Total: 23pt → **MEDIUM** ⚠️
+
+**Example 3: Complex Analytics Query (HIGH - 65+ points)**
+
+```sql
+WITH monthly_metrics AS (
+  SELECT DATE_TRUNC('month', o.created_at) as month,
+    c.region,
+    COUNT(DISTINCT o.id) as orders,
+    SUM(CASE WHEN o.status = 'completed'
+        THEN oi.quantity * oi.unit_price ELSE 0 END) as revenue
+  FROM orders o
+  INNER JOIN order_items oi ON o.id = oi.order_id
+  LEFT JOIN customers c ON o.customer_id = c.id
+  WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 2 YEARS)
+  GROUP BY DATE_TRUNC('month', o.created_at), c.region
+)
+SELECT r.month, r.region, r.orders, r.revenue
+FROM monthly_metrics m
+WHERE ROW_NUMBER() OVER (PARTITION BY m.region ORDER BY m.revenue DESC) <= 10;
+```
+
+- CTEs: 8pt
+- INNER JOIN: 4pt
+- LEFT JOIN: 5pt
+- WHERE: 2pt
+- GROUP BY: 4pt
+- WINDOW OVER: 6pt
+- PARTITION BY: 3pt
+- CASE WHEN: 5pt
+- Aggregates: 8pt
+- Total: 45pt → **HIGH** 🔴
+
+**Use Cases:**
+
+- Prevent overly complex queries from reaching production
+- Guide code review with objective complexity metrics
+- Identify refactoring opportunities before performance issues occur
+- Educate team members on query complexity best practices
+- Track complexity trends in your codebase
 
 ---
 
@@ -178,10 +362,6 @@ Deep-dive analysis into Common Table Expressions (CTEs/WITH clauses) and field o
 ---
 
 ### 5. **Settings & Preferences** ⚙️
-
-Customize appearance, language, and analysis behavior.
-
-**Capabilities:**
 
 - **Theme Switching:**
   - Dark mode (default)
@@ -372,30 +552,215 @@ _Migrating queries to different database_
 - Always select the correct SQL dialect for accurate analysis
 - Use "Load Sample" to test before analyzing your queries
 - Enable auto-analysis for real-time feedback during editing
+- Watch the complexity score as you build queries to avoid overly complex queries
+
+### Complexity Scoring Best Practices
+
+**Score < 20 (LOW)**
+
+- ✅ Generally well-optimized
+- ✅ Good candidate for frequent execution
+- ✅ Focus: Maintain index coverage
+- Actions: No immediate optimization needed
+
+**Score 21-50 (MEDIUM)**
+
+- ⚠️ Review query structure
+- ⚠️ Verify appropriate indexes exist
+- ⚠️ Check query plan for full table scans
+- Actions: Consider index hints, column statistics, join order review
+
+**Score 51-100 (HIGH)**
+
+- 🔴 High complexity detected
+- 🔴 Likely to have performance issues at scale
+- ⚠️ Consider: Decomposition into multiple queries
+- Actions: Use materialized CTEs, implement result caching, add indexes on join columns
+- Target: Try to reduce to MEDIUM before production
+
+**Score 101+ (SUPER HIGH)**
+
+- 🚨 Critical complexity
+- 🚨 High risk of timeout/lock contention
+- 🚨 Risk of full table scans
+- Actions: REQUIRED significant query refactoring
+- Strategy: Break into staging tables, use ETL approach, consider materialized views
+
+### Refactoring Strategies by Complexity
+
+**For HIGH Complexity:**
+
+1. Break into smaller queries with intermediate results
+2. Replace deep nesting with CTEs (use WITH...AS syntax)
+3. Add explicit WHERE clauses to filter early
+4. Verify JOIN conditions - avoid CROSS JOINs
+5. Use window functions instead of subqueries where possible
+6. Index columns used in JOIN conditions and WHERE clauses
+
+**For SUPER HIGH Complexity:**
+
+1. Decompose into staged transformation queries
+2. Use materialized views or temporary tables for intermediate steps
+3. Consider ETL approach for complex transformations
+4. Implement query result caching
+5. Split analytical queries into separate scheduled jobs
+6. Review and optimize every single JOIN condition
 
 ### Graph Visualization
 
-- Use Dagre layout for hierarchical dependencies
-- Use Force-Directed for balanced relationship viewing
+- Use Dagre layout for hierarchical dependencies (clear flow of data)
+- Use Force-Directed for balanced relationship viewing (intuitive clustering)
+- Use Grid for structured, organized table arrangement
 - Use MiniMap to navigate large complex queries
+- Identify isolated tables that may be unnecessary
 
 ### Metrics Dashboard
 
-- Focus on factors with highest complexity scores first
+- Focus on factors with highest complexity scores first (they have most impact)
 - Use recommendations as starting points for optimization
-- Compare metrics before/after optimization
+- Compare metrics before/after optimization to verify improvements
+- Pay special attention to window functions and nested subqueries (high point values)
+- Address linting warnings first (they're quick wins)
 
 ### CTE Analysis
 
-- Always review for unused CTEs (unnecessary overhead)
-- Check recursive CTEs for performance issues
+- Always review for unused CTEs (unnecessary overhead, quick optimization)
+- Check recursive CTEs for performance issues (can be expensive)
 - Use field origin mapping to trace data transformations
+- Identify CTEs that reference many tables (good candidates for materialization)
+- Look for redundant CTEs that could be merged
 
 ### Settings
 
-- Choose theme based on environment (dark for low-light coding)
-- Set auto-analyze if you edit queries frequently
-- Save preferred graph layout for consistency
+- Choose dark theme for reduced eye strain during extended coding sessions
+- Set auto-analyze if you edit queries frequently (real-time feedback)
+- Save preferred graph layout for consistency across sessions
+- Use your preferred language for UI comfort
+
+### Linting & Anti-Pattern Prevention
+
+- Address all linting warnings before deploying
+- Avoid SELECT \* - always specify columns explicitly
+- Prevent deep nesting by using CTEs (max 7 levels limit)
+- Never CROSS JOIN unless absolutely intentional
+- Add WHERE clauses to complex queries (filter early principle)
+
+---
+
+## 🚀 Optimization Workflow
+
+### Step 1: Baseline Analysis
+
+1. Paste query into Query Input
+2. Note the complexity score
+3. Check linting alerts for obvious issues
+4. Review Metrics Dashboard breakdown
+
+### Step 2: Issue Identification
+
+1. Look at highest-scoring factors in breakdown
+2. Review Graph for unexpected relationships
+3. Check CTE Analysis for unused or recursive CTEs
+4. Identify which component contributes most to score
+
+### Step 3: Optimization
+
+1. For high JOIN count: Review join order, consider decomposition
+2. For deep nesting: Convert to CTEs, flatten structure
+3. For many window functions: Group by PARTITION BY/ORDER BY
+4. For SELECT \*: Explicitly list needed columns
+5. For missing WHERE: Add filtering predicates
+
+### Step 4: Verification
+
+1. Paste optimized query
+2. Compare new complexity score with baseline
+3. Verify Graph still shows correct relationships
+4. Re-analyze Metrics Dashboard
+5. Confirm linting warnings decreased
+
+---
+
+## 📊 Understanding Complexity Scores
+
+### What Affects Score Most
+
+1. **Number of JOINs** (biggest impact) - Each JOIN adds 4-10 points
+2. **Nested Subqueries** (high impact) - Each level adds 12 points
+3. **Window Functions** (significant impact) - Each OVER clause adds 6 points
+4. **CTEs** (medium impact) - Each WITH clause adds 8 points
+5. **Aggregations & Sorting** (lower impact) - GROUP BY, ORDER BY each add 3-4 points
+
+### Score Does NOT Predict Actual Performance
+
+⚠️ Important Note: High complexity score indicates structural complexity, not necessarily slow execution. Use score as:
+
+- Guide for query review and maintainability
+- Red flag for potentially problematic queries
+- Relative comparison between similar queries
+- **NOT** as absolute performance prediction (use EXPLAIN PLAN for actual performance)
+
+### When High Score is Acceptable
+
+- Complex analytical/reporting queries are intentionally complex
+- Business logic requires multiple joins and transformations
+- Score is high but query has been optimized and tested
+- Use refactoring checklist to confirm it's well-optimized
+
+---
+
+## 📝 Advanced Topics
+
+### Understanding Complexity Scoring in Depth
+
+The complexity scoring engine uses a multi-phase analysis approach:
+
+1. **Phase 1: Keyword Scoring** - Analyzes base SQL keywords (FROM, WHERE, GROUP BY, etc.)
+2. **Phase 2: JOIN Analysis** - Categorizes each JOIN type and counts relationships
+3. **Phase 3: SELECT Field Classification** - Determines complexity of each selected expression
+4. **Phase 4: Advanced Structure Detection** - Identifies CTEs, subqueries, window functions
+5. **Phase 5: Total Calculation** - Sums all components and assigns complexity level
+
+### Customizing Complexity Weights
+
+For teams with specific standards, you can customize the weight matrix in `src/lib/complexityScorer.ts`:
+
+```typescript
+const COMPLEXITY_WEIGHTS = {
+  baseClauses: { from: 1, where: 2, distinct: 3, ... },
+  joins: { inner: 4, left: 5, full: 10, ... },
+  // Adjust weights to match your organization's standards
+};
+```
+
+### Multi-Dialect Performance Comparison
+
+1. Paste query → Check score
+2. Change dialect in Settings → Compare score
+3. Identify dialect-specific performance characteristics
+4. Optimize for target database
+
+### CTE vs JOIN Optimization
+
+- CTEs add complexity score (8pt each) but improve readability
+- Consider materializing CTEs for reuse
+- Use MATERIALIZED hint in PostgreSQL when CTE is expensive
+- MySQL/SQL Server may re-evaluate CTEs on each reference
+
+### Query Refactoring Checklist
+
+When facing HIGH or SUPER HIGH complexity:
+
+- [ ] Review every JOIN - necessary and optimized?
+- [ ] Look for missing WHERE clause - add filtering early
+- [ ] Identify SELECT \* usage - specify columns explicitly
+- [ ] Check for deep nesting - convert to CTEs
+- [ ] Review window functions - can they be consolidated?
+- [ ] Examine CTEs - any unused or redundant?
+- [ ] Verify indexes on join columns
+- [ ] Test EXPLAIN PLAN on actual database
+- [ ] Compare metrics before/after changes
+- [ ] Document optimization decisions
 
 ---
 
@@ -485,29 +850,90 @@ _Migrating queries to different database_
 
 ## 🎓 Learning Path
 
-**Beginner:**
+### Beginner
 
-1. Load sample query
-2. Explore Relationship Graph
-3. Check Metrics Dashboard
+1. **Get Started**
+   - Load sample query via "Load Sample" button
+   - Observe complexity score in real-time
+   - Explore Relationship Graph visualization
+   - Check Metrics Dashboard for overall metrics
 
-**Intermediate:**
+2. **Understand Complexity**
+   - Notice the complexity level badge (LOW/MEDIUM/HIGH/SUPER HIGH)
+   - Read linting alerts and understand the warnings
+   - Look at the complexity breakdown to see which factors contribute most
 
-1. Paste your own query
-2. Try different SQL dialects
-3. Compare metrics
-4. Export Mermaid diagram
+3. **First Steps**
+   - Try different SQL dialects and see how score changes
+   - Paste simple queries to see LOW scores
+   - Paste complex queries to see HIGH scores
 
-**Advanced:**
+### Intermediate
 
-1. Analyze complex multi-CTE queries
-2. Optimize based on metrics
-3. Use CTE Analysis for refactoring
-4. Export and integrate into documentation
-5. Compare before/after optimizations
+1. **Active Analysis**
+   - Paste your own SQL queries
+   - Use the complexity score as a guide for query quality
+   - Review suggested optimizations in Metrics Dashboard
+   - Compare metrics for different query approaches
+
+2. **Visualize Relationships**
+   - Explore Relationship Graph for table connections
+   - Click nodes to see join conditions
+   - Use different layout algorithms
+   - Export Mermaid diagram
+
+3. **Optimize with Scores**
+   - Identify high-scoring queries in your codebase
+   - Use Metrics Dashboard breakdown to find bottlenecks
+   - Refactor using the optimization checklist
+   - Compare before/after scores
+
+### Advanced
+
+1. **Complex Query Analysis**
+   - Analyze complex multi-CTE queries
+   - Use CTE Analysis for field origin mapping
+   - Identify unused or problematic CTEs
+   - Extract and optimize individual CTEs
+
+2. **Performance Tuning**
+   - Correlate complexity scores with actual execution times
+   - Use Metrics to identify index optimization opportunities
+   - Review linting violations systematically
+   - Document optimization decisions
+
+3. **Team Integration**
+   - Use Complexity Dashboard in code review processes
+   - Share Mermaid diagrams in documentation
+   - Establish team standards based on complexity levels
+   - Train team members using Guidelines page
+
+4. **Enterprise Practices**
+   - Customize complexity weights for your organization
+   - Establish complexity budgets for different query types
+   - Use scores in database governance policies
+   - Track complexity metrics over time for trend analysis
 
 ---
 
-_Last Updated: 2026-06-25_
-_Version: 1.0_
+## 📚 Documentation & Resources
+
+### Built-in Resources
+
+- **Guideline Page** - Complete walkthroughs and best practices
+- **Sample Queries** - Load pre-built examples via "Load Sample"
+- **Complexity Documentation** - See COMPLEXITY_SCORING_IMPLEMENTATION.md for technical details
+- **Architecture Guide** - See COMPLEXITY_SCORING_ARCHITECTURE.md for system design
+
+### Getting Help
+
+- Hover over any metric or score for detailed tooltips
+- Check the Guidelines page for step-by-step instructions
+- Review example queries in Query Input
+- Customize settings to match your preferences
+
+---
+
+_Last Updated: 2026-06-26_
+_Version: 2.0 (Enhanced with Comprehensive Complexity Scoring)_
 _Built with Next.js 15, React 19, TypeScript, and Tailwind CSS_
