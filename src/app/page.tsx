@@ -1,10 +1,15 @@
-import AppLayout from '@/components/AppLayout';
-import QueryInputContent from './components/QueryInputContent';
+'use client';
 
-export default function QueryInputPage() {
-  return (
-    <AppLayout>
-      <QueryInputContent />
-    </AppLayout>
-  );
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to query-input page on mount
+    router.push('/query-input');
+  }, [router]);
+
+  return null;
 }

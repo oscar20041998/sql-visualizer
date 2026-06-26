@@ -2,49 +2,56 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import {
-  GitFork,
-  Info,
-  Table2,
-  Link2,
-  Copy,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Code2,
-  Lightbulb,
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
-  X,
-  Search,
-} from 'lucide-react';
+import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';
 import type { FlowCanvasHandle } from './FlowCanvas';
+import { JOIN_COLORS } from '@/app/common/colorConstant';
+import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
+import ExtractedTablesPanel, { type ExtractedTableRow } from './ExtractedTablesPanel';
 
 const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
 
-export const JOIN_COLORS: Record<JoinType, string> = {
-  'LEFT JOIN': '#f59e0b',
-  'RIGHT JOIN': '#10b981',
-  'INNER JOIN': '#6366f1',
-  'FULL OUTER JOIN': '#ec4899',
-  'CROSS JOIN': '#ef4444',
-  'NATURAL JOIN': '#8b5cf6',
-};
+// ─── Copy Button Component ────────────────────────────────────────────────────
+function CopyButton({
+  getText,
+  label,
+  icon,
+}: {
+  getText: () => string;
+  label: string;
+  icon?: React.ReactNode;
+}) {
+  const [copied, setCopied] = React.useState(false);
 
-// ─── Inline Suggestions Engine ────────────────────────────────────────────────
-type SuggestionSeverity = 'error' | 'warning' | 'info';
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(getText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
 
-interface Suggestion {
-  id: string;
-  severity: SuggestionSeverity;
-  title: string;
-  detail: string;
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+      style={{
+        background: copied ? 'rgba(16,185,129,0.1)' : 'var(--muted)',
+        borderColor: copied ? '#10b981' : 'var(--border)',
+        color: copied ? '#10b981' : 'var(--muted-foreground)',
+      }}
+    >
+      {copied ? <Check size={12} /> : icon || <Copy size={12} />}
+      {copied ? 'Copied!' : label}
+    </button>
+  );
 }
 
+// generateSuggestions function:
 function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>): Suggestion[] {
   const suggestions: Suggestion[] = [];
   const { metrics, joins, tables, ctes, complexity } = result;
@@ -183,64 +190,9 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
   return suggestions;
 }
 
-// ─── Suggestion Card ──────────────────────────────────────────────────────────
-const SEVERITY_CONFIG: Record<
-  SuggestionSeverity,
-  { icon: React.ReactNode; color: string; bg: string; border: string }
-> = {
-  error: {
-    icon: <AlertCircle size={13} />,
-    color: '#f87171',
-    bg: 'rgba(248,113,113,0.08)',
-    border: 'rgba(248,113,113,0.25)',
-  },
-  warning: {
-    icon: <AlertTriangle size={13} />,
-    color: '#fbbf24',
-    bg: 'rgba(251,191,36,0.08)',
-    border: 'rgba(251,191,36,0.25)',
-  },
-  info: {
-    icon: <CheckCircle2 size={13} />,
-    color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.08)',
-    border: 'rgba(96,165,250,0.25)',
-  },
-};
-
-function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
-  const cfg = SEVERITY_CONFIG[suggestion.severity];
-  return (
-    <div
-      className="rounded-lg p-3 text-xs"
-      style={{
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-      }}
-    >
-      <div className="flex items-start gap-2">
-        <span style={{ color: cfg.color, flexShrink: 0, marginTop: 1 }}>{cfg.icon}</span>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold font-mono leading-tight" style={{ color: cfg.color }}>
-            {suggestion.title}
-          </p>
-          <p className="mt-1 leading-relaxed" style={{ color: '#8b9ab5' }}>
-            {suggestion.detail}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Use only generateSuggestions, removed old components
 
 // ─── Extracted Table Row ──────────────────────────────────────────────────────
-interface ExtractedTableRow {
-  tableName: string;
-  clause: 'FROM' | 'JOIN';
-  joinType?: JoinType;
-  relatedTo: string;
-  hits: number;
-}
 
 function buildExtractedTableRows(
   tables: import('@/lib/sqlAnalyzer').TableNode[],
@@ -358,43 +310,7 @@ function buildMermaidDiagram(
   return lines.join('\n');
 }
 
-// ─── Copy Button ──────────────────────────────────────────────────────────────
-function CopyButton({
-  getText,
-  label,
-  icon,
-}: {
-  getText: () => string;
-  label: string;
-  icon?: React.ReactNode;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(getText());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
-    }
-  };
-
-  return (
-    <button
-      onClick={handleCopy}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-      style={{
-        background: copied ? 'rgba(16,185,129,0.1)' : 'var(--muted)',
-        borderColor: copied ? '#10b981' : 'var(--border)',
-        color: copied ? '#10b981' : 'var(--muted-foreground)',
-      }}
-    >
-      {copied ? <Check size={12} /> : icon || <Copy size={12} />}
-      {copied ? 'Copied!' : label}
-    </button>
-  );
-}
+// Optimized getChartSvg - moved to lazy evaluation
 
 export default function GraphVisualizerContent() {
   const { settings, analysisResult, selectedNodeId, setSelectedNodeId } = useAppStore();
@@ -459,7 +375,7 @@ export default function GraphVisualizerContent() {
   }, [analysisResult]);
 
   const getChartSvg = useCallback(() => {
-    // Grab the ReactFlow SVG element from the DOM and serialize it with all inline styles/colors
+    // Optimized SVG serialization with deferred style computation
     const svgEl = document.querySelector('.react-flow__renderer svg') as SVGSVGElement | null;
     if (!svgEl) {
       // Fallback: return a color-annotated text representation
@@ -480,7 +396,7 @@ export default function GraphVisualizerContent() {
       return lines.join('\n');
     }
 
-    // Clone the SVG and embed a background rect so colors are visible when pasted
+    // Clone the SVG and embed a background rect
     const clone = svgEl.cloneNode(true) as SVGSVGElement;
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('width', '100%');
@@ -488,25 +404,35 @@ export default function GraphVisualizerContent() {
     rect.setAttribute('fill', '#1a1f2e');
     clone.insertBefore(rect, clone.firstChild);
 
-    // Inline all computed styles on every element so colors survive copy-paste
+    // Optimized style inlining: cache computed styles to avoid recomputation
+    const styleCache = new Map<HTMLElement, Record<string, string>>();
     const allEls = clone.querySelectorAll('*');
     const srcEls = svgEl.querySelectorAll('*');
+    const important = [
+      'fill',
+      'stroke',
+      'stroke-width',
+      'color',
+      'opacity',
+      'font-size',
+      'font-family',
+    ];
+
     allEls.forEach((el, i) => {
       const src = srcEls[i] as HTMLElement | undefined;
       if (src) {
-        const computed = window.getComputedStyle(src);
-        const important = [
-          'fill',
-          'stroke',
-          'stroke-width',
-          'color',
-          'opacity',
-          'font-size',
-          'font-family',
-        ];
-        important.forEach((prop) => {
-          const val = computed.getPropertyValue(prop);
-          if (val) (el as SVGElement).style.setProperty(prop, val);
+        let cached = styleCache.get(src);
+        if (!cached) {
+          cached = {};
+          const computed = window.getComputedStyle(src);
+          important.forEach((prop) => {
+            const val = computed.getPropertyValue(prop);
+            if (val) cached![prop] = val;
+          });
+          styleCache.set(src, cached);
+        }
+        Object.entries(cached).forEach(([prop, val]) => {
+          (el as SVGElement).style.setProperty(prop, val);
         });
       }
     });
@@ -883,148 +809,15 @@ export default function GraphVisualizerContent() {
 
       {/* ─── Inline Suggestions Panel ─────────────────────────────────────────── */}
       {visibleSuggestions.length > 0 && (
-        <div
-          className="flex-shrink-0 border-t border-border bg-card"
-          style={{
-            maxHeight: showSuggestions ? '280px' : '44px',
-            transition: 'max-height 0.25s ease',
-          }}
-        >
-          {/* Section Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Lightbulb size={14} className="text-yellow-400" />
-              <span className="text-sm font-semibold text-foreground">{t.smartSuggestions}</span>
-              {errorCount > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">
-                  {errorCount} {errorCount > 1 ? t.errors : t.error}
-                </span>
-              )}
-              {warnCount > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400">
-                  {warnCount} {warnCount > 1 ? t.warnings : t.warning}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setShowSuggestions((v) => !v)}
-              className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground"
-            >
-              {showSuggestions ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-            </button>
-          </div>
-
-          {/* Suggestions List */}
-          {showSuggestions && (
-            <div className="overflow-auto p-3" style={{ maxHeight: '232px' }}>
-              <div className="flex flex-col gap-2">
-                {visibleSuggestions.map((s) => (
-                  <div key={s.id} className="relative group">
-                    <SuggestionCard suggestion={s} />
-                    <button
-                      onClick={() => dismissSuggestion(s.id)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/10"
-                      style={{ color: '#5a6a85' }}
-                      title="Dismiss"
-                    >
-                      <X size={10} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <SuggestionPanel
+          suggestions={visibleSuggestions}
+          dismissedIds={dismissedIds}
+          onDismiss={dismissSuggestion}
+        />
       )}
 
       {/* ─── Extracted Tables Section ─────────────────────────────────────────── */}
-      <div
-        className="flex-shrink-0 border-t border-border bg-card"
-        style={{ maxHeight: showExtracted ? '320px' : '44px', transition: 'max-height 0.25s ease' }}
-      >
-        {/* Section Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Table2 size={14} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">{t.extractedTables}</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {extractedRows.length} {t.rows}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CopyButton getText={getExtractedTablesCsv} label={t.copy} />
-            <button
-              onClick={() => setShowExtracted((v) => !v)}
-              className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground"
-            >
-              {showExtracted ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Table */}
-        {showExtracted && (
-          <div className="overflow-auto" style={{ maxHeight: '272px' }}>
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-card z-10">
-                <tr className="border-b border-border">
-                  <th className="text-left px-4 py-2 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
-                    {t.colTableName}
-                  </th>
-                  <th className="text-left px-4 py-2 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
-                    {t.colClause}
-                  </th>
-                  <th className="text-left px-4 py-2 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
-                    {t.colRelationTo}
-                  </th>
-                  <th className="text-left px-4 py-2 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
-                    {t.colHits}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {extractedRows.map((row, idx) => (
-                  <tr
-                    key={`extracted-${idx}`}
-                    className="border-b border-border/50 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-4 py-2 font-mono text-foreground font-medium">
-                      {row.tableName}
-                    </td>
-                    <td className="px-4 py-2">
-                      {row.clause === 'FROM' ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/15 text-blue-400">
-                          FROM
-                        </span>
-                      ) : (
-                        <span
-                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold"
-                          style={{
-                            background: row.joinType
-                              ? JOIN_COLORS[row.joinType] + '22'
-                              : 'var(--muted)',
-                            color: row.joinType
-                              ? JOIN_COLORS[row.joinType]
-                              : 'var(--muted-foreground)',
-                          }}
-                        >
-                          {row.joinType || 'JOIN'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-muted-foreground">{row.relatedTo}</td>
-                    <td className="px-4 py-2">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                        {row.hits}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
     </div>
   );
 }

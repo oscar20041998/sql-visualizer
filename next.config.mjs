@@ -7,6 +7,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  sourceMaps: process.env.NODE_ENV === 'production' ? true : false,
+  experimental: {
+    appDir: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

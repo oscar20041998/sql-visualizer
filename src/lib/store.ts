@@ -24,7 +24,7 @@ interface AppState {
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
   isAnalyzing: boolean;
-  inputMode: 'sql' | 'mybatis' | 'import-xml';
+  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
   selectedNodeId: string | null;
 
   // Actions
@@ -36,7 +36,7 @@ interface AppState {
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
   setIsAnalyzing: (v: boolean) => void;
-  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml') => void;
+  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
   setSelectedNodeId: (id: string | null) => void;
   resetAll: () => void;
 }
@@ -91,6 +91,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         settings: state.settings,
         dialect: state.dialect,
+        analysisResult: state.analysisResult,
       }),
     }
   )
