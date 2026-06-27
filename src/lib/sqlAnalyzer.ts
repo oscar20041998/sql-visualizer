@@ -23,7 +23,8 @@ export type JoinType =
   | 'RIGHT JOIN'
   | 'FULL OUTER JOIN'
   | 'CROSS JOIN'
-  | 'NATURAL JOIN';
+  | 'NATURAL JOIN'
+  | 'RELATES TO';
 
 export interface TableNode {
   id: string;
@@ -129,10 +130,12 @@ export async function analyzeSql(
   const stripped = stripSqlComments(sql);
   // Backend integration point: Replace with dt-sql-parser AST traversal
   const cleaned = stripped.trim();
-  const tables = extractTables(cleaned);
-  const joins = extractJoins(cleaned, tables);
+  const extractedTables = extractTables(cleaned);
+  const extractedJoins = extractJoins(cleaned, extractedTables);
   const ctes = extractCTEs(cleaned);
-  const metrics = computeMetrics(cleaned, ctes, tables, joins);
+  const tables = buildGraphTables(extractedTables, ctes);
+  const joins = buildGraphJoins(extractedJoins, tables, ctes);
+  const metrics = computeMetrics(cleaned, ctes, extractedTables, extractedJoins);
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
@@ -154,6 +157,96 @@ export async function analyzeSql(
     dialect,
     rawSql: cleaned,
   };
+}
+
+function toNodeId(name: string): string {
+  return `table-${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+}
+
+function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
+  const tables: TableNode[] = baseTables.map((t) => ({ ...t }));
+  const byName = new Map<string, TableNode>();
+
+  tables.forEach((table) => {
+    byName.set(table.name.toLowerCase(), table);
+  });
+
+  ctes.forEach((cte) => {
+    const key = cte.name.toLowerCase();
+    const existing = byName.get(key);
+    if (existing) {
+      existing.isCTE = true;
+      if (!existing.columns.length && cte.fields.length) {
+        existing.columns = cte.fields.slice(0, 8);
+      }
+      return;
+    }
+
+    const node: TableNode = {
+      id: toNodeId(cte.name),
+      name: cte.name,
+      columns: cte.fields.slice(0, 8),
+      isCTE: true,
+    };
+    tables.push(node);
+    byName.set(key, node);
+  });
+
+  return tables;
+}
+
+function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]): JoinEdge[] {
+  const joins: JoinEdge[] = [...baseJoins];
+  const cteNames = new Set(ctes.map((cte) => cte.name.toLowerCase()));
+  const byName = new Map<string, TableNode>();
+
+  tables.forEach((table) => {
+    byName.set(table.name.toLowerCase(), table);
+  });
+
+  function ensureNode(name: string): TableNode {
+    const key = name.toLowerCase();
+    const existing = byName.get(key);
+    if (existing) return existing;
+
+    const node: TableNode = {
+      id: toNodeId(name),
+      name,
+      columns: [],
+      isCTE: cteNames.has(key),
+    };
+    tables.push(node);
+    byName.set(key, node);
+    return node;
+  }
+
+  const existingEdgeKeys = new Set<string>(
+    joins.map((join) => `${join.source}->${join.target}->${join.joinType}`)
+  );
+
+  ctes.forEach((cte) => {
+    const source = ensureNode(cte.name);
+    const relatedNames = new Set<string>([...cte.dependencies, ...cte.tables]);
+
+    relatedNames.forEach((name) => {
+      if (!name || name.toLowerCase() === cte.name.toLowerCase()) return;
+
+      const target = ensureNode(name);
+      const edgeKey = `${source.id}->${target.id}->RELATES TO`;
+      if (existingEdgeKeys.has(edgeKey)) return;
+
+      joins.push({
+        id: `rel-${source.id}-${target.id}`,
+        source: source.id,
+        target: target.id,
+        joinType: 'RELATES TO',
+        condition: '',
+      });
+      existingEdgeKeys.add(edgeKey);
+    });
+  });
+
+  return joins;
 }
 
 // ─── Regex-based extraction (client-side heuristic) ──────────────────────────
@@ -883,19 +976,14 @@ function extractMainQueryFields(
 }
 
 export function extractMyBatisParams(xml: string): string[] {
-  const params: string[] = [];
-  const pattern = /[#$]\{(\w+)\}/g;
-  let match;
-  while ((match = pattern.exec(xml)) !== null) {
-    if (!params.includes(match[1])) params.push(match[1]);
-  }
-  return params;
+  return collectMyBatisParams(xml);
 }
 
 export function resolveMyBatisParams(xml: string, params: Record<string, string>): string {
   let resolved = xml;
   for (const [key, value] of Object.entries(params)) {
-    resolved = resolved.replace(new RegExp(`[#$]\\{${key}\\}`, 'g'), value || `'${key}'`);
+    const escapedKey = escapeRegExp(key);
+    resolved = resolved.replace(new RegExp(`[#$]\\{${escapedKey}\\}`, 'g'), value || `'${key}'`);
   }
   // Extract SQL from MyBatis XML tags
   const sqlMatch =
@@ -917,13 +1005,8 @@ export function parseMyBatisXml(xml: string): { sql: string; params: string[] } 
 
   let sqlContent = sqlMatch[1];
 
-  // Extract parameters from #{} and ${} syntax
-  const paramPattern = /[#$]\{(\w+)\}/g;
-  const params: string[] = [];
-  let match;
-  while ((match = paramPattern.exec(xml)) !== null) {
-    if (!params.includes(match[1])) params.push(match[1]);
-  }
+  // Extract parameters from #{} and ${} syntax (supports nested object paths like args.param1)
+  const params = collectMyBatisParams(xml);
 
   // Remove <if> tag conditions, keeping only the inner SQL
   sqlContent = sqlContent.replace(/<if\s+test="[^"]*">\s*/gi, '');
@@ -942,6 +1025,21 @@ export function parseMyBatisXml(xml: string): { sql: string; params: string[] } 
     .join('\n');
 
   return { sql: sqlContent, params };
+}
+
+const MYBATIS_PARAM_PATTERN = /[#$]\{([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)\}/g;
+
+function collectMyBatisParams(input: string): string[] {
+  const params: string[] = [];
+  let match;
+  while ((match = MYBATIS_PARAM_PATTERN.exec(input)) !== null) {
+    if (!params.includes(match[1])) params.push(match[1]);
+  }
+  return params;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** Get conditional parameters from <if> tags in MyBatis XML */

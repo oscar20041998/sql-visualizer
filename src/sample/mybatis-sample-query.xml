@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.testing.mapper.ComplexPerformanceTestMapper">
+
+    <select id="executeComprehensiveEngineAnalysis" 
+            parameterType="map" 
+            resultType="map">
+        <![CDATA[
+        WITH cte_market_data_stream AS (
+            SELECT 
+                tick_id,
+                asset_id,
+                asset_symbol,
+                asset_class,
+                tick_timestamp,
+                bid_price,
+                ask_price,
+                (bid_price + ask_price) / 2.0 AS mid_price,
+                volume_24h,
+                LAG(bid_price, 1) OVER (PARTITION BY asset_id ORDER BY tick_timestamp) AS prev_bid_price,
+                LAG(ask_price, 1) OVER (PARTITION BY asset_id ORDER BY tick_timestamp) AS prev_ask_price,
+                LEAD(bid_price, 1) OVER (PARTITION BY asset_id ORDER BY tick_timestamp) AS next_bid_price,
+                FIRST_VALUE(bid_price) OVER (PARTITION BY asset_id, DATE_TRUNC('day', tick_timestamp) ORDER BY tick_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS day_open_bid,
+                LAST_VALUE(ask_price) OVER (PARTITION BY asset_id, DATE_TRUNC('day', tick_timestamp) ORDER BY tick_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS day_close_ask,
+                ROW_NUMBER() OVER (PARTITION BY asset_id, DATE_TRUNC('hour', tick_timestamp) ORDER BY tick_timestamp DESC) AS hourly_ranking
+            FROM market_ticks
+            WHERE tick_timestamp >= #{systemStartTime}
+              AND tick_timestamp <= #{systemEndTime}
+              AND status = 'ACTIVE'
+        ),
+        cte_moving_averages_and_signals AS (
+            SELECT 
+                stream.tick_id,
+                stream.asset_id,
+                stream.asset_symbol,
+                stream.tick_timestamp,
+                stream.mid_price,
+                AVG(stream.mid_price) OVER (PARTITION BY stream.asset_id ORDER BY stream.tick_timestamp ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS ma_10_period,
+                AVG(stream.mid_price) OVER (PARTITION BY stream.asset_id ORDER BY stream.tick_timestamp ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS ma_30_period,
+                AVG(stream.mid_price) OVER (PARTITION BY stream.asset_id ORDER BY stream.tick_timestamp ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS ma_100_period,
+                STDDEV(stream.mid_price) OVER (PARTITION BY stream.asset_id ORDER BY stream.tick_timestamp ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS rolling_volatility_30,
+                CASE 
+                    WHEN stream.mid_price > stream.day_open_bid * 1.05 THEN 'BULLISH_SURGE'
+                    WHEN stream.mid_price < stream.day_open_bid * 0.95 THEN 'BEARISH_DROP'
+                    ELSE 'STABLE'
+                END AS intra_day_trend,
+                CASE 
+                    WHEN stream.prev_bid_price IS NOT NULL AND stream.bid_price > stream.prev_bid_price THEN 1
+                    WHEN stream.prev_bid_price IS NOT NULL AND stream.bid_price < stream.prev_bid_price THEN -1
+                    ELSE 0
+                END AS price_momentum_direction
+            FROM cte_market_data_stream stream
+            WHERE stream.hourly_ranking = 1
+        ),
+        cte_account_profiles_and_tiers AS (
+            SELECT 
+                acc.account_id,
+                acc.user_id,
+                acc.account_type,
+                acc.risk_profile_rating,
+                acc.base_currency,
+                usr.country_code,
+                usr.kyc_status,
+                usr.vip_level,
+                CASE 
+                    WHEN usr.vip_level = 'TIER_5' THEN 0.0005
+                    WHEN usr.vip_level = 'TIER_4' THEN 0.0010
+                    WHEN usr.vip_level = 'TIER_3' THEN 0.0015
+                    WHEN usr.vip_level = 'TIER_2' THEN 0.0020
+                    ELSE 0.0030
+                END AS maker_fee_rate,
+                CASE 
+                    WHEN usr.vip_level = 'TIER_5' THEN 0.0008
+                    WHEN usr.vip_level = 'TIER_4' THEN 0.0014
+                    WHEN usr.vip_level = 'TIER_3' THEN 0.0022
+                    WHEN usr.vip_level = 'TIER_2' THEN 0.0028
+                    ELSE 0.0040
+                END AS taker_fee_rate,
+                SUM(acc.initial_margin_requirement) OVER (PARTITION BY acc.user_id) AS user_total_imr
+            FROM user_accounts acc
+            INNER JOIN user_master usr ON acc.user_id = usr.id
+            WHERE acc.is_active = 1
+              AND usr.is_suspended = 0
+        ),
+        cte_order_execution_ledger AS (
+            SELECT 
+                ord.order_id,
+                ord.account_id,
+                ord.asset_id,
+                ord.execution_side,
+                ord.order_type,
+                ord.filled_quantity,
+                ord.execution_price,
+                ord.execution_timestamp,
+                ord.liquidity_indicator,
+                ord.filled_quantity * ord.execution_price AS total_gross_volume,
+                SUM(ord.filled_quantity * ord.execution_price) OVER (PARTITION BY ord.account_id) AS account_cumulative_volume,
+                SUM(ord.filled_quantity * ord.execution_price) OVER (PARTITION BY ord.account_id, ord.asset_id) AS account_asset_volume,
+                COUNT(ord.order_id) OVER (PARTITION BY ord.account_id, DATE_TRUNC('day', ord.execution_timestamp)) AS daily_trade_count,
+                MAX(ord.execution_price) OVER (PARTITION BY ord.asset_id, DATE_TRUNC('day', ord.execution_timestamp)) AS daily_asset_max_execution,
+                MIN(ord.execution_price) OVER (PARTITION BY ord.asset_id, DATE_TRUNC('day', ord.execution_timestamp)) AS daily_asset_min_execution
+            FROM trade_orders ord
+            WHERE ord.order_status = 'FILLED'
+              AND ord.execution_timestamp >= #{systemStartTime}
+              AND ord.execution_timestamp <= #{systemEndTime}
+        ),
+        cte_fee_deduction_matrix AS (
+            SELECT 
+                ledger.order_id,
+                ledger.account_id,
+                ledger.asset_id,
+                ledger.execution_side,
+                ledger.total_gross_volume,
+                profile.vip_level,
+                profile.base_currency,
+                CASE 
+                    WHEN ledger.liquidity_indicator = 'MAKER' THEN ledger.total_gross_volume * profile.maker_fee_rate
+                    ELSE ledger.total_gross_volume * profile.taker_fee_rate
+                END AS calculated_commission,
+                CASE 
+                    WHEN profile.country_code IN ('US', 'GB', 'CA') THEN ledger.total_gross_volume * 0.0002
+                    ELSE ledger.total_gross_volume * 0.0001
+                END AS regulatory_clearing_fee,
+                CASE 
+                    WHEN ledger.total_gross_volume > 1000000 FOR UPDATE THEN ledger.total_gross_volume * 0.00005
+                    ELSE 0.0
+                END AS dynamic_slippage_buffer
+            FROM cte_order_execution_ledger ledger
+            INNER JOIN cte_account_profiles_and_tiers profile ON ledger.account_id = profile.account_id
+        ),
+        cte_margin_utilization_snapshot AS (
+            SELECT 
+                bal.balance_id,
+                bal.account_id,
+                bal.wallet_type,
+                bal.currency_code,
+                bal.deposited_collateral,
+                bal.borrowed_amount,
+                bal.locked_escrow,
+                (bal.deposited_collateral - bal.borrowed_amount) AS net_equity_raw,
+                CASE 
+                    WHEN bal.currency_code = 'USDT' THEN 1.0
+                    WHEN bal.currency_code = 'USDC' THEN 1.0
+                    WHEN bal.currency_code = 'BTC' THEN 0.90
+                    WHEN bal.currency_code = 'ETH' THEN 0.85
+                    ELSE 0.50
+                END AS risk_haircut_coefficient,
+                (bal.deposited_collateral * CASE 
+                    WHEN bal.currency_code = 'USDT' THEN 1.0
+                    WHEN bal.currency_code = 'USDC' THEN 1.0
+                    WHEN bal.currency_code = 'BTC' THEN 0.90
+                    WHEN bal.currency_code = 'ETH' THEN 0.85
+                    ELSE 0.50
+                END) AS risk_adjusted_collateral,
+                AVG(bal.deposited_collateral) OVER (PARTITION BY bal.currency_code) AS system_global_currency_avg
+            FROM account_balances bal
+            WHERE bal.sync_status = 'SYNCHRONIZED'
+        ),
+        cte_realized_pnl_ledger AS (
+            SELECT 
+                exe.account_id,
+                exe.asset_id,
+                SUM(CASE WHEN exe.execution_side = 'BUY' THEN exe.filled_quantity ELSE 0 END) AS total_bought_units,
+                SUM(CASE WHEN exe.execution_side = 'SELL' THEN exe.filled_quantity ELSE 0 END) AS total_sold_units,
+                SUM(CASE WHEN exe.execution_side = 'BUY' THEN exe.total_gross_volume ELSE 0 END) AS total_buy_cost,
+                SUM(CASE WHEN exe.execution_side = 'SELL' THEN exe.total_gross_volume ELSE 0 END) AS total_sell_revenue,
+                CASE 
+                    WHEN SUM(CASE WHEN exe.execution_side = 'BUY' THEN exe.filled_quantity ELSE 0 END) > 0 
+                    THEN SUM(CASE WHEN exe.execution_side = 'BUY' THEN exe.total_gross_volume ELSE 0 END) / SUM(CASE WHEN exe.execution_side = 'BUY' THEN exe.filled_quantity ELSE 0 END)
+                    ELSE 0 
+                END AS weighted_average_buy_price,
+                CASE 
+                    WHEN SUM(CASE WHEN exe.execution_side = 'SELL' THEN exe.filled_quantity ELSE 0 END) > 0 
+                    THEN SUM(CASE WHEN exe.execution_side = 'SELL' THEN exe.total_gross_volume ELSE 0 END) / SUM(CASE WHEN exe.execution_side = 'SELL' THEN exe.filled_quantity ELSE 0 END)
+                    ELSE 0 
+                END AS weighted_average_sell_price
+            FROM cte_order_execution_ledger exe
+            GROUP BY exe.account_id, exe.asset_id
+        ),
+        cte_unrealized_pnl_valuation AS (
+            SELECT 
+                pnl.account_id,
+                pnl.asset_id,
+                pnl.total_bought_units,
+                pnl.total_sold_units,
+                pnl.total_buy_cost,
+                pnl.total_sell_revenue,
+                (pnl.total_bought_units - pnl.total_sold_units) AS current_open_position,
+                sig.mid_price AS current_market_mid_price,
+                ((pnl.total_bought_units - pnl.total_sold_units) * sig.mid_price) AS market_value_of_open_position,
+                CASE 
+                    WHEN (pnl.total_bought_units - pnl.total_sold_units) > 0 
+                    THEN ((pnl.total_bought_units - pnl.total_sold_units) * sig.mid_price) - (pnl.total_buy_cost - (pnl.total_sold_units * pnl.weighted_average_buy_price))
+                    WHEN (pnl.total_bought_units - pnl.total_sold_units) < 0 
+                    THEN (pnl.total_sell_revenue - (pnl.total_bought_units * pnl.weighted_average_sell_price)) - ABS((pnl.total_bought_units - pnl.total_sold_units) * sig.mid_price)
+                    ELSE 0.0
+                END AS floating_unrealized_pnl,
+                (pnl.total_sell_revenue - (pnl.total_sold_units * pnl.weighted_average_buy_price)) AS final_realized_pnl_subtotal
+            FROM cte_realized_pnl_ledger pnl
+            INNER JOIN cte_moving_averages_and_signals sig ON pnl.asset_id = sig.asset_id
+        ),
+        cte_rolling_drawdown_metrics AS (
+            SELECT 
+                unr.account_id,
+                unr.asset_id,
+                unr.floating_unrealized_pnl,
+                unr.final_realized_pnl_subtotal,
+                (unr.floating_unrealized_pnl + unr.final_realized_pnl_subtotal) AS combined_net_pnl,
+                MAX(unr.floating_unrealized_pnl + unr.final_realized_pnl_subtotal) OVER (PARTITION BY unr.account_id ORDER BY unr.asset_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS historical_peak_combined_pnl,
+                CASE 
+                    WHEN MAX(unr.floating_unrealized_pnl + unr.final_realized_pnl_subtotal) OVER (PARTITION BY unr.account_id ORDER BY unr.asset_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) > 0
+                    THEN (unr.floating_unrealized_pnl + unr.final_realized_pnl_subtotal) - MAX(unr.floating_unrealized_pnl + unr.final_realized_pnl_subtotal) OVER (PARTITION BY unr.account_id ORDER BY unr.asset_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                    ELSE 0.0
+                END AS absolute_pnl_drawdown
+            FROM cte_unrealized_pnl_valuation unr
+        ),
+        cte_compliance_and_audit_log AS (
+            SELECT 
+                fee.account_id,
+                SUM(fee.calculated_commission) AS aggregated_fees_paid,
+                SUM(fee.regulatory_clearing_fee) AS aggregated_regulatory_fees,
+                COUNT(fee.order_id) AS gross_transaction_count,
+                CASE 
+                    WHEN COUNT(fee.order_id) > 500 THEN 'HIGH_FREQUENCY_TRADER'
+                    WHEN COUNT(fee.order_id) > 100 THEN 'ACTIVE_ALGORITHMIC_TRADER'
+                    WHEN COUNT(fee.order_id) > 10 THEN 'RETAIL_DISCRETIONARY'
+                    ELSE 'INACTIVE_OR_PASSIVE'
+                END AS account_activity_classification,
+                CASE 
+                    WHEN SUM(fee.dynamic_slippage_buffer) > #{criticalSlippageThreshold} THEN 'CRITICAL_SLIPPAGE_WARNING'
+                    ELSE 'NOMINAL_EXECUTION_QUALITY'
+                END AS execution_health_metric
+            FROM cte_fee_deduction_matrix fee
+            GROUP BY fee.account_id
+        ),
+        cte_consolidated_summary_matrix AS (
+            SELECT 
+                prof.account_id,
+                prof.user_id,
+                prof.account_type,
+                prof.risk_profile_rating,
+                prof.country_code,
+                prof.vip_level,
+                COALESCE(marg.risk_adjusted_collateral, 0.0) AS final_risk_adjusted_collateral,
+                COALESCE(marg.borrowed_amount, 0.0) AS final_total_borrowed,
+                COALESCE(draw.combined_net_pnl, 0.0) AS total_account_combined_pnl,
+                COALESCE(draw.absolute_pnl_drawdown, 0.0) AS total_account_max_drawdown,
+                COALESCE(audit.gross_transaction_count, 0) AS total_gross_transactions,
+                COALESCE(audit.aggregated_fees_paid, 0.0) AS total_commissions_spent,
+                COALESCE(audit.account_activity_classification, 'UNKNOWN') AS activity_classification,
+                COALESCE(audit.execution_health_metric, 'UNKNOWN') AS execution_health,
+                CASE 
+                    WHEN marg.borrowed_amount > 0 THEN (marg.risk_adjusted_collateral / marg.borrowed_amount) * 100.0
+                    ELSE 999.99
+                END AS calculated_margin_health_ratio
+            FROM cte_account_profiles_and_tiers prof
+            LEFT JOIN (
+                SELECT account_id, SUM(risk_adjusted_collateral) AS risk_adjusted_collateral, SUM(borrowed_amount) AS borrowed_amount 
+                FROM cte_margin_utilization_snapshot GROUP BY account_id
+            ) marg ON prof.account_id = marg.account_id
+            LEFT JOIN (
+                SELECT account_id, SUM(combined_net_pnl) AS combined_net_pnl, MIN(absolute_pnl_drawdown) AS absolute_pnl_drawdown 
+                FROM cte_rolling_drawdown_metrics GROUP BY account_id
+            ) draw ON prof.account_id = draw.account_id
+            LEFT JOIN cte_compliance_and_audit_log audit ON prof.account_id = audit.account_id
+        )
+        SELECT 
+            summary.account_id AS report_account_id,
+            summary.user_id AS report_user_id,
+            summary.account_type AS report_account_type,
+            summary.risk_profile_rating AS report_risk_rating,
+            summary.country_code AS report_jurisdiction,
+            summary.vip_level AS report_vip_tier,
+            summary.final_risk_adjusted_collateral AS total_collateral_value,
+            summary.final_total_borrowed AS total_active_debt,
+            summary.total_account_combined_pnl AS performance_pnl,
+            summary.total_account_max_drawdown AS risk_drawdown_depth,
+            summary.total_gross_transactions AS executed_trade_volume,
+            summary.total_commissions_spent AS platform_fees_collected,
+            summary.activity_classification AS trader_archetype,
+            summary.execution_health AS slippage_status,
+            summary.calculated_margin_health_ratio AS health_index,
+            CASE 
+                WHEN summary.calculated_margin_health_ratio < 120.0 THEN 'IMMINENT_LIQUIDATION_RISK'
+                WHEN summary.calculated_margin_health_ratio < 150.0 THEN 'MARGIN_CALL_WARNING'
+                WHEN summary.total_account_max_drawdown < -50000.0 THEN 'RISK_EXPOSURE_BREACH'
+                ELSE 'PORTFOLIO_HEALTHY'
+            END AS automated_risk_action_flag,
+            COUNT(summary.account_id) OVER () AS total_monitored_accounts_count,
+            SUM(summary.total_account_combined_pnl) OVER () AS network_total_combined_pnl,
+            AVG(summary.calculated_margin_health_ratio) OVER () AS network_average_health_index,
+            MAX(summary.total_account_max_drawdown) OVER () AS network_extreme_drawdown_value,
+            MIN(summary.final_risk_adjusted_collateral) OVER () AS network_minimum_collateral_depth,
+            CURRENT_TIMESTAMP AS telemetry_generation_timestamp,
+            #{executionCorrelationId} AS diagnostic_trace_id,
+            CASE 
+                WHEN summary.country_code IN ('US', 'CA') THEN 'SEC_CFTC_JURISDICTION'
+                WHEN summary.country_code IN ('GB', 'DE', 'FR') THEN 'ESMA_MIFID_JURISDICTION'
+                WHEN summary.country_code IN ('SG', 'HK', 'JP') THEN 'APAC_MAS_JURISDICTION'
+                ELSE 'GLOBAL_OFFSHORE_REGULATORY'
+            END AS compliance_regulatory_umbrella,
+            (SELECT COUNT(DISTINCT sub_ord.asset_id) FROM trade_orders sub_ord WHERE sub_ord.account_id = summary.account_id) AS distinct_assets_traded_count,
+            (SELECT SUM(sub_bal.locked_escrow) FROM account_balances sub_bal WHERE sub_bal.account_id = summary.account_id) AS aggregate_locked_escrow_capital,
+            (summary.total_account_combined_pnl / NULLIF(summary.final_risk_adjusted_collateral, 0.0)) * 100.0 AS localized_return_on_collateral_percentage,
+            ABS(summary.total_account_max_drawdown) / NULLIF(summary.final_risk_adjusted_collateral, 0.0) AS drawdown_to_collateral_risk_coefficient,
+            CASE 
+                WHEN summary.account_type = 'INSTITUTIONAL' AND summary.final_risk_adjusted_collateral > 10000000 THEN 'VIP_CORP_GRADE'
+                WHEN summary.account_type = 'RETAIL' AND summary.final_risk_adjusted_collateral > 500000 THEN 'HIGH_NET_WORTH_RETAIL'
+                ELSE 'STANDARD_RETAIL_GRADE'
+            END AS internal_client_valuation_tier,
+            (summary.total_commissions_spent / NULLIF(summary.total_account_combined_pnl, 0.0)) AS fee_to_alpha_erosion_ratio,
+            SQRT(ABS(summary.total_account_combined_pnl)) AS structural_variance_proxy,
+            EXP(LN(NULLIF(ABS(summary.total_account_combined_pnl), 0.0))) AS log_scale_pnl_magnitude,
+            CAST(summary.total_gross_transactions AS NUMERIC) / EXTRACT(DAY FROM (#{systemEndTime} - #{systemStartTime})) AS average_trades_per_day_frequency,
+            CASE 
+                WHEN summary.calculated_margin_health_ratio > 500.0 THEN 0.0
+                WHEN summary.calculated_margin_health_ratio > 200.0 THEN (500.0 - summary.calculated_margin_health_ratio) * 0.1
+                ELSE (200.0 - summary.calculated_margin_health_ratio) * 0.5 + 30.0
+            END AS composite_risk_liquidation_score,
+            (summary.final_risk_adjusted_collateral - summary.final_total_borrowed) + summary.total_account_combined_pnl AS liquid_net_asset_value,
+            CASE 
+                WHEN summary.vip_level = 'TIER_5' THEN 'PLATINUM_SUPPORT'
+                WHEN summary.vip_level = 'TIER_4' THEN 'GOLD_SUPPORT'
+                ELSE 'STANDARD_TICKET_QUEUE'
+            END AS operation_routing_priority,
+            MOD(CAST(summary.account_id AS INT), 10) AS sharding_database_node_routing_key,
+            (summary.final_total_borrowed / NULLIF(summary.final_risk_adjusted_collateral + 1.0, 0.0)) AS leverage_multiplier_ratio,
+            CASE 
+                WHEN (summary.final_total_borrowed / NULLIF(summary.final_risk_adjusted_collateral + 1.0, 0.0)) > 5.0 THEN 'HIGH_LEVERAGE_DANGER'
+                WHEN (summary.final_total_borrowed / NULLIF(summary.final_risk_adjusted_collateral + 1.0, 0.0)) > 2.0 THEN 'MODERATE_LEVERAGE_WARNING'
+                ELSE 'CONSERVATIVE_LEVERAGE_SAFE'
+            END AS leverage_risk_classification,
+            COALESCE(summary.total_account_combined_pnl, 0.0) - COALESCE(summary.total_commissions_spent, 0.0) AS net_pnl_after_all_fees,
+            (SELECT MAX(hist.change_timestamp) FROM account_history_logs hist WHERE hist.account_id = summary.account_id) AS last_account_activity_timestamp,
+            (SELECT COUNT(err.log_id) FROM system_error_logs err WHERE err.impacted_account_id = summary.account_id AND err.severity = 'CRITICAL') AS custom_error_incident_count,
+            CASE 
+                WHEN summary.risk_profile_rating >= 8 AND summary.calculated_margin_health_ratio < 150.0 THEN 'IMMEDIATE_STOP_OUT_ENABLE'
+                WHEN summary.risk_profile_rating >= 5 AND summary.calculated_margin_health_ratio < 135.0 THEN 'CONDITIONAL_STOP_OUT_ENABLE'
+                ELSE 'MANUAL_SUPERVISION_REQUIRED'
+            END AS risk_desk_execution_protocol,
+            (summary.final_risk_adjusted_collateral * 0.02) AS estimated_overnight_funding_yield,
+            (summary.final_total_borrowed * 0.05) AS estimated_overnight_borrow_interest_cost,
+            (summary.final_risk_adjusted_collateral * 0.02) - (summary.final_total_borrowed * 0.05) AS projected_net_daily_carry_cost,
+            CASE 
+                WHEN ((summary.final_risk_adjusted_collateral * 0.02) - (summary.final_total_borrowed * 0.05)) > 0.0 THEN 'POSITIVE_CARRY_ACCOUNT'
+                ELSE 'NEGATIVE_CARRY_ACCOUNT'
+            END AS asset_liability_carry_classification,
+            HASH(summary.account_id || summary.total_account_combined_pnl) AS row_integrity_verification_checksum
+        FROM cte_consolidated_summary_matrix summary
+        WHERE summary.calculated_margin_health_ratio <= #{maxHealthRatioFilter}
+           OR summary.total_account_max_drawdown <= #{minDrawdownDepthFilter}
+        GROUP BY 
+            summary.account_id,
+            summary.user_id,
+            summary.account_type,
+            summary.risk_profile_rating,
+            summary.country_code,
+            summary.vip_level,
+            summary.final_risk_adjusted_collateral,
+            summary.final_total_borrowed,
+            summary.total_account_combined_pnl,
+            summary.total_account_max_drawdown,
+            summary.total_gross_transactions,
+            summary.total_commissions_spent,
+            summary.activity_classification,
+            summary.execution_health,
+            summary.calculated_margin_health_ratio
+        HAVING COUNT(summary.account_id) >= 0
+        ORDER BY 
+            summary.calculated_margin_health_ratio ASC,
+            summary.total_account_max_drawdown DESC,
+            summary.total_account_combined_pnl ASC
+        LIMIT #{maxQueryFetchRowsLimit}
+        OFFSET #{queryPaginationOffsetRows}
+        ]]>
+    </select>
+
+</mapper>

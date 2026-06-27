@@ -7,4 +7,5 @@ export const JOIN_COLORS: Record<JoinType, string> = {
   'FULL OUTER JOIN': '#ec4899',
   'CROSS JOIN': '#ef4444',
   'NATURAL JOIN': '#8b5cf6',
+  'RELATES TO': '#22c55e',
 };

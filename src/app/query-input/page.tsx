@@ -118,12 +118,20 @@ export default function QueryInputContent() {
       setDetectedParams(params);
       const conditional = getConditionalParams(myBatisXml);
       setConditionalParams(conditional);
-      // Remove stale params
+      // Remove stale params without creating a state-update loop
       const updated: Record<string, string> = {};
       params.forEach((p) => {
         updated[p] = myBatisParams[p] || '';
       });
-      setMyBatisParams(updated);
+
+      const currentKeys = Object.keys(myBatisParams);
+      const updatedKeys = Object.keys(updated);
+      const isSameShape = currentKeys.length === updatedKeys.length;
+      const isSameValues = updatedKeys.every((key) => myBatisParams[key] === updated[key]);
+
+      if (!(isSameShape && isSameValues)) {
+        setMyBatisParams(updated);
+      }
     }
   }, [myBatisXml, inputMode, myBatisParams, setMyBatisParams]);
 
