@@ -176,10 +176,9 @@ export default function QueryInputContent() {
       toast.error('Please enter a SQL query first');
       return;
     }
-    setIsAnalyzing(true);
-    // Simulate async parsing (dt-sql-parser integration point)
-    await new Promise((r) => setTimeout(r, 600));
-    try {
+
+    const runAnalyze = async (): Promise<void> => {
+      setIsAnalyzing(true);
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
       setAnalysisResult(result);
       toast.success(
@@ -187,12 +186,15 @@ export default function QueryInputContent() {
           ?.replace('{tables}', result.tables.length.toString())
           ?.replace('{joins}', result.joins.length.toString()) || 'Analysis complete'
       );
-      router.push('/sql-metrics-dashboard');
-    } catch {
+
+      // Keep this await so loading state is finalized after the async flow settles.
+      await Promise.resolve(router.push('/sql-metrics-dashboard'));
+    };
+
+    await runAnalyze().catch(() => {
       toast.error(t.parseErrorMessage || 'Parse error');
-    } finally {
-      setIsAnalyzing(false);
-    }
+    });
+    setIsAnalyzing(false);
   }, [
     inputMode,
     rawSql,
@@ -302,6 +304,7 @@ export default function QueryInputContent() {
                           setMyBatisParams({ ...myBatisParams, [key]: value })
                         }
                         conditionalParams={conditionalParams}
+                        t={t}
                       />
                     )}
                   </div>
