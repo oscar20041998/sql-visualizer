@@ -85,7 +85,8 @@ export default function NestedSubquerySection({
               <button
                 onClick={() => toggleSub(sub.id)}
                 className="w-full flex items-center gap-3 px-5 py-3 text-left"
-                style={{ containment: 'layout style paint' }}\n              >
+                style={{ containment: 'layout style paint' } as any}
+              >
                 {/* Depth indicator line */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {Array.from({ length: sub.depth }).map((_, d) => (
