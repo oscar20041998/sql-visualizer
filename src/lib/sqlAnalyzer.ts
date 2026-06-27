@@ -226,10 +226,11 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
 
   ctes.forEach((cte) => {
     const source = ensureNode(cte.name);
-    const relatedNames = new Set<string>([...cte.dependencies, ...cte.tables]);
+    const relatedNames = new Set<string>(cte.dependencies);
 
     relatedNames.forEach((name) => {
       if (!name || name.toLowerCase() === cte.name.toLowerCase()) return;
+      if (!cteNames.has(name.toLowerCase())) return;
 
       const target = ensureNode(name);
       const edgeKey = `${source.id}->${target.id}->RELATES TO`;
