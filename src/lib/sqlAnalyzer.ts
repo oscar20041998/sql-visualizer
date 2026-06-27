@@ -75,6 +75,8 @@ export interface SqlMetrics {
   groupBy: number;
   orderBy: number;
   distinct: number;
+  having: number;
+  where: number;
   subqueryDepth: number;
   joinCount: number;
   cteCount: number;
@@ -118,110 +120,27 @@ export interface AnalysisResult {
   rawSql: string;
 }
 
-/**
- * Parse SQL with dialect awareness using dt-sql-parser
- * Supports MySQL, PostgreSQL, SQL Server (T-SQL), and Oracle dialects
- */
-function parseSqlWithDialect(sql: string, dialect: SqlDialect): any {
-  if (!parser) {
-    return null;
-  }
-
-  try {
-    // Map our dialect names to dt-sql-parser dialect names
-    const dialectMap: Record<SqlDialect, string> = {
-      mysql: 'mysql',
-      postgresql: 'postgresql',
-      sqlserver: 'tsql',
-      oracle: 'oracle',
-    };
-
-    const dtDialect = dialectMap[dialect] || dialect;
-
-    // Try to parse with the specified dialect
-    // dt-sql-parser's parse function signature: parse(sql, { dialect })
-    if (typeof parser.parse === 'function') {
-      return parser.parse(sql, { dialect: dtDialect });
-    }
-
-    // Alternative: try parser as a constructor/object with methods
-    if (parser.parser && typeof parser.parser.parse === 'function') {
-      return parser.parser.parse(sql, { dialect: dtDialect });
-    }
-
-    // If neither works, return null to fall back to regex
-    return null;
-  } catch (error) {
-    console.warn(`dt-sql-parser failed for dialect ${dialect}:`, error);
-    return null;
-  }
-}
-
-export function analyseByAST(
+export async function analyzeSql(
   sql: string,
   dialect: SqlDialect,
-  locale: 'en' | 'vi'
-): AnalysisResult {
-  try {
-    // Attempt to parse with dialect awareness
-    const result = parseSqlWithDialect(sql, dialect);
-
-    if (!result || typeof result !== 'object') {
-      // Fallback to regex-based extraction if parsing fails
-      return buildAnalysisResultFromRegex(sql, dialect, locale);
-    }
-
-    // Extract analysis from AST
-    const ast = result as any;
-    const tables = extractTablesFromAST(ast);
-    const joins = extractJoinsFromAST(ast);
-    const ctes = extractCTEsFromAST(ast);
-    const mainQueryFields = extractMainQueryFieldsFromAST(ast, tables, ctes);
-    const metrics = computeMetricsFromAST(ast, ctes, tables, joins);
-    const complexity = computeComplexity(metrics);
-    const t = getT(locale); // Use the provided locale
-    const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
-    const detailedComplexity = scoreQueryComplexity(sql);
-
-    return {
-      tables,
-      joins,
-      ctes,
-      metrics,
-      complexity,
-      detailedComplexity,
-      executionCost,
-      mainQueryFields,
-      dialect,
-      rawSql: sql,
-    };
-  } catch (error) {
-    // Fallback to regex-based extraction on any parser error
-    console.warn(
-      `Error parsing SQL for dialect ${dialect}, falling back to regex extraction:`,
-      error
-    );
-    return buildAnalysisResultFromRegex(sql, dialect, locale);
-  }
-}
-
-/**
- * Fallback analyzer using regex when dt-sql-parser fails
- */
-function buildAnalysisResultFromRegex(
-  sql: string,
-  dialect: SqlDialect,
-  locale: 'en' | 'vi'
-): AnalysisResult {
-  const tables = extractTables(sql);
-  const joins = extractJoins(sql, tables);
-  const ctes = extractCTEs(sql);
-  const mainQueryFields = extractMainQueryFields(sql, ctes, tables);
-  const metrics = computeMetrics(sql, ctes, tables, joins);
+  locale: string = 'en'
+): Promise<AnalysisResult> {
+  // Strip all SQL comments before scanning
+  const stripped = stripSqlComments(sql);
+  // Backend integration point: Replace with dt-sql-parser AST traversal
+  const cleaned = stripped.trim();
+  const tables = extractTables(cleaned);
+  const joins = extractJoins(cleaned, tables);
+  const ctes = extractCTEs(cleaned);
+  const metrics = computeMetrics(cleaned, ctes, tables, joins);
   const complexity = computeComplexity(metrics);
-  const t = getT(locale); // Use the provided locale
+  const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
-  const detailedComplexity = scoreQueryComplexity(sql);
+  const mainQuery = extractMainQuery(cleaned);
+  const mainQueryFields = extractMainQueryFields(mainQuery, ctes, tables);
+
+  // New: Calculate detailed complexity score using the comprehensive scoring engine
+  const detailedComplexity = await scoreQueryComplexity(cleaned);
 
   return {
     tables,
@@ -233,277 +152,8 @@ function buildAnalysisResultFromRegex(
     executionCost,
     mainQueryFields,
     dialect,
-    rawSql: sql,
+    rawSql: cleaned,
   };
-}
-
-/**
- * Extract tables from dt-sql-parser result
- */
-function extractTablesFromAST(ast: any): TableNode[] {
-  const tables: Map<string, TableNode> = new Map();
-
-  // dt-sql-parser structure: ast can have various properties depending on query type
-  // Common properties: tableNameList, tables, from, joinList, etc.
-  const tableList = ast.tableNameList || ast.tables || ast.from || [];
-  const arrayList = Array.isArray(tableList) ? tableList : [tableList].filter(Boolean);
-
-  arrayList.forEach((tableRef: any, idx: number) => {
-    let tableName = '';
-    let alias = '';
-
-    if (typeof tableRef === 'string') {
-      tableName = tableRef;
-    } else if (tableRef && typeof tableRef === 'object') {
-      tableName = tableRef.tableName || tableRef.name || tableRef.table || '';
-      alias = tableRef.aliasName || tableRef.alias || '';
-    }
-
-    if (tableName && tableName.trim()) {
-      const key = tableName.toUpperCase();
-      if (!tables.has(key)) {
-        tables.set(key, {
-          id: `table-${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}-${idx}`,
-          name: tableName,
-          alias: alias && alias.toUpperCase() !== tableName.toUpperCase() ? alias : undefined,
-          columns: extractColumnsForTableFromAST(ast, tableName),
-          isSubquery: false,
-          isCTE: false,
-        });
-      }
-    }
-  });
-
-  return Array.from(tables.values());
-}
-
-/**
- * Extract column references for a specific table from AST
- */
-function extractColumnsForTableFromAST(ast: any, tableName: string): string[] {
-  const cols: Set<string> = new Set();
-
-  // Try to extract from various AST properties
-  const selectItems = ast.selectItems || ast.select || [];
-  const columnList = ast.columnList || ast.columns || [];
-
-  // Extract from select items
-  if (Array.isArray(selectItems)) {
-    selectItems.forEach((item: any) => {
-      const expr = typeof item === 'string' ? item : item.expr || item.name || JSON.stringify(item);
-      if (expr && expr.includes(tableName)) {
-        const colMatch = expr.match(new RegExp(`${tableName}\\.(\\w+)`, 'i'));
-        if (colMatch) cols.add(colMatch[1]);
-      }
-    });
-  }
-
-  // Extract from column list
-  if (Array.isArray(columnList)) {
-    columnList.forEach((col: any) => {
-      const colStr = typeof col === 'string' ? col : col.name || col.column || '';
-      if (colStr && colStr.includes(tableName)) {
-        const colMatch = colStr.match(new RegExp(`${tableName}\\.(\\w+)`, 'i'));
-        if (colMatch) cols.add(colMatch[1]);
-      }
-    });
-  }
-
-  return Array.from(cols).slice(0, 8);
-}
-
-/**
- * Extract joins from dt-sql-parser AST
- */
-function extractJoinsFromAST(ast: any): JoinEdge[] {
-  const joins: JoinEdge[] = [];
-  const joinList = ast.joinList || ast.joins || [];
-
-  if (!Array.isArray(joinList) || joinList.length === 0) {
-    return joins;
-  }
-
-  const tables = extractTablesFromAST(ast);
-
-  joinList.forEach((join: any, idx: number) => {
-    if (!join) return;
-
-    const joinType = (join.joinType || join.type || 'INNER JOIN').toUpperCase();
-    const rightTable = join.rightTable || join.table || join.to || '';
-    const condition = join.onCondition || join.condition || join.on || '';
-
-    if (rightTable && tables.length > 0) {
-      const sourceTable = tables[0];
-      const targetTable = tables.find(
-        (t) =>
-          t.name.toLowerCase() === rightTable.toString().toLowerCase() ||
-          t.alias?.toLowerCase() === rightTable.toString().toLowerCase()
-      );
-
-      if (sourceTable && targetTable && sourceTable.id !== targetTable.id) {
-        joins.push({
-          id: `join-${idx}`,
-          source: sourceTable.id,
-          target: targetTable.id,
-          joinType: joinType as JoinType,
-          condition: condition.toString(),
-        });
-      }
-    }
-  });
-
-  return joins;
-}
-
-/**
- * Extract CTEs from dt-sql-parser AST
- */
-function extractCTEsFromAST(ast: any): CTE[] {
-  const ctes: CTE[] = [];
-  const cteList = ast.cteDefinitions || ast.ctes || ast.with || [];
-
-  if (!Array.isArray(cteList)) {
-    return ctes;
-  }
-
-  cteList.forEach((cte: any, idx: number) => {
-    if (!cte) return;
-
-    const cteName = cte.name || cte.cteName || cte.aliasName || '';
-    const cteBody = cte.selectStatement || cte.query || cte.select || '';
-    const cteBodyStr = typeof cteBody === 'string' ? cteBody : JSON.stringify(cteBody);
-
-    if (cteName) {
-      ctes.push({
-        id: `cte-${idx}`,
-        name: cteName,
-        body: cteBodyStr,
-        tables: extractTables(cteBodyStr).map((t) => t.name),
-        fields: extractSelectFields(cteBodyStr).map((f) => f.field),
-        usageCount:
-          (ast.rawSQL || JSON.stringify(ast)).match(new RegExp(`\\b${cteName}\\b`, 'gi'))?.length ||
-          0,
-        dependencies: [],
-        isRecursive:
-          cteBodyStr.toUpperCase().includes('UNION ALL') &&
-          cteBodyStr.toUpperCase().includes(cteName),
-        estimatedComplexity: cteBodyStr.includes('JOIN') ? 'MEDIUM' : 'LOW',
-        isUnused: false,
-        columnReferences: extractSelectFields(cteBodyStr).map((f) => f.field),
-        lineCount: cteBodyStr.split('\n').length,
-        nestedSubqueries: [],
-      });
-    }
-  });
-
-  return ctes;
-}
-
-/**
- * Extract main query fields from dt-sql-parser AST
- */
-function extractMainQueryFieldsFromAST(
-  ast: any,
-  tables: TableNode[],
-  ctes: CTE[]
-): AnalysisResult['mainQueryFields'] {
-  const selectItems = ast.selectItems || [];
-  const fields: AnalysisResult['mainQueryFields'] = [];
-
-  selectItems.forEach((item: any) => {
-    const fieldExpr = typeof item === 'string' ? item : item.expr || item.name || '';
-    const fieldAlias = typeof item === 'object' ? item.alias || item.aliasName || '' : '';
-
-    if (fieldExpr) {
-      let sourceTable = 'unknown';
-      let origin = 'expression';
-      let type: 'cte' | 'table' | 'expression' = 'expression';
-
-      // Try to match to a table
-      const tableMatch = tables.find(
-        (t) =>
-          fieldExpr.toLowerCase().includes(t.name.toLowerCase()) ||
-          (t.alias && fieldExpr.toLowerCase().includes(t.alias.toLowerCase()))
-      );
-
-      if (tableMatch) {
-        sourceTable = tableMatch.name;
-        origin = tableMatch.name;
-        type = 'table';
-      }
-
-      // Try to match to a CTE
-      const cteMatch = ctes.find((c) =>
-        c.fields.some((f) => fieldExpr.toLowerCase().includes(f.toLowerCase()))
-      );
-
-      if (cteMatch) {
-        sourceTable = cteMatch.name;
-        origin = cteMatch.name;
-        type = 'cte';
-      }
-
-      fields.push({
-        field: fieldExpr,
-        alias: fieldAlias,
-        origin,
-        sourceTable,
-        type,
-      });
-    }
-  });
-
-  return fields;
-}
-
-/**
- * Compute metrics from dt-sql-parser AST
- */
-function computeMetricsFromAST(
-  ast: any,
-  ctes: CTE[],
-  tables: TableNode[],
-  joins: JoinEdge[]
-): SqlMetrics {
-  // Convert AST to string for pattern matching
-  const astStr = JSON.stringify(ast).toUpperCase();
-  const selectItems = ast.selectItems || ast.select || [];
-
-  return {
-    windowFunctions: (astStr.match(/OVER\s*\(/g) || []).length,
-    groupBy: (astStr.match(/GROUP\s+BY/g) || []).length,
-    orderBy: (astStr.match(/ORDER\s+BY/g) || []).length,
-    distinct: (astStr.match(/DISTINCT/g) || []).length,
-    subqueryDepth: computeSubqueryDepthFromAST(ast),
-    joinCount: joins.length,
-    cteCount: ctes.length,
-    tableCount: tables.length,
-    selectFields: Array.isArray(selectItems) ? selectItems.length : 0,
-  };
-}
-
-/**
- * Compute subquery depth from AST
- */
-function computeSubqueryDepthFromAST(ast: any): number {
-  let maxDepth = 0;
-
-  function traverse(node: any, depth: number) {
-    if (!node) return;
-
-    if (node.selectStatement || node.selectItems) {
-      maxDepth = Math.max(maxDepth, depth);
-    }
-
-    if (Array.isArray(node)) {
-      node.forEach((item) => traverse(item, depth + 1));
-    } else if (typeof node === 'object') {
-      Object.values(node).forEach((value) => traverse(value, depth + 1));
-    }
-  }
-
-  traverse(ast, 0);
-  return Math.max(0, maxDepth - 1);
 }
 
 // ─── Regex-based extraction (client-side heuristic) ──────────────────────────
@@ -687,8 +337,7 @@ function extractCTEs(sql: string): CTE[] {
   }
 
   // Extract the main query: everything after the last CTE closing paren
-  // pos now points to the main SELECT (or whitespace before it)
-  const mainQuery = sql.slice(pos).trim();
+  const mainQuery = extractMainQuery(sql);
 
   rawCtes.forEach((raw, i) => {
     const name = raw.name;
@@ -734,12 +383,16 @@ function extractCTEs(sql: string): CTE[] {
     const hasSubquery = /SELECT[\s\S]+?FROM[\s\S]+?SELECT/i.test(body);
     const hasWindow = /\bOVER\s*\(/.test(upperBody);
     const hasGroupBy = /\bGROUP\s+BY\b/.test(upperBody);
+    const hasHaving = /\bHAVING\b/.test(upperBody);
+    const hasWhere = /\bWHERE\b/.test(upperBody);
     const bodyLines = body.split('\n').length;
     let complexityScore = 0;
     if (hasJoins) complexityScore += 2;
     if (hasSubquery) complexityScore += 3;
     if (hasWindow) complexityScore += 2;
     if (hasGroupBy) complexityScore += 1;
+    if (hasHaving) complexityScore += 1;
+    if (hasWhere) complexityScore += 1;
     if (bodyLines > 20) complexityScore += 2;
     if (bodyLines > 10) complexityScore += 1;
     const estimatedComplexity: 'LOW' | 'MEDIUM' | 'HIGH' =
@@ -769,6 +422,89 @@ function extractCTEs(sql: string): CTE[] {
   });
 
   return ctes;
+}
+
+/**
+ * Extract the main query that comes after all CTE definitions
+ * Example: "WITH cte AS (...) SELECT * FROM cte" → "SELECT * FROM cte"
+ */
+export function extractMainQuery(sql: string): string {
+  const withMatch = /^\s*WITH\s+/i.exec(sql);
+  if (!withMatch) {
+    // No WITH clause, entire SQL is the main query
+    return sql.trim();
+  }
+
+  let pos = withMatch[0].length;
+  const len = sql.length;
+
+  // Helper: skip a quoted string
+  function skipString(pos: number, quote: string): number {
+    let j = pos + 1;
+    while (j < len) {
+      if (sql[j] === quote && sql[j + 1] === quote) {
+        j += 2;
+      } else if (sql[j] === quote) {
+        return j + 1;
+      } else {
+        j++;
+      }
+    }
+    return j;
+  }
+
+  // Walk through all CTEs until we find the main query
+  let cteCount = 0;
+  while (pos < len && cteCount < 100) {
+    // Skip whitespace
+    while (pos < len && /\s/.test(sql[pos])) pos++;
+    if (pos >= len) return '';
+
+    // Skip RECURSIVE keyword if present
+    const recursiveMatch = /^RECURSIVE\s+/i.exec(sql.slice(pos));
+    if (recursiveMatch) pos += recursiveMatch[0].length;
+
+    // Read CTE name
+    const nameMatch = /^(\w+)\s*/i.exec(sql.slice(pos));
+    if (!nameMatch) break;
+    pos += nameMatch[0].length;
+
+    // Expect "AS"
+    const asMatch = /^AS\s*/i.exec(sql.slice(pos));
+    if (!asMatch) break;
+    pos += asMatch[0].length;
+
+    // Expect opening paren
+    if (pos >= len || sql[pos] !== '(') break;
+    pos++;
+
+    // Skip the CTE body (find matching closing paren)
+    let depth = 1;
+    while (pos < len && depth > 0) {
+      const ch = sql[pos];
+      if (ch === "'" || ch === '"' || ch === '`') {
+        pos = skipString(pos, ch);
+        continue;
+      }
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (depth > 0) pos++;
+    }
+    pos++; // skip closing paren
+
+    // Check if there's another CTE (comma) or end of WITH block
+    let lookahead = pos;
+    while (lookahead < len && /\s/.test(sql[lookahead])) lookahead++;
+    if (lookahead >= len || sql[lookahead] !== ',') {
+      pos = lookahead; // Move to after whitespace
+      break;
+    }
+    pos = lookahead + 1; // Skip comma
+    cteCount++;
+  }
+
+  // Everything from pos onwards is the main query
+  return sql.slice(pos).trim();
 }
 
 function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
@@ -959,6 +695,8 @@ function computeMetrics(
     groupBy: countPattern(upper, /\bGROUP\s+BY\b/g),
     orderBy: countPattern(upper, /\bORDER\s+BY\b/g),
     distinct: countPattern(upper, /\bDISTINCT\b/g),
+    having: countPattern(upper, /\bHAVING\b/g),
+    where: countPattern(upper, /\bWHERE\b/g),
     subqueryDepth: computeSubqueryDepth(sql),
     joinCount: joins.length,
     cteCount: ctes.length,
@@ -988,6 +726,8 @@ function computeComplexity(metrics: SqlMetrics): ComplexityScore {
     { name: 'GROUP BY', value: metrics.groupBy, weight: 1 },
     { name: 'ORDER BY', value: metrics.orderBy, weight: 1 },
     { name: 'DISTINCT', value: metrics.distinct, weight: 1 },
+    { name: 'HAVING', value: metrics.having, weight: 1 },
+    { name: 'WHERE', value: metrics.where, weight: 1 },
   ];
 
   const scored = factors.map((f) => ({
@@ -1140,42 +880,6 @@ function extractMainQueryFields(
       type,
     };
   });
-}
-
-// -- SIMPLE PARSING -------------------------------------------------------------------------- //
-export function analyzeSql(
-  sql: string,
-  dialect: SqlDialect,
-  locale: string = 'en'
-): AnalysisResult {
-  // Strip all SQL comments before scanning
-  const stripped = stripSqlComments(sql);
-  // Backend integration point: Replace with dt-sql-parser AST traversal
-  const cleaned = stripped.trim();
-  const tables = extractTables(cleaned);
-  const joins = extractJoins(cleaned, tables);
-  const ctes = extractCTEs(cleaned);
-  const metrics = computeMetrics(cleaned, ctes, tables, joins);
-  const complexity = computeComplexity(metrics);
-  const t = getT(locale as 'en' | 'vi');
-  const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
-  const mainQueryFields = extractMainQueryFields(cleaned, ctes, tables);
-
-  // New: Calculate detailed complexity score using the comprehensive scoring engine
-  const detailedComplexity = scoreQueryComplexity(cleaned);
-
-  return {
-    tables,
-    joins,
-    ctes,
-    metrics,
-    complexity,
-    detailedComplexity,
-    executionCost,
-    mainQueryFields,
-    dialect,
-    rawSql: cleaned,
-  };
 }
 
 export function extractMyBatisParams(xml: string): string[] {

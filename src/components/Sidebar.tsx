@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -16,11 +16,13 @@ import {
   Globe,
   Zap,
   BookOpen,
+  Loader,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 const navItems = [
   { key: 'navQueryInput', href: '/', icon: Code2, badge: null },
@@ -33,6 +35,7 @@ const navItems = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
   const { settings, updateSettings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
@@ -87,7 +90,13 @@ export default function Sidebar() {
               key={`nav-${item.href}`}
               href={isLocked ? '#' : item.href}
               onClick={(e) => {
-                if (isLocked) e.preventDefault();
+                if (isLocked) {
+                  e.preventDefault();
+                } else {
+                  startTransition(() => {
+                    // Navigation will happen automatically
+                  });
+                }
               }}
               title={collapsed ? label : isLocked ? 'Analyze query first' : undefined}
               className={`
@@ -110,11 +119,18 @@ export default function Sidebar() {
               {isActive && !collapsed && (
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
               )}
+              {/* Loading indicator during navigation */}
+              {isPending && !isActive && !collapsed && (
+                <span className="ml-auto flex-shrink-0">
+                  <Loader size={14} className="text-primary animate-spin" />
+                </span>
+              )}
               {/* Analysis indicator */}
               {item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 analysisResult &&
-                !collapsed && (
+                !collapsed &&
+                !isPending && (
                   <span className="ml-auto flex-shrink-0">
                     <Zap size={10} className="text-primary opacity-60" />
                   </span>
@@ -174,6 +190,13 @@ export default function Sidebar() {
           )}
         </button>
       </div>
+
+      {/* Global Loading Overlay */}
+      <LoadingOverlay
+        visible={isPending}
+        title={t.loading || 'Loading...'}
+        description="Navigating to page..."
+      />
     </aside>
   );
 }

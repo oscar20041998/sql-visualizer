@@ -708,6 +708,7 @@ const vi = {
   syntaxErrorsStatus: 'Lỗi cú pháp:',
   processingStatus: '⏳ Đang xử lý...',
   formattingError: 'Lỗi định dạng:',
+  formattingSuccess: 'Định dạng SQL thành công',
   diffViewErrorTitle: 'Lỗi chế độ diff:',
   ollamaConnectionError:
     'Không thể kết nối với API Ollama. Hãy chắc chắn rằng nó đang chạy trên http://localhost:11434',

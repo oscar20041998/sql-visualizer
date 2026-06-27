@@ -13,6 +13,7 @@ export interface AppSettings {
   graphLayout: 'dagre' | 'force' | 'grid';
   nodeSpacing: 'compact' | 'normal' | 'spacious';
   edgeStyle: 'smooth' | 'straight' | 'step';
+  accentColor?: string;
 }
 
 interface AppState {
@@ -49,6 +50,7 @@ const defaultSettings: AppSettings = {
   graphLayout: 'dagre',
   nodeSpacing: 'normal',
   edgeStyle: 'smooth',
+  accentColor: '#6ee7f7',
 };
 
 export const useAppStore = create<AppState>()(

@@ -8,7 +8,7 @@ import { getT } from '@/lib/i18n';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import SmartSQLEditor from '@/components/SmartSQLEditor';
 import {
-  analyseByAST,
+  analyzeSql,
   extractMyBatisParams,
   parseMyBatisXml,
   getConditionalParams,
@@ -171,7 +171,7 @@ export default function QueryInputContent() {
     // Simulate async parsing (dt-sql-parser integration point)
     await new Promise((r) => setTimeout(r, 600));
     try {
-      const result = analyseByAST(sqlToAnalyze, dialect, settings.locale);
+      const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
       setAnalysisResult(result);
       toast.success(
         t.analysisCompleteMessage

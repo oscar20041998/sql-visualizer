@@ -145,6 +145,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   graphLayout: 'dagre',
   nodeSpacing: 'normal',
   edgeStyle: 'smooth',
+  accentColor: '#6ee7f7',
 };
 
 export default function SettingsContent() {
@@ -251,6 +252,7 @@ export default function SettingsContent() {
                       {['#6ee7f7', '#a78bfa', '#34d399', '#fb923c', '#f472b6'].map((color) => (
                         <button
                           key={`accent-${color}`}
+                          onClick={() => update('accentColor', color)}
                           className="w-6 h-6 rounded-full border-2 border-transparent hover:border-foreground transition-all"
                           style={{ background: color }}
                           title={color}

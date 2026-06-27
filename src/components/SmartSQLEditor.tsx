@@ -128,6 +128,36 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
 
   // ─── Real-time Syntax Validation (Debounced) ────────────────────────────
 
+  // ─── Helper: Parse error location from error message ──────────────────
+
+  const parseErrorLocation = (
+    errorMsg: string,
+    sql: string
+  ): { line: number; column: number } => {
+    // Try to extract line:column from error message (format: "line X column Y: message")
+    const lineColMatch = errorMsg.match(/line (\d+)(?:\s+column\s+(\d+))?/i);
+    if (lineColMatch) {
+      return {
+        line: parseInt(lineColMatch[1], 10),
+        column: parseInt(lineColMatch[2] || '1', 10),
+      };
+    }
+
+    // Try to extract line number alone (format: "line X: message")
+    const lineMatch = errorMsg.match(/line\s+(\d+)/i);
+    if (lineMatch) {
+      return {
+        line: parseInt(lineMatch[1], 10),
+        column: 1,
+      };
+    }
+
+    // Default: first line
+    return { line: 1, column: 1 };
+  };
+
+  // ─── Validate SQL Syntax ────────────────────────────────────────────────
+
   const validateSyntax = useCallback(
     (sql: string) => {
       if (!monacoRef.current) return;
@@ -136,6 +166,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       try {
         const parser = new MySQL();
         const errors: string[] = [];
+        const errorDetails: Array<{ line: number; column: number; message: string }> = [];
 
         try {
           parser.parse(sql);
@@ -143,27 +174,50 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         } catch (parseError) {
           const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error';
           errors.push(errorMsg);
-          logger.warn('⚠️ SQL syntax error detected', { error: errorMsg });
+
+          // Parse error location
+          const location = parseErrorLocation(errorMsg, sql);
+          errorDetails.push({
+            line: location.line,
+            column: location.column,
+            message: errorMsg,
+          });
+
+          logger.warn('⚠️ SQL syntax error detected', {
+            error: errorMsg,
+            line: location.line,
+            column: location.column,
+          });
         }
 
         setState((prev) => ({ ...prev, syntaxErrors: errors }));
 
-        // Set markers for Monaco
+        // Set markers for Monaco with specific error locations
         if (singleEditorRef.current) {
           const model = singleEditorRef.current.getModel();
           if (model) {
-            const markers: any[] = errors.map((error, idx) => ({
-              severity: monaco.MarkerSeverity.Error,
-              startLineNumber: 1,
-              startColumn: 1,
-              endLineNumber: sql.split('\n').length,
-              endColumn: sql.split('\n').pop()?.length || 1,
-              message: error,
-              code: `sql-error-${idx}`,
-            }));
+            const markers: any[] = errorDetails.map((detail, idx) => {
+              const sqlLines = sql.split('\n');
+              const errorLine = Math.min(detail.line, sqlLines.length);
+              const lineContent = sqlLines[errorLine - 1] || '';
+              const lineLength = lineContent.length || 1;
+
+              return {
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: errorLine,
+                startColumn: Math.max(1, detail.column),
+                endLineNumber: errorLine,
+                endColumn: lineLength + 1,
+                message: detail.message,
+                code: `sql-error-${idx}`,
+              };
+            });
 
             monaco.editor.setModelMarkers(model, 'sql-parser', markers);
-            logger.debug('Markers set in Monaco', { count: markers.length });
+            logger.debug('Markers set in Monaco', {
+              count: markers.length,
+              details: errorDetails,
+            });
           }
         }
       } catch (error) {
@@ -207,9 +261,23 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     try {
       const currentSql = singleEditorRef.current?.getValue() || state.originalSql;
 
+      // Validate SQL is not empty
+      if (!currentSql || !currentSql.trim()) {
+        logger.warn('Cannot format empty SQL');
+        toast.error(t.emptyQueryError || 'Please enter SQL first');
+        return;
+      }
+
+      logger.debug('Formatting SQL with dialect:', dialect);
+      
       const formatted = format(currentSql, {
         language: getFormatterLanguage(dialect),
       });
+
+      // Check if formatting produced valid output
+      if (!formatted || typeof formatted !== 'string') {
+        throw new Error('Formatter returned invalid result');
+      }
 
       setState((prev) => ({
         ...prev,
@@ -221,13 +289,19 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       validateSyntax(formatted);
 
       logger.info('✅ SQL formatted successfully');
+      toast.success(t.formattingSuccess || 'SQL formatted successfully');
     } catch (error) {
-      logger.error('❌ SQL formatting failed', { error });
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('❌ SQL formatting failed', { 
+        error: errorMsg,
+        dialect,
+        sqlLength: (singleEditorRef.current?.getValue() || state.originalSql).length,
+      });
       toast.error(
-        `${t.formattingError} ${error instanceof Error ? error.message : 'Unknown error'}`
+        `${t.formattingError || 'Formatting error'}: ${errorMsg}`
       );
     }
-  }, [state.originalSql, validateSyntax, t]);
+  }, [state.originalSql, dialect, validateSyntax, t]);
 
   // ─── Toggle Diff View ───────────────────────────────────────────────────
 

@@ -712,6 +712,7 @@ const en = {
   syntaxErrorsStatus: 'Syntax Errors:',
   processingStatus: '⏳ Processing...',
   formattingError: 'Formatting error:',
+  formattingSuccess: 'SQL formatted successfully',
   diffViewErrorTitle: 'Diff view error:',
   ollamaConnectionError:
     'Failed to connect to Ollama API. Make sure it is running on http://localhost:11434',
