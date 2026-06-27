@@ -72,10 +72,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const primaryColor = theme === 'dark' ? colorMap.dark : colorMap.light;
 
     root.style.setProperty('--primary', primaryColor);
-    root.style.setProperty(
-      '--primary-foreground',
-      theme === 'dark' ? '#0d1117' : '#ffffff'
-    );
+    root.style.setProperty('--primary-foreground', theme === 'dark' ? '#0d1117' : '#ffffff');
   }, [theme, accentColor]);
 
   return (

@@ -712,6 +712,33 @@ const vi = {
   diffViewErrorTitle: 'Lỗi chế độ diff:',
   ollamaConnectionError:
     'Không thể kết nối với API Ollama. Hãy chắc chắn rằng nó đang chạy trên http://localhost:11434',
+
+  // Guideline - Advanced Features Section
+  guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',
+  guidelineAdvancedFeaturesSubtitle: 'Phân trang, tìm kiếm và khả năng tùy chỉnh mới',
+  guidelineAdvancedFeaturesStep1Label: 'Bảng trường truy vấn chính với phân trang',
+  guidelineAdvancedFeaturesStep1Desc:
+    'Xem các trường truy vấn chính trong định dạng bảng có thể tìm kiếm và phân trang. Hiển thị 10 trường mỗi trang với bộ lọc tìm kiếm thời gian thực trên tên trường, bí danh và bảng nguồn. Hoàn hảo để phân tích các truy vấn lớn với nhiều trường.',
+  guidelineAdvancedFeaturesStep2Label: 'Bảng tham chiếu với bộ lọc nâng cao',
+  guidelineAdvancedFeaturesStep2Desc:
+    'Duyệt các bảng được tham chiếu (CTE và bảng cơ sở) trong bảng điều khiển chuyên dụng với phân trang và tìm kiếm. Hiển thị các huy hiệu loại bảng (CTE/TABLE), số lượng cột và danh sách cột nội tuyến. Kết quả tìm kiếm cập nhật ngay khi bạn nhập.',
+  guidelineAdvancedFeaturesStep3Label: 'Phần truy vấn con lồng nhau',
+  guidelineAdvancedFeaturesStep3Desc:
+    'Khám phá các truy vấn con lồng nhau trong CTE với thẻ chi tiết có thể mở rộng. Các chỉ báo độ sâu (L1-L5 được mã hóa màu), huy hiệu kết hợp và tổng hợp cũng như xem SQL nội tuyến. Hiển thị tham chiếu bảng và số lượng trường cho mỗi cấp độ lồng nhau.',
+  guidelineAdvancedFeaturesStep4Label: 'Thẻ CTE với siêu dữ liệu hoàn chỉnh',
+  guidelineAdvancedFeaturesStep4Desc:
+    'Xem thông tin CTE toàn diện bao gồm số lần sử dụng, mức độ phức tạp, trạng thái đệ quy và phụ thuộc. Hiển thị các bảng được tham chiếu, phụ thuộc CTE và tham chiếu cột trong các bảng điều khiển được tổ chức. Bao gồm biểu ngữ vấn đề cho các cảnh báo và ghi chú.',
+  guidelineAdvancedFeaturesStep5Label: 'Tùy chỉnh màu nhấn động',
+  guidelineAdvancedFeaturesStep5Desc:
+    'Cá nhân hóa giao diện ứng dụng trong Cài đặt → Giao diện. Chọn từ 5 chuỗi màu: Cyan, Purple, Emerald, Orange hoặc Pink. Các màu tự động thích ứng với chủ đề tối/sáng và áp dụng trên toàn hệ thống cho tất cả các phần tử UI màu chính một cách tức thì.',
+  guidelineAdvancedFeaturesTip1:
+    'Tìm kiếm là thời gian thực và không phân biệt chữ hoa chữ thường, lọc trên tất cả các trường liên quan đồng thời',
+  guidelineAdvancedFeaturesTip2:
+    'Phân trang tự động đặt lại thành trang 1 khi bạn thực hiện tìm kiếm mới để có trải nghiệm người dùng tốt hơn',
+  guidelineAdvancedFeaturesTip3:
+    'Lựa chọn màu được lưu vào localStorage và khôi phục khi bạn ghé thăm lần tới',
+  guidelineAdvancedFeaturesTip4:
+    'Tất cả các thành phần sử dụng sự chứa đựng CSS để có hiệu suất tối ưu và kết xuất nhanh hơn',
 } as const;
 
 export default vi;

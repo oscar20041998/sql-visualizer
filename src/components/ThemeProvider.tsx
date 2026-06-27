@@ -32,10 +32,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     root.style.setProperty('--primary', primaryColor);
 
     // Update primary-foreground based on theme
-    root.style.setProperty(
-      '--primary-foreground',
-      isDark ? '#0d1117' : '#ffffff'
-    );
+    root.style.setProperty('--primary-foreground', isDark ? '#0d1117' : '#ffffff');
   }, [settings.theme, settings.accentColor]);
 
   return <>{children}</>;

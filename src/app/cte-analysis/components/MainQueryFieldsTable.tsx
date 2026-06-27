@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Hash, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { MainQueryField } from '@/lib/sqlAnalyzer';
+import type { AnalysisResult } from '@/lib/sqlAnalyzer';
 
 function OriginBadge({
   type,
@@ -27,7 +27,7 @@ function OriginBadge({
 }
 
 interface MainQueryFieldsTableProps {
-  fields: MainQueryField[];
+  fields: AnalysisResult['mainQueryFields'];
   t: ReturnType<typeof getT>;
 }
 
@@ -39,7 +39,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
   // Filter fields based on search term
   const filteredFields = useMemo(() => {
     if (!searchTerm.trim()) return fields;
-    
+
     const term = searchTerm.toLowerCase();
     return fields.filter(
       (field) =>
@@ -86,10 +86,13 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
       {/* Search & Filter Bar */}
       <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center gap-2">
         <div className="flex-1 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             type="text"
-            placeholder={t.searchPlaceholder || 'Search fields, aliases, tables...'}
+            placeholder={t.searchTables || 'Search fields, aliases, tables...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-8 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -110,7 +113,9 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
       {filteredFields.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">{searchTerm ? 'No fields match your search' : t.noData}</p>
+            <p className="text-sm text-muted-foreground">
+              {searchTerm ? 'No fields match your search' : t.noData}
+            </p>
           </div>
         </div>
       ) : (
@@ -144,7 +149,8 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                   <tr
                     key={`field-row-${startIdx + i}-${field.field}`}
                     className="border-b border-border/50 last:border-0"
-                    style={{ containment: 'layout style paint' }}\n                  >
+                    style={{ contain: 'layout style paint' }}
+                  >
                     <td className="px-4 py-3 text-xs text-muted-foreground font-mono border-r border-border/30">
                       {startIdx + i + 1}
                     </td>
@@ -172,7 +178,9 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                       )}
                     </td>
                     <td className="px-4 py-3 border-r border-border/30">
-                      <span className="text-xs font-mono text-muted-foreground">{field.origin}</span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {field.origin}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <OriginBadge type={field.type} t={t} />

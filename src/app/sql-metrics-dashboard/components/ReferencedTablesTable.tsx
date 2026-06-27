@@ -93,7 +93,10 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
     <div className="space-y-4">
       {/* Search Bar */}
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
         <input
           type="text"
           placeholder={`Search tables, aliases, or columns... (${filteredTables.length} found)`}
@@ -208,8 +211,9 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
           {/* Result Counter & Pagination */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-medium">
-              Showing {filteredTables.length === 0 ? 0 : startIdx + 1} to {Math.min(endIdx, filteredTables.length)} of{' '}
-              {filteredTables.length} {searchTerm && `(searched: ${tables.length})`}
+              Showing {filteredTables.length === 0 ? 0 : startIdx + 1} to{' '}
+              {Math.min(endIdx, filteredTables.length)} of {filteredTables.length}{' '}
+              {searchTerm && `(searched: ${tables.length})`}
             </span>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">

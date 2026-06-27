@@ -74,10 +74,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
       style={{ containment: 'layout style paint' } as any}
     >
       {/* Card Header */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left"
-      >
+      <button onClick={onToggle} className="w-full flex items-center gap-3 px-5 py-4 text-left">
         <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
           <Layers size={14} className="text-accent" />
         </div>
@@ -233,89 +230,91 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
             </div>
 
             {/* Right Panel: Tables, Fields, Deps, Column Refs */}
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-auto">
               {/* Referenced Tables */}
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {t.cteTables}
-                </h4>
-                {cte.tables.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {cte.tables.map((table, idx) => (
-                      <span
-                        key={`cte-table-${cte.id}-${idx}`}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-mono"
-                      >
-                        <Database size={10} />
-                        {table}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">{t.cteNoTablesDetected}</p>
-                )}
-              </div>
-
-              {/* CTE Dependencies */}
-              {cte.dependencies.length > 0 && (
+              <div className="space-y-2 overflow-auto max-h-48 scrollbar-thin">
                 <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <Link2 size={10} />
-                    {t.cteDepsLabel}
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    {t.cteTables}
                   </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {cte.dependencies.map((dep, idx) => (
-                      <span
-                        key={`dep-${cte.id}-${idx}`}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-xs font-mono border border-accent/20"
-                      >
-                        <Layers size={9} />
-                        {dep}
-                      </span>
-                    ))}
-                  </div>
+                  {cte.tables.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {cte.tables.map((table, idx) => (
+                        <span
+                          key={`cte-table-${cte.id}-${idx}`}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-mono"
+                        >
+                          <Database size={10} />
+                          {table}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">{t.cteNoTablesDetected}</p>
+                  )}
                 </div>
-              )}
 
-              {/* Column References */}
-              {cte.columnReferences.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <Columns size={10} />
-                    {t.cteColumnRefs}
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cte.columnReferences.map((col, idx) => (
-                      <span
-                        key={`col-${cte.id}-${idx}`}
-                        className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground border border-border/50"
-                      >
-                        {col}
-                      </span>
-                    ))}
+                {/* CTE Dependencies */}
+                {cte.dependencies.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Link2 size={10} />
+                      {t.cteDepsLabel}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {cte.dependencies.map((dep, idx) => (
+                        <span
+                          key={`dep-${cte.id}-${idx}`}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-xs font-mono border border-accent/20"
+                        >
+                          <Layers size={9} />
+                          {dep}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* Selected Fields */}
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {t.cteFields}
-                </h4>
-                {cte.fields.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {cte.fields.map((field, idx) => (
-                      <span
-                        key={`cte-field-${cte.id}-${idx}`}
-                        className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground"
-                      >
-                        {field}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">{t.cteNoFieldsDetected}</p>
                 )}
+
+                {/* Column References */}
+                {cte.columnReferences.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Columns size={10} />
+                      {t.cteColumnRefs}
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cte.columnReferences.map((col, idx) => (
+                        <span
+                          key={`col-${cte.id}-${idx}`}
+                          className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground border border-border/50"
+                        >
+                          {col}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected Fields */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    {t.cteFields}
+                  </h4>
+                  {cte.fields.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {cte.fields.map((field, idx) => (
+                        <span
+                          key={`cte-field-${cte.id}-${idx}`}
+                          className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground"
+                        >
+                          {field}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">{t.cteNoFieldsDetected}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

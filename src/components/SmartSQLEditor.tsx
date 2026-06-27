@@ -130,10 +130,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
 
   // ─── Helper: Parse error location from error message ──────────────────
 
-  const parseErrorLocation = (
-    errorMsg: string,
-    sql: string
-  ): { line: number; column: number } => {
+  const parseErrorLocation = (errorMsg: string, sql: string): { line: number; column: number } => {
     // Try to extract line:column from error message (format: "line X column Y: message")
     const lineColMatch = errorMsg.match(/line (\d+)(?:\s+column\s+(\d+))?/i);
     if (lineColMatch) {
@@ -269,7 +266,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       }
 
       logger.debug('Formatting SQL with dialect:', dialect);
-      
+
       const formatted = format(currentSql, {
         language: getFormatterLanguage(dialect),
       });
@@ -292,14 +289,12 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       toast.success(t.formattingSuccess || 'SQL formatted successfully');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('❌ SQL formatting failed', { 
+      logger.error('❌ SQL formatting failed', {
         error: errorMsg,
         dialect,
         sqlLength: (singleEditorRef.current?.getValue() || state.originalSql).length,
       });
-      toast.error(
-        `${t.formattingError || 'Formatting error'}: ${errorMsg}`
-      );
+      toast.error(`${t.formattingError || 'Formatting error'}: ${errorMsg}`);
     }
   }, [state.originalSql, dialect, validateSyntax, t]);
 

@@ -75,7 +75,12 @@ function ImpactBadge({ impact }: { impact: 'low' | 'medium' | 'high' }) {
   };
   const { label, cls } = cfg[impact];
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`} style={{ containment: 'layout' } as any}>{label}</span>
+    <span
+      className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`}
+      style={{ containment: 'layout' } as any}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -142,7 +147,10 @@ export default function MetricsDashboardContent() {
 
       {/* High Risk Alert */}
       {isHighRisk && (
-        <div className="mb-6 flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-xl" style={{ containment: 'layout style' } as any}>
+        <div
+          className="mb-6 flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-xl"
+          style={{ containment: 'layout style' } as any}
+        >
           <AlertTriangle size={16} className="text-danger flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-danger">High complexity detected</p>
@@ -318,7 +326,11 @@ export default function MetricsDashboardContent() {
           {complexity.factors.map((factor) => {
             const pct = Math.round((factor.contribution / (factor.weight * 5)) * 100);
             return (
-              <div key={`cfactor-${factor.name}`} className="space-y-1.5" style={{ containment: 'layout style paint' } as any}>
+              <div
+                key={`cfactor-${factor.name}`}
+                className="space-y-1.5"
+                style={{ containment: 'layout style paint' } as any}
+              >
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground font-medium">{factor.name}</span>
                   <div className="flex items-center gap-3 font-mono text-muted-foreground">

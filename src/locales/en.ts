@@ -716,6 +716,33 @@ const en = {
   diffViewErrorTitle: 'Diff view error:',
   ollamaConnectionError:
     'Failed to connect to Ollama API. Make sure it is running on http://localhost:11434',
+
+  // Guideline - Advanced Features Section
+  guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',
+  guidelineAdvancedFeaturesSubtitle: 'New pagination, search, and customization capabilities',
+  guidelineAdvancedFeaturesStep1Label: 'Main Query Fields Table with Pagination',
+  guidelineAdvancedFeaturesStep1Desc:
+    'View main query fields in a paginated, searchable table format. Displays 10 fields per page with real-time search filtering across field names, aliases, and source tables. Perfect for analyzing large queries with many fields.',
+  guidelineAdvancedFeaturesStep2Label: 'Referenced Tables with Advanced Filtering',
+  guidelineAdvancedFeaturesStep2Desc:
+    'Browse referenced tables (CTEs and base tables) in a dedicated panel with pagination and search. Shows table type badges (CTE/TABLE), column counts, and inline column lists. Search results update instantly as you type.',
+  guidelineAdvancedFeaturesStep3Label: 'Nested Subquery Section',
+  guidelineAdvancedFeaturesStep3Desc:
+    'Explore nested subqueries within CTEs with expandable detail cards. Features depth indicators (L1-L5 color-coded), join and aggregation badges, and inline SQL viewing. Shows table references and field counts for each nesting level.',
+  guidelineAdvancedFeaturesStep4Label: 'CTE Card with Full Metadata',
+  guidelineAdvancedFeaturesStep4Desc:
+    'View comprehensive CTE information including usage count, complexity level, recursive status, and dependencies. Displays referenced tables, CTE dependencies, and column references in organized panels. Includes issues banner for warnings and notes.',
+  guidelineAdvancedFeaturesStep5Label: 'Dynamic Accent Color Customization',
+  guidelineAdvancedFeaturesStep5Desc:
+    'Personalize the app appearance in Settings → Appearance. Select from 5 color presets: Cyan, Purple, Emerald, Orange, or Pink. Colors automatically adapt to dark/light theme and apply system-wide to all primary-colored UI elements instantly.',
+  guidelineAdvancedFeaturesTip1:
+    'Search is real-time and case-insensitive, filtering across all relevant fields simultaneously',
+  guidelineAdvancedFeaturesTip2:
+    'Pagination automatically resets to page 1 when you perform a new search for better UX',
+  guidelineAdvancedFeaturesTip3:
+    'Color selections are persisted to localStorage and restored on your next visit',
+  guidelineAdvancedFeaturesTip4:
+    'All components use CSS containment for optimal performance and faster rendering',
 } as const;
 
 export default en;

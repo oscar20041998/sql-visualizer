@@ -244,6 +244,41 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         { text: t.guidelineComplexityEvalTip3 },
       ],
     },
+    {
+      id: 'advanced-features',
+      icon: Lightbulb,
+      color: '#f59e0b',
+      title: t.guidelineAdvancedFeaturesTitle,
+      subtitle: t.guidelineAdvancedFeaturesSubtitle,
+      steps: [
+        {
+          label: t.guidelineAdvancedFeaturesStep1Label,
+          desc: t.guidelineAdvancedFeaturesStep1Desc,
+        },
+        {
+          label: t.guidelineAdvancedFeaturesStep2Label,
+          desc: t.guidelineAdvancedFeaturesStep2Desc,
+        },
+        {
+          label: t.guidelineAdvancedFeaturesStep3Label,
+          desc: t.guidelineAdvancedFeaturesStep3Desc,
+        },
+        {
+          label: t.guidelineAdvancedFeaturesStep4Label,
+          desc: t.guidelineAdvancedFeaturesStep4Desc,
+        },
+        {
+          label: t.guidelineAdvancedFeaturesStep5Label,
+          desc: t.guidelineAdvancedFeaturesStep5Desc,
+        },
+      ],
+      tips: [
+        { text: t.guidelineAdvancedFeaturesTip1 },
+        { text: t.guidelineAdvancedFeaturesTip2 },
+        { text: t.guidelineAdvancedFeaturesTip3 },
+        { text: t.guidelineAdvancedFeaturesTip4 },
+      ],
+    },
   ];
 }
 

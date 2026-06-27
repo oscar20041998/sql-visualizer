@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
+import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import SmartSQLEditor from '@/components/SmartSQLEditor';
 import {
@@ -230,96 +231,98 @@ export default function QueryInputContent() {
     t.tipDialect || 'Select correct dialect',
   ].filter(Boolean);
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
-      <LoadingOverlay
-        visible={isAnalyzing}
-        title={t.analyzing || 'Analyzing'}
-        description={t.parsingSQL || 'Parsing SQL...'}
-        hideDelay={300}
-        onHide={() => {
-          // Optional: Add any cleanup logic when loading completes
-        }}
-      />
+    <AppLayout>
+      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+        <LoadingOverlay
+          visible={isAnalyzing}
+          title={t.analyzing || 'Analyzing'}
+          description={t.parsingSQL || 'Parsing SQL...'}
+          hideDelay={300}
+          onHide={() => {
+            // Optional: Add any cleanup logic when loading completes
+          }}
+        />
 
-      {/* Header */}
-      <Header dialect={dialect} onDialectChange={setDialect} t={t} />
+        {/* Header */}
+        <Header dialect={dialect} onDialectChange={setDialect} t={t} />
 
-      {/* Smart Editor Tab - Fullscreen */}
-      {inputMode === 'smart-editor' && (
-        <div className="mb-6">
-          <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-          <div className="mt-4">
-            <SmartSQLEditor initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'} />
+        {/* Smart Editor Tab - Fullscreen */}
+        {inputMode === 'smart-editor' && (
+          <div className="mb-6">
+            <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+            <div className="mt-4">
+              <SmartSQLEditor initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Regular SQL/MyBatis Input */}
-      {inputMode !== 'smart-editor' && (
-        <>
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px]">
-            {/* Left: Input Panel */}
-            <div className="xl:col-span-2 space-y-4">
-              {/* Tabs */}
-              <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+        {/* Regular SQL/MyBatis Input */}
+        {inputMode !== 'smart-editor' && (
+          <>
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px]">
+              {/* Left: Input Panel */}
+              <div className="xl:col-span-2 space-y-4">
+                {/* Tabs */}
+                <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
 
-              {/* SQL Textarea */}
-              {inputMode === 'sql' && (
-                <SqlInputPanel
-                  value={rawSql}
-                  onChange={setRawSql}
-                  placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
-                />
-              )}
-
-              {/* MyBatis/XML Textarea */}
-              {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
-                <div className="space-y-4">
-                  <MyBatisPanel
-                    xmlContent={myBatisXml}
-                    onXmlChange={setMyBatisXml}
-                    onFileImport={handleXmlFileImport}
-                    placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
-                    showFileImport={inputMode === 'import-xml'}
+                {/* SQL Textarea */}
+                {inputMode === 'sql' && (
+                  <SqlInputPanel
+                    value={rawSql}
+                    onChange={setRawSql}
+                    placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
                   />
+                )}
 
-                  {/* Parameter Configuration */}
-                  {myBatisXml && (
-                    <ParameterConfig
-                      detectedParams={detectedParams}
-                      myBatisParams={myBatisParams}
-                      onParamChange={(key, value) =>
-                        setMyBatisParams({ ...myBatisParams, [key]: value })
-                      }
-                      conditionalParams={conditionalParams}
+                {/* MyBatis/XML Textarea */}
+                {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
+                  <div className="space-y-4">
+                    <MyBatisPanel
+                      xmlContent={myBatisXml}
+                      onXmlChange={setMyBatisXml}
+                      onFileImport={handleXmlFileImport}
+                      placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
+                      showFileImport={inputMode === 'import-xml'}
                     />
-                  )}
-                </div>
-              )}
 
-              {/* Action Buttons */}
-              <ActionButtons
-                onAnalyze={handleAnalyze}
-                onLoadSample={handleLoadSample}
-                onClear={handleClear}
-                isLoading={isAnalyzing}
-                t={t}
-              />
+                    {/* Parameter Configuration */}
+                    {myBatisXml && (
+                      <ParameterConfig
+                        detectedParams={detectedParams}
+                        myBatisParams={myBatisParams}
+                        onParamChange={(key, value) =>
+                          setMyBatisParams({ ...myBatisParams, [key]: value })
+                        }
+                        conditionalParams={conditionalParams}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <ActionButtons
+                  onAnalyze={handleAnalyze}
+                  onLoadSample={handleLoadSample}
+                  onClear={handleClear}
+                  isLoading={isAnalyzing}
+                  t={t}
+                />
+              </div>
+
+              {/* Right: Preview Panel */}
+              <div className="xl:col-span-2 space-y-4 h-full" style={{ maxHeight: '500px' }}>
+                <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
+              </div>
             </div>
 
-            {/* Right: Preview Panel */}
-            <div className="xl:col-span-2 space-y-4 h-full" style={{ maxHeight: '500px' }}>
-              <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
-            </div>
-          </div>
+            {/* Bottom: Complexity & Linting */}
+            <BottomAnalytics currentSql={currentSql} t={t} />
 
-          {/* Bottom: Complexity & Linting */}
-          <BottomAnalytics currentSql={currentSql} t={t} />
-
-          {/* Empty State Tips */}
-          {!currentSql && <EmptyStateTips tips={tips} />}
-        </>
-      )}
-    </div>
+            {/* Empty State Tips */}
+            {!currentSql && <EmptyStateTips tips={tips} />}
+          </>
+        )}
+      </div>
+    </AppLayout>
   );
 }
