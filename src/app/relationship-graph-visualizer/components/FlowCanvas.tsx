@@ -182,6 +182,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.1}
         maxZoom={2.5}
+        proOptions={{ hideAttribution: true }}
         attributionPosition="bottom-left"
         elevateEdgesOnSelect={!isPerformanceMode} // Disable for performance
         defaultEdgeOptions={{
