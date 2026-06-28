@@ -182,7 +182,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
   if (!selectMatch) return [];
 
   const fieldList = selectMatch[1];
-  const fields = fieldList.split(',').map((f) => f.trim());
+  const fields = splitSelectFields(fieldList);
 
   return fields.map((field) => {
     if (field.match(/^\*$/)) {
@@ -271,6 +271,62 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
   });
 }
 
+function splitSelectFields(fieldList: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let depth = 0;
+  let quote: string | null = null;
+
+  for (let i = 0; i < fieldList.length; i++) {
+    const ch = fieldList[i];
+    const next = fieldList[i + 1];
+
+    if (quote) {
+      current += ch;
+      if (ch === quote) {
+        if (next === quote) {
+          current += next;
+          i++;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+
+    if (ch === '(') {
+      depth++;
+      current += ch;
+      continue;
+    }
+
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      current += ch;
+      continue;
+    }
+
+    if (ch === ',' && depth === 0) {
+      const trimmed = current.trim();
+      if (trimmed) fields.push(trimmed);
+      current = '';
+      continue;
+    }
+
+    current += ch;
+  }
+
+  const tail = current.trim();
+  if (tail) fields.push(tail);
+  return fields;
+}
+
 // ─── Keyword & Clause Scoring ──────────────────────────────────────────
 
 function scoreKeywords(sql: string): {
@@ -305,6 +361,7 @@ function scoreKeywords(sql: string): {
   }
 
   // Joins
+  let specificJoinCount = 0;
   for (const [joinType, weight] of Object.entries(COMPLEXITY_WEIGHTS.joins)) {
     const cleanJoin = joinType.replace(/_/g, ' ');
     const pattern = new RegExp(`\\b${cleanJoin}\\b`, 'g');
@@ -313,7 +370,18 @@ function scoreKeywords(sql: string): {
       const subtotal = count * weight;
       keywords.push({ category: joinType, count, baseScore: weight, subtotal });
       total += subtotal;
+      specificJoinCount += count;
     }
+  }
+
+  // Bare JOIN (without explicit type) inherits INNER JOIN weight.
+  const totalJoinCount = (upper.match(/\bJOIN\b/g) || []).length;
+  const bareJoinCount = Math.max(0, totalJoinCount - specificJoinCount);
+  if (bareJoinCount > 0) {
+    const weight = COMPLEXITY_WEIGHTS.joins.INNER_JOIN;
+    const subtotal = bareJoinCount * weight;
+    keywords.push({ category: 'JOIN', count: bareJoinCount, baseScore: weight, subtotal });
+    total += subtotal;
   }
 
   // Set operations
@@ -337,11 +405,75 @@ function scoreKeywords(sql: string): {
 // ─── CTE Scoring ──────────────────────────────────────────────────────────
 
 function scoreCTEs(sql: string): { count: number; total: number } {
-  const withPattern = /\bWITH\b/gi;
-  const cteMatches = sql.match(withPattern) || [];
-  const count = cteMatches.length;
+  const count = countCteDefinitions(sql);
   const total = count * COMPLEXITY_WEIGHTS.advancedStructures.WITH_CTE;
   return { count, total };
+}
+
+function countCteDefinitions(sql: string): number {
+  const withMatch = /^\s*WITH\s+/i.exec(sql);
+  if (!withMatch) return 0;
+
+  const len = sql.length;
+  let pos = withMatch[0].length;
+  let count = 0;
+
+  function skipWhitespaceAndCommas(): void {
+    while (pos < len && /[\s,]/.test(sql[pos])) pos++;
+  }
+
+  function skipQuoted(startQuote: string): void {
+    pos++;
+    while (pos < len) {
+      if (sql[pos] === startQuote && sql[pos + 1] === startQuote) {
+        pos += 2;
+      } else if (sql[pos] === startQuote) {
+        pos++;
+        break;
+      } else {
+        pos++;
+      }
+    }
+  }
+
+  while (pos < len && count < 100) {
+    skipWhitespaceAndCommas();
+    if (pos >= len) break;
+
+    const recursiveMatch = /^RECURSIVE\s+/i.exec(sql.slice(pos));
+    if (recursiveMatch) pos += recursiveMatch[0].length;
+
+    const nameMatch = /^(?:"[^"]+"|`[^`]+`|\[[^\]]+\]|\w+)\s*/i.exec(sql.slice(pos));
+    if (!nameMatch) break;
+    pos += nameMatch[0].length;
+
+    const asMatch = /^AS\s*/i.exec(sql.slice(pos));
+    if (!asMatch) break;
+    pos += asMatch[0].length;
+
+    if (sql[pos] !== '(') break;
+    pos++;
+    count++;
+
+    let depth = 1;
+    while (pos < len && depth > 0) {
+      const ch = sql[pos];
+      if (ch === "'" || ch === '"' || ch === '`') {
+        skipQuoted(ch);
+        continue;
+      }
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      pos++;
+    }
+
+    let lookahead = pos;
+    while (lookahead < len && /\s/.test(sql[lookahead])) lookahead++;
+    if (lookahead >= len || sql[lookahead] !== ',') break;
+    pos = lookahead + 1;
+  }
+
+  return count;
 }
 
 // ─── Window Function Scoring ──────────────────────────────────────────────
@@ -372,7 +504,6 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
 
   for (let i = 0; i < sql.length; i++) {
     const ch = sql[i];
-    const nextTwo = sql.slice(i, i + 2);
 
     // Handle strings
     if (!inString && (ch === "'" || ch === '"' || ch === '`')) {
@@ -391,8 +522,8 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
 
       // Check if next non-whitespace token is SELECT
       const afterParen = sql.slice(i + 1).trimStart();
-      if (/^SELECT\b/i.test(afterParen) && depth > 1) {
-        // Subqueries are nested SELECT inside parentheses (not top-level)
+      if (/^SELECT\b/i.test(afterParen) && depth >= 1) {
+        // Any SELECT inside parentheses is treated as a subquery.
         selectCount++;
       }
     } else if (ch === ')') {
@@ -429,11 +560,11 @@ export function calculateQueryComplexity(sql: string): DetailedComplexityScore {
 
   // Determine complexity level
   let level: ComplexityLevel = 'LOW';
-  if (totalScore > 100) {
+  if (totalScore >= COMPLEXITY_THRESHOLDS.SUPER_HIGH.min) {
     level = 'SUPER_HIGH';
-  } else if (totalScore > 50) {
+  } else if (totalScore >= COMPLEXITY_THRESHOLDS.HIGH.min) {
     level = 'HIGH';
-  } else if (totalScore > 20) {
+  } else if (totalScore >= COMPLEXITY_THRESHOLDS.MEDIUM.min) {
     level = 'MEDIUM';
   }
 
