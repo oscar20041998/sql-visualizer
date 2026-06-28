@@ -981,18 +981,14 @@ export function extractMyBatisParams(xml: string): string[] {
 }
 
 export function resolveMyBatisParams(xml: string, params: Record<string, string>): string {
-  let resolved = xml;
+  const { sql } = parseMyBatisXml(xml);
+  let resolved = sql;
   for (const [key, value] of Object.entries(params)) {
     const escapedKey = escapeRegExp(key);
-    resolved = resolved.replace(new RegExp(`[#$]\\{${escapedKey}\\}`, 'g'), value || `'${key}'`);
+    const quotedValue = toSqlTextLiteral(value || key);
+    resolved = resolved.replace(new RegExp(`[#$]\\{${escapedKey}\\}`, 'g'), quotedValue);
   }
-  // Extract SQL from MyBatis XML tags
-  const sqlMatch =
-    /<(?:select|insert|update|delete)[^>]*>([\s\S]*?)<\/(?:select|insert|update|delete)>/i.exec(
-      resolved
-    );
-  if (sqlMatch) return sqlMatch[1].trim();
-  return resolved;
+  return resolved.trim();
 }
 
 /** Extract clean SQL and parameters from MyBatis XML content */
@@ -1018,6 +1014,9 @@ export function parseMyBatisXml(xml: string): { sql: string; params: string[] } 
     .replace(/<(?:where|set|trim|foreach|choose|when|otherwise)[^>]*>/gi, '')
     .replace(/<\/(?:where|set|trim|foreach|choose|when|otherwise)>/gi, '');
 
+  // Decode XML entities used in MyBatis SQL content.
+  sqlContent = decodeMyBatisXmlEntities(sqlContent);
+
   // Clean up whitespace and SQL formatting
   sqlContent = sqlContent
     .split('\n')
@@ -1041,6 +1040,26 @@ function collectMyBatisParams(input: string): string[] {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function toSqlTextLiteral(value: string): string {
+  const trimmed = value.trim();
+  const unwrapped =
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  const escaped = unwrapped.replace(/'/g, "''");
+  return `'${escaped}'`;
+}
+
+function decodeMyBatisXmlEntities(sql: string): string {
+  return sql
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
 }
 
 /** Get conditional parameters from <if> tags in MyBatis XML */

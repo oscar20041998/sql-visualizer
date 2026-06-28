@@ -12,6 +12,7 @@ import {
   analyzeSql,
   extractMyBatisParams,
   parseMyBatisXml,
+  resolveMyBatisParams,
   getConditionalParams,
   type SqlDialect,
 } from '@/lib/sqlAnalyzer';
@@ -141,18 +142,7 @@ export default function QueryInputContent() {
       // For SQL mode, don't use resolved SQL - clear it
       setResolvedSql('');
     } else if ((inputMode === 'mybatis' || inputMode === 'import-xml') && myBatisXml) {
-      // Parse MyBatis XML to get clean SQL without any XML tags
-      const { sql: cleanSql } = parseMyBatisXml(myBatisXml);
-
-      // Replace parameters in the clean SQL
-      let resolved = cleanSql;
-      for (const [key, value] of Object.entries(myBatisParams)) {
-        if (value) {
-          resolved = resolved.replace(new RegExp(`[#$]\\{${key}\\}`, 'g'), value);
-        }
-      }
-
-      setResolvedSql(resolved);
+      setResolvedSql(resolveMyBatisParams(myBatisXml, myBatisParams));
     } else {
       // No XML content yet
       setResolvedSql('');
