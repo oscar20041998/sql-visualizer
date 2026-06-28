@@ -389,6 +389,11 @@ export default function GraphVisualizerContent() {
   };
 
   const selectedNode = filteredTables.find((tbl) => tbl.id === selectedNodeId);
+  const selectedCte =
+    selectedNode?.isCTE && analysisResult
+      ? analysisResult.ctes.find((cte) => cte.name.toLowerCase() === selectedNode.name.toLowerCase())
+      : null;
+  const selectedCteTables = selectedCte?.tables ?? [];
   const connectedJoins =
     filteredJoins.filter(
       (j) => j.source === selectedNodeId || j.target === selectedNodeId
@@ -722,6 +727,22 @@ export default function GraphVisualizerContent() {
                             className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground"
                           >
                             {col}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedNode.isCTE && selectedCteTables.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">{t.cteTables}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedCteTables.map((tableName) => (
+                          <span
+                            key={`cte-table-${selectedNode.id}-${tableName}`}
+                            className="px-2 py-0.5 rounded bg-muted text-xs font-mono text-muted-foreground"
+                          >
+                            {tableName}
                           </span>
                         ))}
                       </div>
