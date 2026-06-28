@@ -14,7 +14,7 @@ const LEVEL_COLORS: Record<ComplexityLevel, string> = {
   LOW: 'var(--complexity-low)',
   MEDIUM: 'var(--complexity-medium)',
   HIGH: 'var(--complexity-high)',
-  'SUPER HIGH': 'var(--complexity-super)',
+  'SUPER_HIGH': 'var(--complexity-super)',
 };
 
 export default function ComplexityGauge({ score, maxScore, level }: Props) {

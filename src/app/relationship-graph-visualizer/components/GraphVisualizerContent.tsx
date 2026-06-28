@@ -173,7 +173,7 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
   }
 
   // ── Complexity level ──
-  if (complexity.level === 'SUPER HIGH') {
+  if (complexity.level === 'SUPER_HIGH') {
     suggestions.push({
       id: 'super-high-complexity',
       severity: 'error',

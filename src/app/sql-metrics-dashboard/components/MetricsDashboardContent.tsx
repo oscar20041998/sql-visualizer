@@ -115,25 +115,25 @@ export default function MetricsDashboardContent() {
     LOW: 'var(--complexity-low)',
     MEDIUM: 'var(--complexity-medium)',
     HIGH: 'var(--complexity-high)',
-    'SUPER HIGH': 'var(--complexity-super)',
+    'SUPER_HIGH': 'var(--complexity-super)',
   };
 
   const complexityBadgeMap = {
     LOW: 'complexity-badge-low',
     MEDIUM: 'complexity-badge-medium',
     HIGH: 'complexity-badge-high',
-    'SUPER HIGH': 'complexity-badge-super',
+    'SUPER_HIGH': 'complexity-badge-super',
   };
 
   const complexityLabelMap = {
     LOW: t.complexityLow,
     MEDIUM: t.complexityMedium,
     HIGH: t.complexityHigh,
-    'SUPER HIGH': t.complexitySuperHigh,
+    'SUPER_HIGH': t.complexitySuperHigh,
   };
 
   const complexityColor = complexityColorMap[complexity.level];
-  const isHighRisk = complexity.level === 'HIGH' || complexity.level === 'SUPER HIGH';
+  const isHighRisk = complexity.level === 'HIGH' || complexity.level === 'SUPER_HIGH';
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">

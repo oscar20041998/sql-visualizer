@@ -1,7 +1,7 @@
 -- =================================================================================================
 -- ENTERPRISE RISK, LIQUIDITY, AND PORTFOLIO PERFORMANCE END-OF-DAY ENGINE
 -- Target Dialect: PostgreSQL / Standard SQL Standard Compliance
--- Total Expected Lines: ~500 | CTEs: 6 | Complexity: SUPER HIGH (Level 5)
+-- Total Expected Lines: ~500 | CTEs: 6 | Complexity: SUPER_HIGH (Level 5)
 -- =================================================================================================
 WITH RECURSIVE -- -------------------------------------------------------------------------------------------------
 -- CTE 1: time_spine (Recursive CTE)

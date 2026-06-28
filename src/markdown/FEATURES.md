@@ -17,7 +17,7 @@ The latest update introduces adaptive complexity-level evaluation using a **medi
 - **LOW**: 0 to 50% of Median
 - **MEDIUM**: 50% to 100% of Median
 - **HIGH**: 100% to 200% of Median
-- **SUPER HIGH**: > 200% of Median
+- **SUPER_HIGH**: > 200% of Median
 
 ### Why it matters
 
@@ -107,14 +107,14 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
 
 - **Real-Time Complexity Dashboard:**
   - Displays as you type in Query Input
-  - Shows complexity level (LOW/MEDIUM/HIGH/SUPER HIGH) with color badge
+  - Shows complexity level (LOW/MEDIUM/HIGH/SUPER_HIGH) with color badge
   - Score progress bar (score / maximum possible)
   - Quick breakdown cards showing contributing factors
   - Instant linting alerts for anti-patterns
 
 - **Complexity Gauge:**
   - 0–100 complexity score with visual radial gauge
-  - Color-coded severity: LOW (green) → MEDIUM (yellow) → HIGH (orange) → SUPER HIGH (red)
+  - Color-coded severity: LOW (green) → MEDIUM (yellow) → HIGH (orange) → SUPER_HIGH (red)
   - Percentage of maximum complexity
   - Interpretation guide
 
@@ -158,7 +158,7 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
 - `orderByCount`: ORDER BY clause count
 - `distinctCount`: DISTINCT operation count
 - `totalScore`: Cumulative complexity score (0+)
-- `complexityLevel`: Severity level (LOW/MEDIUM/HIGH/SUPER HIGH)
+- `complexityLevel`: Severity level (LOW/MEDIUM/HIGH/SUPER_HIGH)
 
 **Complexity Level Interpretation:**
 
@@ -167,7 +167,7 @@ Quantified complexity analysis and performance heuristics for your SQL queries.
 | **LOW**        | 0-20        | Simple query, well-optimized          | No action needed, good for frequent execution            |
 | **MEDIUM**     | 21-50       | Moderate complexity                   | Review indexes and join order                            |
 | **HIGH**       | 51-100      | Complex query with optimization risks | Consider decomposition, review query plan                |
-| **SUPER HIGH** | 101+        | Very complex, high risk               | Strong refactoring recommended, critical review required |
+| **SUPER_HIGH** | 101+        | Very complex, high risk               | Strong refactoring recommended, critical review required |
 
 **Use Cases:**
 
@@ -601,7 +601,7 @@ _Migrating queries to different database_
 - Actions: Use materialized CTEs, implement result caching, add indexes on join columns
 - Target: Try to reduce to MEDIUM before production
 
-**Score 101+ (SUPER HIGH)**
+**Score 101+ (SUPER_HIGH)**
 
 - 🚨 Critical complexity
 - 🚨 High risk of timeout/lock contention
@@ -620,7 +620,7 @@ _Migrating queries to different database_
 5. Use window functions instead of subqueries where possible
 6. Index columns used in JOIN conditions and WHERE clauses
 
-**For SUPER HIGH Complexity:**
+**For SUPER_HIGH Complexity:**
 
 1. Decompose into staged transformation queries
 2. Use materialized views or temporary tables for intermediate steps
@@ -772,7 +772,7 @@ const COMPLEXITY_WEIGHTS = {
 
 ### Query Refactoring Checklist
 
-When facing HIGH or SUPER HIGH complexity:
+When facing HIGH or SUPER_HIGH complexity:
 
 - [ ] Review every JOIN - necessary and optimized?
 - [ ] Look for missing WHERE clause - add filtering early
@@ -882,7 +882,7 @@ When facing HIGH or SUPER HIGH complexity:
    - Check Metrics Dashboard for overall metrics
 
 2. **Understand Complexity**
-   - Notice the complexity level badge (LOW/MEDIUM/HIGH/SUPER HIGH)
+   - Notice the complexity level badge (LOW/MEDIUM/HIGH/SUPER_HIGH)
    - Read linting alerts and understand the warnings
    - Look at the complexity breakdown to see which factors contribute most
 

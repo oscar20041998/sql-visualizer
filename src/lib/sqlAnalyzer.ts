@@ -85,7 +85,7 @@ export interface SqlMetrics {
   selectFields: number;
 }
 
-export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER HIGH';
+export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER_HIGH';
 
 export interface ComplexityScore {
   level: ComplexityLevel;
@@ -834,7 +834,7 @@ function computeComplexity(metrics: SqlMetrics): ComplexityScore {
 
   let level: ComplexityLevel = 'LOW';
   const ratio = score / maxScore;
-  if (ratio >= 0.75) level = 'SUPER HIGH';
+  if (ratio >= 0.75) level = 'SUPER_HIGH';
   else if (ratio >= 0.5) level = 'HIGH';
   else if (ratio >= 0.25) level = 'MEDIUM';
 
@@ -893,7 +893,7 @@ function computeExecutionCost(
     LOW: translation.executionCostRecommendationLow,
     MEDIUM: translation.executionCostRecommendationMedium,
     HIGH: translation.executionCostRecommendationHigh,
-    'SUPER HIGH': translation.executionCostRecommendationSuperHigh,
+    'SUPER_HIGH': translation.executionCostRecommendationSuperHigh,
   };
 
   return {
