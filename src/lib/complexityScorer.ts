@@ -3,7 +3,31 @@
  * Comprehensive scoring based on keywords, window functions, SELECT fields, and linting rules
  */
 
+import { getT, type Locale, type Translations } from './i18n';
+
+const SCORE_LIST_KEY = 'complexityScoreList';
+
 export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER_HIGH';
+
+type ComplexityLevelLabelKey =
+  | 'complexityLow'
+  | 'complexityMedium'
+  | 'complexityHigh'
+  | 'complexitySuper';
+
+interface ComplexityLevelDefinition {
+  level: ComplexityLevel;
+  min: number;
+  max: number;
+  labelKey: ComplexityLevelLabelKey;
+}
+
+export interface ComplexityLevelItem {
+  level: ComplexityLevel;
+  label: string;
+  min: number;
+  max: number;
+}
 
 export interface ComplexityWeights {
   baseClauses: Record<string, number>;
@@ -32,6 +56,7 @@ export interface LintingIssue {
 export interface DetailedComplexityScore {
   totalScore: number;
   level: ComplexityLevel;
+  levelLabel: string;
   scoreBreakdown: {
     keywords: { category: string; count: number; baseScore: number; subtotal: number }[];
     selectFields: { complexityScore: number; fieldCount: number; avgComplexity: number };
@@ -97,33 +122,108 @@ export const COMPLEXITY_WEIGHTS: ComplexityWeights = {
 
 // ─── Score Thresholds ────────────────────────────────────────────────────
 
-const COMPLEXITY_THRESHOLDS = {
-  LOW: { min: 0, max: 20 },
-  MEDIUM: { min: 21, max: 50 },
-  HIGH: { min: 51, max: 100 },
-  SUPER_HIGH: { min: 101, max: Infinity },
-};
+// const COMPLEXITY_LEVEL_DEFINITIONS: ComplexityLevelDefinition[] = [
+//   { level: 'LOW', min: 0, max: 20, labelKey: 'complexityLow' },
+//   { level: 'MEDIUM', min: 21, max: 50, labelKey: 'complexityMedium' },
+//   { level: 'HIGH', min: 51, max: 100, labelKey: 'complexityHigh' },
+//   { level: 'SUPER_HIGH', min: 101, max: Infinity, labelKey: 'complexitySuper' },
+// ];
 
+export function getComplexityLevelList(locale: Locale = 'en', definitions: ComplexityLevelDefinition[]): ComplexityLevelItem[] {
+  const t = getT(locale);
+  return definitions.map((item) => ({
+    level: item.level,
+    label: t[item.labelKey],
+    min: item.min,
+    max: item.max,
+  }));
+}
+
+/**
+ * Generates dynamic complexity level definitions based on the median score.
+ * This allows for adaptive thresholds based on the distribution of scores.
+ */
+export function generateComplexityDefinitions(median: number, locale: Locale = 'en'): ComplexityLevelDefinition[] {
+  const t = getT(locale);
+  // Ensure median is at least 10 to avoid overly low thresholds
+  const safeMedian = Math.max(median, 10);
+
+  const lowMax = Math.round(safeMedian * 0.5);       // Half of Median
+  const mediumMax = Math.round(safeMedian);           // Median
+  const highMax = Math.round(safeMedian * 2);         // Double Median
+
+  return [
+    { level: 'LOW', min: 0, max: lowMax, labelKey: 'complexityLow' },
+    { level: 'MEDIUM', min: lowMax + 1, max: mediumMax, labelKey: 'complexityMedium' },
+    { level: 'HIGH', min: mediumMax + 1, max: highMax, labelKey: 'complexityHigh' },
+    { level: 'SUPER_HIGH', min: highMax + 1, max: Infinity, labelKey: 'complexitySuper' },
+  ];
+}
+
+/**
+ * Hàm tính Median từ danh sách scores lấy từ localStorage và phân loại Level động
+ */
+export function calculateScoredByMedian(scores: number[]): { median: number; level: ComplexityLevel; dynamicDefinitions: ComplexityLevelDefinition[] } {
+  if (!scores || scores.length === 0) {
+    return { median: 0, level: 'LOW', dynamicDefinitions: generateComplexityDefinitions(0) };
+  }
+
+  // Khử nhiễu & sắp xếp
+  const sortedScores = [...scores].sort((a, b) => a - b);
+  const len = sortedScores.length;
+  const mid = Math.floor(len / 2);  
+
+  // Tính số trung vị (Median)
+  const median = len % 2 !== 0 
+    ? sortedScores[mid] 
+    : (sortedScores[mid - 1] + sortedScores[mid]) / 2;
+
+  // Khởi tạo các mốc khoảng cách MỚI dựa trên Median vừa tính
+  const dynamicDefinitions = generateComplexityDefinitions(median);
+
+  // Đối chiếu tìm Level hiện tại
+  const level = dynamicDefinitions.find(
+    (item) => median >= item.min && median <= item.max
+  )?.level || 'LOW';
+
+  return { median, level, dynamicDefinitions };
+}
+
+export function getScoresFromLocalStorage(): number[] {
+  try {
+    const rawData = localStorage.getItem(SCORE_LIST_KEY);
+    if (!rawData) {
+      return [];
+    }
+    const parsed = JSON.parse(rawData);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is number => typeof item === 'number' && !isNaN(item));
+    }
+    return [];
+  } catch (error) {
+    console.error('Error parsing scores from localStorage:', error);
+    return [];
+  }
+}
 // ─── Linting Rules ──────────────────────────────────────────────────────
 
-export function checkSelectAll(sql: string): LintingIssue[] {
+export function checkSelectAll(sql: string, t: Translations = getT('en')): LintingIssue[] {
   const issues: LintingIssue[] = [];
   const selectAllPattern = /SELECT\s+\*/gi;
 
   if (selectAllPattern.test(sql)) {
     issues.push({
-      rule: 'SELECT_ALL',
+      rule: t.lintingSelectAll,
       severity: 'warning',
-      message: 'Anti-pattern detected: Avoid using `SELECT *` in large-scale systems.',
-      suggestion:
-        'Please explicitly define your projection columns to reduce I/O and network overhead.',
+      message: t.lintingSelectAllMessage,
+      suggestion: t.lintingSelectAllSuggestion,
     });
   }
 
   return issues;
 }
 
-export function checkOtherLintingRules(sql: string): LintingIssue[] {
+export function checkOtherLintingRules(sql: string, t: Translations = getT('en')): LintingIssue[] {
   const issues: LintingIssue[] = [];
   const upper = sql.toUpperCase();
 
@@ -140,21 +240,21 @@ export function checkOtherLintingRules(sql: string): LintingIssue[] {
   }
   if (maxDepth > 6) {
     issues.push({
-      rule: 'DEEP_NESTING',
+      rule: t.lintingDeepNesting,
       severity: 'warning',
-      message: `Deep nesting detected (${maxDepth} levels). This may degrade query optimization.`,
-      suggestion: 'Consider refactoring using CTEs or breaking into smaller queries.',
+      message: t.lintingDeepNestingMessage,
+      suggestion: t.lintingDeepNestingSuggestion,
+      location: `${maxDepth} levels`,
     });
   }
 
   // Cross join warning
   if (/CROSS\s+JOIN/i.test(sql)) {
     issues.push({
-      rule: 'CROSS_JOIN',
+      rule: t.lintingCrossJoin,
       severity: 'warning',
-      message: 'CROSS JOIN produces Cartesian product. This can exponentially increase row counts.',
-      suggestion:
-        'Verify this is intentional. Consider adding proper join conditions to replace with INNER JOIN.',
+      message: t.lintingCrossJoinMessage,
+      suggestion: t.lintingCrossJoinSuggestion,
     });
   }
 
@@ -165,10 +265,10 @@ export function checkOtherLintingRules(sql: string): LintingIssue[] {
     (upper.match(/\b(SELECT|FROM|JOIN)\b/g) || []).length > 3
   ) {
     issues.push({
-      rule: 'MISSING_WHERE',
+      rule: t.lintingMissingWhere,
       severity: 'warning',
-      message: 'Complex query without WHERE clause. May scan entire tables unnecessarily.',
-      suggestion: 'Add filtering predicates to reduce the working set.',
+      message: t.lintingMissingWhereMessage,
+      suggestion: t.lintingMissingWhereSuggestion,
     });
   }
 
@@ -177,7 +277,7 @@ export function checkOtherLintingRules(sql: string): LintingIssue[] {
 
 // ─── SELECT Field Complexity Analysis ────────────────────────────────────
 
-function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
+function analyzeSelectFields(sql: string, t: Translations = getT('en')): SelectFieldComplexity[] {
   const selectMatch = /SELECT\s+([\s\S]+?)\s+FROM/i.exec(sql);
   if (!selectMatch) return [];
 
@@ -190,7 +290,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field: '*',
         type: 'raw',
         complexity: 1,
-        reason: 'Unbounded column selection',
+        reason: t.complexityFieldReasonUnboundedSelection,
       };
     }
 
@@ -200,7 +300,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'subquery',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.subquery,
-        reason: 'Scalar subquery in SELECT',
+        reason: t.complexityFieldReasonScalarSubquery,
       };
     }
 
@@ -213,7 +313,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'conditional',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.conditional,
-        reason: 'CASE WHEN conditional expression',
+        reason: t.complexityFieldReasonCaseWhen,
       };
     }
 
@@ -223,7 +323,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'aggregate',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.aggregate,
-        reason: 'Aggregate function',
+        reason: t.complexityFieldReasonAggregate,
       };
     }
 
@@ -237,7 +337,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'function',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.function,
-        reason: 'Scalar function',
+        reason: t.complexityFieldReasonScalarFunction,
       };
     }
 
@@ -247,7 +347,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'alias',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.alias,
-        reason: 'Aliased expression',
+        reason: t.complexityFieldReasonAliasedExpression,
       };
     }
 
@@ -257,7 +357,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
         field,
         type: 'alias',
         complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.alias,
-        reason: 'Complex expression',
+        reason: t.complexityFieldReasonComplexExpression,
       };
     }
 
@@ -266,7 +366,7 @@ function analyzeSelectFields(sql: string): SelectFieldComplexity[] {
       field,
       type: 'raw',
       complexity: COMPLEXITY_WEIGHTS.selectFieldTypes.raw,
-      reason: 'Direct column reference',
+      reason: t.complexityFieldReasonDirectColumn,
     };
   });
 }
@@ -539,9 +639,13 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
 
 // ─── Main Complexity Calculation ────────────────────────────────────────
 
-export function calculateQueryComplexity(sql: string): DetailedComplexityScore {
+export function calculateQueryComplexity(
+  sql: string,
+  locale: Locale = 'en'
+): DetailedComplexityScore {
+  const t = getT(locale);
   const keywords = scoreKeywords(sql);
-  const selectFields = analyzeSelectFields(sql);
+  const selectFields = analyzeSelectFields(sql, t);
   const ctes = scoreCTEs(sql);
   const windowFunctions = scoreWindowFunctions(sql);
   const subqueries = scoreSubqueries(sql);
@@ -550,30 +654,32 @@ export function calculateQueryComplexity(sql: string): DetailedComplexityScore {
   const selectComplexityScore = selectFields.reduce((sum, field) => sum + field.complexity, 0);
   const selectFieldCount = selectFields.filter((f) => f.field !== '*').length;
   const avgSelectComplexity = selectFieldCount > 0 ? selectComplexityScore / selectFieldCount : 0;
+  const scoreList = getScoresFromLocalStorage();
 
   // Calculate total score
   let totalScore =
     keywords.total + selectComplexityScore + ctes.total + windowFunctions.total + subqueries.total;
 
   // Calculate max possible score (estimate for scaling)
-  const maxScorePossible = 250; // Reasonable cap for very complex queries
+  const dataScoreAnalyis = calculateScoredByMedian(scoreList); // Reasonable cap for very complex queries
 
-  // Determine complexity level
-  let level: ComplexityLevel = 'LOW';
-  if (totalScore >= COMPLEXITY_THRESHOLDS.SUPER_HIGH.min) {
-    level = 'SUPER_HIGH';
-  } else if (totalScore >= COMPLEXITY_THRESHOLDS.HIGH.min) {
-    level = 'HIGH';
-  } else if (totalScore >= COMPLEXITY_THRESHOLDS.MEDIUM.min) {
-    level = 'MEDIUM';
-  }
+  const levelList = getComplexityLevelList(locale, dataScoreAnalyis.dynamicDefinitions);
+  // Determine complexity level from the level definition list.
+  const matchedLevel =
+    levelList.find((item) => totalScore >= item.min && totalScore <= item.max) || levelList[0];
+  const level = matchedLevel.level;
 
   // Collect linting issues
-  const lintingIssues = [...checkSelectAll(sql), ...checkOtherLintingRules(sql)];
+  const lintingIssues = [...checkSelectAll(sql, t), ...checkOtherLintingRules(sql, t)];
+
+  // Store the score in localStorage for future median calculations
+  scoreList.push(totalScore);
+  localStorage.setItem(SCORE_LIST_KEY, JSON.stringify(scoreList));
 
   return {
     totalScore,
     level,
+    levelLabel: matchedLevel.label,
     scoreBreakdown: {
       keywords: keywords.keywords,
       selectFields: {
@@ -601,8 +707,8 @@ export function calculateQueryComplexity(sql: string): DetailedComplexityScore {
       },
     },
     lintingIssues,
-    maxScorePossible,
-    percentageOfMax: (totalScore / maxScorePossible) * 100,
+    maxScorePossible: dataScoreAnalyis.median,
+    percentageOfMax: (totalScore / dataScoreAnalyis.median) * 100,
   };
 }
 

@@ -23,7 +23,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
   ];
 
   return (
-    <div className="flex items-center border-b border-border overflow-x-auto">
+    <div className="flex items-center border-b border-border overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
       {tabs.map((tab) => (
         <button
           key={`tab-${tab.value}`}

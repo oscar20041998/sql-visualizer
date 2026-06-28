@@ -42,8 +42,11 @@ const en = {
   loadSample: 'Load Sample',
   resolvedPreviewTitle: 'Resolved SQL Preview',
   resolvedPreviewEmpty: 'Resolved SQL will appear here as you fill parameters',
+  sqlEmpty: 'No SQL to analyze. Paste or import a query to begin.',
   charCount: 'characters',
   linesCount: 'lines',
+  sqlResolved: 'Resolved SQL',
+  sqlReview: 'Review SQL',
 
   // Tips
   tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
@@ -487,6 +490,16 @@ const en = {
     'Complex query without WHERE clause. May scan entire tables unnecessarily.',
   lintingMissingWhereSuggestion: 'Add filtering predicates to reduce the working set.',
 
+  // Complexity Scoring - Select Field Reasons
+  complexityFieldReasonUnboundedSelection: 'Unbounded column selection',
+  complexityFieldReasonScalarSubquery: 'Scalar subquery in SELECT',
+  complexityFieldReasonCaseWhen: 'CASE WHEN conditional expression',
+  complexityFieldReasonAggregate: 'Aggregate function',
+  complexityFieldReasonScalarFunction: 'Scalar function',
+  complexityFieldReasonAliasedExpression: 'Aliased expression',
+  complexityFieldReasonComplexExpression: 'Complex expression',
+  complexityFieldReasonDirectColumn: 'Direct column reference',
+
   // Complexity Scoring - Guidelines
   guidelineSubtitle:
     'Understand how SQL Visualizer calculates query complexity and identifies performance risks.',
@@ -622,6 +635,9 @@ const en = {
   scoreTableSubqueryField: 'Scalar Subquery (e.g., (SELECT ...))',
   scoreTableAggregateField: 'Aggregate Function (e.g., SUM, COUNT)',
   scoreTableFunctionField: 'Scalar Function (e.g., UPPER, ROUND)',
+  scoreTableFooterNoteLabel: 'Note:',
+  scoreTableFooterNoteBody:
+    'Weights are cumulative. A query with 2 JOINs adds 8-10 points (4-5 per JOIN). Window Functions can stack - each OVER clause is 6 points plus 3 for PARTITION BY.',
 
   // Metrics Dashboard - Tables & Fields
   referencedTablesTitle: 'Referenced Tables',

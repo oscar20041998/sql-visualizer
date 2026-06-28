@@ -391,13 +391,13 @@ export default function GraphVisualizerContent() {
   const selectedNode = filteredTables.find((tbl) => tbl.id === selectedNodeId);
   const selectedCte =
     selectedNode?.isCTE && analysisResult
-      ? analysisResult.ctes.find((cte) => cte.name.toLowerCase() === selectedNode.name.toLowerCase())
+      ? analysisResult.ctes.find(
+          (cte) => cte.name.toLowerCase() === selectedNode.name.toLowerCase()
+        )
       : null;
   const selectedCteTables = selectedCte?.tables ?? [];
   const connectedJoins =
-    filteredJoins.filter(
-      (j) => j.source === selectedNodeId || j.target === selectedNodeId
-    ) || [];
+    filteredJoins.filter((j) => j.source === selectedNodeId || j.target === selectedNodeId) || [];
 
   const extractedRows = useMemo(() => {
     if (!analysisResult) return [];
@@ -548,7 +548,9 @@ export default function GraphVisualizerContent() {
                   <span>{t.graphFilterLabel}</span>
                   <select
                     value={relationshipFilter}
-                    onChange={(e) => setRelationshipFilter(e.target.value as RelationshipFilterMode)}
+                    onChange={(e) =>
+                      setRelationshipFilter(e.target.value as RelationshipFilterMode)
+                    }
                     className="px-2 py-1 rounded-md bg-muted border border-border text-foreground font-mono"
                   >
                     <option value="all">{t.graphFilterAll}</option>

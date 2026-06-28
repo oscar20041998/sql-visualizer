@@ -40,8 +40,11 @@ const vi = {
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',
   resolvedPreviewEmpty: 'SQL đã giải quyết sẽ hiển thị ở đây khi bạn điền tham số',
+  sqlEmpty: 'Không có SQL để phân tích. Dán hoặc nhập truy vấn để bắt đầu.',
   charCount: 'ký tự',
   linesCount: 'dòng',
+  sqlResolved: 'SQL đã giải quyết',
+  sqlReview: 'Xem lại SQL',
 
   // Tips
   tipCTE: 'Sử dụng WITH...AS cho CTE để phân tích CTE đầy đủ',
@@ -485,6 +488,16 @@ const vi = {
     'Truy vấn phức tạp không có mệnh đề WHERE. Có thể quét toàn bộ bảng không cần thiết.',
   lintingMissingWhereSuggestion: 'Thêm các vị từ lọc để giảm tập hợp làm việc.',
 
+  // Complexity Scoring - Select Field Reasons
+  complexityFieldReasonUnboundedSelection: 'Chọn cột không giới hạn',
+  complexityFieldReasonScalarSubquery: 'Truy vấn con vô hướng trong SELECT',
+  complexityFieldReasonCaseWhen: 'Biểu thức điều kiện CASE WHEN',
+  complexityFieldReasonAggregate: 'Hàm tổng hợp',
+  complexityFieldReasonScalarFunction: 'Hàm vô hướng',
+  complexityFieldReasonAliasedExpression: 'Biểu thức có bí danh',
+  complexityFieldReasonComplexExpression: 'Biểu thức phức tạp',
+  complexityFieldReasonDirectColumn: 'Tham chiếu cột trực tiếp',
+
   // Complexity Scoring - Guidelines
   guidelineSubtitle:
     'Hiểu cách SQL Visualizer tính toán độ phức tạp truy vấn và xác định rủi ro hiệu suất.',
@@ -620,6 +633,9 @@ const vi = {
   scoreTableSubqueryField: 'Truy vấn con vô hướng (ví dụ: (SELECT ...))',
   scoreTableAggregateField: 'Hàm tổng hợp (ví dụ: SUM, COUNT)',
   scoreTableFunctionField: 'Hàm vô hướng (ví dụ: UPPER, ROUND)',
+  scoreTableFooterNoteLabel: 'Lưu ý:',
+  scoreTableFooterNoteBody:
+    'Trọng số được cộng dồn. Một truy vấn có 2 JOIN sẽ thêm 8-10 điểm (4-5 điểm cho mỗi JOIN). Hàm cửa sổ có thể cộng dồn - mỗi mệnh đề OVER là 6 điểm cộng thêm 3 điểm cho PARTITION BY.',
 
   // Metrics Dashboard - Tables & Fields
   referencedTablesTitle: 'Bảng được tham chiếu',

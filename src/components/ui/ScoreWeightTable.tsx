@@ -270,9 +270,8 @@ export default function ScoreWeightTable() {
       {/* Footer Info */}
       <div className="bg-muted/30 px-6 py-3 flex items-start gap-2">
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground">Note:</span> Weights are cumulative. A
-          query with 2 JOINs adds 8-10 points (4-5 per JOIN). Window Functions can stack – each OVER
-          clause is 6 points plus 3 for PARTITION BY.
+          <span className="font-semibold text-foreground">{t.scoreTableFooterNoteLabel}</span>{' '}
+          {t.scoreTableFooterNoteBody}
         </p>
       </div>
     </div>

@@ -22,7 +22,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ currentSql, inputMod
         <div className="flex items-center gap-2">
           <Eye size={14} className="text-primary" />
           <span className="text-sm font-medium text-foreground">
-            {inputMode === 'sql' ? 'SQL Preview' : 'Resolved Query'}
+            {inputMode === 'sql' ? t.sqlReview : t.sqlResolved}
           </span>
         </div>
         <button
@@ -40,7 +40,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ currentSql, inputMod
           </pre>
         ) : (
           <p className="text-xs text-muted-foreground italic">
-            {t.resolvedPreviewEmpty || 'No SQL to preview'}
+            {inputMode === 'sql' ? t.sqlEmpty : t.resolvedPreviewEmpty}
           </p>
         )}
       </div>

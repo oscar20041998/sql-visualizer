@@ -143,7 +143,7 @@ export async function analyzeSql(
   const mainQueryFields = extractMainQueryFields(mainQuery, ctes, tables);
 
   // New: Calculate detailed complexity score using the comprehensive scoring engine
-  const detailedComplexity = await scoreQueryComplexity(cleaned);
+  const detailedComplexity = await scoreQueryComplexity(cleaned, locale as 'en' | 'vi');
 
   return {
     tables,

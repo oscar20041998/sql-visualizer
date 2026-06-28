@@ -108,7 +108,6 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
           nodeColor,
           isHighlighted,
           isSelected: selectedNodeId === table.id,
-          isSimplified: isPerformanceMode,
         },
       };
     });
@@ -137,7 +136,6 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
             joinLabel: join.joinType,
             onCondition: join.condition ?? '',
             dimmed,
-            isSimplified: isPerformanceMode,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
