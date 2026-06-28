@@ -13,7 +13,7 @@ type ComplexityLevelLabelKey =
   | 'complexityLow'
   | 'complexityMedium'
   | 'complexityHigh'
-  | 'complexitySuper';
+  | 'complexitySuperHigh';
 
 interface ComplexityLevelDefinition {
   level: ComplexityLevel;
@@ -121,15 +121,11 @@ export const COMPLEXITY_WEIGHTS: ComplexityWeights = {
 };
 
 // ─── Score Thresholds ────────────────────────────────────────────────────
-
-// const COMPLEXITY_LEVEL_DEFINITIONS: ComplexityLevelDefinition[] = [
-//   { level: 'LOW', min: 0, max: 20, labelKey: 'complexityLow' },
-//   { level: 'MEDIUM', min: 21, max: 50, labelKey: 'complexityMedium' },
-//   { level: 'HIGH', min: 51, max: 100, labelKey: 'complexityHigh' },
-//   { level: 'SUPER_HIGH', min: 101, max: Infinity, labelKey: 'complexitySuper' },
-// ];
-
-export function getComplexityLevelList(locale: Locale = 'en', definitions: ComplexityLevelDefinition[]): ComplexityLevelItem[] {
+// These thresholds are used to categorize the overall complexity score into levels.
+export function getComplexityLevelList(
+  locale: Locale = 'en',
+  definitions: ComplexityLevelDefinition[]
+): ComplexityLevelItem[] {
   const t = getT(locale);
   return definitions.map((item) => ({
     level: item.level,
@@ -143,27 +139,34 @@ export function getComplexityLevelList(locale: Locale = 'en', definitions: Compl
  * Generates dynamic complexity level definitions based on the median score.
  * This allows for adaptive thresholds based on the distribution of scores.
  */
-export function generateComplexityDefinitions(median: number, locale: Locale = 'en'): ComplexityLevelDefinition[] {
+export function generateComplexityDefinitions(
+  median: number,
+  locale: Locale = 'en'
+): ComplexityLevelDefinition[] {
   const t = getT(locale);
   // Ensure median is at least 10 to avoid overly low thresholds
   const safeMedian = Math.max(median, 10);
 
-  const lowMax = Math.round(safeMedian * 0.5);       // Half of Median
-  const mediumMax = Math.round(safeMedian);           // Median
-  const highMax = Math.round(safeMedian * 2);         // Double Median
+  const lowMax = Math.round(safeMedian * 0.5); // Half of Median
+  const mediumMax = Math.round(safeMedian); // Median
+  const highMax = Math.round(safeMedian * 2); // Double Median
 
   return [
     { level: 'LOW', min: 0, max: lowMax, labelKey: 'complexityLow' },
     { level: 'MEDIUM', min: lowMax + 1, max: mediumMax, labelKey: 'complexityMedium' },
     { level: 'HIGH', min: mediumMax + 1, max: highMax, labelKey: 'complexityHigh' },
-    { level: 'SUPER_HIGH', min: highMax + 1, max: Infinity, labelKey: 'complexitySuper' },
+    { level: 'SUPER_HIGH', min: highMax + 1, max: Infinity, labelKey: 'complexitySuperHigh' },
   ];
 }
 
 /**
  * Hàm tính Median từ danh sách scores lấy từ localStorage và phân loại Level động
  */
-export function calculateScoredByMedian(scores: number[]): { median: number; level: ComplexityLevel; dynamicDefinitions: ComplexityLevelDefinition[] } {
+export function calculateScoredByMedian(scores: number[]): {
+  median: number;
+  level: ComplexityLevel;
+  dynamicDefinitions: ComplexityLevelDefinition[];
+} {
   if (!scores || scores.length === 0) {
     return { median: 0, level: 'LOW', dynamicDefinitions: generateComplexityDefinitions(0) };
   }
@@ -171,22 +174,27 @@ export function calculateScoredByMedian(scores: number[]): { median: number; lev
   // Khử nhiễu & sắp xếp
   const sortedScores = [...scores].sort((a, b) => a - b);
   const len = sortedScores.length;
-  const mid = Math.floor(len / 2);  
+  const mid = Math.floor(len / 2);
 
   // Tính số trung vị (Median)
-  const median = len % 2 !== 0 
-    ? sortedScores[mid] 
-    : (sortedScores[mid - 1] + sortedScores[mid]) / 2;
+  const median =
+    len % 2 !== 0 ? sortedScores[mid] : (sortedScores[mid - 1] + sortedScores[mid]) / 2;
 
   // Khởi tạo các mốc khoảng cách MỚI dựa trên Median vừa tính
   const dynamicDefinitions = generateComplexityDefinitions(median);
 
   // Đối chiếu tìm Level hiện tại
-  const level = dynamicDefinitions.find(
-    (item) => median >= item.min && median <= item.max
-  )?.level || 'LOW';
+  const level =
+    dynamicDefinitions.find((item) => median >= item.min && median <= item.max)?.level || 'LOW';
 
   return { median, level, dynamicDefinitions };
+}
+
+function normalizeUniqueScores(scores: number[]): number[] {
+  const validScores = scores.filter(
+    (item): item is number => typeof item === 'number' && !isNaN(item)
+  );
+  return [...new Set(validScores)];
 }
 
 export function getScoresFromLocalStorage(): number[] {
@@ -197,7 +205,7 @@ export function getScoresFromLocalStorage(): number[] {
     }
     const parsed = JSON.parse(rawData);
     if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is number => typeof item === 'number' && !isNaN(item));
+      return normalizeUniqueScores(parsed);
     }
     return [];
   } catch (error) {
@@ -207,9 +215,10 @@ export function getScoresFromLocalStorage(): number[] {
 }
 // ─── Linting Rules ──────────────────────────────────────────────────────
 
-export function checkSelectAll(sql: string, t: Translations = getT('en')): LintingIssue[] {
+export function checkSelectAll(sql: string, locale: Locale = 'en'): LintingIssue[] {
   const issues: LintingIssue[] = [];
   const selectAllPattern = /SELECT\s+\*/gi;
+  const t = getT(locale);
 
   if (selectAllPattern.test(sql)) {
     issues.push({
@@ -223,9 +232,10 @@ export function checkSelectAll(sql: string, t: Translations = getT('en')): Linti
   return issues;
 }
 
-export function checkOtherLintingRules(sql: string, t: Translations = getT('en')): LintingIssue[] {
+export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): LintingIssue[] {
   const issues: LintingIssue[] = [];
   const upper = sql.toUpperCase();
+  const t = getT(locale);
 
   // Deep nesting warning
   let maxDepth = 0;
@@ -670,11 +680,11 @@ export function calculateQueryComplexity(
   const level = matchedLevel.level;
 
   // Collect linting issues
-  const lintingIssues = [...checkSelectAll(sql, t), ...checkOtherLintingRules(sql, t)];
+  const lintingIssues = [...checkSelectAll(sql, locale), ...checkOtherLintingRules(sql, locale)];
 
   // Store the score in localStorage for future median calculations
-  scoreList.push(totalScore);
-  localStorage.setItem(SCORE_LIST_KEY, JSON.stringify(scoreList));
+  const updatedScoreList = normalizeUniqueScores([...scoreList, totalScore]);
+  localStorage.setItem(SCORE_LIST_KEY, JSON.stringify(updatedScoreList));
 
   return {
     totalScore,

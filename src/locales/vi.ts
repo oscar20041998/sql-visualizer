@@ -143,7 +143,7 @@ const vi = {
   complexityLow: 'THẤP',
   complexityMedium: 'TRUNG BÌNH',
   complexityHigh: 'CAO',
-  complexitySuper: 'RẤT CAO',
+  complexitySuperHigh: 'RẤT CAO',
   noMetrics: 'Không có chỉ số',
   noMetricsHint: 'Phân tích truy vấn để xem chỉ số',
   impactLow: 'Tác động thấp',
@@ -574,6 +574,10 @@ const vi = {
   guidelineComplexityEvalStep5Desc:
     'Khi điểm số của bạn CAO hoặc RẤT CAO:\n\n• Chia nhỏ thành các truy vấn nhỏ hơn hoặc bảng tạm thời\n• Thay thế lồng sâu bằng CTE (Biểu thức bảng chung)\n• Thêm mệnh đề WHERE rõ ràng để lọc sớm\n• Xác minh điều kiện JOIN – tránh CROSS JOIN\n• Sử dụng hàm cửa sổ thay vì truy vấn con khi có thể\n• Lập chỉ mục các cột được sử dụng trong điều kiện JOIN và WHERE',
 
+  guidelineComplexityEvalStep6Label: 'Đánh giá theo số trung vị (Median)',
+  guidelineComplexityEvalStep6Desc:
+    'Mức độ phức tạp được đánh giá động từ lịch sử điểm gần đây của bạn bằng giá trị trung vị (Median). Hệ thống tính Median rồi tạo các khoảng thích ứng:\n\n• THẤP: 0 đến 50% Median\n• TRUNG BÌNH: 50% đến 100% Median\n• CAO: 100% đến 200% Median\n• RẤT CAO: lớn hơn 200% Median\n\nCách này giúp diễn giải mức độ theo tải thực tế thay vì các ngưỡng tĩnh cố định.',
+
   // Complexity Evaluation Tips
   guidelineComplexityEvalTip1:
     '💡 Mẹo chuyên nghiệp: Điểm RẤT CAO không phải lúc nào cũng có nghĩa là truy vấn của bạn sai – nó có nghĩa là bạn nên xem xét kỹ lưỡng và xem xét các chiến lược tối ưu hóa.',
@@ -581,6 +585,8 @@ const vi = {
     '📊 Chế độ xem bảng điều khiển: Kiểm tra "Phân tích chi tiết độ phức tạp" trong Bảng điều khiển Số liệu để xem thành phần nào đóng góp nhiều nhất cho điểm số của bạn.',
   guidelineComplexityEvalTip3:
     '🔍 Tái cấu trúc lặp lại: Viết lại và phân tích lại truy vấn của bạn để xem điểm số cải thiện khi bạn tối ưu hóa.',
+  guidelineComplexityEvalTip4:
+    '📌 Chế độ Median: Mức độ truy vấn có thể thay đổi theo thời gian khi có thêm điểm được lưu, vì vậy hãy so sánh cả điểm thô và mức độ theo Median hiện tại.',
 
   // Score Weight Table
   scoreTableTitle: 'Ma trận trọng số hoàn chỉnh',

@@ -146,7 +146,7 @@ const en = {
   complexityLow: 'LOW',
   complexityMedium: 'MEDIUM',
   complexityHigh: 'HIGH',
-  complexitySuper: 'SUPER HIGH',
+  complexitySuperHigh: 'SUPER HIGH',
   noMetrics: 'No metrics available',
   noMetricsHint: 'Analyze a query to see metrics',
   impactLow: 'Low Impact',
@@ -576,6 +576,10 @@ const en = {
   guidelineComplexityEvalStep5Desc:
     'When your score is HIGH or SUPER HIGH:\n\n• Break into smaller queries or temp tables\n• Replace deep nesting with CTEs (Common Table Expressions)\n• Add explicit WHERE clauses to filter early\n• Verify JOIN conditions – avoid CROSS JOINs\n• Use window functions instead of subqueries where possible\n• Index columns used in JOIN conditions and WHERE clauses',
 
+  guidelineComplexityEvalStep6Label: 'Median Numeric Evaluation',
+  guidelineComplexityEvalStep6Desc:
+    'Complexity levels are dynamically evaluated from your recent score history using the median value. The system computes Median, then builds adaptive ranges:\n\n• LOW: 0 to 50% of Median\n• MEDIUM: 50% to 100% of Median\n• HIGH: 100% to 200% of Median\n• SUPER HIGH: above 200% of Median\n\nThis makes level interpretation relative to your real workload instead of fixed static bands.',
+
   // Complexity Evaluation Tips
   guidelineComplexityEvalTip1:
     "💡 Pro Tip: A SUPER HIGH score doesn't always mean your query is wrong – it means you should review it carefully and consider optimization strategies.",
@@ -583,6 +587,8 @@ const en = {
     '📊 Dashboard View: Check the "Complexity Breakdown" in the Metrics Dashboard to see which components contribute most to your score.',
   guidelineComplexityEvalTip3:
     '🔍 Iterative Refactoring: Rewrite and re-analyze your query to watch the score improve as you optimize.',
+  guidelineComplexityEvalTip4:
+    '📌 Median Mode: Query levels may shift over time as more scores are stored, so compare both raw score and current median-based level.',
 
   // Score Weight Table
   scoreTableTitle: 'Complete Score Weight Matrix',

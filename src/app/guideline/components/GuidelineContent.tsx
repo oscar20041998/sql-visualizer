@@ -15,7 +15,6 @@ import {
   FileCode,
   Globe,
   Moon,
-  Sun,
   ArrowRight,
   CheckCircle2,
   Info,
@@ -23,7 +22,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import Icon from '@/components/ui/AppIcon';
 import { getT } from '@/lib/i18n';
 import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
 
@@ -237,11 +235,16 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
           label: t.guidelineComplexityEvalStep5Label,
           desc: t.guidelineComplexityEvalStep5Desc,
         },
+        {
+          label: t.guidelineComplexityEvalStep6Label,
+          desc: t.guidelineComplexityEvalStep6Desc,
+        },
       ],
       tips: [
         { text: t.guidelineComplexityEvalTip1 },
         { text: t.guidelineComplexityEvalTip2 },
         { text: t.guidelineComplexityEvalTip3 },
+        { text: t.guidelineComplexityEvalTip4 },
       ],
     },
     {

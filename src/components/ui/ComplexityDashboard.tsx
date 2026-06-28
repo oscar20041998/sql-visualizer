@@ -62,7 +62,14 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
           </div>
           <div>
             <p className={`text-xs font-semibold uppercase tracking-wide ${colors.text}`}>
-              {t.complexityLevel}: {complexity.level}
+              {t.complexityLevel}:{' '}
+              {complexity.level == 'SUPER_HIGH'
+                ? t.complexitySuperHigh
+                : complexity.level == 'HIGH'
+                  ? t.complexityHigh
+                  : complexity.level == 'MEDIUM'
+                    ? t.complexityMedium
+                    : t.complexityLow}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {t.complexityScore}: {Math.round(complexity.totalScore)} /{' '}

@@ -2,6 +2,29 @@
 
 A modern SQL analysis and visualization tool built with Next.js, React, and Tailwind CSS. Analyze complex SQL queries, visualize table relationships, measure query complexity, and explore Common Table Expressions (CTEs).
 
+## 🆕 Version Update: Median-Based Complexity Evaluation
+
+The latest update introduces adaptive complexity-level evaluation using a **median numeric baseline** from your locally stored score history.
+
+### What changed
+
+- Complexity levels are now derived from recent score distribution, not only fixed static bands.
+- The engine computes a median from `complexityScoreList` and generates dynamic thresholds.
+- Query levels adapt over time as more analysis results are collected.
+
+### Adaptive level rules
+
+- **LOW**: 0 to 50% of Median
+- **MEDIUM**: 50% to 100% of Median
+- **HIGH**: 100% to 200% of Median
+- **SUPER HIGH**: > 200% of Median
+
+### Why it matters
+
+- Better reflects your real workload profile.
+- Helps teams compare new queries against historical complexity patterns.
+- Makes alerts more context-aware in environments with very simple or very complex SQL baselines.
+
 ## 🎯 Core Features
 
 ### 1. **Query Input** 📝

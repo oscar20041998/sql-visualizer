@@ -20,7 +20,10 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
     return null;
   }
 
-  const issues = [...checkSelectAll(sql), ...checkOtherLintingRules(sql)];
+  const issues = [
+    ...checkSelectAll(sql, settings.locale),
+    ...checkOtherLintingRules(sql, settings.locale),
+  ];
 
   if (issues.length === 0) {
     return (
@@ -50,7 +53,7 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
       <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
         <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-2">
           <AlertTriangle size={14} />
-          {visibleIssues.length} Linting Issue{visibleIssues.length !== 1 ? 's' : ''} Found
+          {t.lintingAlertsTitle} ({visibleIssues.length})
         </p>
         <div className="mt-2 space-y-1">
           {visibleIssues.map((issue, idx) => (
@@ -68,7 +71,7 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle size={16} className="text-orange-500" />
         <h3 className="text-sm font-semibold text-foreground">
-          SQL Anti-Patterns & Best Practice Violations
+          {t.lintingAlertsTitle} ({visibleIssues.length})
         </h3>
       </div>
 
@@ -144,7 +147,6 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
             <button
               onClick={() => dismissIssue(idx)}
               className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1"
-              title="Dismiss this issue"
             >
               <X size={16} />
             </button>
