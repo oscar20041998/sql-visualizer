@@ -417,6 +417,7 @@ const vi = {
   guidelineSidebarExportCSVDesc: 'Phần Bảng đã trích xuất',
 
   // SQL Analyzer - Complexity Recommendations
+  highComplexityDetected: 'Phát hiện độ phức tạp cao. Xem xét cấu trúc truy vấn và cân nhắc tối ưu hóa.', 
   complexityRecommendationLow: 'Truy vấn có vẻ nhẹ. Chỉ mục tiêu chuẩn sẽ xử lý tốt điều này.',
   complexityRecommendationMedium:
     'Hãy xem xét kiểm tra thứ tự JOIN. Đảm bảo các cột được lập chỉ mục được sử dụng trong điều kiện ON.',

@@ -68,10 +68,11 @@ function MetricCard({
 }
 
 function ImpactBadge({ impact }: { impact: 'low' | 'medium' | 'high' }) {
+  const t = getT('en'); // Replace 'en' with the appropriate locale if needed
   const cfg = {
-    low: { label: 'Low Impact', cls: 'bg-success/10 text-success border-success/20' },
-    medium: { label: 'Medium Impact', cls: 'bg-warning/10 text-warning border-warning/20' },
-    high: { label: 'High Impact', cls: 'bg-danger/10 text-danger border-danger/20' },
+    low: { label: t.impactLow, cls: 'bg-success/10 text-success border-success/20' },
+    medium: { label: t.impactMedium, cls: 'bg-warning/10 text-warning border-warning/20' },
+    high: { label: t.impactHigh, cls: 'bg-danger/10 text-danger border-danger/20' },
   };
   const { label, cls } = cfg[impact];
   return (
@@ -128,7 +129,7 @@ export default function MetricsDashboardContent() {
     LOW: t.complexityLow,
     MEDIUM: t.complexityMedium,
     HIGH: t.complexityHigh,
-    'SUPER HIGH': t.complexitySuper,
+    'SUPER HIGH': t.complexitySuperHigh,
   };
 
   const complexityColor = complexityColorMap[complexity.level];
@@ -153,7 +154,7 @@ export default function MetricsDashboardContent() {
         >
           <AlertTriangle size={16} className="text-danger flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-danger">High complexity detected</p>
+            <p className="text-sm font-medium text-danger">{t.highComplexityDetected}</p>
             <p className="text-xs text-danger/70 mt-0.5">{executionCost.recommendation}</p>
           </div>
         </div>
@@ -272,10 +273,10 @@ export default function MetricsDashboardContent() {
               />
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground mt-1 font-mono">
-              <span>LOW</span>
-              <span>MEDIUM</span>
-              <span>HIGH</span>
-              <span>SUPER HIGH</span>
+              <span>{t.complexityLow}</span>
+              <span>{t.complexityMedium}</span>
+              <span>{t.complexityHigh}</span>
+              <span>{t.complexitySuperHigh}</span>
             </div>
           </div>
 
