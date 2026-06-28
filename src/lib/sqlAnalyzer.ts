@@ -893,7 +893,7 @@ function computeExecutionCost(
     LOW: translation.executionCostRecommendationLow,
     MEDIUM: translation.executionCostRecommendationMedium,
     HIGH: translation.executionCostRecommendationHigh,
-    'SUPER_HIGH': translation.executionCostRecommendationSuperHigh,
+    SUPER_HIGH: translation.executionCostRecommendationSuperHigh,
   };
 
   return {

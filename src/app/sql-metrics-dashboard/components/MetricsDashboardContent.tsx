@@ -115,21 +115,21 @@ export default function MetricsDashboardContent() {
     LOW: 'var(--complexity-low)',
     MEDIUM: 'var(--complexity-medium)',
     HIGH: 'var(--complexity-high)',
-    'SUPER_HIGH': 'var(--complexity-super)',
+    SUPER_HIGH: 'var(--complexity-super)',
   };
 
   const complexityBadgeMap = {
     LOW: 'complexity-badge-low',
     MEDIUM: 'complexity-badge-medium',
     HIGH: 'complexity-badge-high',
-    'SUPER_HIGH': 'complexity-badge-super',
+    SUPER_HIGH: 'complexity-badge-super',
   };
 
   const complexityLabelMap = {
     LOW: t.complexityLow,
     MEDIUM: t.complexityMedium,
     HIGH: t.complexityHigh,
-    'SUPER_HIGH': t.complexitySuperHigh,
+    SUPER_HIGH: t.complexitySuperHigh,
   };
 
   const complexityColor = complexityColorMap[complexity.level];

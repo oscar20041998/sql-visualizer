@@ -68,8 +68,8 @@ export default function Sidebar() {
           const isActive = pathname === item.href;
           // Lock navigation for analysis pages when no data
           const isLocked =
-            item.key !== 'navQueryInput' && item.key !== 'navSettings' && !analysisResult;
-
+            item.key !== 'navQueryInput' && item.key !== 'navSettings' && item.key !== 'navGuideline' && !analysisResult;
+          
           return (
             <Link
               key={`nav-${item.href}`}
@@ -109,6 +109,7 @@ export default function Sidebar() {
               {/* Analysis indicator */}
               {item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
+                item.key !== 'navGuideline' &&
                 analysisResult &&
                 !isPending && (
                   <span className="ml-auto flex-shrink-0">
