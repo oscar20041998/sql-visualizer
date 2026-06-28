@@ -41,6 +41,7 @@ interface EditorState {
   isLoading: boolean;
   optimizationResult: OptimizationResult | null;
   syntaxErrors: string[];
+  terminalErrors: Array<{ id: string; message: string }>;
 }
 
 // ─── Helper to load Monaco dynamically ────────────────────────────────────
@@ -60,6 +61,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
   const diffEditorRef = useRef<any>(null);
   const singleEditorRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const skipNextModelSyncRef = useRef(false);
   const [monacoReady, setMonacoReady] = useState(false);
   const monacoRef = useRef<MonacoType | null>(null);
   const dialect = useAppStore((state) => state.dialect);
@@ -73,7 +75,44 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     isLoading: false,
     optimizationResult: null,
     syntaxErrors: [],
+    terminalErrors: [],
   });
+  const [dismissedSyntaxErrorIds, setDismissedSyntaxErrorIds] = useState<string[]>([]);
+
+  const showResultToast = useCallback(
+    (success: boolean) => {
+      if (success) {
+        toast.success(t.formattingSuccess);
+      } else {
+        toast.error(t.formattingError);
+      }
+    },
+    []
+  );
+
+  const addTerminalError = useCallback((error: unknown, fallbackMessage: string) => {
+    const parsedMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : fallbackMessage;
+
+    const cleaned = parsedMessage.replace(/^Error:\s*/i, '').trim() || fallbackMessage;
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    setState((prev) => ({
+      ...prev,
+      terminalErrors: [{ id, message: cleaned }, ...prev.terminalErrors].slice(0, 20),
+    }));
+  }, []);
+
+  const dismissTerminalError = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      terminalErrors: prev.terminalErrors.filter((err) => err.id !== id),
+    }));
+  }, []);
 
   // ─── Load Monaco dynamically on client ───────────────────────────────────
 
@@ -187,7 +226,14 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
           });
         }
 
-        setState((prev) => ({ ...prev, syntaxErrors: errors }));
+        setState((prev) => ({
+          ...prev,
+          syntaxErrors: errors,
+          terminalErrors: errors.length === 0 ? [] : prev.terminalErrors,
+        }));
+        if (errors.length === 0) {
+          setDismissedSyntaxErrorIds([]);
+        }
 
         // Set markers for Monaco with specific error locations
         if (singleEditorRef.current) {
@@ -229,6 +275,11 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     if (!singleEditorRef.current) return;
 
     const disposable = singleEditorRef.current.onDidChangeModelContent(() => {
+      if (skipNextModelSyncRef.current) {
+        skipNextModelSyncRef.current = false;
+        return;
+      }
+
       const newContent = singleEditorRef.current?.getValue() || '';
 
       setState((prev) => ({ ...prev, originalSql: newContent, modifiedSql: newContent }));
@@ -261,7 +312,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       // Validate SQL is not empty
       if (!currentSql || !currentSql.trim()) {
         logger.warn('Cannot format empty SQL');
-        toast.error(t.emptyQueryError || 'Please enter SQL first');
+        showResultToast(false);
+        addTerminalError(t.emptyQueryError, 'Query is empty');
         return;
       }
 
@@ -278,15 +330,16 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
 
       setState((prev) => ({
         ...prev,
-        originalSql: formatted,
+        originalSql: currentSql,
         modifiedSql: formatted,
       }));
 
+      skipNextModelSyncRef.current = true;
       singleEditorRef.current?.setValue(formatted);
       validateSyntax(formatted);
 
       logger.info('✅ SQL formatted successfully');
-      toast.success(t.formattingSuccess || 'SQL formatted successfully');
+      showResultToast(true);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('❌ SQL formatting failed', {
@@ -294,9 +347,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         dialect,
         sqlLength: (singleEditorRef.current?.getValue() || state.originalSql).length,
       });
-      toast.error(`${t.formattingError || 'Formatting error'}: ${errorMsg}`);
+      showResultToast(false);
+      addTerminalError(error, t.formattingError || 'Formatting error');
     }
-  }, [state.originalSql, dialect, validateSyntax, t]);
+  }, [state.originalSql, dialect, validateSyntax, t, showResultToast, addTerminalError]);
 
   // ─── Toggle Diff View ───────────────────────────────────────────────────
 
@@ -305,10 +359,13 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     const monaco = monacoRef.current;
 
     try {
-      if (state.isDiffMode && singleEditorRef.current) {
+      if (state.isDiffMode && diffEditorRef.current) {
         // Switch back to single editor
         logger.debug('Switching to Single Editor mode');
         setState((prev) => ({ ...prev, isDiffMode: false }));
+        const diffModel = diffEditorRef.current.getModel();
+        diffModel?.original?.dispose();
+        diffModel?.modified?.dispose();
         diffEditorRef.current?.dispose();
         diffEditorRef.current = null;
 
@@ -331,6 +388,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       } else {
         // Switch to diff editor
         logger.debug('Switching to Diff Editor mode');
+        const currentSql = singleEditorRef.current?.getValue() || state.originalSql;
+        const originalForDiff = state.originalSql || currentSql;
+        const modifiedForDiff = state.modifiedSql || currentSql;
+
         if (singleEditorRef.current) {
           singleEditorRef.current.dispose();
           singleEditorRef.current = null;
@@ -338,8 +399,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
 
         editorContainerRef.current.innerHTML = '';
 
-        const originalModel = monaco.editor.createModel(state.originalSql, 'sql');
-        const modifiedModel = monaco.editor.createModel(state.modifiedSql, 'sql');
+        const originalModel = monaco.editor.createModel(originalForDiff, 'sql');
+        const modifiedModel = monaco.editor.createModel(modifiedForDiff, 'sql');
 
         const diffEditor = monaco.editor.createDiffEditor(editorContainerRef.current, {
           theme: 'vs-dark',
@@ -361,11 +422,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       }
     } catch (error) {
       logger.error('❌ Failed to toggle diff view', { error });
-      toast.error(
-        `${t.diffViewErrorTitle} ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      showResultToast(false);
+      addTerminalError(error, t.diffViewErrorTitle || 'Unable to toggle diff view');
     }
-  }, [state.isDiffMode, state.originalSql, state.modifiedSql, t]);
+  }, [state.isDiffMode, state.originalSql, state.modifiedSql, t, showResultToast, addTerminalError]);
 
   // ─── AI Optimization via Ollama ──────────────────────────────────────────
 
@@ -373,7 +433,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     const currentSql = singleEditorRef.current?.getValue() || state.originalSql;
 
     if (!currentSql.trim()) {
-      toast.error('Please enter a SQL query first');
+      showResultToast(false);
+      addTerminalError('Please enter a SQL query first', 'Query is empty');
       return;
     }
 
@@ -446,26 +507,24 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       }
     } catch (error) {
       logger.error('❌ AI optimization failed', { error });
-
-      const errorMsg = error instanceof Error ? error.message : t.ollamaConnectionError;
-
-      toast.error(`${t.analyzeOptimizeButton} ${t.formattingError} ${errorMsg}`);
+      showResultToast(false);
+      addTerminalError(error, t.ollamaConnectionError || 'AI optimization failed');
       setState((prev) => ({ ...prev, isLoading: false }));
     }
-  }, [state.originalSql, handleToggleDiffView, t]);
+  }, [state.originalSql, handleToggleDiffView, t, showResultToast, addTerminalError]);
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full gap-4 p-4 bg-gray-900 rounded-lg">
+    <div className="flex flex-col h-full min-h-[calc(100vh-12rem)] gap-4 p-4 bg-gray-900 rounded-lg">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-white">{t.smartEditorTitle}</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleFormatSQL}
             disabled={state.isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
             title={t.formatSqlTitle}
           >
             {t.formatSqlButton}
@@ -474,16 +533,16 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
           <button
             onClick={handleToggleDiffView}
             disabled={state.isLoading}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
             title={t.toggleDiffTitle}
           >
             {state.isDiffMode ? t.backToEditorButton : t.compareButton}
           </button>
 
-          <button
+          {/* <button
             onClick={handleAnalyzeAndOptimize}
             disabled={state.isLoading}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
             title={t.analyzeOptimizeTitle}
           >
             {state.isLoading ? (
@@ -494,27 +553,70 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             ) : (
               <>{t.analyzeOptimizeButton}</>
             )}
-          </button>
+          </button> */}
         </div>
       </div>
 
-      {/* Syntax Errors Display */}
-      {state.syntaxErrors.length > 0 && (
-        <div className="p-3 bg-red-900 text-red-100 rounded border border-red-700">
-          <p className="font-semibold">{t.syntaxErrorsTitle}</p>
-          <ul className="list-disc list-inside text-sm mt-1">
-            {state.syntaxErrors.map((error, idx) => (
-              <li key={idx}>{error}</li>
+      {/* Terminal-style Error Display */}
+      {(state.syntaxErrors.length > 0 || state.terminalErrors.length > 0) && (
+        <div className="rounded-lg border border-red-800/80 bg-black/40 p-3 text-red-200">
+          <p className="font-semibold tracking-wide">{t.syntaxErrorsTitle}</p>
+          <div className="mt-2 space-y-2">
+            {state.syntaxErrors.map((error, idx) => {
+              const syntaxId = `syntax-${idx}-${error}`;
+              if (dismissedSyntaxErrorIds.includes(syntaxId)) return null;
+              return (
+                <div
+                  key={syntaxId}
+                  className="flex items-start justify-between gap-3 rounded border border-red-900/70 bg-black/50 px-3 py-2"
+                >
+                  <pre className="m-0 flex-1 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-red-200">
+                    {error}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDismissedSyntaxErrorIds((prev) =>
+                        prev.includes(syntaxId) ? prev : [...prev, syntaxId]
+                      )
+                    }
+                    className="rounded px-2 py-1 text-xs text-red-300 transition-colors hover:bg-red-950/60 hover:text-red-100"
+                    aria-label="Dismiss syntax error"
+                    title="Close"
+                  >
+                    X
+                  </button>
+                </div>
+              );
+            })}
+
+            {state.terminalErrors.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-start justify-between gap-3 rounded border border-red-900/70 bg-black/50 px-3 py-2"
+              >
+                <pre className="m-0 flex-1 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-red-200">
+                  {entry.message}
+                </pre>
+                <button
+                  type="button"
+                  onClick={() => dismissTerminalError(entry.id)}
+                  className="rounded px-2 py-1 text-xs text-red-300 transition-colors hover:bg-red-950/60 hover:text-red-100"
+                  aria-label="Dismiss error"
+                  title="Close"
+                >
+                  X
+                </button>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       {/* Editor Container */}
       <div
         ref={editorContainerRef}
-        className="flex-1 border border-gray-700 rounded overflow-hidden"
-        style={{ minHeight: '400px' }}
+        className="flex-1 min-h-0 border border-gray-700 rounded overflow-hidden"
       />
 
       {/* Optimization Results Panel */}

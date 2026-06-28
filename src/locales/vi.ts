@@ -739,11 +739,12 @@ const vi = {
   singleEditorStatus: '✏️ Trình soạn thảo đơn',
   syntaxErrorsStatus: 'Lỗi cú pháp:',
   processingStatus: '⏳ Đang xử lý...',
-  formattingError: 'Lỗi định dạng:',
+  formattingError: 'Định dạng SQL thất bại. Vui lòng kiểm tra cú pháp.',
   formattingSuccess: 'Định dạng SQL thành công',
   diffViewErrorTitle: 'Lỗi chế độ diff:',
   ollamaConnectionError:
     'Không thể kết nối với API Ollama. Hãy chắc chắn rằng nó đang chạy trên http://localhost:11434',
+  emptyQueryError: 'Truy vấn trống. Vui lòng nhập hoặc dán SQL để phân tích.',
 
   // Guideline - Advanced Features Section
   guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',

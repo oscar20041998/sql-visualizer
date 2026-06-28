@@ -741,11 +741,12 @@ const en = {
   singleEditorStatus: '✏️ Single Editor',
   syntaxErrorsStatus: 'Syntax Errors:',
   processingStatus: '⏳ Processing...',
-  formattingError: 'Formatting error:',
+  formattingError: 'SQL formatting error. Please check your query syntax.',
   formattingSuccess: 'SQL formatted successfully',
   diffViewErrorTitle: 'Diff view error:',
   ollamaConnectionError:
     'Failed to connect to Ollama API. Make sure it is running on http://localhost:11434',
+  emptyQueryError: 'Query is empty. Please enter a valid SQL query to analyze.',
 
   // Guideline - Advanced Features Section
   guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',

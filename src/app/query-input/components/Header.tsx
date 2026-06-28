@@ -23,8 +23,8 @@ export const Header: React.FC<HeaderProps> = ({ dialect, onDialectChange, t }) =
   const currentDialect = DIALECTS.find((d) => d.value === dialect);
 
   return (
-    <div className="mb-8 overflow-x-auto scrollbar-thin pb-1">
-      <div className="min-w-max flex items-start justify-between gap-4">
+    <div className="mb-8 pb-1 overflow-visible">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <Code2 size={22} className="text-primary" />

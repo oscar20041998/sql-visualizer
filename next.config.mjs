@@ -19,6 +19,10 @@ const nextConfig = {
     minimumCacheTTL: 60,
     qualities: [75, 85, 100],
   },
+  devIndicators: {
+    buildActivity: false,
+    appIsrStatus: false,
+  },
   webpack(
     config,
     {

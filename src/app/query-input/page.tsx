@@ -248,9 +248,9 @@ export default function QueryInputContent() {
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (
-          <div className="mb-6">
+          <div className="mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-            <div className="mt-4">
+            <div className="mt-4 flex-1 min-h-0">
               <SmartSQLEditor initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'} />
             </div>
           </div>
