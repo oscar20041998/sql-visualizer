@@ -52,6 +52,10 @@ const vi = {
   // Graph
   graphTitle: 'Biểu đồ quan hệ',
   graphSubtitle: 'Trực quan hóa quan hệ bảng tương tác',
+  graphFilterLabel: 'Bộ lọc',
+  graphFilterAll: 'Tất cả',
+  graphFilterCte: 'Quan hệ CTE',
+  graphFilterTable: 'Quan hệ bảng',
   noGraph: 'Không có biểu đồ để hiển thị',
   noGraphHint: 'Phân tích truy vấn trước để xem biểu đồ quan hệ',
   tableCount: 'Bảng',

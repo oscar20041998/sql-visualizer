@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
@@ -12,6 +12,8 @@ import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
 import ExtractedTablesPanel, { type ExtractedTableRow } from './ExtractedTablesPanel';
 
 const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
+
+type RelationshipFilterMode = 'all' | 'cte' | 'table';
 
 // ─── Copy Button Component ────────────────────────────────────────────────────
 function CopyButton({
@@ -325,12 +327,54 @@ export default function GraphVisualizerContent() {
   const [graphSearch, setGraphSearch] = useState('');
   const [graphSearchFocused, setGraphSearchFocused] = useState(false);
   const graphSearchRef = useRef<HTMLInputElement>(null);
+  const [relationshipFilter, setRelationshipFilter] = useState<RelationshipFilterMode>('all');
+
+  const filteredTables = useMemo(() => {
+    if (!analysisResult) return [];
+    if (relationshipFilter === 'cte') return analysisResult.tables.filter((table) => table.isCTE);
+    if (relationshipFilter === 'table')
+      return analysisResult.tables.filter((table) => !table.isCTE);
+    return analysisResult.tables;
+  }, [analysisResult, relationshipFilter]);
+
+  const filteredTableIdSet = useMemo(
+    () => new Set(filteredTables.map((table) => table.id)),
+    [filteredTables]
+  );
+
+  const filteredJoins = useMemo(() => {
+    if (!analysisResult) return [];
+
+    const tableById = new Map(analysisResult.tables.map((table) => [table.id, table]));
+    return analysisResult.joins.filter((join) => {
+      if (!filteredTableIdSet.has(join.source) || !filteredTableIdSet.has(join.target)) {
+        return false;
+      }
+
+      if (relationshipFilter === 'all') return true;
+
+      const source = tableById.get(join.source);
+      const target = tableById.get(join.target);
+      const sourceIsCTE = !!source?.isCTE;
+      const targetIsCTE = !!target?.isCTE;
+
+      if (relationshipFilter === 'cte') return sourceIsCTE && targetIsCTE;
+      return !sourceIsCTE && !targetIsCTE;
+    });
+  }, [analysisResult, relationshipFilter, filteredTableIdSet]);
+
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    if (!filteredTableIdSet.has(selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [selectedNodeId, filteredTableIdSet, setSelectedNodeId]);
 
   const graphSearchMatches = useMemo(() => {
     if (!analysisResult || graphSearch.trim() === '') return [];
     const q = graphSearch.toLowerCase();
-    return analysisResult.tables.filter((t) => t.name.toLowerCase().includes(q));
-  }, [analysisResult, graphSearch]);
+    return filteredTables.filter((t) => t.name.toLowerCase().includes(q));
+  }, [analysisResult, graphSearch, filteredTables]);
 
   const handleGraphSearchSelect = (tableId: string) => {
     setSelectedNodeId(tableId === selectedNodeId ? null : tableId);
@@ -344,16 +388,16 @@ export default function GraphVisualizerContent() {
     graphSearchRef.current?.focus();
   };
 
-  const selectedNode = analysisResult?.tables.find((tbl) => tbl.id === selectedNodeId);
+  const selectedNode = filteredTables.find((tbl) => tbl.id === selectedNodeId);
   const connectedJoins =
-    analysisResult?.joins.filter(
+    filteredJoins.filter(
       (j) => j.source === selectedNodeId || j.target === selectedNodeId
     ) || [];
 
   const extractedRows = useMemo(() => {
     if (!analysisResult) return [];
-    return buildExtractedTableRows(analysisResult.tables, analysisResult.joins);
-  }, [analysisResult]);
+    return buildExtractedTableRows(filteredTables, filteredJoins);
+  }, [analysisResult, filteredTables, filteredJoins]);
 
   const suggestions = useMemo(() => {
     if (!analysisResult) return [];
@@ -371,8 +415,8 @@ export default function GraphVisualizerContent() {
 
   const getMermaidText = useCallback(() => {
     if (!analysisResult) return '';
-    return buildMermaidDiagram(analysisResult.tables, analysisResult.joins, JOIN_COLORS);
-  }, [analysisResult]);
+    return buildMermaidDiagram(filteredTables, filteredJoins, JOIN_COLORS);
+  }, [analysisResult, filteredTables, filteredJoins]);
 
   const getChartSvg = useCallback(() => {
     // Optimized SVG serialization with deferred style computation
@@ -381,13 +425,13 @@ export default function GraphVisualizerContent() {
       // Fallback: return a color-annotated text representation
       if (!analysisResult) return '';
       const lines: string[] = ['=== Chart Color Summary ===', ''];
-      analysisResult.tables.forEach((t) => {
-        const join = analysisResult.joins.find((j) => j.source === t.id || j.target === t.id);
+      filteredTables.forEach((t) => {
+        const join = filteredJoins.find((j) => j.source === t.id || j.target === t.id);
         const color = join ? JOIN_COLORS[join.joinType] : '#6ee7f7';
         lines.push(`[${t.isCTE ? 'CTE' : 'TABLE'}] ${t.name}  color: ${color}`);
       });
       lines.push('');
-      analysisResult.joins.forEach((j) => {
+      filteredJoins.forEach((j) => {
         const color = JOIN_COLORS[j.joinType] ?? '#6ee7f7';
         lines.push(
           `${j.source} --[${j.joinType} | color:${color}]--> ${j.target}${j.condition ? `  ON ${j.condition}` : ''}`
@@ -439,7 +483,7 @@ export default function GraphVisualizerContent() {
 
     const serializer = new XMLSerializer();
     return serializer.serializeToString(clone);
-  }, [analysisResult]);
+  }, [analysisResult, filteredTables, filteredJoins]);
 
   const getExtractedTablesCsv = useCallback(() => {
     if (!extractedRows.length) return '';
@@ -489,12 +533,24 @@ export default function GraphVisualizerContent() {
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Table2 size={11} />
-                  {analysisResult.tables.length} {t.tableCount}
+                  {filteredTables.length} {t.tableCount}
                 </span>
                 <span className="flex items-center gap-1">
                   <Link2 size={11} />
-                  {analysisResult.joins.length} {t.joinCount}
+                  {filteredJoins.length} {t.joinCount}
                 </span>
+                <div className="flex items-center gap-2">
+                  <span>{t.graphFilterLabel}</span>
+                  <select
+                    value={relationshipFilter}
+                    onChange={(e) => setRelationshipFilter(e.target.value as RelationshipFilterMode)}
+                    className="px-2 py-1 rounded-md bg-muted border border-border text-foreground font-mono"
+                  >
+                    <option value="all">{t.graphFilterAll}</option>
+                    <option value="cte">{t.graphFilterCte}</option>
+                    <option value="table">{t.graphFilterTable}</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -531,7 +587,7 @@ export default function GraphVisualizerContent() {
                   onChange={(e) => setGraphSearch(e.target.value)}
                   onFocus={() => setGraphSearchFocused(true)}
                   onBlur={() => setTimeout(() => setGraphSearchFocused(false), 150)}
-                  placeholder="Search table…"
+                  placeholder={t.searchTables}
                   className="flex-1 bg-transparent text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
                 />
                 {(graphSearch || selectedNodeId) && (
@@ -550,7 +606,7 @@ export default function GraphVisualizerContent() {
                     className="flex-shrink-0 text-xs font-mono px-1.5 py-0.5 rounded"
                     style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}
                   >
-                    {analysisResult.tables.find((t) => t.id === selectedNodeId)?.name ?? ''}
+                    {filteredTables.find((t) => t.id === selectedNodeId)?.name ?? ''}
                   </span>
                 )}
               </div>
@@ -570,15 +626,15 @@ export default function GraphVisualizerContent() {
                 >
                   {graphSearchMatches.length === 0 ? (
                     <div className="px-4 py-3 text-xs text-muted-foreground text-center font-mono">
-                      No tables found
+                      {t.noTablesFound}
                     </div>
                   ) : (
                     graphSearchMatches.map((table) => {
                       const isActive = selectedNodeId === table.id;
-                      const relCount = analysisResult.joins.filter(
+                      const relCount = filteredJoins.filter(
                         (j) => j.source === table.id || j.target === table.id
                       ).length;
-                      const joinForColor = analysisResult.joins.find(
+                      const joinForColor = filteredJoins.find(
                         (j) => j.source === table.id || j.target === table.id
                       );
                       const nodeColor = joinForColor
@@ -624,7 +680,7 @@ export default function GraphVisualizerContent() {
             </div>
           </div>
 
-          <FlowCanvas ref={flowRef} />
+          <FlowCanvas ref={flowRef} tables={filteredTables} joins={filteredJoins} />
         </div>
 
         {/* Right Sidebar */}
@@ -677,7 +733,7 @@ export default function GraphVisualizerContent() {
                       <p className="text-xs text-muted-foreground mb-2">{t.nodeJoins}</p>
                       <div className="space-y-2">
                         {connectedJoins.map((join) => {
-                          const otherTable = analysisResult.tables.find(
+                          const otherTable = filteredTables.find(
                             (tbl) =>
                               tbl.id ===
                               (join.source === selectedNodeId ? join.target : join.source)
@@ -766,7 +822,7 @@ export default function GraphVisualizerContent() {
                 )}
               </div>
               <div className="space-y-1">
-                {analysisResult.tables
+                {filteredTables
                   .filter(
                     (table) =>
                       tableSearch.trim() === '' ||
@@ -794,7 +850,7 @@ export default function GraphVisualizerContent() {
                     </button>
                   ))}
                 {tableSearch.trim() !== '' &&
-                  analysisResult.tables.filter((table) =>
+                  filteredTables.filter((table) =>
                     table.name.toLowerCase().includes(tableSearch.toLowerCase())
                   ).length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-2">

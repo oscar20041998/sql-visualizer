@@ -54,6 +54,10 @@ const en = {
   // Graph
   graphTitle: 'Relationship Graph',
   graphSubtitle: 'Interactive table relationship visualization',
+  graphFilterLabel: 'Filter',
+  graphFilterAll: 'All',
+  graphFilterCte: "CTE's Relationship",
+  graphFilterTable: "Table's Relationship",
   noGraph: 'No graph to display',
   noGraphHint: 'Analyze a query first to see the relationship graph',
   tableCount: 'Tables',

@@ -17,7 +17,7 @@ import {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useAppStore } from '@/lib/store';
-import type { JoinType } from '@/lib/sqlAnalyzer';
+import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sqlAnalyzer';
 import TableNode, { type TableNodeData } from './TableNode';
 import LabeledEdge from './LabeledEdge';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
@@ -58,10 +58,18 @@ export interface FlowCanvasHandle {
   getEdges: () => Edge[];
 }
 
-const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
+interface FlowCanvasProps {
+  tables?: SqlTableNode[];
+  joins?: JoinEdge[];
+}
+
+const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, joins }, ref) => {
   const { analysisResult, selectedNodeId, setSelectedNodeId, settings } = useAppStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<TableNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  const graphTables = tables ?? analysisResult?.tables ?? [];
+  const graphJoins = joins ?? analysisResult?.joins ?? [];
 
   useImperativeHandle(ref, () => ({
     getNodes: () => nodes,
@@ -69,25 +77,24 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
   }));
 
   useEffect(() => {
-    if (!analysisResult) {
+    if (!analysisResult && !tables && !joins) {
       setNodes([]);
       setEdges([]);
       return;
     }
 
-    const { tables, joins } = analysisResult;
-    const positions = computeLayout(tables.length);
+    const positions = computeLayout(graphTables.length);
 
     // Enable simplified mode for large graphs (60+ nodes)
-    const isPerformanceMode = tables.length >= PERF_THRESHOLD;
+    const isPerformanceMode = graphTables.length >= PERF_THRESHOLD;
 
     // Build nodes
-    const rfNodes: Node<TableNodeData>[] = tables.map((table, i) => {
-      const nodeColor = getTableColor(table.id, joins);
+    const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
+      const nodeColor = getTableColor(table.id, graphJoins);
       const isHighlighted =
         selectedNodeId === null ||
         selectedNodeId === table.id ||
-        joins.some(
+        graphJoins.some(
           (j) =>
             (j.source === selectedNodeId && j.target === table.id) ||
             (j.target === selectedNodeId && j.source === table.id)
@@ -107,7 +114,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
     });
 
     // Build edges
-    const rfEdges: Edge[] = joins
+    const rfEdges: Edge[] = graphJoins
       .map((join, idx) => {
         const color = JOIN_COLORS[join.joinType] ?? '#6ee7f7';
         const isConnected =
@@ -116,8 +123,8 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
           selectedNodeId === join.target;
         const dimmed = selectedNodeId !== null && !isConnected;
 
-        const sourceExists = tables.some((t) => t.id === join.source);
-        const targetExists = tables.some((t) => t.id === join.target);
+        const sourceExists = graphTables.some((t) => t.id === join.source);
+        const targetExists = graphTables.some((t) => t.id === join.target);
         if (!sourceExists || !targetExists) return null;
 
         return {
@@ -149,7 +156,17 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
 
     setNodes(rfNodes);
     setEdges(rfEdges);
-  }, [analysisResult, selectedNodeId, settings.edgeStyle, setNodes, setEdges]);
+  }, [
+    analysisResult,
+    graphTables,
+    graphJoins,
+    tables,
+    joins,
+    selectedNodeId,
+    settings.edgeStyle,
+    setNodes,
+    setEdges,
+  ]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -164,8 +181,8 @@ const FlowCanvas = forwardRef<FlowCanvasHandle>((_, ref) => {
 
   // Memoize performance-related settings
   const isPerformanceMode = useMemo(() => {
-    return (analysisResult?.tables.length ?? 0) >= PERF_THRESHOLD;
-  }, [analysisResult?.tables.length]);
+    return graphTables.length >= PERF_THRESHOLD;
+  }, [graphTables.length]);
 
   return (
     <div className="w-full h-full" style={{ background: CHART_BG }}>
