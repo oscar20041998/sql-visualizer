@@ -41,13 +41,13 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function MetricsBarChart({ metrics }: Props) {
   const data = [
     { name: 'Window Fn', value: metrics.windowFunctions },
+    { name: 'Subquery Cnt', value: metrics.subqueryCount },
     { name: 'GROUP BY', value: metrics.groupBy },
     { name: 'ORDER BY', value: metrics.orderBy },
-    { name: 'DISTINCT', value: metrics.distinct },
-    { name: 'Subquery', value: metrics.subqueryDepth },
+    { name: 'Conditions', value: metrics.conditionCount },
+    { name: 'Ops+Funcs', value: metrics.operationAndFunctionCount },
     { name: 'JOINs', value: metrics.joinCount },
-    { name: 'CTEs', value: metrics.cteCount },
-    { name: 'Tables', value: metrics.tableCount },
+    { name: 'Final Select', value: metrics.finalSelectFieldCount },
   ];
 
   return (

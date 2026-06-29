@@ -45,12 +45,47 @@ const edgeTypes: EdgeTypes = {
 };
 
 // ─── Layout helper ────────────────────────────────────────────────────────────
-function computeLayout(count: number): { x: number; y: number }[] {
-  const cols = Math.max(2, Math.ceil(Math.sqrt(count)));
-  return Array.from({ length: count }, (_, i) => ({
-    x: (i % cols) * 380 + 80,
-    y: Math.floor(i / cols) * 320 + 80,
-  }));
+function computeLayout(
+  tables: SqlTableNode[],
+  joins: JoinEdge[]
+): Map<string, { x: number; y: number }> {
+  const result = new Map<string, { x: number; y: number }>();
+  if (tables.length === 0) return result;
+
+  const connectedIds = new Set<string>();
+  joins.forEach((join) => {
+    connectedIds.add(join.source);
+    connectedIds.add(join.target);
+  });
+
+  const connected = tables.filter((table) => connectedIds.has(table.id));
+  const isolated = tables.filter((table) => !connectedIds.has(table.id));
+
+  const xGap = 380;
+  const yGap = 320;
+  const left = 80;
+  const top = 80;
+
+  const connectedCols = Math.max(2, Math.ceil(Math.sqrt(Math.max(connected.length, 1))));
+  connected.forEach((table, idx) => {
+    result.set(table.id, {
+      x: (idx % connectedCols) * xGap + left,
+      y: Math.floor(idx / connectedCols) * yGap + top,
+    });
+  });
+
+  const connectedRows = connected.length === 0 ? 0 : Math.ceil(connected.length / connectedCols);
+  const isolatedStartY = top + connectedRows * yGap + (connected.length > 0 ? 180 : 0);
+  const isolatedCols = Math.max(2, Math.ceil(Math.sqrt(Math.max(isolated.length, 1))));
+
+  isolated.forEach((table, idx) => {
+    result.set(table.id, {
+      x: (idx % isolatedCols) * xGap + left,
+      y: isolatedStartY + Math.floor(idx / isolatedCols) * yGap,
+    });
+  });
+
+  return result;
 }
 
 export interface FlowCanvasHandle {
@@ -83,7 +118,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
       return;
     }
 
-    const positions = computeLayout(graphTables.length);
+    const positions = computeLayout(graphTables, graphJoins);
 
     // Enable simplified mode for large graphs (60+ nodes)
     const isPerformanceMode = graphTables.length >= PERF_THRESHOLD;
@@ -102,7 +137,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
       return {
         id: table.id,
         type: 'tableNode',
-        position: positions[i],
+        position: positions.get(table.id) ?? { x: 80 + i * 120, y: 80 },
         data: {
           ...table,
           nodeColor,

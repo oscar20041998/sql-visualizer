@@ -79,24 +79,17 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
   });
   const [dismissedSyntaxErrorIds, setDismissedSyntaxErrorIds] = useState<string[]>([]);
 
-  const showResultToast = useCallback(
-    (success: boolean) => {
-      if (success) {
-        toast.success(t.formattingSuccess);
-      } else {
-        toast.error(t.formattingError);
-      }
-    },
-    []
-  );
+  const showResultToast = useCallback((success: boolean) => {
+    if (success) {
+      toast.success(t.formattingSuccess);
+    } else {
+      toast.error(t.formattingError);
+    }
+  }, []);
 
   const addTerminalError = useCallback((error: unknown, fallbackMessage: string) => {
     const parsedMessage =
-      error instanceof Error
-        ? error.message
-        : typeof error === 'string'
-          ? error
-          : fallbackMessage;
+      error instanceof Error ? error.message : typeof error === 'string' ? error : fallbackMessage;
 
     const cleaned = parsedMessage.replace(/^Error:\s*/i, '').trim() || fallbackMessage;
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -425,7 +418,14 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       showResultToast(false);
       addTerminalError(error, t.diffViewErrorTitle || 'Unable to toggle diff view');
     }
-  }, [state.isDiffMode, state.originalSql, state.modifiedSql, t, showResultToast, addTerminalError]);
+  }, [
+    state.isDiffMode,
+    state.originalSql,
+    state.modifiedSql,
+    t,
+    showResultToast,
+    addTerminalError,
+  ]);
 
   // ─── AI Optimization via Ollama ──────────────────────────────────────────
 

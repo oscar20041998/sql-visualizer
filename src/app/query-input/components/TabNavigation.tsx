@@ -16,10 +16,10 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
     label: string;
     icon: React.ReactNode;
   }> = [
-    { value: 'sql', label: t.tabPasteSQL || 'Paste SQL', icon: <Code2 size={14} /> },
-    { value: 'mybatis', label: 'XML Content', icon: <FileCode size={14} /> },
-    { value: 'import-xml', label: 'Import XML File', icon: <BookOpen size={14} /> },
-    { value: 'smart-editor', label: '🚀 Smart Editor', icon: <Code2 size={14} /> },
+    { value: 'sql', label: t.tabPasteSQL, icon: <Code2 size={14} /> },
+    { value: 'mybatis', label: t.tabMyBatisContent, icon: <FileCode size={14} /> },
+    { value: 'import-xml', label: t.tabImportMyBatis, icon: <BookOpen size={14} /> },
+    { value: 'smart-editor', label: t.tabSmartEditor, icon: <Code2 size={14} /> },
   ];
 
   return (

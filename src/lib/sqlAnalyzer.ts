@@ -79,10 +79,45 @@ export interface SqlMetrics {
   having: number;
   where: number;
   subqueryDepth: number;
+  subqueryCount: number;
+  conditionCount: number;
+  operationAndFunctionCount: number;
+  lineCount: number;
   joinCount: number;
   cteCount: number;
   tableCount: number;
   selectFields: number;
+  finalSelectFieldCount: number;
+}
+
+export interface JoinLogicComplexity {
+  level: 'LOW' | 'MEDIUM' | 'HIGH';
+  score: number;
+  totalJoinConditions: number;
+  simpleConditions: number;
+  multiColumnConditions: number;
+  functionBasedConditions: number;
+  nonEquiConditions: number;
+}
+
+export interface QueryFieldProjection {
+  expression: string;
+  alias: string;
+  category: 'standard' | 'window' | 'calculated';
+}
+
+export interface StructuralAnalysisReport {
+  joinCount: number;
+  subqueryCount: number;
+  conditionCount: number;
+  operationAndFunctionCount: number;
+  lineCount: number;
+  joinLogicComplexity: JoinLogicComplexity;
+  allFields: QueryFieldProjection[];
+  allFieldsCount: number;
+  finalSelectFields: QueryFieldProjection[];
+  finalSelectFieldCount: number;
+  hasCTE: boolean;
 }
 
 export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER_HIGH';
@@ -119,6 +154,8 @@ export interface AnalysisResult {
   }[];
   dialect: SqlDialect;
   rawSql: string;
+  structuralReport: StructuralAnalysisReport;
+  hasCTE: boolean;
 }
 
 export async function analyzeSql(
@@ -135,7 +172,9 @@ export async function analyzeSql(
   const ctes = extractCTEs(cleaned);
   const tables = buildGraphTables(extractedTables, ctes);
   const joins = buildGraphJoins(extractedJoins, tables, ctes);
-  const metrics = computeMetrics(cleaned, ctes, extractedTables, extractedJoins);
+  // Structural metrics must be based on SQL joins only (exclude graph-only RELATES TO edges).
+  const structuralReport = buildStructuralAnalysisReport(cleaned, sql, ctes, extractedJoins);
+  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport);
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
@@ -156,6 +195,8 @@ export async function analyzeSql(
     mainQueryFields,
     dialect,
     rawSql: cleaned,
+    structuralReport,
+    hasCTE: ctes.length > 0,
   };
 }
 
@@ -254,7 +295,34 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
 
 function extractTables(sql: string): TableNode[] {
   const tables: Map<string, TableNode> = new Map();
-  const upper = sql.toUpperCase();
+
+  const SQL_KEYWORDS = new Set([
+    'WHERE',
+    'ON',
+    'SET',
+    'SELECT',
+    'WITH',
+    'GROUP',
+    'ORDER',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+    'UNION',
+    'AND',
+    'OR',
+    'WHEN',
+    'THEN',
+    'ELSE',
+    'END',
+    'FROM',
+    'JOIN',
+    'LEFT',
+    'RIGHT',
+    'FULL',
+    'INNER',
+    'CROSS',
+    'NATURAL',
+  ]);
 
   // Extract CTEs first to mark them
   const cteNames = new Set<string>();
@@ -272,13 +340,17 @@ function extractTables(sql: string): TableNode[] {
   while ((match = tablePattern.exec(sql)) !== null) {
     const rawName = match[1].replace(/[`"\[\]]/g, '');
     const alias = match[2]?.replace(/[`"\[\]]/g, '');
-    if (['WHERE', 'ON', 'SET', 'SELECT', 'WITH'].includes(rawName.toUpperCase())) continue;
+    const normalizedName = rawName.toUpperCase();
+    if (SQL_KEYWORDS.has(normalizedName) || normalizedName.length === 0) continue;
     const key = rawName.toUpperCase();
     if (!tables.has(key)) {
       tables.set(key, {
         id: `table-${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
         name: rawName,
-        alias: alias && alias.toUpperCase() !== rawName.toUpperCase() ? alias : undefined,
+        alias:
+          alias && !SQL_KEYWORDS.has(alias.toUpperCase()) && alias.toUpperCase() !== normalizedName
+            ? alias
+            : undefined,
         columns: extractColumnsForTable(sql, alias || rawName),
         isCTE: cteNames.has(key),
       });
@@ -751,26 +823,166 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
   return results;
 }
 
-function extractSelectFields(sql: string): { field: string; alias: string }[] {
-  const selectMatch = /SELECT\s+([\s\S]+?)\s+FROM/i.exec(sql);
-  if (!selectMatch) return [];
-  return selectMatch[1]
-    .split(',')
-    .map((f) => {
-      const trimmed = f.trim();
-      const asMatch = /(.+?)\s+(?:AS\s+)?(\w+)\s*$/i.exec(trimmed);
-      if (asMatch) {
-        const fieldPart = asMatch[1].trim();
-        const aliasPart = asMatch[2].trim();
-        // Check if this looks like an alias (field ends with different name)
-        if (fieldPart.toLowerCase() !== aliasPart.toLowerCase()) {
-          return { field: fieldPart, alias: aliasPart };
+function isWordBoundary(text: string, start: number, len: number): boolean {
+  const before = start <= 0 ? ' ' : text[start - 1];
+  const after = start + len >= text.length ? ' ' : text[start + len];
+  return !/[A-Z0-9_]/i.test(before) && !/[A-Z0-9_]/i.test(after);
+}
+
+function splitTopLevelComma(input: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < input.length) {
+        if (input[i] === quote && input[i + 1] === quote) {
+          i += 2;
+          continue;
         }
+        if (input[i] === quote) break;
+        i++;
       }
-      return { field: trimmed, alias: '' };
-    })
+      continue;
+    }
+
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      parts.push(input.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+
+  const tail = input.slice(start).trim();
+  if (tail) parts.push(tail);
+  return parts;
+}
+
+function parseSelectField(fieldExpr: string): { field: string; alias: string } {
+  const trimmed = fieldExpr.trim();
+  if (!trimmed) return { field: '', alias: '' };
+
+  const asMatch = /^(.*?)(?:\s+AS\s+)([A-Za-z_][\w$]*)\s*$/i.exec(trimmed);
+  if (asMatch) {
+    return { field: asMatch[1].trim(), alias: asMatch[2].trim() };
+  }
+
+  const implicitAliasMatch = /^(.*\S)\s+([A-Za-z_][\w$]*)\s*$/.exec(trimmed);
+  if (implicitAliasMatch) {
+    const left = implicitAliasMatch[1].trim();
+    const right = implicitAliasMatch[2].trim();
+    const leftLastToken = left.split(/\s+/).pop()?.toLowerCase();
+    if (leftLastToken !== right.toLowerCase() && !left.endsWith(')')) {
+      return { field: left, alias: right };
+    }
+  }
+
+  return { field: trimmed, alias: '' };
+}
+
+function extractSelectClauses(sql: string): string[] {
+  const clauses: string[] = [];
+  const upper = sql.toUpperCase();
+  let depth = 0;
+
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === quote && sql[i + 1] === quote) {
+          i += 2;
+          continue;
+        }
+        if (sql[i] === quote) break;
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === '(') {
+      depth++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (!upper.startsWith('SELECT', i) || !isWordBoundary(upper, i, 6)) continue;
+
+    const selectDepth = depth;
+    let j = i + 6;
+    let clause = '';
+
+    while (j < sql.length) {
+      const c = sql[j];
+
+      if (c === "'" || c === '"' || c === '`') {
+        const quote = c;
+        clause += c;
+        j++;
+        while (j < sql.length) {
+          clause += sql[j];
+          if (sql[j] === quote && sql[j + 1] === quote) {
+            clause += sql[j + 1] || '';
+            j += 2;
+            continue;
+          }
+          if (sql[j] === quote) {
+            j++;
+            break;
+          }
+          j++;
+        }
+        continue;
+      }
+
+      if (c === '(') {
+        depth++;
+        clause += c;
+        j++;
+        continue;
+      }
+      if (c === ')') {
+        depth = Math.max(0, depth - 1);
+        clause += c;
+        j++;
+        continue;
+      }
+
+      if (depth === selectDepth && upper.startsWith('FROM', j) && isWordBoundary(upper, j, 4)) {
+        break;
+      }
+
+      clause += c;
+      j++;
+    }
+
+    const normalized = clause.trim();
+    if (normalized) clauses.push(normalized);
+    i = j;
+  }
+
+  return clauses;
+}
+
+function extractSelectFields(sql: string): { field: string; alias: string }[] {
+  const first = extractSelectClauses(sql)[0];
+  if (!first) return [];
+
+  return splitTopLevelComma(first)
+    .map(parseSelectField)
     .filter((f) => f.field.length > 0)
-    .slice(0, 50);
+    .slice(0, 100);
 }
 
 function countPattern(sql: string, pattern: RegExp): number {
@@ -781,7 +993,7 @@ function computeMetrics(
   sql: string,
   ctes: CTE[],
   tables: TableNode[],
-  joins: JoinEdge[]
+  report: StructuralAnalysisReport
 ): SqlMetrics {
   const upper = sql.toUpperCase();
   return {
@@ -792,10 +1004,260 @@ function computeMetrics(
     having: countPattern(upper, /\bHAVING\b/g),
     where: countPattern(upper, /\bWHERE\b/g),
     subqueryDepth: computeSubqueryDepth(sql),
-    joinCount: joins.length,
+    subqueryCount: report.subqueryCount,
+    conditionCount: report.conditionCount,
+    operationAndFunctionCount: report.operationAndFunctionCount,
+    lineCount: report.lineCount,
+    joinCount: report.joinCount,
     cteCount: ctes.length,
     tableCount: tables.length,
-    selectFields: extractSelectFields(sql).length,
+    selectFields: report.allFieldsCount,
+    finalSelectFieldCount: report.finalSelectFieldCount,
+  };
+}
+
+function countLines(rawSql: string): number {
+  const normalized = rawSql.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return 0;
+  return normalized.split('\n').length;
+}
+
+function countImplicitJoins(sql: string): number {
+  const upper = sql.toUpperCase();
+  let count = 0;
+  let depth = 0;
+
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === quote && sql[i + 1] === quote) {
+          i += 2;
+          continue;
+        }
+        if (sql[i] === quote) break;
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === '(') {
+      depth++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (!upper.startsWith('FROM', i) || !isWordBoundary(upper, i, 4)) continue;
+
+    const fromDepth = depth;
+    let j = i + 4;
+    let fromBody = '';
+    while (j < sql.length) {
+      const c = sql[j];
+      if (c === "'" || c === '"' || c === '`') {
+        const quote = c;
+        fromBody += c;
+        j++;
+        while (j < sql.length) {
+          fromBody += sql[j];
+          if (sql[j] === quote && sql[j + 1] === quote) {
+            fromBody += sql[j + 1] || '';
+            j += 2;
+            continue;
+          }
+          if (sql[j] === quote) {
+            j++;
+            break;
+          }
+          j++;
+        }
+        continue;
+      }
+      if (c === '(') {
+        depth++;
+        fromBody += c;
+        j++;
+        continue;
+      }
+      if (c === ')') {
+        depth = Math.max(0, depth - 1);
+        if (depth < fromDepth) break;
+        fromBody += c;
+        j++;
+        continue;
+      }
+
+      const stopKeywords = [' WHERE', ' GROUP', ' ORDER', ' HAVING', ' LIMIT', ' UNION'];
+      const rest = upper.slice(j);
+      if (depth === fromDepth && stopKeywords.some((k) => rest.startsWith(k))) break;
+
+      fromBody += c;
+      j++;
+    }
+
+    const commaParts = splitTopLevelComma(fromBody);
+    if (commaParts.length > 1) {
+      count += commaParts.length - 1;
+    }
+
+    i = j;
+  }
+
+  return count;
+}
+
+function countCaseWhen(sql: string): number {
+  const upper = sql.toUpperCase();
+  const tokenPattern = /\b(CASE|WHEN|END)\b/g;
+  let depth = 0;
+  let total = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenPattern.exec(upper)) !== null) {
+    const token = match[1];
+    if (token === 'CASE') depth++;
+    else if (token === 'WHEN' && depth > 0) total++;
+    else if (token === 'END' && depth > 0) depth--;
+  }
+
+  return total;
+}
+
+function countMathOperations(sql: string): number {
+  const compact = sql.replace(/\s+/g, '');
+  return (compact.match(/[+\-*/]/g) || []).length;
+}
+
+function countFunctionCalls(sql: string): number {
+  const upper = sql.toUpperCase();
+  const functionLike = /\b([A-Z_][A-Z0-9_$]*)\s*\(/g;
+  const excluded = new Set([
+    'SELECT',
+    'FROM',
+    'WHERE',
+    'JOIN',
+    'ON',
+    'AS',
+    'CASE',
+    'WHEN',
+    'THEN',
+    'ELSE',
+    'END',
+    'WITH',
+    'IN',
+    'EXISTS',
+    'VALUES',
+  ]);
+  let total = 0;
+  let match: RegExpExecArray | null;
+  while ((match = functionLike.exec(upper)) !== null) {
+    if (!excluded.has(match[1])) total++;
+  }
+  return total;
+}
+
+function classifyFieldExpression(expression: string): QueryFieldProjection['category'] {
+  const upper = expression.toUpperCase();
+  if (/\bOVER\s*\(/.test(upper)) return 'window';
+  if (/\bCASE\b/.test(upper) || /[+\-*/]/.test(expression) || /\b\w+\s*\(/.test(expression)) {
+    return 'calculated';
+  }
+  return 'standard';
+}
+
+function toFieldProjection(fields: { field: string; alias: string }[]): QueryFieldProjection[] {
+  return fields.map((f) => ({
+    expression: f.field,
+    alias: f.alias,
+    category: classifyFieldExpression(f.field),
+  }));
+}
+
+function computeJoinLogicComplexity(joins: JoinEdge[]): JoinLogicComplexity {
+  const withConditions = joins.filter((j) => j.condition && j.condition.trim() !== '');
+
+  let simpleConditions = 0;
+  let multiColumnConditions = 0;
+  let functionBasedConditions = 0;
+  let nonEquiConditions = 0;
+
+  withConditions.forEach((join) => {
+    const condition = join.condition.toUpperCase();
+    const conditionParts = condition.split(/\bAND\b|\bOR\b/).filter((part) => part.trim() !== '');
+
+    if (conditionParts.length <= 1) simpleConditions++;
+    if (conditionParts.length > 1) multiColumnConditions++;
+    if (/\b[A-Z_][A-Z0-9_$]*\s*\(/.test(condition)) functionBasedConditions++;
+
+    const nonEquiPattern = /(<>|!=|<=|>=|<|>|\bLIKE\b|\bBETWEEN\b|\bIN\b|\bIS\b)/;
+    const hasPureEqui = /\w+\.\w+\s*=\s*\w+\.\w+/.test(condition);
+    if (nonEquiPattern.test(condition) && !hasPureEqui) nonEquiConditions++;
+  });
+
+  const score =
+    simpleConditions +
+    multiColumnConditions * 2 +
+    functionBasedConditions * 2 +
+    nonEquiConditions * 3;
+
+  let level: JoinLogicComplexity['level'] = 'LOW';
+  if (score >= 8) level = 'HIGH';
+  else if (score >= 4) level = 'MEDIUM';
+
+  return {
+    level,
+    score,
+    totalJoinConditions: withConditions.length,
+    simpleConditions,
+    multiColumnConditions,
+    functionBasedConditions,
+    nonEquiConditions,
+  };
+}
+
+function buildStructuralAnalysisReport(
+  cleanedSql: string,
+  rawSql: string,
+  ctes: CTE[],
+  joins: JoinEdge[]
+): StructuralAnalysisReport {
+  const mainQuery = extractMainQuery(cleanedSql);
+  const allFields = toFieldProjection(
+    extractSelectClauses(cleanedSql).flatMap((clause) =>
+      splitTopLevelComma(clause).map(parseSelectField)
+    )
+  ).filter((field) => field.expression.length > 0);
+
+  const finalSelectFields = toFieldProjection(extractSelectFields(mainQuery)).filter(
+    (field) => field.expression.length > 0
+  );
+
+  const subqueryCount =
+    extractNestedSubqueries(mainQuery, 'main').length +
+    ctes.reduce((sum, cte) => sum + extractNestedSubqueries(cte.body, cte.id).length, 0);
+
+  const whereCount = countPattern(cleanedSql.toUpperCase(), /\bWHERE\b/g);
+  const havingCount = countPattern(cleanedSql.toUpperCase(), /\bHAVING\b/g);
+  const caseWhenCount = countCaseWhen(cleanedSql);
+
+  return {
+    joinCount: joins.length + countImplicitJoins(cleanedSql),
+    subqueryCount,
+    conditionCount: whereCount + havingCount + caseWhenCount,
+    operationAndFunctionCount: countMathOperations(cleanedSql) + countFunctionCalls(cleanedSql),
+    lineCount: countLines(rawSql),
+    joinLogicComplexity: computeJoinLogicComplexity(joins),
+    allFields,
+    allFieldsCount: allFields.length,
+    finalSelectFields,
+    finalSelectFieldCount: finalSelectFields.length,
+    hasCTE: ctes.length > 0,
   };
 }
 

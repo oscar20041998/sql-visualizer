@@ -12,6 +12,7 @@ import {
   Filter,
   GitBranch,
   Clock,
+  Download,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -89,6 +90,30 @@ export default function MetricsDashboardContent() {
   const { settings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
 
+  const handleExportAnalysisJson = () => {
+    if (!analysisResult) return;
+
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      locale: settings.locale,
+      dialect: analysisResult.dialect,
+      analysis: analysisResult,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const timeStamp = new Date().toISOString().replace(/[:.]/g, '-');
+    anchor.href = url;
+    anchor.download = `sql-analysis-${timeStamp}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (!analysisResult) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] gap-4">
@@ -109,7 +134,7 @@ export default function MetricsDashboardContent() {
     );
   }
 
-  const { metrics, complexity, executionCost } = analysisResult;
+  const { metrics, complexity, executionCost, structuralReport } = analysisResult;
 
   const complexityColorMap = {
     LOW: 'var(--complexity-low)',
@@ -138,12 +163,21 @@ export default function MetricsDashboardContent() {
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <BarChart3 size={22} className="text-primary" />
-          {t.metricsTitle}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <BarChart3 size={22} className="text-primary" />
+            {t.metricsTitle}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        </div>
+        <button
+          onClick={handleExportAnalysisJson}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          <Download size={14} className="text-primary" />
+          {t.metricsExportJson}
+        </button>
       </div>
 
       {/* High Risk Alert */}
@@ -225,12 +259,50 @@ export default function MetricsDashboardContent() {
             alert={metrics.subqueryDepth > 3}
           />
           <MetricCard
+            label="Subquery Count"
+            value={metrics.subqueryCount}
+            icon={Layers}
+            color="var(--warning)"
+            subtitle="Nested SELECTs"
+            alert={metrics.subqueryCount > 3}
+          />
+          <MetricCard
             label={t.joinCount}
             value={metrics.joinCount}
             icon={GitBranch}
             color="var(--join-left)"
             subtitle="JOIN operations"
             alert={metrics.joinCount > 5}
+          />
+          <MetricCard
+            label="Condition Count"
+            value={metrics.conditionCount}
+            icon={Filter}
+            color="var(--info)"
+            subtitle="WHERE + HAVING + CASE WHEN"
+            alert={metrics.conditionCount > 8}
+          />
+          <MetricCard
+            label="Ops + Functions"
+            value={metrics.operationAndFunctionCount}
+            icon={Zap}
+            color="var(--accent)"
+            subtitle="Math and SQL function calls"
+            alert={metrics.operationAndFunctionCount > 12}
+          />
+          <MetricCard
+            label="Lines of SQL"
+            value={metrics.lineCount}
+            icon={Hash}
+            color="var(--primary)"
+            subtitle="Raw input lines"
+          />
+          <MetricCard
+            label="Final SELECT Fields"
+            value={metrics.finalSelectFieldCount}
+            icon={BarChart3}
+            color="var(--join-inner)"
+            subtitle="Final output projection"
           />
         </div>
       </div>
@@ -353,6 +425,85 @@ export default function MetricsDashboardContent() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Join Logic Complexity */}
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <GitBranch size={15} className="text-primary" />
+          JOIN Logic Complexity
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <MetricCard
+            label="Complexity Level"
+            value={structuralReport.joinLogicComplexity.level}
+            icon={AlertTriangle}
+            color="var(--warning)"
+            subtitle={`Score ${structuralReport.joinLogicComplexity.score}`}
+            alert={structuralReport.joinLogicComplexity.level === 'HIGH'}
+          />
+          <MetricCard
+            label="Simple ON"
+            value={structuralReport.joinLogicComplexity.simpleConditions}
+            icon={ArrowUpDown}
+            color="var(--success)"
+            subtitle="Single-column matches"
+          />
+          <MetricCard
+            label="Multi-column ON"
+            value={structuralReport.joinLogicComplexity.multiColumnConditions}
+            icon={Layers}
+            color="var(--info)"
+            subtitle="AND/OR join predicates"
+          />
+          <MetricCard
+            label="Function-based ON"
+            value={structuralReport.joinLogicComplexity.functionBasedConditions}
+            icon={Zap}
+            color="var(--accent)"
+            subtitle="Functions inside ON"
+          />
+          <MetricCard
+            label="Non-equi ON"
+            value={structuralReport.joinLogicComplexity.nonEquiConditions}
+            icon={TrendingUp}
+            color="var(--danger)"
+            subtitle=">, <, LIKE, BETWEEN, IN"
+            alert={structuralReport.joinLogicComplexity.nonEquiConditions > 0}
+          />
+        </div>
+      </div>
+
+      {/* Field Extraction Summary */}
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Hash size={15} className="text-primary" />
+          Field Extraction Summary
+        </h3>
+        <div className="text-xs text-muted-foreground mb-3">
+          Total extracted fields:{' '}
+          <span className="font-mono text-foreground">{structuralReport.allFieldsCount}</span>
+        </div>
+        <div className="max-h-48 overflow-auto border border-border rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 sticky top-0">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">Expression</th>
+                <th className="text-left px-3 py-2 font-medium">Alias</th>
+                <th className="text-left px-3 py-2 font-medium">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {structuralReport.allFields.map((field, idx) => (
+                <tr key={`field-${idx}`} className="border-t border-border/50">
+                  <td className="px-3 py-2 font-mono text-foreground">{field.expression}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{field.alias || '-'}</td>
+                  <td className="px-3 py-2 text-muted-foreground uppercase">{field.category}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

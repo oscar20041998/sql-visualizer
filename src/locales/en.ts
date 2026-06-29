@@ -15,7 +15,9 @@ const en = {
   queryInputTitle: 'Query Input & Configuration',
   queryInputSubtitle: 'Paste SQL or import MyBatis XML to begin analysis',
   tabPasteSQL: 'Paste SQL Direct',
-  tabMyBatis: 'Import MyBatis XML',
+  tabMyBatisContent: 'Paste your XML content',
+  tabImportMyBatis: 'Import MyBatis (XML) file',
+  tabSmartEditor: 'Smart Editor (WIP)',
   dialectLabel: 'SQL Dialect',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -108,7 +110,7 @@ const en = {
   suggMissingIndexDetail:
     'Ensure indexes exist on join key columns. Missing indexes on join keys cause full table scans.',
   suggExcessiveJoinsDetail:
-    'joins in a single query significantly increases execution cost. Consider splitting into smaller queries or using intermediate CTEs to pre-aggregate data.',
+    'Excessive joins in a single query significantly increases execution cost. Consider splitting into smaller queries or using intermediate CTEs to pre-aggregate data.',
   suggManyJoinsDetail:
     'Place the most selective (smallest result set) table first in the FROM clause. Ensure the optimizer can use index nested loops.',
   suggCrossJoinDetail:
@@ -149,6 +151,7 @@ const en = {
   complexitySuperHigh: 'SUPER HIGH',
   noMetrics: 'No metrics available',
   noMetricsHint: 'Analyze a query to see metrics',
+  metricsExportJson: 'Export Analysis JSON',
   impactLow: 'Low Impact',
   impactMedium: 'Medium Impact',
   impactHigh: 'High Impact',
@@ -421,6 +424,7 @@ const en = {
   guidelineSidebarExportCSVDesc: 'Extracted Tables section',
 
   // SQL Analyzer - Complexity Recommendations
+  highComplexityDetected: 'High complexity detected — consider optimization',
   complexityRecommendationLow:
     'Query appears lightweight. Standard indexing should handle this well.',
   complexityRecommendationMedium:
