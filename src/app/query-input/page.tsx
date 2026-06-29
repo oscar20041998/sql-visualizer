@@ -225,19 +225,14 @@ export default function QueryInputContent() {
   const hasCTEInInput = /\bWITH\b/i.test(currentSql);
 
   // Tips array
-  const tips = [
-    t.tipCTE || 'Use CTEs for complex queries',
-    t.tipJoin || 'JOIN optimization matters',
-    t.tipMyBatis || 'MyBatis XML for dynamic queries',
-    t.tipDialect || 'Select correct dialect',
-  ].filter(Boolean);
+  const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
   return (
     <AppLayout>
       <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
         <LoadingOverlay
           visible={isAnalyzing}
-          title={t.analyzing || 'Analyzing'}
-          description={t.parsingSQL || 'Parsing SQL...'}
+          title={t.analyzing}
+          description={t.parsingSQL}
           hideDelay={300}
           onHide={() => {
             // Optional: Add any cleanup logic when loading completes
@@ -260,12 +255,12 @@ export default function QueryInputContent() {
         {/* Regular SQL/MyBatis Input */}
         {inputMode !== 'smart-editor' && (
           <>
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px]">
+            {/* Tabs - Full Width */}
+            <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px] mt-4">
               {/* Left: Input Panel */}
               <div className="xl:col-span-2 space-y-4">
-                {/* Tabs */}
-                <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-
                 {/* SQL Textarea */}
                 {inputMode === 'sql' && (
                   <SqlInputPanel

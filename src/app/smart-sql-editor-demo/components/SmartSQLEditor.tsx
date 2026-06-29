@@ -409,7 +409,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
   const hasAnyErrors = state.terminalErrors.length > 0;
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-12rem)] gap-4 p-4 bg-gray-900 rounded-lg">
+    <div className="flex flex-col flex-1 gap-4 p-4 bg-gray-900 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-white">{t.smartEditorTitle}</h2>
         <div className="flex flex-wrap items-center gap-2">

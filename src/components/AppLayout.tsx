@@ -25,10 +25,10 @@ function AppFooter() {
           <img
             src="/assets/images/fpt_software_logo.png"
             alt="FPT Software Ho Chi Minh"
-            className="flex-shrink-0 w-20 h-20 object-contain"
+            className="flex-shrink-0 w-10 h-10 object-contain"
           />
           <div className="flex flex-col leading-tight">
-            <span className="text-[10px] text-muted-foreground">FHM.CMS</span>
+            <span className="text-[10px] text-muted-foreground">FHM.CMS - duyvt7@fpt.com</span>
             <span className="text-xs font-semibold text-foreground">
               © {new Date().getFullYear()} FPT Software Ho Chi Minh - All Rights Reserved
             </span>

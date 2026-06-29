@@ -190,7 +190,8 @@ export default function MetricsDashboardContent() {
   };
 
   const complexityColor = complexityColorMap[complexity.level];
-  const isHighRisk = complexity.level === 'HIGH' || complexity.level === 'SUPER_HIGH';
+  const isHighRisk =
+    complexity.level === t.complexityHigh || complexity.level === t.complexitySuperHigh;
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
