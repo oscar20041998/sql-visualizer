@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import SmartSQLEditor from '@/components/SmartSQLEditor';
+import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 

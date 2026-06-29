@@ -149,6 +149,50 @@ const vi = {
   noMetrics: 'Không có chỉ số',
   noMetricsHint: 'Phân tích truy vấn để xem chỉ số',
   metricsExportJson: 'Xuất JSON phân tích',
+  metricsSubqueryCount: 'Số lượng truy vấn con',
+  metricsConditionCount: 'Số lượng điều kiện',
+  metricsOpsFunctions: 'Toán tử + Hàm',
+  metricsLinesOfSql: 'Số dòng SQL',
+  metricsFinalSelectFields: 'Trường SELECT cuối',
+  metricsSubtitleWindowClauses: 'Mệnh đề OVER()',
+  metricsSubtitleAggregationClauses: 'Mệnh đề tổng hợp',
+  metricsSubtitleSortOperations: 'Thao tác sắp xếp',
+  metricsSubtitleDeduplicationOps: 'Thao tác khử trùng lặp',
+  metricsSubtitleNestingLevels: 'Mức lồng nhau',
+  metricsSubtitleNestedSelects: 'SELECT lồng nhau',
+  metricsSubtitleJoinOperations: 'Thao tác JOIN',
+  metricsSubtitleConditionFormula: 'WHERE + HAVING + CASE WHEN',
+  metricsSubtitleOpsFunctions: 'Toán tử và hàm SQL',
+  metricsSubtitleRawInputLines: 'Dòng đầu vào thô',
+  metricsSubtitleFinalOutputProjection: 'Projection đầu ra cuối',
+  metricsJoinLogicComplexityTitle: 'Độ phức tạp logic JOIN',
+  metricsJoinComplexityLevel: 'Mức độ phức tạp',
+  metricsSimpleOn: 'ON đơn giản',
+  metricsSingleColumnMatches: 'Ghép cột đơn',
+  metricsMultiColumnOn: 'ON đa cột',
+  metricsAndOrJoinPredicates: 'Điều kiện JOIN AND/OR',
+  metricsFunctionBasedOn: 'ON dựa trên hàm',
+  metricsFunctionsInsideOn: 'Hàm bên trong ON',
+  metricsNonEquiOn: 'ON không bằng',
+  metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
+  metricsFieldExtractionSummaryTitle: 'Tóm tắt trích xuất trường',
+  metricsTotalExtractedFields: 'Tổng số trường trích xuất',
+  metricsBarWindowFn: 'Hàm cửa sổ',
+  metricsBarSubqueryCnt: 'SL truy vấn con',
+  metricsBarGroupBy: 'GROUP BY',
+  metricsBarOrderBy: 'ORDER BY',
+  metricsBarConditions: 'Điều kiện',
+  metricsBarOpsFuncs: 'Toán tử+Hàm',
+  metricsBarJoins: 'JOIN',
+  metricsBarFinalSelect: 'SELECT cuối',
+  metricsFieldSearchPlaceholder: 'Tìm trường đã trích xuất (biểu thức, bí danh, loại)...',
+  metricsFieldNoResults: 'Không có trường nào khớp với từ khóa tìm kiếm.',
+  metricsFieldShowing: 'Hiển thị',
+  metricsFieldOf: 'trên',
+  metricsFieldPaginationPrev: 'Trước',
+  metricsFieldPaginationNext: 'Sau',
+  metricsFieldPaginationPage: 'Trang',
+  noDataDash: '-',
   impactLow: 'Tác động thấp',
   impactMedium: 'Tác động trung bình',
   impactHigh: 'Tác động cao',
@@ -314,6 +358,9 @@ const vi = {
   guidelineMetricsStep3Label: 'Chi phí thực thi ước tính',
   guidelineMetricsStep3Desc:
     'Điểm heuristic phía client dựa trên độ phức tạp, phương ngữ và giả định chỉ mục chuẩn. Dùng làm hướng dẫn tương đối, không phải điểm chuẩn tuyệt đối.',
+  guidelineMetricsStep4Label: 'Bảng trường trích xuất (Tìm kiếm + Phân trang)',
+  guidelineMetricsStep4Desc:
+    'Xem các trường đã trích xuất với tìm kiếm thời gian thực và phân trang. Bảng hỗ trợ lọc theo biểu thức/bí danh/loại trường và hiển thị 20 mục mỗi trang để điều hướng nhanh hơn với tập kết quả lớn.',
   guidelineMetricsTip1:
     'Di chuột qua các cột biểu đồ để xem giá trị chính xác và khuyến nghị cho từng yếu tố.',
 
@@ -369,7 +416,7 @@ const vi = {
   guidelineToolsMetricsDesc:
     'Định lượng độ phức tạp của truy vấn với các số liệu khách quan. Hiểu tác động hiệu suất trước khi thực thi và nhận các khuyến nghị tối ưu hóa cụ thể.',
   guidelineToolsMetricsFeatures:
-    'Gauge độ phức tạp (0-100) • Phân tích theo yếu tố (JOIN, truy vấn con, hàm) • Ước tính chi phí thực thi • Khuyến nghị từng yếu tố • Tooltip tương tác',
+    'Gauge độ phức tạp (0-100) • Phân tích theo yếu tố (JOIN, truy vấn con, hàm) • Ước tính chi phí thực thi • Khuyến nghị từng yếu tố • Tìm kiếm trường trích xuất + phân trang 20 dòng • Tooltip tương tác',
   guidelineToolsCTEName: 'Phân tích CTE',
   guidelineToolsCTEDesc:
     'Phân tích sâu sắc Common Table Expressions. Xem cấu trúc CTE, phụ thuộc, nguồn gốc trường và xác định các CTE không sử dụng hoặc có vấn đề.',
@@ -402,6 +449,9 @@ const vi = {
   guidelineToolsExportCTESQL: 'Sao chép SQL CTE',
   guidelineToolsExportCTESQLDesc:
     'Sao chép các phần CTE riêng lẻ để sử dụng lại trong các truy vấn khác hoặc tối ưu hóa CTE độc lập.',
+  guidelineToolsExportAnalysisJson: 'Xuất JSON phân tích',
+  guidelineToolsExportAnalysisJsonDesc:
+    'Xuất toàn bộ payload phân tích SQL (metrics, graph, CTE và báo cáo cấu trúc) thành tệp JSON để chia sẻ hoặc lưu trữ.',
   // Guideline - Quick Reference
   guidelineQuickRefQueryInput: 'Nhập truy vấn',
   guidelineQuickRefGraph: 'Biểu đồ quan hệ',
@@ -754,7 +804,7 @@ const vi = {
   guidelineAdvancedFeaturesSubtitle: 'Phân trang, tìm kiếm và khả năng tùy chỉnh mới',
   guidelineAdvancedFeaturesStep1Label: 'Bảng trường truy vấn chính với phân trang',
   guidelineAdvancedFeaturesStep1Desc:
-    'Xem các trường truy vấn chính trong định dạng bảng có thể tìm kiếm và phân trang. Hiển thị 10 trường mỗi trang với bộ lọc tìm kiếm thời gian thực trên tên trường, bí danh và bảng nguồn. Hoàn hảo để phân tích các truy vấn lớn với nhiều trường.',
+    'Xem các trường đã trích xuất trong định dạng bảng có thể tìm kiếm và phân trang. Hiển thị 20 trường mỗi trang với bộ lọc tìm kiếm thời gian thực theo biểu thức, bí danh và loại trường. Phù hợp để phân tích truy vấn lớn có nhiều cột được chọn.',
   guidelineAdvancedFeaturesStep2Label: 'Bảng tham chiếu với bộ lọc nâng cao',
   guidelineAdvancedFeaturesStep2Desc:
     'Duyệt các bảng được tham chiếu (CTE và bảng cơ sở) trong bảng điều khiển chuyên dụng với phân trang và tìm kiếm. Hiển thị các huy hiệu loại bảng (CTE/TABLE), số lượng cột và danh sách cột nội tuyến. Kết quả tìm kiếm cập nhật ngay khi bạn nhập.',

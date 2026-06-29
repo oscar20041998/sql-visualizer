@@ -53,7 +53,7 @@ const TableRow = memo(function TableRowComponent({ row }: { row: ExtractedTableR
   return (
     <tr className="border-b border-border/50 hover:bg-muted/40 transition-colors">
       <td className="px-4 py-2 font-mono text-foreground font-medium">{row.tableName}</td>
-      <td className="px-4 py-2">
+      <td className="px-4 py-2 w-[200px]">
         {row.clause === 'FROM' ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/15 text-blue-400">
             FROM
@@ -70,7 +70,7 @@ const TableRow = memo(function TableRowComponent({ row }: { row: ExtractedTableR
           </span>
         )}
       </td>
-      <td className="px-4 py-2 font-mono text-muted-foreground">{row.relatedTo}</td>
+      <td className="px-4 py-2 font-mono text-muted-foreground w-[200px]">{row.relatedTo}</td>
       <td className="px-4 py-2">
         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
           {row.hits}
@@ -125,7 +125,10 @@ const ExtractedTablesPanel = memo(function ExtractedTablesPanelComponent({
 
       {/* Table */}
       {showExtracted && (
-        <div className="overflow-auto" style={{ maxHeight: '272px', willChange: 'transform' }}>
+        <div
+          className="overflow-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          style={{ maxHeight: '272px', willChange: 'transform' }}
+        >
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-card z-10">
               <tr className="border-b border-border">

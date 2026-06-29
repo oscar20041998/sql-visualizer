@@ -119,6 +119,10 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
           label: t.guidelineMetricsStep3Label,
           desc: t.guidelineMetricsStep3Desc,
         },
+        {
+          label: t.guidelineMetricsStep4Label,
+          desc: t.guidelineMetricsStep4Desc,
+        },
       ],
       tips: [{ text: t.guidelineMetricsTip1 }],
     },
@@ -206,6 +210,9 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         { text: t.guidelineToolsExportTitle + ': ' + t.guidelineToolsExportCSVDesc },
         { text: t.guidelineToolsExportMermaid + ': ' + t.guidelineToolsExportMermaidDesc },
         { text: t.guidelineToolsExportCTESQL + ': ' + t.guidelineToolsExportCTESQLDesc },
+        {
+          text: t.guidelineToolsExportAnalysisJson + ': ' + t.guidelineToolsExportAnalysisJsonDesc,
+        },
       ],
     },
     {

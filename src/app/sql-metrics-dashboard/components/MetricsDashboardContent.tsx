@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Zap,
@@ -68,8 +68,13 @@ function MetricCard({
   );
 }
 
-function ImpactBadge({ impact }: { impact: 'low' | 'medium' | 'high' }) {
-  const t = getT('en'); // Replace 'en' with the appropriate locale if needed
+function ImpactBadge({
+  impact,
+  t,
+}: {
+  impact: 'low' | 'medium' | 'high';
+  t: ReturnType<typeof getT>;
+}) {
   const cfg = {
     low: { label: t.impactLow, cls: 'bg-success/10 text-success border-success/20' },
     medium: { label: t.impactMedium, cls: 'bg-warning/10 text-warning border-warning/20' },
@@ -89,6 +94,9 @@ function ImpactBadge({ impact }: { impact: 'low' | 'medium' | 'high' }) {
 export default function MetricsDashboardContent() {
   const { settings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
+  const [fieldSearch, setFieldSearch] = useState('');
+  const [fieldPage, setFieldPage] = useState(1);
+  const fieldPageSize = 20;
 
   const handleExportAnalysisJson = () => {
     if (!analysisResult) return;
@@ -135,6 +143,30 @@ export default function MetricsDashboardContent() {
   }
 
   const { metrics, complexity, executionCost, structuralReport } = analysisResult;
+
+  const filteredFields = useMemo(() => {
+    const search = fieldSearch.trim().toLowerCase();
+    if (!search) return structuralReport.allFields;
+
+    return structuralReport.allFields.filter((field) => {
+      const haystack =
+        `${field.expression} ${field.alias || ''} ${field.category || ''}`.toLowerCase();
+      return haystack.includes(search);
+    });
+  }, [fieldSearch, structuralReport.allFields]);
+
+  useEffect(() => {
+    setFieldPage(1);
+  }, [fieldSearch]);
+
+  const totalFieldPages = Math.max(1, Math.ceil(filteredFields.length / fieldPageSize));
+  const currentFieldPage = Math.min(fieldPage, totalFieldPages);
+  const paginatedFields = filteredFields.slice(
+    (currentFieldPage - 1) * fieldPageSize,
+    currentFieldPage * fieldPageSize
+  );
+  const fieldStart = filteredFields.length === 0 ? 0 : (currentFieldPage - 1) * fieldPageSize + 1;
+  const fieldEnd = Math.min(currentFieldPage * fieldPageSize, filteredFields.length);
 
   const complexityColorMap = {
     LOW: 'var(--complexity-low)',
@@ -213,7 +245,8 @@ export default function MetricsDashboardContent() {
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
-              Score: <span className="font-mono text-foreground">{complexity.score}</span>
+              {t.complexityScore}:{' '}
+              <span className="font-mono text-foreground">{complexity.score}</span>
               <span className="text-muted-foreground/50"> / {complexity.maxScore}</span>
             </p>
           </div>
@@ -226,7 +259,7 @@ export default function MetricsDashboardContent() {
             value={metrics.windowFunctions}
             icon={TrendingUp}
             color="var(--accent)"
-            subtitle="OVER() clauses"
+            subtitle={t.metricsSubtitleWindowClauses}
             alert={metrics.windowFunctions > 3}
           />
           <MetricCard
@@ -234,36 +267,36 @@ export default function MetricsDashboardContent() {
             value={metrics.groupBy}
             icon={Filter}
             color="var(--info)"
-            subtitle="Aggregation clauses"
+            subtitle={t.metricsSubtitleAggregationClauses}
           />
           <MetricCard
             label={t.orderBy}
             value={metrics.orderBy}
             icon={ArrowUpDown}
             color="var(--join-inner)"
-            subtitle="Sort operations"
+            subtitle={t.metricsSubtitleSortOperations}
           />
           <MetricCard
             label={t.distinct}
             value={metrics.distinct}
             icon={Hash}
             color="var(--join-right)"
-            subtitle="Deduplication ops"
+            subtitle={t.metricsSubtitleDeduplicationOps}
           />
           <MetricCard
             label={t.subqueryDepth}
             value={metrics.subqueryDepth}
             icon={Layers}
             color="var(--warning)"
-            subtitle="Nesting levels"
+            subtitle={t.metricsSubtitleNestingLevels}
             alert={metrics.subqueryDepth > 3}
           />
           <MetricCard
-            label="Subquery Count"
+            label={t.metricsSubqueryCount}
             value={metrics.subqueryCount}
             icon={Layers}
             color="var(--warning)"
-            subtitle="Nested SELECTs"
+            subtitle={t.metricsSubtitleNestedSelects}
             alert={metrics.subqueryCount > 3}
           />
           <MetricCard
@@ -271,38 +304,38 @@ export default function MetricsDashboardContent() {
             value={metrics.joinCount}
             icon={GitBranch}
             color="var(--join-left)"
-            subtitle="JOIN operations"
+            subtitle={t.metricsSubtitleJoinOperations}
             alert={metrics.joinCount > 5}
           />
           <MetricCard
-            label="Condition Count"
+            label={t.metricsConditionCount}
             value={metrics.conditionCount}
             icon={Filter}
             color="var(--info)"
-            subtitle="WHERE + HAVING + CASE WHEN"
+            subtitle={t.metricsSubtitleConditionFormula}
             alert={metrics.conditionCount > 8}
           />
           <MetricCard
-            label="Ops + Functions"
+            label={t.metricsOpsFunctions}
             value={metrics.operationAndFunctionCount}
             icon={Zap}
             color="var(--accent)"
-            subtitle="Math and SQL function calls"
+            subtitle={t.metricsSubtitleOpsFunctions}
             alert={metrics.operationAndFunctionCount > 12}
           />
           <MetricCard
-            label="Lines of SQL"
+            label={t.metricsLinesOfSql}
             value={metrics.lineCount}
             icon={Hash}
             color="var(--primary)"
-            subtitle="Raw input lines"
+            subtitle={t.metricsSubtitleRawInputLines}
           />
           <MetricCard
-            label="Final SELECT Fields"
+            label={t.metricsFinalSelectFields}
             value={metrics.finalSelectFieldCount}
             icon={BarChart3}
             color="var(--join-inner)"
-            subtitle="Final output projection"
+            subtitle={t.metricsSubtitleFinalOutputProjection}
           />
         </div>
       </div>
@@ -313,9 +346,9 @@ export default function MetricsDashboardContent() {
         <div className="bg-card border border-border rounded-xl p-6">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <BarChart3 size={15} className="text-primary" />
-            SQL Construct Distribution
+            {t.sqlConstructDistribution}
           </h3>
-          <MetricsBarChart metrics={metrics} />
+          <MetricsBarChart metrics={metrics} t={t} />
         </div>
 
         {/* Execution Cost */}
@@ -363,7 +396,7 @@ export default function MetricsDashboardContent() {
                   <p className="text-xs font-medium text-foreground">{factor.name}</p>
                   <p className="text-[10px] text-muted-foreground font-mono">{factor.note}</p>
                 </div>
-                <ImpactBadge impact={factor.impact} />
+                <ImpactBadge impact={factor.impact} t={t} />
               </div>
             ))}
           </div>
@@ -432,44 +465,44 @@ export default function MetricsDashboardContent() {
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <GitBranch size={15} className="text-primary" />
-          JOIN Logic Complexity
+          {t.metricsJoinLogicComplexityTitle}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <MetricCard
-            label="Complexity Level"
+            label={t.metricsJoinComplexityLevel}
             value={structuralReport.joinLogicComplexity.level}
             icon={AlertTriangle}
             color="var(--warning)"
-            subtitle={`Score ${structuralReport.joinLogicComplexity.score}`}
+            subtitle={`${t.complexityScore} ${structuralReport.joinLogicComplexity.score}`}
             alert={structuralReport.joinLogicComplexity.level === 'HIGH'}
           />
           <MetricCard
-            label="Simple ON"
+            label={t.metricsSimpleOn}
             value={structuralReport.joinLogicComplexity.simpleConditions}
             icon={ArrowUpDown}
             color="var(--success)"
-            subtitle="Single-column matches"
+            subtitle={t.metricsSingleColumnMatches}
           />
           <MetricCard
-            label="Multi-column ON"
+            label={t.metricsMultiColumnOn}
             value={structuralReport.joinLogicComplexity.multiColumnConditions}
             icon={Layers}
             color="var(--info)"
-            subtitle="AND/OR join predicates"
+            subtitle={t.metricsAndOrJoinPredicates}
           />
           <MetricCard
-            label="Function-based ON"
+            label={t.metricsFunctionBasedOn}
             value={structuralReport.joinLogicComplexity.functionBasedConditions}
             icon={Zap}
             color="var(--accent)"
-            subtitle="Functions inside ON"
+            subtitle={t.metricsFunctionsInsideOn}
           />
           <MetricCard
-            label="Non-equi ON"
+            label={t.metricsNonEquiOn}
             value={structuralReport.joinLogicComplexity.nonEquiConditions}
             icon={TrendingUp}
             color="var(--danger)"
-            subtitle=">, <, LIKE, BETWEEN, IN"
+            subtitle={t.metricsNonEquiExamples}
             alert={structuralReport.joinLogicComplexity.nonEquiConditions > 0}
           />
         </div>
@@ -479,31 +512,74 @@ export default function MetricsDashboardContent() {
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Hash size={15} className="text-primary" />
-          Field Extraction Summary
+          {t.metricsFieldExtractionSummaryTitle}
         </h3>
+        <div className="mb-3">
+          <input
+            type="search"
+            value={fieldSearch}
+            onChange={(event) => setFieldSearch(event.target.value)}
+            placeholder={t.metricsFieldSearchPlaceholder}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
         <div className="text-xs text-muted-foreground mb-3">
-          Total extracted fields:{' '}
+          {t.metricsTotalExtractedFields}:{' '}
           <span className="font-mono text-foreground">{structuralReport.allFieldsCount}</span>
         </div>
         <div className="max-h-48 overflow-auto border border-border rounded-lg">
           <table className="w-full text-xs">
             <thead className="bg-muted/50 sticky top-0">
               <tr>
-                <th className="text-left px-3 py-2 font-medium">Expression</th>
-                <th className="text-left px-3 py-2 font-medium">Alias</th>
-                <th className="text-left px-3 py-2 font-medium">Type</th>
+                <th className="text-left px-3 py-2 font-medium">{t.originExpression}</th>
+                <th className="text-left px-3 py-2 font-medium">{t.fieldAlias}</th>
+                <th className="text-left px-3 py-2 font-medium">{t.fieldType}</th>
               </tr>
             </thead>
             <tbody>
-              {structuralReport.allFields.map((field, idx) => (
+              {paginatedFields.map((field, idx) => (
                 <tr key={`field-${idx}`} className="border-t border-border/50">
                   <td className="px-3 py-2 font-mono text-foreground">{field.expression}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{field.alias || '-'}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{field.alias || t.noDataDash}</td>
                   <td className="px-3 py-2 text-muted-foreground uppercase">{field.category}</td>
                 </tr>
               ))}
+              {paginatedFields.length === 0 && (
+                <tr className="border-t border-border/50">
+                  <td className="px-3 py-3 text-muted-foreground" colSpan={3}>
+                    {t.metricsFieldNoResults}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>
+            {t.metricsFieldShowing} {fieldStart}-{fieldEnd} {t.metricsFieldOf}{' '}
+            {filteredFields.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFieldPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentFieldPage === 1}
+              className="rounded-md border border-border bg-card px-2 py-1 text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t.metricsFieldPaginationPrev}
+            </button>
+            <span className="font-mono">
+              {t.metricsFieldPaginationPage} {currentFieldPage}/{totalFieldPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setFieldPage((prev) => Math.min(totalFieldPages, prev + 1))}
+              disabled={currentFieldPage === totalFieldPages}
+              className="rounded-md border border-border bg-card px-2 py-1 text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t.metricsFieldPaginationNext}
+            </button>
+          </div>
         </div>
       </div>
 

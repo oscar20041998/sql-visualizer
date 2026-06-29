@@ -53,6 +53,10 @@ const LabeledEdge = memo(function LabeledEdgeComponent(props: EdgeProps) {
   }
 
   const color = (data as { color?: string })?.color ?? '#6ee7f7';
+  const theme = (data as { theme?: 'dark' | 'light' })?.theme ?? 'dark';
+  const isLight = theme === 'light';
+  const conditionBg = isLight ? 'rgba(248, 250, 252, 0.92)' : 'rgba(15, 23, 42, 0.9)';
+  const conditionText = isLight ? '#334155' : '#cbd5e1';
   const joinLabel = (data as { joinLabel?: string })?.joinLabel ?? '';
   const onCondition = (data as { onCondition?: string })?.onCondition ?? '';
   const dimmed = (data as { dimmed?: boolean })?.dimmed ?? false;
@@ -89,7 +93,7 @@ const LabeledEdge = memo(function LabeledEdgeComponent(props: EdgeProps) {
             {joinLabel && (
               <div
                 style={{
-                  background: `${color}22`,
+                  background: isLight ? `${color}1f` : `${color}26`,
                   border: `1.5px solid ${color}`,
                   color: color,
                   fontSize: 9,
@@ -109,9 +113,9 @@ const LabeledEdge = memo(function LabeledEdgeComponent(props: EdgeProps) {
             {onCondition && (
               <div
                 style={{
-                  background: 'rgba(15, 18, 30, 0.88)',
+                  background: conditionBg,
                   border: `1px solid ${color}44`,
-                  color: '#a0aec0',
+                  color: conditionText,
                   fontSize: 8,
                   fontFamily: 'monospace',
                   fontWeight: 500,

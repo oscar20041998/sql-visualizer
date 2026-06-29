@@ -9,11 +9,19 @@ export interface TableNodeData extends TableNodeType {
   isHighlighted: boolean;
   isSelected: boolean;
   nodeColor: string;
+  theme?: 'dark' | 'light';
   isSimplified?: boolean; // For performance mode
 }
 
 const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeData }) {
   const { name, alias, columns, isCTE, isHighlighted, isSelected, nodeColor, isSimplified } = data;
+  const theme = data.theme ?? 'dark';
+  const isLight = theme === 'light';
+
+  const cardBg = isLight ? '#ffffff' : '#111827';
+  const bodyText = isLight ? '#334155' : '#cbd5e1';
+  const subText = isLight ? '#64748b' : '#94a3b8';
+  const mutedText = isLight ? '#94a3b8' : '#64748b';
   const tableType = isCTE ? 'CTE' : 'TABLE';
   const totalFields = columns.length;
 
@@ -22,7 +30,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
     return (
       <div
         style={{
-          background: '#1e2435',
+          background: cardBg,
           border: `2px solid ${isSelected ? nodeColor : isHighlighted ? nodeColor + 'cc' : nodeColor + '66'}`,
           boxShadow: isSelected
             ? `0 0 12px ${nodeColor}88`
@@ -72,13 +80,13 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
   return (
     <div
       style={{
-        background: '#1e2435',
+        background: cardBg,
         border: `2px solid ${isSelected ? nodeColor : isHighlighted ? nodeColor + 'cc' : nodeColor + '66'}`,
         boxShadow: isSelected
-          ? `0 0 20px ${nodeColor}99, 0 2px 8px rgba(0,0,0,0.6)`
+          ? `0 0 20px ${nodeColor}66, 0 6px 16px ${isLight ? 'rgba(15,23,42,0.15)' : 'rgba(2,6,23,0.55)'}`
           : isHighlighted
             ? `0 0 10px ${nodeColor}55`
-            : '0 2px 6px rgba(0,0,0,0.5)',
+            : `0 6px 16px ${isLight ? 'rgba(15,23,42,0.12)' : 'rgba(2,6,23,0.45)'}`,
         opacity: isHighlighted ? 1 : 0.6,
         borderRadius: 12,
         minWidth: 170,
@@ -148,7 +156,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
         >
           {tableType}
         </span>
-        <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#8b9ab5' }}>
+        <span style={{ fontSize: 10, fontFamily: 'monospace', color: subText }}>
           {totalFields} field{totalFields !== 1 ? 's' : ''}
         </span>
       </div>
@@ -156,7 +164,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
       {/* Columns */}
       <div style={{ padding: '8px 12px' }}>
         {alias && (
-          <p style={{ fontSize: 10, fontFamily: 'monospace', color: '#8b9ab5', marginBottom: 4 }}>
+          <p style={{ fontSize: 10, fontFamily: 'monospace', color: subText, marginBottom: 4 }}>
             AS {alias}
           </p>
         )}
@@ -180,7 +188,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
                   style={{
                     fontSize: 10,
                     fontFamily: 'monospace',
-                    color: '#8b9ab5',
+                    color: bodyText,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -191,13 +199,13 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
               </div>
             ))}
             {columns.length > 4 && (
-              <p style={{ fontSize: 10, paddingLeft: 12, color: '#5a6a85' }}>
+              <p style={{ fontSize: 10, paddingLeft: 12, color: mutedText }}>
                 +{columns.length - 4} more
               </p>
             )}
           </div>
         ) : (
-          <p style={{ fontSize: 10, fontStyle: 'italic', color: '#5a6a85' }}>No columns detected</p>
+          <p style={{ fontSize: 10, fontStyle: 'italic', color: mutedText }}>No columns detected</p>
         )}
       </div>
     </div>

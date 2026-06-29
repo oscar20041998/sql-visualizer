@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import SmartSQLEditor from '@/components/SmartSQLEditor';
+import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
 import {
   analyzeSql,
   extractMyBatisParams,

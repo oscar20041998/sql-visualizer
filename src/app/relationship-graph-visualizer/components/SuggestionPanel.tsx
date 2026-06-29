@@ -51,7 +51,7 @@ const SuggestionCard = memo(
     const cfg = SEVERITY_CONFIG[suggestion.severity];
     return (
       <div
-        className="relative group rounded-lg p-3 text-xs"
+        className="relative group rounded-lg p-3 text-xs scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
         style={{
           background: cfg.bg,
           border: `1px solid ${cfg.border}`,

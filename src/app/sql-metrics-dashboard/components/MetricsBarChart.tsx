@@ -12,9 +12,11 @@ import {
   Cell,
 } from 'recharts';
 import type { SqlMetrics } from '@/lib/sqlAnalyzer';
+import type { Translations } from '@/lib/i18n';
 
 interface Props {
   metrics: SqlMetrics;
+  t: Translations;
 }
 
 const COLORS = [
@@ -38,16 +40,16 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function MetricsBarChart({ metrics }: Props) {
+export default function MetricsBarChart({ metrics, t }: Props) {
   const data = [
-    { name: 'Window Fn', value: metrics.windowFunctions },
-    { name: 'Subquery Cnt', value: metrics.subqueryCount },
-    { name: 'GROUP BY', value: metrics.groupBy },
-    { name: 'ORDER BY', value: metrics.orderBy },
-    { name: 'Conditions', value: metrics.conditionCount },
-    { name: 'Ops+Funcs', value: metrics.operationAndFunctionCount },
-    { name: 'JOINs', value: metrics.joinCount },
-    { name: 'Final Select', value: metrics.finalSelectFieldCount },
+    { name: t.metricsBarWindowFn, value: metrics.windowFunctions },
+    { name: t.metricsBarSubqueryCnt, value: metrics.subqueryCount },
+    { name: t.metricsBarGroupBy, value: metrics.groupBy },
+    { name: t.metricsBarOrderBy, value: metrics.orderBy },
+    { name: t.metricsBarConditions, value: metrics.conditionCount },
+    { name: t.metricsBarOpsFuncs, value: metrics.operationAndFunctionCount },
+    { name: t.metricsBarJoins, value: metrics.joinCount },
+    { name: t.metricsBarFinalSelect, value: metrics.finalSelectFieldCount },
   ];
 
   return (

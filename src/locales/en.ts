@@ -152,6 +152,50 @@ const en = {
   noMetrics: 'No metrics available',
   noMetricsHint: 'Analyze a query to see metrics',
   metricsExportJson: 'Export Analysis JSON',
+  metricsSubqueryCount: 'Subquery Count',
+  metricsConditionCount: 'Condition Count',
+  metricsOpsFunctions: 'Ops + Functions',
+  metricsLinesOfSql: 'Lines of SQL',
+  metricsFinalSelectFields: 'Final SELECT Fields',
+  metricsSubtitleWindowClauses: 'OVER() clauses',
+  metricsSubtitleAggregationClauses: 'Aggregation clauses',
+  metricsSubtitleSortOperations: 'Sort operations',
+  metricsSubtitleDeduplicationOps: 'Deduplication ops',
+  metricsSubtitleNestingLevels: 'Nesting levels',
+  metricsSubtitleNestedSelects: 'Nested SELECTs',
+  metricsSubtitleJoinOperations: 'JOIN operations',
+  metricsSubtitleConditionFormula: 'WHERE + HAVING + CASE WHEN',
+  metricsSubtitleOpsFunctions: 'Math and SQL function calls',
+  metricsSubtitleRawInputLines: 'Raw input lines',
+  metricsSubtitleFinalOutputProjection: 'Final output projection',
+  metricsJoinLogicComplexityTitle: 'JOIN Logic Complexity',
+  metricsJoinComplexityLevel: 'Complexity Level',
+  metricsSimpleOn: 'Simple ON',
+  metricsSingleColumnMatches: 'Single-column matches',
+  metricsMultiColumnOn: 'Multi-column ON',
+  metricsAndOrJoinPredicates: 'AND/OR join predicates',
+  metricsFunctionBasedOn: 'Function-based ON',
+  metricsFunctionsInsideOn: 'Functions inside ON',
+  metricsNonEquiOn: 'Non-equi ON',
+  metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
+  metricsFieldExtractionSummaryTitle: 'Field Extraction Summary',
+  metricsTotalExtractedFields: 'Total extracted fields',
+  metricsBarWindowFn: 'Window Fn',
+  metricsBarSubqueryCnt: 'Subquery Cnt',
+  metricsBarGroupBy: 'GROUP BY',
+  metricsBarOrderBy: 'ORDER BY',
+  metricsBarConditions: 'Conditions',
+  metricsBarOpsFuncs: 'Ops+Funcs',
+  metricsBarJoins: 'JOINs',
+  metricsBarFinalSelect: 'Final Select',
+  metricsFieldSearchPlaceholder: 'Search extracted fields (expression, alias, type)...',
+  metricsFieldNoResults: 'No extracted fields match your search.',
+  metricsFieldShowing: 'Showing',
+  metricsFieldOf: 'of',
+  metricsFieldPaginationPrev: 'Previous',
+  metricsFieldPaginationNext: 'Next',
+  metricsFieldPaginationPage: 'Page',
+  noDataDash: '-',
   impactLow: 'Low Impact',
   impactMedium: 'Medium Impact',
   impactHigh: 'High Impact',
@@ -317,6 +361,9 @@ const en = {
   guidelineMetricsStep3Label: 'Estimated Execution Cost',
   guidelineMetricsStep3Desc:
     'A client-side heuristic score based on complexity, dialect, and standard indexing assumptions. Use as a relative guide, not an absolute benchmark.',
+  guidelineMetricsStep4Label: 'Field Extraction Table (Search + Pagination)',
+  guidelineMetricsStep4Desc:
+    'Review extracted fields with real-time search and pagination. The table supports expression/alias/type filtering and shows 20 items per page for faster navigation in large result sets.',
   guidelineMetricsTip1:
     'Hover over chart bars to see exact values and recommendations for each factor.',
 
@@ -372,7 +419,7 @@ const en = {
   guidelineToolsMetricsDesc:
     'Quantify query complexity with objective metrics. Understand performance impact before execution and get specific optimization recommendations.',
   guidelineToolsMetricsFeatures:
-    'Complexity gauge (0-100) • Breakdown by factors (JOINs, subqueries, functions) • Estimated execution cost • Per-factor recommendations • Interactive tooltips',
+    'Complexity gauge (0-100) • Breakdown by factors (JOINs, subqueries, functions) • Estimated execution cost • Per-factor recommendations • Field extraction search + 20-row pagination • Interactive tooltips',
   guidelineToolsCTEName: 'CTE Analysis',
   guidelineToolsCTEDesc:
     'Deep-dive into Common Table Expressions. See CTE structure, dependencies, field origins, and identify unused or problematic CTEs.',
@@ -405,6 +452,9 @@ const en = {
   guidelineToolsExportCTESQL: 'CTE SQL Copy',
   guidelineToolsExportCTESQLDesc:
     'Copy individual CTE bodies for reuse in other queries or standalone CTE optimization.',
+  guidelineToolsExportAnalysisJson: 'Analysis JSON Export',
+  guidelineToolsExportAnalysisJsonDesc:
+    'Export the full SQL analysis payload (metrics, graph, CTE, and structural report) as a JSON file for sharing or archival.',
 
   // Guideline - Quick Reference
   guidelineQuickRefQueryInput: 'Query Input',
@@ -757,7 +807,7 @@ const en = {
   guidelineAdvancedFeaturesSubtitle: 'New pagination, search, and customization capabilities',
   guidelineAdvancedFeaturesStep1Label: 'Main Query Fields Table with Pagination',
   guidelineAdvancedFeaturesStep1Desc:
-    'View main query fields in a paginated, searchable table format. Displays 10 fields per page with real-time search filtering across field names, aliases, and source tables. Perfect for analyzing large queries with many fields.',
+    'View extracted fields in a paginated, searchable table format. Displays 20 fields per page with real-time search filtering across expressions, aliases, and field types. Perfect for analyzing large queries with many selected fields.',
   guidelineAdvancedFeaturesStep2Label: 'Referenced Tables with Advanced Filtering',
   guidelineAdvancedFeaturesStep2Desc:
     'Browse referenced tables (CTEs and base tables) in a dedicated panel with pagination and search. Shows table type badges (CTE/TABLE), column counts, and inline column lists. Search results update instantly as you type.',

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Code2, FileCode, BookOpen } from 'lucide-react';
-import SmartSQLEditor from '@/components/SmartSQLEditor';
+import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
 
 interface TabNavigationProps {
   inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';

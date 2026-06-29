@@ -26,7 +26,6 @@ const navItems = [
   { key: 'navQueryInput', href: '/', icon: Code2, badge: null },
   { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
-  { key: 'navCTEAnalysis', href: '/cte-analysis', icon: Layers, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
   { key: 'navSettings', href: '/settings-preferences', icon: Settings, badge: null },
 ] as const;

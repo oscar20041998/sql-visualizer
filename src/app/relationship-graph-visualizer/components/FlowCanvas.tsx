@@ -20,19 +20,22 @@ import { useAppStore } from '@/lib/store';
 import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sqlAnalyzer';
 import TableNode, { type TableNodeData } from './TableNode';
 import LabeledEdge from './LabeledEdge';
-import { JOIN_COLORS } from '@/app/common/colorConstant';
+import { getJoinColor } from '@/app/common/colorConstant';
 
-const CHART_BG = '#1a1f2e';
-const CHART_DOT = '#2d3348';
+const CHART_BG_DARK = '#0f172a';
+const CHART_BG_LIGHT = '#f8fafc';
+const CHART_DOT_DARK = '#334155';
+const CHART_DOT_LIGHT = '#cbd5e1';
 const PERF_THRESHOLD = 50; // Enable simplified mode for 50+ nodes
 
 function getTableColor(
   tableId: string,
-  joins: { source: string; target: string; joinType: JoinType }[]
+  joins: { source: string; target: string; joinType: JoinType }[],
+  theme: 'dark' | 'light'
 ): string {
   const join = joins.find((j) => j.source === tableId || j.target === tableId);
-  if (join) return JOIN_COLORS[join.joinType];
-  return '#6ee7f7';
+  if (join) return getJoinColor(join.joinType, theme);
+  return theme === 'light' ? '#0f766e' : '#22d3ee';
 }
 
 // ─── Node and Edge Type Definitions ────────────────────────────────────────
@@ -102,6 +105,9 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   const { analysisResult, selectedNodeId, setSelectedNodeId, settings } = useAppStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<TableNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const graphTheme = settings.theme === 'light' ? 'light' : 'dark';
+  const chartBg = graphTheme === 'light' ? CHART_BG_LIGHT : CHART_BG_DARK;
+  const chartDot = graphTheme === 'light' ? CHART_DOT_LIGHT : CHART_DOT_DARK;
 
   const graphTables = tables ?? analysisResult?.tables ?? [];
   const graphJoins = joins ?? analysisResult?.joins ?? [];
@@ -125,7 +131,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
 
     // Build nodes
     const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
-      const nodeColor = getTableColor(table.id, graphJoins);
+      const nodeColor = getTableColor(table.id, graphJoins, graphTheme);
       const isHighlighted =
         selectedNodeId === null ||
         selectedNodeId === table.id ||
@@ -141,8 +147,10 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
         data: {
           ...table,
           nodeColor,
+          theme: graphTheme,
           isHighlighted,
           isSelected: selectedNodeId === table.id,
+          isSimplified: isPerformanceMode,
         },
       };
     });
@@ -150,7 +158,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     // Build edges
     const rfEdges: Edge[] = graphJoins
       .map((join, idx) => {
-        const color = JOIN_COLORS[join.joinType] ?? '#6ee7f7';
+        const color = getJoinColor(join.joinType, graphTheme);
         const isConnected =
           selectedNodeId === null ||
           selectedNodeId === join.source ||
@@ -168,9 +176,11 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
           type: 'labeled',
           data: {
             color,
+            theme: graphTheme,
             joinLabel: join.joinType,
             onCondition: join.condition ?? '',
             dimmed,
+            isSimplified: isPerformanceMode,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -196,6 +206,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     tables,
     joins,
     selectedNodeId,
+    graphTheme,
     settings.edgeStyle,
     setNodes,
     setEdges,
@@ -218,7 +229,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   }, [graphTables.length]);
 
   return (
-    <div className="w-full h-full" style={{ background: CHART_BG }}>
+    <div className="w-full h-full" style={{ background: chartBg }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -231,27 +242,27 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
         fitView
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.1}
-        maxZoom={2.5}
+        maxZoom={2}
         proOptions={{ hideAttribution: true }}
         attributionPosition="bottom-left"
         elevateEdgesOnSelect={!isPerformanceMode} // Disable for performance
         defaultEdgeOptions={{
           style: { strokeWidth: 3 },
         }}
-        style={{ background: CHART_BG }}
+        style={{ background: chartBg }}
       >
         <Background
-          variant={BackgroundVariant.Dots}
+          variant={settings.theme === 'dark' ? BackgroundVariant.Lines : BackgroundVariant.Cross}
           gap={24}
           size={1.5}
-          color={CHART_DOT}
-          style={{ background: CHART_BG }}
+          color={chartDot}
+          style={{ background: chartBg }}
         />
         <Controls
           showInteractive={false}
           style={{
-            background: '#1e2435',
-            border: '1px solid #2d3348',
+            background: settings.theme === 'dark' ? '#1e2435' : '#f0f0f0',
+            border: `1px solid ${settings.theme === 'dark' ? '#2d3348' : '#d0d0d0'}`,
             borderRadius: 8,
           }}
         />
@@ -260,8 +271,8 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
           maskColor="rgba(26, 31, 46, 0.75)"
           style={{
             borderRadius: 8,
-            background: '#1e2435',
-            border: '1px solid #2d3348',
+            background: settings.theme === 'dark' ? '#1e2435' : '#f0f0f0',
+            border: `1px solid ${settings.theme === 'dark' ? '#2d3348' : '#d0d0d0'}`,
           }}
         />
       </ReactFlow>
