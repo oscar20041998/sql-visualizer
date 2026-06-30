@@ -47,27 +47,27 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0">
-            {complexity.level === 'LOW' && (
+            {complexity.level === t.complexityLow && (
               <CheckCircle2 size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === 'MEDIUM' && (
+            {complexity.level === t.complexityMedium && (
               <AlertTriangle size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === 'HIGH' && (
+            {complexity.level === t.complexityHigh && (
               <AlertTriangle size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === 'SUPER_HIGH' && (
+            {complexity.level === t.complexitySuperHigh && (
               <AlertCircle size={24} className={`${levelColors[complexity.level]}`} />
             )}
           </div>
           <div>
             <p className={`text-xs font-semibold uppercase tracking-wide ${colors.text}`}>
               {t.complexityLevel}:{' '}
-              {complexity.level == 'SUPER_HIGH'
+              {complexity.level == t.complexitySuperHigh
                 ? t.complexitySuperHigh
-                : complexity.level == 'HIGH'
+                : complexity.level == t.complexityHigh
                   ? t.complexityHigh
-                  : complexity.level == 'MEDIUM'
+                  : complexity.level == t.complexityMedium
                     ? t.complexityMedium
                     : t.complexityLow}
             </p>
@@ -89,11 +89,11 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
       <div className="bg-black/10 dark:bg-white/10 rounded-full h-2 overflow-hidden">
         <div
           className={`h-full transition-all duration-300 ${
-            complexity.level === 'LOW'
+            complexity.level === t.complexityLow
               ? 'bg-green-500'
-              : complexity.level === 'MEDIUM'
+              : complexity.level === t.complexityMedium
                 ? 'bg-yellow-500'
-                : complexity.level === 'HIGH'
+                : complexity.level === t.complexityHigh
                   ? 'bg-orange-500'
                   : 'bg-red-500'
           }`}

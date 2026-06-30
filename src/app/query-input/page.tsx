@@ -163,7 +163,7 @@ export default function QueryInputContent() {
   const handleAnalyze = useCallback(async () => {
     const sqlToAnalyze = inputMode === 'sql' ? rawSql : resolvedSql;
     if (!sqlToAnalyze.trim()) {
-      toast.error('Please enter a SQL query first');
+      toast.error(t.emptyQueryError);
       return;
     }
 

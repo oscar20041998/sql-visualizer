@@ -242,17 +242,18 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
         fitView
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.1}
-        maxZoom={2}
+        maxZoom={2.5}
         proOptions={{ hideAttribution: true }}
         attributionPosition="bottom-left"
         elevateEdgesOnSelect={!isPerformanceMode} // Disable for performance
+
         defaultEdgeOptions={{
-          style: { strokeWidth: 3 },
+          style: { strokeWidth: 2 },
         }}
         style={{ background: chartBg }}
       >
         <Background
-          variant={settings.theme === 'dark' ? BackgroundVariant.Lines : BackgroundVariant.Cross}
+          variant={settings.theme === 'dark' ? BackgroundVariant.Dots : BackgroundVariant.Lines}
           gap={24}
           size={1.5}
           color={chartDot}
