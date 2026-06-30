@@ -14,6 +14,7 @@ export interface AppSettings {
   nodeSpacing: 'compact' | 'normal' | 'spacious';
   edgeStyle: 'smooth' | 'straight' | 'step';
   accentColor?: string;
+  performanceMode: boolean;
 }
 
 interface AppState {
@@ -51,6 +52,7 @@ const defaultSettings: AppSettings = {
   nodeSpacing: 'normal',
   edgeStyle: 'smooth',
   accentColor: '#6ee7f7',
+  performanceMode: false,
 };
 
 export const useAppStore = create<AppState>()(

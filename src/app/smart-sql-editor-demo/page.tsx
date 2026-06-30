@@ -87,20 +87,24 @@ export default function SmartSQLEditorDemo() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-0 max-w-7xl mx-auto w-full p-6">
-        <div className="mb-4 p-4 bg-blue-900 border border-blue-700 rounded-lg text-blue-100 text-sm">
+      <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto w-full h-full p-6 flex flex-col min-h-0 overflow-hidden">
+          <div className="mb-4 p-4 bg-blue-900 border border-blue-700 rounded-lg text-blue-100 text-sm flex-shrink-0">
           <p className="font-semibold mb-2">{t.demoProTipsTitle}</p>
-          <ul className="list-disc list-inside space-y-1 text-xs">
-            <li>{t.demoProTip1}</li>
-            <li>{t.demoProTip2}</li>
-            <li>{t.demoProTip3}</li>
-            <li>{t.demoProTip4}</li>
-            <li>{t.demoProTip5}</li>
-          </ul>
-        </div>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              <li>{t.demoProTip1}</li>
+              <li>{t.demoProTip2}</li>
+              <li>{t.demoProTip3}</li>
+              <li>{t.demoProTip4}</li>
+              <li>{t.demoProTip5}</li>
+            </ul>
+          </div>
 
-        {/* Editor */}
-        <SmartSQLEditor initialSql={SAMPLE_QUERIES[selectedQuery]} />
+          {/* Editor */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <SmartSQLEditor initialSql={SAMPLE_QUERIES[selectedQuery]} />
+          </div>
+        </div>
       </div>
 
       {/* Footer with Instructions */}

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X } from 'lucide-react';
+import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';
@@ -315,7 +315,8 @@ function buildMermaidDiagram(
 // Optimized getChartSvg - moved to lazy evaluation
 
 export default function GraphVisualizerContent() {
-  const { settings, analysisResult, selectedNodeId, setSelectedNodeId } = useAppStore();
+  const { settings, analysisResult, selectedNodeId, setSelectedNodeId, updateSettings } =
+    useAppStore();
   const t = getT(settings.locale);
   const flowRef = useRef<FlowCanvasHandle>(null);
   const [showExtracted, setShowExtracted] = useState(true);
@@ -563,6 +564,19 @@ export default function GraphVisualizerContent() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => updateSettings({ performanceMode: !settings.performanceMode })}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                style={{
+                  background: settings.performanceMode ? 'rgba(168,85,247,0.1)' : 'var(--muted)',
+                  borderColor: settings.performanceMode ? '#a855f7' : 'var(--border)',
+                  color: settings.performanceMode ? '#a855f7' : 'var(--muted-foreground)',
+                }}
+                title={settings.performanceMode ? 'Performance Mode: ON' : 'Performance Mode: OFF'}
+              >
+                <Zap size={12} />
+                {t.performanceMode || 'Performance'}
+              </button>
               <CopyButton
                 getText={getMermaidText}
                 label={t.convertMermaid}

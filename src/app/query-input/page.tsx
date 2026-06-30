@@ -222,7 +222,6 @@ export default function QueryInputContent() {
   };
 
   const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
-  const hasCTEInInput = /\bWITH\b/i.test(currentSql);
 
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
@@ -299,14 +298,9 @@ export default function QueryInputContent() {
                 {/* Action Buttons */}
                 <ActionButtons
                   onAnalyze={handleAnalyze}
-                  onAnalyzeCTE={async () => {
-                    await handleAnalyze();
-                    router.push('/cte-analysis');
-                  }}
                   onLoadSample={handleLoadSample}
                   onClear={handleClear}
                   isLoading={isAnalyzing}
-                  showAnalyzeCTE={hasCTEInInput}
                   t={t}
                 />
               </div>

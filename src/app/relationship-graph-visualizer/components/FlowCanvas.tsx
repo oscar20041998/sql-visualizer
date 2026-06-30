@@ -126,8 +126,8 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
 
     const positions = computeLayout(graphTables, graphJoins);
 
-    // Enable simplified mode for large graphs (60+ nodes)
-    const isPerformanceMode = graphTables.length >= PERF_THRESHOLD;
+    // Enable simplified mode based on manual setting or automatic threshold
+    const isPerformanceMode = settings.performanceMode || graphTables.length >= PERF_THRESHOLD;
 
     // Build nodes
     const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
@@ -246,7 +246,6 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
         proOptions={{ hideAttribution: true }}
         attributionPosition="bottom-left"
         elevateEdgesOnSelect={!isPerformanceMode} // Disable for performance
-
         defaultEdgeOptions={{
           style: { strokeWidth: 2 },
         }}

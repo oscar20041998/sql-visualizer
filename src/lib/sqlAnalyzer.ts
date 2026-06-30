@@ -53,6 +53,12 @@ export interface NestedSubquery {
   hasJoins: boolean;
   hasAggregation: boolean;
   context: string; // surrounding keyword context (WHERE, FROM, SELECT, etc.)
+  // Dashboard display properties
+  expression?: string; // Alias for body - full subquery SQL text
+  nestingLevel?: number; // Alias for depth - level in nesting hierarchy
+  type?: string; // Subquery type: IN, EXISTS, FROM, SCALAR, etc.
+  analysis?: string; // Optional analysis notes
+  content?: string; // Alternative to expression
 }
 
 export interface CTE {
@@ -118,6 +124,7 @@ export interface StructuralAnalysisReport {
   finalSelectFields: QueryFieldProjection[];
   finalSelectFieldCount: number;
   hasCTE: boolean;
+  subqueries?: NestedSubquery[]; // Detailed list of detected subqueries with analysis
 }
 
 export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER_HIGH';
@@ -1238,9 +1245,26 @@ function buildStructuralAnalysisReport(
     (field) => field.expression.length > 0
   );
 
-  const subqueryCount =
-    extractNestedSubqueries(mainQuery, 'main').length +
-    ctes.reduce((sum, cte) => sum + extractNestedSubqueries(cte.body, cte.id).length, 0);
+  // Extract all nested subqueries from main query and CTEs
+  const mainQuerySubqueries = extractNestedSubqueries(mainQuery, 'main');
+  const cteSubqueries: NestedSubquery[] = [];
+  ctes.forEach((cte) => {
+    cteSubqueries.push(...extractNestedSubqueries(cte.body, cte.id));
+  });
+  
+  const allSubqueries = [...mainQuerySubqueries, ...cteSubqueries];
+  
+  // Enhance subqueries with display-friendly properties
+  const enhancedSubqueries = allSubqueries.map((sq) => ({
+    ...sq,
+    expression: sq.body, // Add expression as alias for body
+    nestingLevel: sq.depth, // Add nestingLevel as alias for depth
+    content: sq.body, // Add content as alternative
+    // Infer type from context keyword
+    type: inferSubqueryType(sq.context),
+  }));
+
+  const subqueryCount = allSubqueries.length;
 
   const whereCount = countPattern(cleanedSql.toUpperCase(), /\bWHERE\b/g);
   const havingCount = countPattern(cleanedSql.toUpperCase(), /\bHAVING\b/g);
@@ -1258,6 +1282,7 @@ function buildStructuralAnalysisReport(
     finalSelectFields,
     finalSelectFieldCount: finalSelectFields.length,
     hasCTE: ctes.length > 0,
+    subqueries: enhancedSubqueries, // Add detailed subqueries list
   };
 }
 
@@ -1271,6 +1296,23 @@ function computeSubqueryDepth(sql: string): number {
   }
   // Rough heuristic: subquery depth ~ max paren depth / 2
   return Math.max(0, Math.floor(maxDepth / 2) - 1);
+}
+
+/**
+ * Infer subquery type from context keyword (WHERE, EXISTS, IN, FROM, etc.)
+ */
+function inferSubqueryType(context: string): string {
+  if (!context) return 'DERIVED';
+  
+  const upper = context.toUpperCase();
+  if (upper.includes('EXISTS')) return 'EXISTS';
+  if (upper.includes('IN')) return 'IN';
+  if (upper.includes('FROM')) return 'FROM';
+  if (upper.includes('WHERE')) return 'WHERE';
+  if (upper.includes('SELECT')) return 'SCALAR';
+  if (upper.includes('JOIN')) return 'JOIN';
+  
+  return upper.split(/\s+/)[0] || 'DERIVED';
 }
 
 function computeComplexity(metrics: SqlMetrics): ComplexityScore {

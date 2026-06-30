@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BarChart3,
   Zap,
@@ -92,11 +93,30 @@ function ImpactBadge({
 }
 
 export default function MetricsDashboardContent() {
+  const router = useRouter();
   const { settings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
+  
+  // Hooks must be called unconditionally, before early returns
   const [fieldSearch, setFieldSearch] = useState('');
   const [fieldPage, setFieldPage] = useState(1);
   const fieldPageSize = 20;
+
+  const filteredFields = useMemo(() => {
+    if (!analysisResult) return [];
+    const search = fieldSearch.trim().toLowerCase();
+    if (!search) return analysisResult.structuralReport.allFields;
+
+    return analysisResult.structuralReport.allFields.filter((field) => {
+      const haystack =
+        `${field.expression} ${field.alias || ''} ${field.category || ''}`.toLowerCase();
+      return haystack.includes(search);
+    });
+  }, [fieldSearch, analysisResult]);
+
+  useEffect(() => {
+    setFieldPage(1);
+  }, [fieldSearch]);
 
   const handleExportAnalysisJson = () => {
     if (!analysisResult) return;
@@ -144,21 +164,6 @@ export default function MetricsDashboardContent() {
 
   const { metrics, complexity, executionCost, structuralReport } = analysisResult;
 
-  const filteredFields = useMemo(() => {
-    const search = fieldSearch.trim().toLowerCase();
-    if (!search) return structuralReport.allFields;
-
-    return structuralReport.allFields.filter((field) => {
-      const haystack =
-        `${field.expression} ${field.alias || ''} ${field.category || ''}`.toLowerCase();
-      return haystack.includes(search);
-    });
-  }, [fieldSearch, structuralReport.allFields]);
-
-  useEffect(() => {
-    setFieldPage(1);
-  }, [fieldSearch]);
-
   const totalFieldPages = Math.max(1, Math.ceil(filteredFields.length / fieldPageSize));
   const currentFieldPage = Math.min(fieldPage, totalFieldPages);
   const paginatedFields = filteredFields.slice(
@@ -204,13 +209,24 @@ export default function MetricsDashboardContent() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
         </div>
-        <button
-          onClick={handleExportAnalysisJson}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
-        >
-          <Download size={14} className="text-primary" />
-          {t.metricsExportJson}
-        </button>
+        <div className="flex items-center gap-2">
+          {analysisResult && analysisResult.ctes && analysisResult.ctes.length > 0 && (
+            <button
+              onClick={() => router.push('/cte-analysis')}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-accent bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+            >
+              <Layers size={14} />
+              {t.navCTEAnalysis}
+            </button>
+          )}
+          <button
+            onClick={handleExportAnalysisJson}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <Download size={14} className="text-primary" />
+            {t.metricsExportJson}
+          </button>
+        </div>
       </div>
 
       {/* High Risk Alert */}
@@ -509,6 +525,150 @@ export default function MetricsDashboardContent() {
         </div>
       </div>
 
+      {/* Nested Subquery Analysis */}
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Layers size={15} className="text-primary" />
+          {t.metricsNestedSubqueryAnalysisTitle}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+          <MetricCard
+            label={t.subqueryDepth}
+            value={metrics.subqueryDepth}
+            icon={Layers}
+            color="var(--warning)"
+            subtitle={t.metricsMaximumNestingLevel}
+            alert={metrics.subqueryDepth > 3}
+          />
+          <MetricCard
+            label={t.metricsSubqueryCount}
+            value={metrics.subqueryCount}
+            icon={Layers}
+            color="var(--info)"
+            subtitle={t.metricsTotalSubqueriesFound}
+            alert={metrics.subqueryCount > 3}
+          />
+          <MetricCard
+            label={t.metricsComplexityRisk}
+            value={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3 ? 'HIGH' : 'MODERATE'}
+            icon={AlertTriangle}
+            color={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3 ? 'var(--danger)' : 'var(--warning)'}
+            subtitle={t.metricsBased}
+            alert={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3}
+          />
+        </div>
+
+        {/* Nesting Level Breakdown */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs font-medium text-foreground">
+            <span>{t.metricsNestingDepthAnalysis}</span>
+            <span className="text-muted-foreground">{t.metricsLevelDistribution}</span>
+          </div>
+          {Array.from({ length: Math.min(metrics.subqueryDepth, 5) }).map((_, level) => {
+            const depthLevel = level + 1;
+            const progress = depthLevel <= metrics.subqueryDepth ? 100 : 0;
+            return (
+              <div key={`depth-${depthLevel}`} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t.metricsLevelLabel} {depthLevel}</span>
+                  <span className="font-mono text-foreground font-semibold">
+                    {depthLevel === metrics.subqueryDepth ? t.metricsMaxStatus : t.metricsActiveStatus}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${progress}%`,
+                      background:
+                        depthLevel > 3
+                          ? 'var(--danger)'
+                          : depthLevel > 2
+                            ? 'var(--warning)'
+                            : 'var(--success)',
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Optimization Recommendation */}
+        {(metrics.subqueryDepth > 3 || metrics.subqueryCount > 3) && (
+          <div className="mt-4 p-3 rounded-lg bg-danger/5 border border-danger/30">
+            <p className="text-xs font-semibold text-danger mb-1">{t.metricsOptimizationRecommended}</p>
+            <p className="text-xs text-danger/70 leading-relaxed">
+              {metrics.subqueryDepth > 3
+                ? t.metricsDeepNestingMessage.replace('{{level}}', metrics.subqueryDepth.toString())
+                : t.metricsMultipleSubqueriesMessage}
+            </p>
+          </div>
+        )}
+
+        {/* Detailed Subqueries List */}
+        {structuralReport.subqueries && structuralReport.subqueries.length > 0 && (
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                {t.metricsDetectedSubqueries} ({structuralReport.subqueries.length})
+              </h4>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {structuralReport.subqueries.map((subquery, idx) => (
+                <div
+                  key={`subquery-${idx}`}
+                  className="p-3 bg-muted/30 border border-border/50 rounded-lg hover:border-border transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                          {t.metricsSubqueryPrefix} #{idx + 1}
+                        </span>
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                          {t.metricsLevelLabel} {subquery.nestingLevel || idx + 1}
+                        </span>
+                        {subquery.type && (
+                          <span className="text-[10px] font-semibold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                            {subquery.type}
+                          </span>
+                        )}
+                      </div>
+                      <code className="text-xs font-mono text-foreground bg-background p-2 rounded block border border-border/30 overflow-x-auto whitespace-pre-wrap break-words max-w-full">
+                        {subquery.expression || subquery.content || `Subquery at level ${subquery.nestingLevel}`}
+                      </code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = subquery.expression || subquery.content || '';
+                        navigator.clipboard.writeText(text).then(() => {
+                          // Optional: Show feedback
+                          console.log('Subquery copied to clipboard');
+                        });
+                      }}
+                      className="flex-shrink-0 px-2 py-1 rounded text-[10px] font-medium border border-border bg-card text-foreground hover:bg-muted transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      {t.metricsCopyButton}
+                    </button>
+                  </div>
+                  {subquery.analysis && (
+                    <div className="text-[10px] text-muted-foreground space-y-1 border-t border-border/30 pt-2 mt-2">
+                      <div>
+                        <span className="font-semibold text-foreground">{t.metricsAnalysisLabel}:</span>{' '}
+                        {subquery.analysis}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Field Extraction Summary */}
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -528,26 +688,35 @@ export default function MetricsDashboardContent() {
           {t.metricsTotalExtractedFields}:{' '}
           <span className="font-mono text-foreground">{structuralReport.allFieldsCount}</span>
         </div>
-        <div className="max-h-48 overflow-auto border border-border rounded-lg">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/50 sticky top-0">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium">{t.originExpression}</th>
-                <th className="text-left px-3 py-2 font-medium">{t.fieldAlias}</th>
-                <th className="text-left px-3 py-2 font-medium">{t.fieldType}</th>
-              </tr>
-            </thead>
+        <div className="max-h-48 overflow-auto border border-border rounded-lg scrollbar-thin">
+          <table className="w-full text-sm border-collapse">
             <tbody>
               {paginatedFields.map((field, idx) => (
-                <tr key={`field-${idx}`} className="border-t border-border/50">
-                  <td className="px-3 py-2 font-mono text-foreground">{field.expression}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{field.alias || t.noDataDash}</td>
-                  <td className="px-3 py-2 text-muted-foreground uppercase">{field.category}</td>
+                <tr key={`field-${idx}`} className="border-b border-border/50 last:border-0">
+                  <td className="px-4 py-3 border-r border-border/30">
+                    <code className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
+                      {field.expression}
+                    </code>
+                  </td>
+                  <td className="px-4 py-3 border-r border-border/30">
+                    {field.alias ? (
+                      <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20 inline-block">
+                        {field.alias}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block">
+                      {field.category?.toUpperCase()}
+                    </span>
+                  </td>
                 </tr>
               ))}
               {paginatedFields.length === 0 && (
-                <tr className="border-t border-border/50">
-                  <td className="px-3 py-3 text-muted-foreground" colSpan={3}>
+                <tr className="border-b border-border/50">
+                  <td className="px-4 py-4 text-center text-muted-foreground" colSpan={3}>
                     {t.metricsFieldNoResults}
                   </td>
                 </tr>
