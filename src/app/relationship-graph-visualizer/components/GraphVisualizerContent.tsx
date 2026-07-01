@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap, ChevronDown } from 'lucide-react';
+import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap, ChevronDown, AlertCircle, Layers, TrendingUp } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';
@@ -320,8 +320,9 @@ export default function GraphVisualizerContent() {
     useAppStore();
   const t = getT(settings.locale);
   const flowRef = useRef<FlowCanvasHandle>(null);
-  const [showExtracted, setShowExtracted] = useState(true);
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showExtracted, setShowExtracted] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showJoinAnalysis, setShowJoinAnalysis] = useState(false);
   const [showJoinLegend, setShowJoinLegend] = useState(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
@@ -564,8 +565,64 @@ export default function GraphVisualizerContent() {
               </div>
             </div>
 
-            {/* Action buttons */}
+            {/* Panel Toggles & Action buttons */}
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {/* Suggestions Toggle */}
+                <button
+                  onClick={() => setShowSuggestions(!showSuggestions)}
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                  style={{
+                    background: showSuggestions ? 'rgba(239,68,68,0.1)' : 'var(--muted)',
+                    borderColor: showSuggestions ? '#ef4444' : 'var(--border)',
+                    color: showSuggestions ? '#ef4444' : 'var(--muted-foreground)',
+                  }}
+                  title="Toggle Suggestions Panel"
+                >
+                  <AlertCircle size={12} />
+                  {errorCount + warnCount > 0 && (
+                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                      {errorCount + warnCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Join Analysis Toggle */}
+                <button
+                  onClick={() => setShowJoinAnalysis(!showJoinAnalysis)}
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                  style={{
+                    background: showJoinAnalysis ? 'rgba(59,130,246,0.1)' : 'var(--muted)',
+                    borderColor: showJoinAnalysis ? '#3b82f6' : 'var(--border)',
+                    color: showJoinAnalysis ? '#3b82f6' : 'var(--muted-foreground)',
+                  }}
+                  title="Toggle Join Analysis Panel"
+                >
+                  <TrendingUp size={12} />
+                </button>
+
+                {/* Extracted Tables Toggle */}
+                <button
+                  onClick={() => setShowExtracted(!showExtracted)}
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                  style={{
+                    background: showExtracted ? 'rgba(34,197,94,0.1)' : 'var(--muted)',
+                    borderColor: showExtracted ? '#22c55e' : 'var(--border)',
+                    color: showExtracted ? '#22c55e' : 'var(--muted-foreground)',
+                  }}
+                  title="Toggle Extracted Tables Panel"
+                >
+                  <Layers size={12} />
+                  {extractedRows.length > 0 && (
+                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] font-bold">
+                      {extractedRows.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              <div className="w-px h-6 bg-border" />
+
               <button
                 onClick={() => updateSettings({ performanceMode: !settings.performanceMode })}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
@@ -914,23 +971,31 @@ export default function GraphVisualizerContent() {
         </div>
       </div>
 
-      {/* ─── Inline Suggestions Panel ─────────────────────────────────────────── */}
-      {visibleSuggestions.length > 0 && (
-        <SuggestionPanel
-          suggestions={visibleSuggestions}
-          dismissedIds={dismissedIds}
-          onDismiss={dismissSuggestion}
-        />
+      {/* ─── Collapsible Panels ─────────────────────────────────────────── */}
+      {showSuggestions && visibleSuggestions.length > 0 && (
+        <div className="border-t border-border bg-card animate-slide-up">
+          <SuggestionPanel
+            suggestions={visibleSuggestions}
+            dismissedIds={dismissedIds}
+            onDismiss={dismissSuggestion}
+          />
+        </div>
       )}
 
-      {/* ─── JOIN Analysis Panel ─────────────────────────────────────────── */}
-      <JoinAnalysisPanel
-        joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
-        locale={settings.locale}
-      />
+      {showJoinAnalysis && (
+        <div className="border-t border-border bg-card animate-slide-up">
+          <JoinAnalysisPanel
+            joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
+            locale={settings.locale}
+          />
+        </div>
+      )}
 
-      {/* ─── Extracted Tables Section ─────────────────────────────────────────── */}
-      <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
+      {showExtracted && extractedRows.length > 0 && (
+        <div className="border-t border-border bg-card animate-slide-up">
+          <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
+        </div>
+      )}
     </div>
   );
 }
