@@ -1,11 +1,10 @@
 'use client';
 
-import React from 'react';
-import { AlertCircle, TrendingUp, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertCircle, TrendingUp, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   calculateQueryComplexity,
   getComplexityColor,
-  type DetailedComplexityScore,
   type ComplexityLevel,
 } from '@/lib/complexityScorer';
 import { getT } from '@/lib/i18n';
@@ -47,27 +46,27 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0">
-            {complexity.level === t.complexityLow && (
+            {complexity.level === 'LOW' && (
               <CheckCircle2 size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === t.complexityMedium && (
+            {complexity.level === 'MEDIUM' && (
               <AlertTriangle size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === t.complexityHigh && (
+            {complexity.level === 'HIGH' && (
               <AlertTriangle size={24} className={`${levelColors[complexity.level]}`} />
             )}
-            {complexity.level === t.complexitySuperHigh && (
+            {complexity.level === 'SUPER_HIGH' && (
               <AlertCircle size={24} className={`${levelColors[complexity.level]}`} />
             )}
           </div>
           <div>
             <p className={`text-xs font-semibold uppercase tracking-wide ${colors.text}`}>
               {t.complexityLevel}:{' '}
-              {complexity.level == t.complexitySuperHigh
+              {complexity.level === 'SUPER_HIGH'
                 ? t.complexitySuperHigh
-                : complexity.level == t.complexityHigh
+                : complexity.level === 'HIGH'
                   ? t.complexityHigh
-                  : complexity.level == t.complexityMedium
+                  : complexity.level === 'MEDIUM'
                     ? t.complexityMedium
                     : t.complexityLow}
             </p>
@@ -89,11 +88,11 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
       <div className="bg-black/10 dark:bg-white/10 rounded-full h-2 overflow-hidden">
         <div
           className={`h-full transition-all duration-300 ${
-            complexity.level === t.complexityLow
+            complexity.level === 'LOW'
               ? 'bg-green-500'
-              : complexity.level === t.complexityMedium
+              : complexity.level === 'MEDIUM'
                 ? 'bg-yellow-500'
-                : complexity.level === t.complexityHigh
+                : complexity.level === 'HIGH'
                   ? 'bg-orange-500'
                   : 'bg-red-500'
           }`}
@@ -133,7 +132,6 @@ export default function ComplexityDashboard({ sql, showDetails = true }: Complex
         </div>
       )}
 
-      {/* Linting Warnings */}
       {complexity.lintingIssues.length > 0 && (
         <div className="border-t border-black/10 dark:border-white/10 pt-3 space-y-2">
           <p className="text-xs font-semibold text-foreground flex items-center gap-1">

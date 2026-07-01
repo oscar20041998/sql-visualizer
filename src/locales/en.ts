@@ -4,6 +4,7 @@ const en = {
   appTagline: 'SQL & Query Analyzer',
 
   // Nav
+  navHome: 'Home',
   navQueryInput: 'Query Input',
   navGraphVisualizer: 'Graph Visualizer',
   navMetricsDashboard: 'Metrics Dashboard',
@@ -53,7 +54,7 @@ const en = {
   // Tips
   tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
   tipJoin: 'JOIN conditions with table.column = table.column are auto-detected',
-  tipMyBatis: 'MyBatis #{param} and ${param} syntax both supported',
+  tipMyBatis: 'MyBatis #{param} and ${object.param} syntax both supported',
   tipDialect: 'Switch dialect to adjust complexity scoring',
 
   // Graph
@@ -180,7 +181,21 @@ const en = {
   metricsNonEquiOn: 'Non-equi ON',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
   metricsFieldExtractionSummaryTitle: 'Field Extraction Summary',
+  metricsFieldExpressionHeader: 'Expression',
+  metricsFieldAliasHeader: 'Alias',
+  metricsFieldTypeHeader: 'Type',
+  metricsFieldShowing: 'Showing',
+  metricsFieldOf: 'of',
   metricsTotalExtractedFields: 'Total extracted fields',
+  fieldCategoryColumn: 'Column',
+  fieldCategoryExpression: 'Expression',
+  fieldCategoryAggregate: 'Aggregate',
+  fieldCategoryWindow: 'Window',
+  fieldCategorySubquery: 'Subquery',
+  fieldCategoryConstant: 'Constant',
+  fieldCategoryFunction: 'Function',
+  fieldCategoryCalculated: 'Calculated',
+  fieldCategoryStandard: 'Standard',
   metricsBarWindowFn: 'Window Fn',
   metricsBarSubqueryCnt: 'Subquery Cnt',
   metricsBarGroupBy: 'GROUP BY',
@@ -191,8 +206,6 @@ const en = {
   metricsBarFinalSelect: 'Final Select',
   metricsFieldSearchPlaceholder: 'Search extracted fields (expression, alias, type)...',
   metricsFieldNoResults: 'No extracted fields match your search.',
-  metricsFieldShowing: 'Showing',
-  metricsFieldOf: 'of',
   metricsFieldPaginationPrev: 'Previous',
   metricsFieldPaginationNext: 'Next',
   metricsFieldPaginationPage: 'Page',
@@ -202,6 +215,8 @@ const en = {
   impactHigh: 'High Impact',
   recommendation: 'Recommendation',
   factorsBreakdown: 'Complexity Factors Breakdown',
+  metricsHighComplexityWarning: 'High complexity detected — review query structure',
+  metricsHighComplexityDescription: 'This query has a high complexity score. Consider refactoring to reduce joins, subquery depth, and function usage.',
 
   // Nested Subquery Analysis
   metricsNestedSubqueryAnalysisTitle: 'Nested Subquery Analysis',
@@ -321,6 +336,12 @@ const en = {
   accentColorHint: 'Primary highlight color used throughout the UI',
   resetDefaults: 'Reset to Defaults',
   resetConfirm: 'This will reset all settings to their default values.',
+  resetSettingsSuccess: 'Settings reset to defaults',
+  languageEnglish: 'English',
+  languageVietnamese: 'Tiếng Việt',
+  spacingCompact: 'Compact',
+  spacingNormal: 'Normal',
+  spacingSpacious: 'Spacious',
 
   // Guideline
   guidelineTitle: 'User Guide',
@@ -822,6 +843,30 @@ const en = {
   ollamaConnectionError:
     'Failed to connect to Ollama API. Make sure it is running on http://localhost:11434',
   emptyQueryError: 'Query is empty. Please enter a valid SQL query to analyze.',
+  smartEditorFormatting: 'Formatting...',
+  smartEditorFormat: 'Format',
+  smartEditorNoChangesToCompare: 'No changes to compare',
+  smartEditorCompare: 'Compare',
+  smartEditorEditorView: 'Editor View',
+  smartEditorCopy: 'Copy',
+  smartEditorCopied: 'Copied!',
+  smartEditorReset: 'Reset',
+  smartEditorResetTitle: 'Reset to original SQL',
+  smartEditorLines: 'lines',
+  smartEditorChars: 'chars',
+  smartEditorWords: 'words',
+  smartEditorDialect: 'Dialect:',
+  smartEditorModified: 'Modified',
+  smartEditorOriginal: 'Original',
+  smartEditorComparingMode: 'Comparing original vs. current',
+  smartEditorSingleMode: 'Single editor mode',
+  smartEditorChangesDetected: '● Changes detected',
+  smartEditorSyncedWithOriginal: '✓ Synced with original',
+  smartEditorCopiedToClipboard: 'Copied to clipboard',
+  smartEditorFailedToCopy: 'Failed to copy to clipboard',
+  smartEditorModifiedSummary: 'Modified from original',
+  smartEditorNoChangesSummary: 'No changes from original',
+  copiedToClipboard: 'Copied to clipboard',
 
   // Guideline - Advanced Features Section
   guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',
@@ -849,6 +894,45 @@ const en = {
     'Color selections are persisted to localStorage and restored on your next visit',
   guidelineAdvancedFeaturesTip4:
     'All components use CSS containment for optimal performance and faster rendering',
+
+  // Home Page
+  homeWelcomeTitle: 'Welcome to SQL Visualizer',
+  homeMainHeading: 'Analyze SQL Queries',
+  homeMainHeadingGradient: 'Like Never Before',
+  homeDescription:
+    'Visualize query complexity, understand relationships, and optimize your SQL with advanced analytics and interactive visualizations.',
+  homeGetStartedButton: 'Start Analyzing',
+  homeGuidelinesButton: 'View Guidelines',
+  homeAccuracyLabel: '100%',
+  homeAccuracyValue: 'Analysis Accuracy',
+  homeRealtimeLabel: 'Real-time',
+  homeRealtimeValue: 'Query Processing',
+  homeDialectLabel: '4+ SQL',
+  homeDialectValue: 'Dialect Support',
+  homePowerfulFeaturesTitle: 'Powerful Features',
+  homeFeaturesDescription:
+    'Everything you need to understand and optimize your SQL queries',
+  homeQueryAnalysisTitle: 'Query Analysis',
+  homeQueryAnalysisDesc:
+    'Deep analysis of SQL structure, complexity scoring, and performance metrics',
+  homeRelationshipMappingTitle: 'Relationship Mapping',
+  homeRelationshipMappingDesc:
+    'Interactive visualization of table relationships, joins, and data flow',
+  homeMetricsDashboardTitle: 'Metrics Dashboard',
+  homeMetricsDashboardDesc:
+    'Comprehensive metrics on query complexity, execution cost, and optimization',
+  homeSmartRecommendationsTitle: 'Smart Recommendations',
+  homeSmartRecommendationsDesc:
+    'AI-powered suggestions to optimize your queries and improve performance',
+  homeReadyToAnalyzeTitle: 'Ready to analyze?',
+  homeReadyToAnalyzeDesc:
+    'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',
+  homeGetStartedNowButton: 'Get Started Now',
+  homeCopyrightText: '©SQL Visualizer. Designed with',
+  homeForDevelopers: 'for developers.',
+  homeDocsLink: 'Docs',
+  homeGitHubLink: 'GitHub',
+  homeContactLink: 'Contact',
 } as const;
 
 export default en;

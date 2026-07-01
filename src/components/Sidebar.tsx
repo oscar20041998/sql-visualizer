@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Code2,
+  Home,
   GitFork,
   BarChart3,
   Layers,
@@ -23,7 +24,8 @@ import Icon from '@/components/ui/AppIcon';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 const navItems = [
-  { key: 'navQueryInput', href: '/', icon: Code2, badge: null },
+  { key: 'navHome', href: '/', icon: Home, badge: null },
+  { key: 'navQueryInput', href: '/query-input', icon: Code2, badge: null },
   { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
@@ -67,6 +69,7 @@ export default function Sidebar() {
           const isActive = pathname === item.href;
           // Lock navigation for analysis pages when no data
           const isLocked =
+            item.key !== 'navHome' &&
             item.key !== 'navQueryInput' &&
             item.key !== 'navSettings' &&
             item.key !== 'navGuideline' &&
@@ -109,7 +112,8 @@ export default function Sidebar() {
                 </span>
               )}
               {/* Analysis indicator */}
-              {item.key !== 'navQueryInput' &&
+              {item.key !== 'navHome' &&
+                item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 item.key !== 'navGuideline' &&
                 analysisResult &&

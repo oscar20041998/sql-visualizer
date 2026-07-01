@@ -102,7 +102,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
   const handleFormatSQL = useCallback(async () => {
     try {
       if (!state.currentSql.trim()) {
-        toast.error(t.emptyQueryError || 'Query is empty');
+        toast.error(t.emptyQueryError);
         return;
       }
 
@@ -118,10 +118,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         isFormatting: false,
       }));
 
-      toast.success(t.formattingSuccess || 'SQL formatted successfully');
+      toast.success(t.formattingSuccess);
     } catch (error) {
       setState((prev) => ({ ...prev, isFormatting: false }));
-      toast.error((error as Error)?.message || t.formattingError || 'Formatting failed');
+      toast.error((error as Error)?.message || t.formattingError);
     }
   }, [state.currentSql, dialect, t]);
 
@@ -139,21 +139,21 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       isDiffMode: false,
       hasChanges: false,
     }));
-    toast.info('Reset to original SQL');
-  }, []);
+    toast.info(t.smartEditorResetTitle);
+  }, [t]);
 
   const handleCopyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(state.currentSql);
       setState((prev) => ({ ...prev, copiedToClipboard: true }));
-      toast.success('Copied to clipboard');
+      toast.success(t.smartEditorCopiedToClipboard);
       setTimeout(() => {
         setState((prev) => ({ ...prev, copiedToClipboard: false }));
       }, 2000);
     } catch (error) {
-      toast.error('Failed to copy to clipboard');
+      toast.error(t.smartEditorFailedToCopy);
     }
-  }, [state.currentSql]);
+  }, [state.currentSql, t]);
 
   // Calculate statistics
   const stats = {
@@ -161,8 +161,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     chars: state.currentSql.length,
     words: state.currentSql.trim().split(/\s+/).length,
     changeSummary: state.hasChanges
-      ? `Modified from original (${state.currentSql.length} chars)`
-      : 'No changes from original',
+      ? `${t.smartEditorModifiedSummary} (${state.currentSql.length} ${t.smartEditorChars})`
+      : t.smartEditorNoChangesSummary,
   };
 
   return (
@@ -177,7 +177,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             }} />
             <h2 className="text-lg font-semibold text-white">{t.smartEditorTitle}</h2>
             <span className="text-xs text-gray-400 font-mono">
-              {state.hasChanges ? '● Modified' : '○ Original'}
+              {state.hasChanges ? `● ${t.smartEditorModified}` : `○ ${t.smartEditorOriginal}`}
             </span>
           </div>
         </div>
@@ -191,7 +191,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             title="Format SQL (Ctrl+Shift+F)"
           >
             <Zap size={12} />
-            {state.isFormatting ? 'Formatting...' : t.formatSqlButton || 'Format'}
+            {state.isFormatting ? t.smartEditorFormatting : (t.formatSqlButton || t.smartEditorFormat)}
           </button>
 
           <button
@@ -203,10 +203,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
               borderColor: state.isDiffMode ? '#6366f1' : '#374151',
               color: state.isDiffMode ? '#818cf8' : '#d1d5db',
             }}
-            title={state.hasChanges ? 'Compare with original' : 'No changes to compare'}
+            title={state.hasChanges ? 'Compare with original' : t.smartEditorNoChangesToCompare}
           >
             <GitCompare size={12} />
-            {state.isDiffMode ? 'Editor View' : 'Compare'}
+            {state.isDiffMode ? t.smartEditorEditorView : t.smartEditorCompare}
           </button>
 
           <button
@@ -216,12 +216,12 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             {state.copiedToClipboard ? (
               <>
                 <Check size={12} />
-                Copied!
+                {t.smartEditorCopied}
               </>
             ) : (
               <>
                 <Copy size={12} />
-                {t.copyChart || 'Copy'}
+                {t.smartEditorCopy}
               </>
             )}
           </button>
@@ -230,10 +230,10 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             <button
               onClick={handleResetToOriginal}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-yellow-700/50 bg-yellow-950/40 text-yellow-300 text-xs font-medium hover:bg-yellow-950/60 transition-colors"
-              title="Reset to original SQL"
+              title={t.smartEditorResetTitle}
             >
               <RotateCcw size={12} />
-              Reset
+              {t.smartEditorReset}
             </button>
           )}
         </div>
@@ -242,23 +242,23 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-800">
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="font-mono">
-              <span className="text-blue-400">{stats.lines}</span> lines
+              <span className="text-blue-400">{stats.lines}</span> {t.smartEditorLines}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.chars}</span> chars
+              <span className="text-blue-400">{stats.chars}</span> {t.smartEditorChars}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.words}</span> words
+              <span className="text-blue-400">{stats.words}</span> {t.smartEditorWords}
             </span>
             <span className="text-gray-500">•</span>
-            <span className="text-gray-500">Dialect: <span className="text-blue-400 font-mono">{dialect}</span></span>
+            <span className="text-gray-500">{t.smartEditorDialect} <span className="text-blue-400 font-mono">{dialect}</span></span>
           </div>
           <div className="text-xs text-gray-500">{stats.changeSummary}</div>
         </div>
       </div>
 
       {/* Editor Container */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 w-full">
         {state.isDiffMode ? (
           <DiffEditor
             original={state.originalSql}
@@ -266,7 +266,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             language="sql"
             theme="vs-dark"
             options={diffEditorOptions}
-            height="100%"
+            className="min-h-0 w-full"
+            height="48vh"
           />
         ) : (
           <Editor
@@ -274,14 +275,16 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             language="sql"
             theme="vs-dark"
             options={editorOptions}
+            saveViewState={true}
             onMount={handleEditorMount}
             onChange={(value) => {
               setState((prev) => ({
                 ...prev,
                 currentSql: value ?? '',
               }));
-            }}
-            height="100%"
+              }}
+            className="min-h-0 w-full"
+            height="48vh"
           />
         )}
       </div>
@@ -291,15 +294,15 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         <div className="flex items-center gap-2">
           <FileText size={12} className="text-gray-500" />
           <span>
-            {state.isDiffMode ? 'Comparing original vs. current' : 'Single editor mode'}
+            {state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}
           </span>
         </div>
         <div className="text-gray-600">
           {state.hasChanges && (
-            <span className="text-yellow-500">● Changes detected</span>
+            <span className="text-yellow-500">{t.smartEditorChangesDetected}</span>
           )}
           {!state.hasChanges && state.currentSql !== '' && (
-            <span className="text-green-500">✓ Synced with original</span>
+            <span className="text-green-500">{t.smartEditorSyncedWithOriginal}</span>
           )}
         </div>
       </div>

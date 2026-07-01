@@ -4,6 +4,7 @@ const vi = {
   appTagline: 'Phân tích truy vấn SQL & MyBatis',
 
   // Nav
+  navHome: 'Trang chủ',
   navQueryInput: 'Nhập truy vấn',
   navGraphVisualizer: 'Biểu đồ quan hệ',
   navMetricsDashboard: 'Bảng chỉ số',
@@ -51,7 +52,7 @@ const vi = {
   // Tips
   tipCTE: 'Sử dụng WITH...AS cho CTE để phân tích CTE đầy đủ',
   tipJoin: 'Các điều kiện JOIN với table.column = table.column được tự động phát hiện',
-  tipMyBatis: 'Hỗ trợ cả cú pháp MyBatis #{param} và ${param}',
+  tipMyBatis: 'Hỗ trợ cả cú pháp MyBatis #{param} và ${object.param}',
   tipDialect: 'Chuyển đổi phương ngữ để điều chỉnh điểm số độ phức tạp',
 
   // Graph
@@ -177,7 +178,21 @@ const vi = {
   metricsNonEquiOn: 'ON không bằng',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
   metricsFieldExtractionSummaryTitle: 'Tóm tắt trích xuất trường',
+  metricsFieldExpressionHeader: 'Biểu thức',
+  metricsFieldAliasHeader: 'Bí danh',
+  metricsFieldTypeHeader: 'Loại',
+  metricsFieldShowing: 'Hiển thị',
+  metricsFieldOf: 'của',
   metricsTotalExtractedFields: 'Tổng số trường trích xuất',
+  fieldCategoryColumn: 'Cột',
+  fieldCategoryExpression: 'Biểu thức',
+  fieldCategoryAggregate: 'Tổng hợp',
+  fieldCategoryWindow: 'Cửa sổ',
+  fieldCategorySubquery: 'Truy vấn con',
+  fieldCategoryConstant: 'Hằng số',
+  fieldCategoryFunction: 'Hàm số',
+  fieldCategoryCalculated: 'Được tính toán',
+  fieldCategoryStandard: 'Cơ bản',
   metricsBarWindowFn: 'Hàm cửa sổ',
   metricsBarSubqueryCnt: 'SL truy vấn con',
   metricsBarGroupBy: 'GROUP BY',
@@ -188,8 +203,6 @@ const vi = {
   metricsBarFinalSelect: 'SELECT cuối',
   metricsFieldSearchPlaceholder: 'Tìm trường đã trích xuất (biểu thức, bí danh, loại)...',
   metricsFieldNoResults: 'Không có trường nào khớp với từ khóa tìm kiếm.',
-  metricsFieldShowing: 'Hiển thị',
-  metricsFieldOf: 'trên',
   metricsFieldPaginationPrev: 'Trước',
   metricsFieldPaginationNext: 'Sau',
   metricsFieldPaginationPage: 'Trang',
@@ -218,6 +231,8 @@ const vi = {
   metricsBased: 'Dựa trên độ sâu & số lượng',
   metricsMaximumNestingLevel: 'Mức độ lồng nhau tối đa',
   metricsTotalSubqueriesFound: 'Tổng số subquery được tìm thấy',
+  metricsHighComplexityWarning: 'Phát hiện độ phức tạp cao — xem lại cấu trúc truy vấn',
+  metricsHighComplexityDescription: 'Truy vấn này có điểm độ phức tạp cao. Hãy cân nhắc tái cấu trúc để giảm số lượng join, độ sâu subquery và việc sử dụng hàm.',
   // CTE
   cteTitle: 'Phân tích CTE',
   cteSubtitle: 'Quét biểu thức bảng chung và ánh xạ nguồn gốc trường',
@@ -316,6 +331,12 @@ const vi = {
   accentColorHint: 'Màu nổi bật chính được sử dụng trong giao diện',
   resetDefaults: 'Đặt lại mặc định',
   resetConfirm: 'Thao tác này sẽ đặt lại tất cả cài đặt về giá trị mặc định.',
+  resetSettingsSuccess: 'Cài đặt đã được đặt lại về mặc định',
+  languageEnglish: 'English',
+  languageVietnamese: 'Tiếng Việt',
+  spacingCompact: 'Compact',
+  spacingNormal: 'Bình thường',
+  spacingSpacious: 'Rộng rãi',
 
   // Guideline
   guidelineTitle: 'Hướng Dẫn Sử Dụng',
@@ -817,6 +838,30 @@ const vi = {
   ollamaConnectionError:
     'Không thể kết nối với API Ollama. Hãy chắc chắn rằng nó đang chạy trên http://localhost:11434',
   emptyQueryError: 'Truy vấn trống. Vui lòng nhập hoặc dán SQL để phân tích.',
+  smartEditorFormatting: 'Đang định dạng...',
+  smartEditorFormat: 'Định dạng',
+  smartEditorNoChangesToCompare: 'Không có thay đổi để so sánh',
+  smartEditorCompare: 'So sánh',
+  smartEditorEditorView: 'Chế độ xem trình soạn thảo',
+  smartEditorCopy: 'Sao chép',
+  smartEditorCopied: 'Đã sao chép!',
+  smartEditorReset: 'Đặt lại',
+  smartEditorResetTitle: 'Đặt lại SQL gốc',
+  smartEditorLines: 'dòng',
+  smartEditorChars: 'ký tự',
+  smartEditorWords: 'từ',
+  smartEditorDialect: 'Phương ngữ:',
+  smartEditorModified: 'Đã sửa đổi',
+  smartEditorOriginal: 'Gốc',
+  smartEditorComparingMode: 'So sánh gốc với hiện tại',
+  smartEditorSingleMode: 'Chế độ trình soạn thảo đơn',
+  smartEditorChangesDetected: '● Phát hiện thay đổi',
+  smartEditorSyncedWithOriginal: '✓ Đồng bộ với gốc',
+  smartEditorCopiedToClipboard: 'Đã sao chép vào bộ nhớ tạm',
+  smartEditorFailedToCopy: 'Không thể sao chép vào bộ nhớ tạm',
+  smartEditorModifiedSummary: 'Đã sửa đổi từ gốc',
+  smartEditorNoChangesSummary: 'Không có thay đổi từ gốc',
+  copiedToClipboard: 'Đã sao chép vào bộ nhớ tạm',
 
   // Guideline - Advanced Features Section
   guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',
@@ -844,6 +889,45 @@ const vi = {
     'Lựa chọn màu được lưu vào localStorage và khôi phục khi bạn ghé thăm lần tới',
   guidelineAdvancedFeaturesTip4:
     'Tất cả các thành phần sử dụng sự chứa đựng CSS để có hiệu suất tối ưu và kết xuất nhanh hơn',
+
+  // Home Page
+  homeWelcomeTitle: 'Chào mừng đến SQL Visualizer',
+  homeMainHeading: 'Phân tích truy vấn SQL',
+  homeMainHeadingGradient: 'Chưa bao giờ tuyệt vời như thế',
+  homeDescription:
+    'Trực quan hóa độ phức tạp truy vấn, hiểu mối quan hệ và tối ưu hóa SQL của bạn với phân tích nâng cao và trực quan hóa tương tác.',
+  homeGetStartedButton: 'Bắt đầu phân tích',
+  homeGuidelinesButton: 'Xem hướng dẫn',
+  homeAccuracyLabel: '100%',
+  homeAccuracyValue: 'Độ chính xác phân tích',
+  homeRealtimeLabel: 'Thời gian thực',
+  homeRealtimeValue: 'Xử lý truy vấn',
+  homeDialectLabel: '4+ SQL',
+  homeDialectValue: 'Hỗ trợ phương ngữ',
+  homePowerfulFeaturesTitle: 'Tính năng mạnh mẽ',
+  homeFeaturesDescription:
+    'Mọi thứ bạn cần để hiểu và tối ưu hóa truy vấn SQL của mình',
+  homeQueryAnalysisTitle: 'Phân tích truy vấn',
+  homeQueryAnalysisDesc:
+    'Phân tích sâu cấu trúc SQL, điểm số độ phức tạp và chỉ số hiệu suất',
+  homeRelationshipMappingTitle: 'Ánh xạ quan hệ',
+  homeRelationshipMappingDesc:
+    'Trực quan hóa tương tác của quan hệ bảng, JOIN và luồng dữ liệu',
+  homeMetricsDashboardTitle: 'Bảng chỉ số',
+  homeMetricsDashboardDesc:
+    'Chỉ số toàn diện về độ phức tạp truy vấn, chi phí thực thi và tối ưu hóa',
+  homeSmartRecommendationsTitle: 'Gợi ý thông minh',
+  homeSmartRecommendationsDesc:
+    'Gợi ý được hỗ trợ bởi AI để tối ưu hóa truy vấn của bạn và cải thiện hiệu suất',
+  homeReadyToAnalyzeTitle: 'Sẵn sàng để phân tích?',
+  homeReadyToAnalyzeDesc:
+    'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
+  homeGetStartedNowButton: 'Bắt đầu ngay bây giờ',
+  homeCopyrightText: '© 2024 SQL Visualizer. Thiết kế với',
+  homeForDevelopers: 'cho các nhà phát triển.',
+  homeDocsLink: 'Tài liệu',
+  homeGitHubLink: 'GitHub',
+  homeContactLink: 'Liên hệ',
 } as const;
 
 export default vi;

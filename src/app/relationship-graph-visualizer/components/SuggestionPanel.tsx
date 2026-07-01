@@ -140,7 +140,7 @@ const SuggestionPanel = memo(function SuggestionPanelComponent({
 
       {/* Suggestions List */}
       {showSuggestions && (
-        <div className="overflow-auto p-3" style={{ maxHeight: '232px' }}>
+        <div className="overflow-auto p-3 scrollbar-thin" style={{ maxHeight: '232px' }}>
           <div className="flex flex-col gap-2">
             {visibleSuggestions.map((s) => (
               <SuggestionCard key={s.id} suggestion={s} onDismiss={onDismiss} />

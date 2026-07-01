@@ -43,7 +43,7 @@ interface AppState {
   resetAll: () => void;
 }
 
-const defaultSettings: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   locale: 'en',
   defaultDialect: 'mysql',
@@ -54,6 +54,8 @@ const defaultSettings: AppSettings = {
   accentColor: '#6ee7f7',
   performanceMode: false,
 };
+
+const defaultSettings: AppSettings = DEFAULT_SETTINGS;
 
 export const useAppStore = create<AppState>()(
   persist(

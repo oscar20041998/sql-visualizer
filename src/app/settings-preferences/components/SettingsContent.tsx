@@ -14,7 +14,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAppStore, type AppSettings } from '@/lib/store';
+import { useAppStore, type AppSettings, DEFAULT_SETTINGS } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -125,10 +125,11 @@ const LAYOUT_OPTIONS = [
   { value: 'grid' as const, label: '' },
 ];
 
+// Labels will be provided dynamically from i18n in component
 const SPACING_OPTIONS = [
-  { value: 'compact' as const, label: 'Compact' },
-  { value: 'normal' as const, label: 'Normal' },
-  { value: 'spacious' as const, label: 'Spacious' },
+  { value: 'compact' as const, label: '' },
+  { value: 'normal' as const, label: '' },
+  { value: 'spacious' as const, label: '' },
 ];
 
 const EDGE_OPTIONS = [
@@ -137,23 +138,10 @@ const EDGE_OPTIONS = [
   { value: 'step' as const, label: '' },
 ];
 
-const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'dark',
-  locale: 'en',
-  defaultDialect: 'mysql',
-  autoAnalyze: false,
-  graphLayout: 'dagre',
-  nodeSpacing: 'normal',
-  edgeStyle: 'smooth',
-  accentColor: '#6ee7f7',
-};
-
 export default function SettingsContent() {
   const { settings, updateSettings } = useAppStore();
   const t = getT(settings.locale);
-  const [activeCategory, setActiveCategory] = useState<
-    'appearance' | 'language' | 'analysis' | 'graph'
-  >('appearance');
+  const [activeCategory, setActiveCategory] = useState<'appearance' | 'language' | 'analysis' | 'graph'>('appearance');
 
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     updateSettings({ [key]: value });
@@ -162,7 +150,7 @@ export default function SettingsContent() {
 
   const resetDefaults = () => {
     updateSettings(DEFAULT_SETTINGS);
-    toast.success('Settings reset to defaults');
+    toast.success(t.resetSettingsSuccess, { duration: 1500 });
   };
 
   const categoryLabels: Record<string, string> = {
@@ -177,6 +165,11 @@ export default function SettingsContent() {
     { value: 'dagre' as const, label: t.layoutDagre },
     { value: 'force' as const, label: t.layoutForce },
     { value: 'grid' as const, label: t.layoutGrid },
+  ];
+  const spacingOptionsTranslated = [
+    { value: 'compact' as const, label: t.spacingCompact },
+    { value: 'normal' as const, label: t.spacingNormal },
+    { value: 'spacious' as const, label: t.spacingSpacious },
   ];
   const edgeOptionsTranslated = [
     { value: 'smooth' as const, label: t.edgeSmooth },
@@ -277,7 +270,7 @@ export default function SettingsContent() {
                         }`}
                       >
                         <span>🇺🇸</span>
-                        English
+                        {t.languageEnglish}
                       </button>
                       <button
                         onClick={() => update('locale', 'vi')}
@@ -288,7 +281,7 @@ export default function SettingsContent() {
                         }`}
                       >
                         <span>🇻🇳</span>
-                        Tiếng Việt
+                        {t.languageVietnamese}
                       </button>
                     </div>
                   </SettingRow>
@@ -327,7 +320,7 @@ export default function SettingsContent() {
                   <SettingRow label={t.nodeSpacing} hint={t.nodeSpacingHint}>
                     <SelectDropdown
                       value={settings.nodeSpacing}
-                      options={SPACING_OPTIONS}
+                      options={spacingOptionsTranslated}
                       onChange={(v) => update('nodeSpacing', v)}
                     />
                   </SettingRow>
@@ -341,15 +334,6 @@ export default function SettingsContent() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Info Panel */}
-          <div className="mt-4 p-4 bg-card border border-border rounded-xl">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Settings are persisted to{' '}
-              <span className="font-mono text-foreground">localStorage</span> and restored on next
-              visit. Theme and language changes apply instantly across all screens.
-            </p>
           </div>
         </div>
       </div>
