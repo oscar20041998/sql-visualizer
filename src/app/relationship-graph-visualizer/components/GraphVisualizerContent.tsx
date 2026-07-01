@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap } from 'lucide-react';
+import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';
@@ -322,6 +322,7 @@ export default function GraphVisualizerContent() {
   const flowRef = useRef<FlowCanvasHandle>(null);
   const [showExtracted, setShowExtracted] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showJoinLegend, setShowJoinLegend] = useState(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [tableSearch, setTableSearch] = useState('');
 
@@ -816,20 +817,32 @@ export default function GraphVisualizerContent() {
 
             {/* Join Legend */}
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                {t.joinLegend}
-              </h3>
-              <div className="space-y-2">
-                {(Object.entries(JOIN_COLORS) as [JoinType, string][]).map(([type, color]) => (
-                  <div key={`legend-${type}`} className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-0.5 rounded-full flex-shrink-0"
-                      style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-                    />
-                    <span className="text-xs font-mono text-muted-foreground">{type}</span>
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={() => setShowJoinLegend(!showJoinLegend)}
+                className="w-full flex items-center justify-between hover:opacity-75 transition-opacity mb-3"
+              >
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t.joinLegend}
+                </h3>
+                <ChevronDown
+                  size={14}
+                  className="flex-shrink-0 transition-transform duration-200"
+                  style={{ transform: showJoinLegend ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                />
+              </button>
+              {showJoinLegend && (
+                <div className="space-y-2">
+                  {(Object.entries(JOIN_COLORS) as [JoinType, string][]).map(([type, color]) => (
+                    <div key={`legend-${type}`} className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-0.5 rounded-full flex-shrink-0"
+                        style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+                      />
+                      <span className="text-xs font-mono text-muted-foreground">{type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* All Tables List */}
