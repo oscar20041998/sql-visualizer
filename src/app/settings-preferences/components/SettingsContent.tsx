@@ -141,7 +141,9 @@ const EDGE_OPTIONS = [
 export default function SettingsContent() {
   const { settings, updateSettings } = useAppStore();
   const t = getT(settings.locale);
-  const [activeCategory, setActiveCategory] = useState<'appearance' | 'language' | 'analysis' | 'graph'>('appearance');
+  const [activeCategory, setActiveCategory] = useState<
+    'appearance' | 'language' | 'analysis' | 'graph'
+  >('appearance');
 
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     updateSettings({ [key]: value });

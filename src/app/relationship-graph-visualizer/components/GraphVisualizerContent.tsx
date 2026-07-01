@@ -10,6 +10,7 @@ import type { FlowCanvasHandle } from './FlowCanvas';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
 import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
 import ExtractedTablesPanel, { type ExtractedTableRow } from './ExtractedTablesPanel';
+import JoinAnalysisPanel from './JoinAnalysisPanel';
 
 const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
 
@@ -908,6 +909,12 @@ export default function GraphVisualizerContent() {
           onDismiss={dismissSuggestion}
         />
       )}
+
+      {/* ─── JOIN Analysis Panel ─────────────────────────────────────────── */}
+      <JoinAnalysisPanel
+        joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
+        locale={settings.locale}
+      />
 
       {/* ─── Extracted Tables Section ─────────────────────────────────────────── */}
       <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />

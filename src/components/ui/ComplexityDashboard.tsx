@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertCircle, TrendingUp, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  AlertCircle,
+  TrendingUp,
+  CheckCircle2,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import {
   calculateQueryComplexity,
   getComplexityColor,

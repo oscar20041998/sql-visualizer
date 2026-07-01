@@ -90,7 +90,11 @@ export default function NestedSubqueryAnalysis({
           label={t.metricsComplexityRisk}
           value={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3 ? 'HIGH' : 'MODERATE'}
           icon={AlertTriangle}
-          color={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3 ? 'var(--danger)' : 'var(--warning)'}
+          color={
+            metrics.subqueryDepth > 3 || metrics.subqueryCount > 3
+              ? 'var(--danger)'
+              : 'var(--warning)'
+          }
           subtitle={t.metricsBased}
           alert={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3}
         />
@@ -108,9 +112,13 @@ export default function NestedSubqueryAnalysis({
           return (
             <div key={`depth-${depthLevel}`} className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{t.metricsLevelLabel} {depthLevel}</span>
+                <span className="text-muted-foreground">
+                  {t.metricsLevelLabel} {depthLevel}
+                </span>
                 <span className="font-mono text-foreground font-semibold">
-                  {depthLevel === metrics.subqueryDepth ? t.metricsMaxStatus : t.metricsActiveStatus}
+                  {depthLevel === metrics.subqueryDepth
+                    ? t.metricsMaxStatus
+                    : t.metricsActiveStatus}
                 </span>
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -135,7 +143,9 @@ export default function NestedSubqueryAnalysis({
       {/* Optimization Recommendation */}
       {(metrics.subqueryDepth > 3 || metrics.subqueryCount > 3) && (
         <div className="mt-4 p-3 rounded-lg bg-danger/5 border border-danger/30">
-          <p className="text-xs font-semibold text-danger mb-1">{t.metricsOptimizationRecommended}</p>
+          <p className="text-xs font-semibold text-danger mb-1">
+            {t.metricsOptimizationRecommended}
+          </p>
           <p className="text-xs text-danger/70 leading-relaxed">
             {metrics.subqueryDepth > 3
               ? t.metricsDeepNestingMessage.replace('{{level}}', metrics.subqueryDepth.toString())
@@ -174,7 +184,9 @@ export default function NestedSubqueryAnalysis({
                       )}
                     </div>
                     <code className="text-xs font-mono text-foreground bg-background p-2 rounded block border border-border/30 overflow-x-auto whitespace-pre-wrap break-words max-w-full">
-                      {subquery.expression || subquery.content || `Subquery at level ${subquery.nestingLevel}`}
+                      {subquery.expression ||
+                        subquery.content ||
+                        `Subquery at level ${subquery.nestingLevel}`}
                     </code>
                   </div>
                   <button
@@ -194,7 +206,9 @@ export default function NestedSubqueryAnalysis({
                 {subquery.analysis && (
                   <div className="text-[10px] text-muted-foreground space-y-1 border-t border-border/30 pt-2 mt-2">
                     <div>
-                      <span className="font-semibold text-foreground">{t.metricsAnalysisLabel}:</span>{' '}
+                      <span className="font-semibold text-foreground">
+                        {t.metricsAnalysisLabel}:
+                      </span>{' '}
                       {subquery.analysis}
                     </div>
                   </div>

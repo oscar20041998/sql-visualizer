@@ -172,9 +172,12 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         {/* Title Bar */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ 
-              background: state.hasChanges ? '#f59e0b' : '#10b981' 
-            }} />
+            <div
+              className="w-2.5 h-2.5 rounded-full"
+              style={{
+                background: state.hasChanges ? '#f59e0b' : '#10b981',
+              }}
+            />
             <h2 className="text-lg font-semibold text-white">{t.smartEditorTitle}</h2>
             <span className="text-xs text-gray-400 font-mono">
               {state.hasChanges ? `● ${t.smartEditorModified}` : `○ ${t.smartEditorOriginal}`}
@@ -191,7 +194,9 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             title="Format SQL (Ctrl+Shift+F)"
           >
             <Zap size={12} />
-            {state.isFormatting ? t.smartEditorFormatting : (t.formatSqlButton || t.smartEditorFormat)}
+            {state.isFormatting
+              ? t.smartEditorFormatting
+              : t.formatSqlButton || t.smartEditorFormat}
           </button>
 
           <button
@@ -251,7 +256,9 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
               <span className="text-blue-400">{stats.words}</span> {t.smartEditorWords}
             </span>
             <span className="text-gray-500">•</span>
-            <span className="text-gray-500">{t.smartEditorDialect} <span className="text-blue-400 font-mono">{dialect}</span></span>
+            <span className="text-gray-500">
+              {t.smartEditorDialect} <span className="text-blue-400 font-mono">{dialect}</span>
+            </span>
           </div>
           <div className="text-xs text-gray-500">{stats.changeSummary}</div>
         </div>
@@ -282,7 +289,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
                 ...prev,
                 currentSql: value ?? '',
               }));
-              }}
+            }}
             className="min-h-0 w-full"
             height="48vh"
           />
@@ -293,9 +300,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
       <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gray-800/50 text-xs text-gray-400 border-t border-gray-800">
         <div className="flex items-center gap-2">
           <FileText size={12} className="text-gray-500" />
-          <span>
-            {state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}
-          </span>
+          <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>
         </div>
         <div className="text-gray-600">
           {state.hasChanges && (

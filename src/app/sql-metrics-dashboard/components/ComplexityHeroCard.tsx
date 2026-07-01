@@ -26,9 +26,10 @@ export default function ComplexityHeroCard({ complexity, t }: ComplexityHeroCard
   };
 
   return (
-      <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4"
+    <div
+      className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4"
       style={{ height: '100%' }}
-      >
+    >
       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
         {t.complexityLevel}
       </span>
@@ -37,13 +38,14 @@ export default function ComplexityHeroCard({ complexity, t }: ComplexityHeroCard
         maxScore={complexity.maxScore}
         level={complexity.level}
       />
-      <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${complexityBadgeMap[complexity.level]}`}>
+      <div
+        className={`px-4 py-1.5 rounded-full text-sm font-bold ${complexityBadgeMap[complexity.level]}`}
+      >
         {complexityLabelMap[complexity.level]}
       </div>
       <div className="text-center">
         <p className="text-xs text-muted-foreground">
-          {t.complexityScore}:{' '}
-          <span className="font-mono text-foreground">{complexity.score}</span>
+          {t.complexityScore}: <span className="font-mono text-foreground">{complexity.score}</span>
           <span className="text-muted-foreground/50"> / {complexity.maxScore}</span>
         </p>
       </div>

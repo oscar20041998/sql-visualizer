@@ -11,10 +11,7 @@ interface ReferencedTablesOverviewProps {
   t: ReturnType<typeof getT>;
 }
 
-export default function ReferencedTablesOverview({
-  tables,
-  t,
-}: ReferencedTablesOverviewProps) {
+export default function ReferencedTablesOverview({ tables, t }: ReferencedTablesOverviewProps) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center gap-2">

@@ -77,21 +77,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Animated background orbs */}
-      <FloatingOrb
-        delay={0}
-        size="400px"
-        className="top-0 left-0 bg-primary/10 opacity-30"
-      />
-      <FloatingOrb
-        delay={2}
-        size="300px"
-        className="bottom-0 right-0 bg-accent/10 opacity-20"
-      />
-      <FloatingOrb
-        delay={1}
-        size="250px"
-        className="top-1/3 right-1/4 bg-info/10 opacity-25"
-      />
+      <FloatingOrb delay={0} size="400px" className="top-0 left-0 bg-primary/10 opacity-30" />
+      <FloatingOrb delay={2} size="300px" className="bottom-0 right-0 bg-accent/10 opacity-20" />
+      <FloatingOrb delay={1} size="250px" className="top-1/3 right-1/4 bg-info/10 opacity-25" />
 
       {/* Grid pattern overlay */}
       <div
@@ -243,7 +231,10 @@ export default function HomePage() {
 
         {/* Features Section */}
         <section className="max-w-7xl mx-auto px-6 py-20 border-t border-border/50">
-          <div className="text-center mb-16" style={{ animation: 'slideUp 0.6s ease-out 0ms both' }}>
+          <div
+            className="text-center mb-16"
+            style={{ animation: 'slideUp 0.6s ease-out 0ms both' }}
+          >
             <h3 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               {t.homePowerfulFeaturesTitle}
             </h3>
@@ -315,7 +306,9 @@ export default function HomePage() {
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <button className="hover:text-primary transition-colors">{t.homeDocsLink}</button>
                 <button className="hover:text-primary transition-colors">{t.homeGitHubLink}</button>
-                <button className="hover:text-primary transition-colors">{t.homeContactLink}</button>
+                <button className="hover:text-primary transition-colors">
+                  {t.homeContactLink}
+                </button>
               </div>
             </div>
           </div>

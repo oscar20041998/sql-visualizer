@@ -84,7 +84,9 @@ export default function MetricsDashboardContent() {
           <div className="flex items-start gap-3">
             <AlertTriangle size={16} className="text-danger mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-danger">{t.metricsHighComplexityWarning}</h3>
+              <h3 className="text-sm font-semibold text-danger">
+                {t.metricsHighComplexityWarning}
+              </h3>
               <p className="text-xs text-danger/70 mt-1">{t.metricsHighComplexityDescription}</p>
             </div>
           </div>
@@ -121,11 +123,7 @@ export default function MetricsDashboardContent() {
         <JoinLogicComplexity joinLogicComplexity={structuralReport.joinLogicComplexity} t={t} />
 
         {/* Nested Subquery Analysis */}
-        <NestedSubqueryAnalysis
-          metrics={metrics}
-          structuralReport={structuralReport}
-          t={t}
-        />
+        <NestedSubqueryAnalysis metrics={metrics} structuralReport={structuralReport} t={t} />
 
         {/* Field Extraction */}
         <FieldExtractionSummary analysisResult={analysisResult} t={t} />

@@ -76,7 +76,9 @@ export default function BarChartExecutionCost({
             <Clock size={15} className="text-primary" />
             {t.executionCost}
           </h3>
-          <div className={`px-2 py-0.5 rounded text-xs font-semibold ${complexityBadgeMap[complexity.level]}`}>
+          <div
+            className={`px-2 py-0.5 rounded text-xs font-semibold ${complexityBadgeMap[complexity.level]}`}
+          >
             {executionCost.score}/100
           </div>
         </div>

@@ -10,10 +10,7 @@ interface FieldExtractionSummaryProps {
   t: ReturnType<typeof getT>;
 }
 
-export default function FieldExtractionSummary({
-  analysisResult,
-  t,
-}: FieldExtractionSummaryProps) {
+export default function FieldExtractionSummary({ analysisResult, t }: FieldExtractionSummaryProps) {
   const [fieldSearch, setFieldSearch] = useState('');
   const [fieldPage, setFieldPage] = useState(1);
   const fieldPageSize = 20;

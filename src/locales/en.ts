@@ -216,7 +216,8 @@ const en = {
   recommendation: 'Recommendation',
   factorsBreakdown: 'Complexity Factors Breakdown',
   metricsHighComplexityWarning: 'High complexity detected — review query structure',
-  metricsHighComplexityDescription: 'This query has a high complexity score. Consider refactoring to reduce joins, subquery depth, and function usage.',
+  metricsHighComplexityDescription:
+    'This query has a high complexity score. Consider refactoring to reduce joins, subquery depth, and function usage.',
 
   // Nested Subquery Analysis
   metricsNestedSubqueryAnalysisTitle: 'Nested Subquery Analysis',
@@ -227,7 +228,8 @@ const en = {
   metricsActiveStatus: 'Active',
   metricsOptimizationRecommended: 'Optimization Recommended',
   metricsDeepNestingMessage: `Deep nesting (Level {{level}}) detected. Consider using CTEs, joins, or window functions to flatten the query structure.`,
-  metricsMultipleSubqueriesMessage: 'Multiple subqueries detected. Consolidate related subqueries and consider using temporary tables or materialized views.',
+  metricsMultipleSubqueriesMessage:
+    'Multiple subqueries detected. Consolidate related subqueries and consider using temporary tables or materialized views.',
   metricsDetectedSubqueries: 'Detected Subqueries',
   metricsSubqueryPrefix: 'Subquery',
   metricsSubqueryType: 'Type',
@@ -910,8 +912,7 @@ const en = {
   homeDialectLabel: '4+ SQL',
   homeDialectValue: 'Dialect Support',
   homePowerfulFeaturesTitle: 'Powerful Features',
-  homeFeaturesDescription:
-    'Everything you need to understand and optimize your SQL queries',
+  homeFeaturesDescription: 'Everything you need to understand and optimize your SQL queries',
   homeQueryAnalysisTitle: 'Query Analysis',
   homeQueryAnalysisDesc:
     'Deep analysis of SQL structure, complexity scoring, and performance metrics',
@@ -933,6 +934,25 @@ const en = {
   homeDocsLink: 'Docs',
   homeGitHubLink: 'GitHub',
   homeContactLink: 'Contact',
+
+  // JOIN Analysis - Deep Analysis
+  joinAnalysisTitle: 'JOIN Analysis',
+  joinAnalysisSubtitle: 'Detailed JOIN condition analysis and complexity breakdown',
+  joinDetailColumns: 'Columns Involved',
+  joinDetailOperators: 'Operators Used',
+  joinDetailComplexity: 'Complexity',
+  joinDetailIsEquiJoin: 'Equi-Join',
+  joinDetailComplexityScore: 'Complexity Score',
+  joinAnalysisEmpty: 'No JOIN conditions to analyze',
+  joinAnalysisEmptyHint: 'This query does not contain any JOIN clauses',
+  joinConditionOn: 'ON Condition',
+  joinConditionSimple: 'Simple',
+  joinConditionComplex: 'Complex',
+  joinDialectSupport: 'Supported across all dialects (MySQL, PostgreSQL, SQL Server, Oracle)',
+  joinYes: 'Yes',
+  joinNo: 'No',
+  joinExpandDetails: 'Expand Details',
+  joinCollapseDetails: 'Collapse Details',
 } as const;
 
 export default en;

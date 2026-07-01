@@ -106,6 +106,15 @@ export interface JoinLogicComplexity {
   nonEquiConditions: number;
 }
 
+export interface JoinConditionAnalysis {
+  columns: string[];
+  operators: string[];
+  complexity: 'simple' | 'complex';
+  isEquiJoin: boolean;
+  isNaturalJoin: boolean;
+  complexity_score: number;
+}
+
 export interface QueryFieldProjection {
   expression: string;
   alias: string;
@@ -147,6 +156,11 @@ export interface ExecutionCostEstimate {
 export interface AnalysisResult {
   tables: TableNode[];
   joins: JoinEdge[];
+  joinAnalysisDetails?: Array<{
+    id: string;
+    joinEdge: JoinEdge;
+    analysis: JoinConditionAnalysis;
+  }>;
   ctes: CTE[];
   metrics: SqlMetrics;
   complexity: ComplexityScore;
@@ -191,9 +205,13 @@ export async function analyzeSql(
   // New: Calculate detailed complexity score using the comprehensive scoring engine
   const detailedComplexity = await scoreQueryComplexity(cleaned, locale as 'en' | 'vi');
 
+  // Analyze all joins with deep analysis
+  const joinAnalysisDetails = analyzeAllJoins(cleaned, tables);
+
   return {
     tables,
     joins,
+    joinAnalysisDetails,
     ctes,
     metrics,
     complexity,
@@ -377,64 +395,200 @@ function extractColumnsForTable(sql: string, tableRef: string): string[] {
   return cols.slice(0, 8);
 }
 
+function analyzeJoinCondition(condition: string): JoinConditionAnalysis {
+  // Parse JOIN condition to extract metadata
+  const columns: string[] = [];
+  const operators: Set<string> = new Set();
+
+  // Extract column references (table.column or just column)
+  const columnRegex = /(\w+)\.(\w+)|\b(\w+)\b/g;
+  let match;
+  while ((match = columnRegex.exec(condition)) !== null) {
+    if (match[1] && match[2]) {
+      columns.push(`${match[1]}.${match[2]}`);
+    }
+  }
+
+  // Extract operators
+  const operatorMatches = condition.match(/(<>|!=|<=|>=|<|>|=|AND|OR|IN|LIKE|BETWEEN)/gi);
+  if (operatorMatches) {
+    operatorMatches.forEach((op) => operators.add(op.toUpperCase()));
+  }
+
+  // Check if it's an equi-join (uses = operator only)
+  const isEquiJoin = /^\s*(\w+\.\w+\s*=\s*\w+\.\w+\s*(?:AND\s+\w+\.\w+\s*=\s*\w+\.\w+)*)\s*$/i.test(
+    condition
+  );
+
+  // Check if it's a natural join
+  const isNaturalJoin = false; // Would be indicated by NATURAL JOIN keyword
+
+  // Calculate complexity score
+  let complexity_score = 0;
+  if (operators.size > 1) complexity_score += 2; // Multiple operators
+  if (operators.has('OR')) complexity_score += 2; // OR makes it more complex
+  if (columns.length > 2) complexity_score += 1; // More than 2 columns
+  if (operatorMatches && operatorMatches.length > 1) complexity_score += 1; // Multiple conditions
+
+  const complexity: 'simple' | 'complex' = complexity_score >= 3 ? 'complex' : 'simple';
+
+  return {
+    columns,
+    operators: Array.from(operators),
+    complexity,
+    isEquiJoin,
+    isNaturalJoin,
+    complexity_score,
+  };
+}
+
 function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   const joins: JoinEdge[] = [];
-  const joinPattern =
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|$))/gi;
 
-  let match;
+  // Enhanced pattern to support all SQL dialects:
+  // MySQL: STRAIGHT_JOIN, USING
+  // PostgreSQL: USING, LATERAL JOIN
+  // SQL Server: CROSS APPLY, OUTER APPLY
+  // Oracle: USING
+  const joinPatterns = [
+    // Standard JOINs with ON clause
+    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|STRAIGHT_JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\s+APPLY|OUTER\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|;|$))/gi,
+    // USING clause pattern
+    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+USING\s*\(\s*([\w\s,]+)\s*\)/gi,
+    // LATERAL JOIN (PostgreSQL)
+    /LATERAL\s+(?:LEFT\s+(?:OUTER\s+)?)?JOIN\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+([\s\S]+?)(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|$))/gi,
+    // CROSS APPLY / OUTER APPLY (SQL Server)
+    /(CROSS\s+APPLY|OUTER\s+APPLY)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/gi,
+  ];
+
   let idx = 0;
   const fromMatch = /FROM\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/i.exec(sql);
   const fromTable = fromMatch ? fromMatch[1].replace(/[`"\[\]]/g, '') : '';
 
-  while ((match = joinPattern.exec(sql)) !== null) {
-    const rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
-    const joinedTable = match[2].replace(/[`"\[\]]/g, '');
-    const condition = match[4]?.trim() || '';
+  // Track all matched joins to avoid duplicates
+  const processedPositions = new Set<number>();
 
-    let joinType: JoinType = 'INNER JOIN';
-    if (rawJoinType.includes('LEFT')) joinType = 'LEFT JOIN';
-    else if (rawJoinType.includes('RIGHT')) joinType = 'RIGHT JOIN';
-    else if (rawJoinType.includes('FULL')) joinType = 'FULL OUTER JOIN';
-    else if (rawJoinType.includes('CROSS')) joinType = 'CROSS JOIN';
-    else if (rawJoinType.includes('NATURAL')) joinType = 'NATURAL JOIN';
+  // Process each pattern
+  for (const pattern of joinPatterns) {
+    pattern.lastIndex = 0; // Reset regex
+    let match;
 
-    // Find source table from condition or use previous table
-    let sourceTable = fromTable;
-    if (condition) {
-      const condParts = condition.match(/(\w+)\.\w+\s*=\s*(\w+)\.\w+/);
-      if (condParts) {
-        const t1 = condParts[1];
-        const t2 = condParts[2];
-        const t1Node = tables.find(
-          (t) =>
-            t.alias?.toLowerCase() === t1.toLowerCase() || t.name.toLowerCase() === t1.toLowerCase()
+    while ((match = pattern.exec(sql)) !== null) {
+      // Skip if we've already processed this position
+      if (processedPositions.has(match.index)) continue;
+      processedPositions.add(match.index);
+
+      let rawJoinType = '';
+      let joinedTable = '';
+      let tableAlias = '';
+      let condition = '';
+
+      if (match[1] && match[1].toUpperCase().includes('APPLY')) {
+        // CROSS APPLY / OUTER APPLY pattern
+        rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
+        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        tableAlias = match[3] || '';
+        condition = ''; // APPLY doesn't have ON clause in same way
+      } else if (match[4] && match[4].match(/^\s*[\w\s,]+\s*$/)) {
+        // USING clause pattern
+        rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
+        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        tableAlias = match[3] || '';
+        condition = `USING (${match[4]})`; // Keep USING info in condition
+      } else if (match[1] && match[1].toUpperCase().includes('LATERAL')) {
+        // LATERAL JOIN pattern
+        rawJoinType = 'LATERAL JOIN';
+        joinedTable = match[1].replace(/[`"\[\]]/g, '');
+        tableAlias = match[2] || '';
+        condition = match[3]?.trim() || '';
+      } else {
+        // Standard JOIN pattern
+        rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
+        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        tableAlias = match[3] || '';
+        condition = match[4]?.trim() || '';
+      }
+
+      // Normalize join type
+      let joinType: JoinType = 'INNER JOIN';
+      if (rawJoinType.includes('LEFT')) joinType = 'LEFT JOIN';
+      else if (rawJoinType.includes('RIGHT')) joinType = 'RIGHT JOIN';
+      else if (rawJoinType.includes('FULL')) joinType = 'FULL OUTER JOIN';
+      else if (rawJoinType.includes('CROSS')) {
+        joinType = rawJoinType.includes('APPLY') ? 'RELATES TO' : 'CROSS JOIN';
+      } else if (rawJoinType.includes('NATURAL')) joinType = 'NATURAL JOIN';
+      else if (rawJoinType.includes('STRAIGHT'))
+        joinType = 'INNER JOIN'; // MySQL STRAIGHT_JOIN
+      else if (rawJoinType.includes('LATERAL'))
+        joinType = 'RELATES TO'; // Non-standard join type
+      else if (rawJoinType.includes('APPLY'))
+        joinType = 'RELATES TO'; // SQL Server APPLY
+      else if (rawJoinType.includes('OUTER') && !rawJoinType.includes('FULL'))
+        joinType = 'LEFT JOIN'; // Default OUTER to LEFT
+
+      // Find source table from condition or use previous table
+      let sourceTable = fromTable;
+      if (
+        condition &&
+        !condition.toUpperCase().includes('USING') &&
+        !condition.toUpperCase().includes('APPLY')
+      ) {
+        const condParts = condition.match(
+          /(\w+)\.(\w+)\s*([<>=!]+|IN|LIKE|BETWEEN)\s*(\w+)\.(\w+)/
         );
-        const t2Node = tables.find(
-          (t) =>
-            t.alias?.toLowerCase() === t2.toLowerCase() || t.name.toLowerCase() === t2.toLowerCase()
-        );
-        if (t1Node && t2Node) {
-          sourceTable = t1Node.name;
+        if (condParts) {
+          const t1 = condParts[1];
+          const t2 = condParts[4];
+          const t1Node = tables.find(
+            (t) =>
+              t.alias?.toLowerCase() === t1.toLowerCase() ||
+              t.name.toLowerCase() === t1.toLowerCase()
+          );
+          const t2Node = tables.find(
+            (t) =>
+              t.alias?.toLowerCase() === t2.toLowerCase() ||
+              t.name.toLowerCase() === t2.toLowerCase()
+          );
+          if (t1Node && t2Node) {
+            sourceTable = t1Node.name;
+          }
         }
       }
-    }
 
-    const sourceNode = tables.find((t) => t.name.toLowerCase() === sourceTable.toLowerCase());
-    const targetNode = tables.find((t) => t.name.toLowerCase() === joinedTable.toLowerCase());
+      const sourceNode = tables.find((t) => t.name.toLowerCase() === sourceTable.toLowerCase());
+      const targetNode = tables.find((t) => t.name.toLowerCase() === joinedTable.toLowerCase());
 
-    if (sourceNode && targetNode && sourceNode.id !== targetNode.id) {
-      joins.push({
-        id: `join-${idx++}`,
-        source: sourceNode.id,
-        target: targetNode.id,
-        joinType,
-        condition,
-      });
+      if (sourceNode && targetNode && sourceNode.id !== targetNode.id) {
+        joins.push({
+          id: `join-${idx++}`,
+          source: sourceNode.id,
+          target: targetNode.id,
+          joinType,
+          condition,
+        });
+      }
     }
   }
 
   return joins;
+}
+
+export function analyzeAllJoins(
+  sql: string,
+  tables: TableNode[]
+): Array<{
+  id: string;
+  joinEdge: JoinEdge;
+  analysis: JoinConditionAnalysis;
+}> {
+  // Extract all joins and provide deep analysis for each
+  const joins = extractJoins(sql, tables);
+
+  return joins.map((join) => ({
+    id: join.id,
+    joinEdge: join,
+    analysis: analyzeJoinCondition(join.condition),
+  }));
 }
 
 function extractCTEs(sql: string): CTE[] {
@@ -1251,9 +1405,9 @@ function buildStructuralAnalysisReport(
   ctes.forEach((cte) => {
     cteSubqueries.push(...extractNestedSubqueries(cte.body, cte.id));
   });
-  
+
   const allSubqueries = [...mainQuerySubqueries, ...cteSubqueries];
-  
+
   // Enhance subqueries with display-friendly properties
   const enhancedSubqueries = allSubqueries.map((sq) => ({
     ...sq,
@@ -1303,7 +1457,7 @@ function computeSubqueryDepth(sql: string): number {
  */
 function inferSubqueryType(context: string): string {
   if (!context) return 'DERIVED';
-  
+
   const upper = context.toUpperCase();
   if (upper.includes('EXISTS')) return 'EXISTS';
   if (upper.includes('IN')) return 'IN';
@@ -1311,7 +1465,7 @@ function inferSubqueryType(context: string): string {
   if (upper.includes('WHERE')) return 'WHERE';
   if (upper.includes('SELECT')) return 'SCALAR';
   if (upper.includes('JOIN')) return 'JOIN';
-  
+
   return upper.split(/\s+/)[0] || 'DERIVED';
 }
 
@@ -1409,12 +1563,170 @@ function computeExecutionCost(
   };
 }
 
+function extractFromClause(sql: string): string {
+  // Extract the FROM clause from a SQL query
+  const fromMatch =
+    /FROM\s+([\s\S]+?)(?:\s+WHERE\s|\s+GROUP\s+BY\s|\s+ORDER\s+BY\s|\s+LIMIT\s|\s+UNION\s|$)/i.exec(
+      sql
+    );
+  return fromMatch ? fromMatch[1].trim() : '';
+}
+
+function isSubqueryFromClause(fromClause: string): boolean {
+  // Check if FROM clause starts with '(' indicating a subquery
+  const trimmed = fromClause.trim();
+  return trimmed.startsWith('(');
+}
+
+function extractSubqueryFields(subquery: string): string[] {
+  // Extract the SELECT clause from subquery and return field names
+  const selectMatch = /SELECT\s+([\s\S]+?)(?:\s+FROM\s|$)/i.exec(subquery);
+  if (!selectMatch) return [];
+
+  const selectPart = selectMatch[1].trim();
+  if (selectPart === '*') {
+    // If subquery is also SELECT *, we need to extract its FROM
+    const subFromClause = extractFromClause(subquery);
+    if (subFromClause && isSubqueryFromClause(subFromClause)) {
+      // Nested subquery - extract recursively
+      const nestedBody = extractParenthesisContent(subFromClause);
+      return extractSubqueryFields(nestedBody);
+    }
+    // If FROM is a table, try to get its columns from context
+    return ['*'];
+  }
+
+  // Parse SELECT fields and return field names (not aliases)
+  const fields: string[] = [];
+  splitTopLevelComma(selectPart).forEach((field) => {
+    const parsed = parseSelectField(field);
+    if (parsed.field && parsed.field !== '*') {
+      fields.push(parsed.field);
+    } else if (parsed.field === '*') {
+      fields.push('*');
+    }
+  });
+
+  return fields;
+}
+
+function extractParenthesisContent(text: string): string {
+  // Extract content between first '(' and matching ')'
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('(')) return '';
+
+  let depth = 1;
+  let i = 1;
+  while (i < trimmed.length && depth > 0) {
+    const ch = trimmed[i];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < trimmed.length) {
+        if (trimmed[i] === quote && trimmed[i + 1] === quote) {
+          i += 2;
+          continue;
+        }
+        if (trimmed[i] === quote) break;
+        i++;
+      }
+    } else if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (depth > 0) i++;
+  }
+
+  return trimmed.slice(1, i).trim();
+}
+
+function expandWildcardFields(
+  fromClause: string,
+  ctes: CTE[],
+  tables: TableNode[]
+): AnalysisResult['mainQueryFields'] {
+  // When SELECT * is used and FROM is a subquery, expand to actual fields
+  const expandedFields: AnalysisResult['mainQueryFields'] = [];
+
+  if (isSubqueryFromClause(fromClause)) {
+    const subquery = extractParenthesisContent(fromClause);
+    const subqueryFields = extractSubqueryFields(subquery);
+
+    // Extract tables from subquery to trace sources
+    const subqueryTables = extractTables(subquery);
+
+    subqueryFields.forEach((field) => {
+      if (field === '*') {
+        // Keep the wildcard entry as-is
+        expandedFields.push({
+          field: '*',
+          alias: '',
+          origin: 'subquery-expansion',
+          sourceTable: '',
+          type: 'expression',
+        });
+      } else {
+        // Parse each expanded field to find its source
+        const prefixMatch = /^(\w+)\./i.exec(field);
+        const prefix = prefixMatch ? prefixMatch[1].toLowerCase() : '';
+
+        let sourceTable = '';
+        let type: 'cte' | 'table' | 'expression' = 'expression';
+        let origin = field;
+
+        // Try to match with subquery tables
+        const matchedTable = subqueryTables.find(
+          (t) => (t.alias && t.alias.toLowerCase() === prefix) || t.name.toLowerCase() === prefix
+        );
+
+        if (matchedTable) {
+          sourceTable = matchedTable.name;
+          type = 'table';
+          origin = matchedTable.name;
+        } else {
+          // Try to find in main CTE list
+          const matchedCTE = ctes.find((c) => c.name.toLowerCase() === prefix);
+          if (matchedCTE) {
+            sourceTable = matchedCTE.name;
+            type = 'cte';
+            origin = matchedCTE.name;
+          }
+        }
+
+        expandedFields.push({
+          field,
+          alias: '',
+          origin,
+          sourceTable,
+          type,
+        });
+      }
+    });
+
+    return expandedFields;
+  }
+
+  // If FROM is not a subquery, return empty (caller will handle normally)
+  return [];
+}
+
 function extractMainQueryFields(
   sql: string,
   ctes: CTE[],
   tables: TableNode[]
 ): AnalysisResult['mainQueryFields'] {
   const fields = extractSelectFields(sql);
+
+  // Check if this is SELECT * FROM subquery
+  if (fields.length === 1 && fields[0].field === '*') {
+    const fromClause = extractFromClause(sql);
+    if (fromClause && isSubqueryFromClause(fromClause)) {
+      const expandedFields = expandWildcardFields(fromClause, ctes, tables);
+      if (expandedFields.length > 0) {
+        return expandedFields;
+      }
+    }
+  }
+
+  // Normal field extraction for non-wildcard or non-subquery cases
   return fields.map(({ field, alias }) => {
     // Try to extract table/CTE prefix (e.g., "t.name" -> "t")
     const prefixMatch = /^(\w+)\./i.exec(field);

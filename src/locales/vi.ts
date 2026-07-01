@@ -221,7 +221,8 @@ const vi = {
   metricsActiveStatus: 'Hoạt động',
   metricsOptimizationRecommended: 'Tối ưu hóa được Khuyến cáo',
   metricsDeepNestingMessage: `Phát hiện lồng nhau sâu (Mức độ {{level}}). Hãy cân nhắc sử dụng CTE, join hoặc các hàm cửa sổ để làm phẳng cấu trúc truy vấn.`,
-  metricsMultipleSubqueriesMessage: 'Phát hiện nhiều subquery. Hợp nhất các subquery liên quan và cân nhắc sử dụng bảng tạm thời hoặc khung nhìn vật liệu hóa.',
+  metricsMultipleSubqueriesMessage:
+    'Phát hiện nhiều subquery. Hợp nhất các subquery liên quan và cân nhắc sử dụng bảng tạm thời hoặc khung nhìn vật liệu hóa.',
   metricsDetectedSubqueries: 'Subquery Được phát hiện',
   metricsSubqueryPrefix: 'Subquery',
   metricsSubqueryType: 'Loại',
@@ -232,7 +233,8 @@ const vi = {
   metricsMaximumNestingLevel: 'Mức độ lồng nhau tối đa',
   metricsTotalSubqueriesFound: 'Tổng số subquery được tìm thấy',
   metricsHighComplexityWarning: 'Phát hiện độ phức tạp cao — xem lại cấu trúc truy vấn',
-  metricsHighComplexityDescription: 'Truy vấn này có điểm độ phức tạp cao. Hãy cân nhắc tái cấu trúc để giảm số lượng join, độ sâu subquery và việc sử dụng hàm.',
+  metricsHighComplexityDescription:
+    'Truy vấn này có điểm độ phức tạp cao. Hãy cân nhắc tái cấu trúc để giảm số lượng join, độ sâu subquery và việc sử dụng hàm.',
   // CTE
   cteTitle: 'Phân tích CTE',
   cteSubtitle: 'Quét biểu thức bảng chung và ánh xạ nguồn gốc trường',
@@ -905,14 +907,11 @@ const vi = {
   homeDialectLabel: '4+ SQL',
   homeDialectValue: 'Hỗ trợ phương ngữ',
   homePowerfulFeaturesTitle: 'Tính năng mạnh mẽ',
-  homeFeaturesDescription:
-    'Mọi thứ bạn cần để hiểu và tối ưu hóa truy vấn SQL của mình',
+  homeFeaturesDescription: 'Mọi thứ bạn cần để hiểu và tối ưu hóa truy vấn SQL của mình',
   homeQueryAnalysisTitle: 'Phân tích truy vấn',
-  homeQueryAnalysisDesc:
-    'Phân tích sâu cấu trúc SQL, điểm số độ phức tạp và chỉ số hiệu suất',
+  homeQueryAnalysisDesc: 'Phân tích sâu cấu trúc SQL, điểm số độ phức tạp và chỉ số hiệu suất',
   homeRelationshipMappingTitle: 'Ánh xạ quan hệ',
-  homeRelationshipMappingDesc:
-    'Trực quan hóa tương tác của quan hệ bảng, JOIN và luồng dữ liệu',
+  homeRelationshipMappingDesc: 'Trực quan hóa tương tác của quan hệ bảng, JOIN và luồng dữ liệu',
   homeMetricsDashboardTitle: 'Bảng chỉ số',
   homeMetricsDashboardDesc:
     'Chỉ số toàn diện về độ phức tạp truy vấn, chi phí thực thi và tối ưu hóa',
@@ -928,6 +927,24 @@ const vi = {
   homeDocsLink: 'Tài liệu',
   homeGitHubLink: 'GitHub',
   homeContactLink: 'Liên hệ',
+  // JOIN Analysis - Deep Analysis
+  joinAnalysisTitle: 'Phân Tích JOIN',
+  joinAnalysisSubtitle: 'Phân tích chi tiết điều kiện JOIN và độ phức tạp',
+  joinDetailColumns: 'Cột Được Liên Quan',
+  joinDetailOperators: 'Toán Tử Sử Dụng',
+  joinDetailComplexity: 'Độ Phức Tạp',
+  joinDetailIsEquiJoin: 'Equi-Join',
+  joinDetailComplexityScore: 'Điểm Độ Phức Tạp',
+  joinAnalysisEmpty: 'Không có điều kiện JOIN để phân tích',
+  joinAnalysisEmptyHint: 'Truy vấn này không chứa bất kỳ mệnh đề JOIN nào',
+  joinConditionOn: 'Điều Kiện ON',
+  joinConditionSimple: 'Đơn Giản',
+  joinConditionComplex: 'Phức Tạp',
+  joinDialectSupport: 'Hỗ trợ trên tất cả các dialect (MySQL, PostgreSQL, SQL Server, Oracle)',
+  joinYes: 'Có',
+  joinNo: 'Không',
+  joinExpandDetails: 'Mở Rộng Chi Tiết',
+  joinCollapseDetails: 'Thu Gọn Chi Tiết',
 } as const;
 
 export default vi;
