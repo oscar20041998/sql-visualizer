@@ -21,14 +21,25 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
   item,
   index,
   t,
+  allExpanded,
 }: {
   item: JoinAnalysisItem;
   index: number;
   t: ReturnType<typeof getT>;
+  allExpanded: boolean | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { joinEdge, analysis } = item;
   const joinColor = JOIN_COLORS[joinEdge.joinType] || '#6ee7f7';
+
+  // Respond to global expand/collapse
+  React.useEffect(() => {
+    if (allExpanded === true) {
+      setExpanded(true);
+    } else if (allExpanded === false) {
+      setExpanded(false);
+    }
+  }, [allExpanded]);
 
   return (
     <div
@@ -188,7 +199,7 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
   locale,
 }: JoinAnalysisPanelProps) {
   const t = getT(locale);
-  const [allExpanded, setAllExpanded] = useState(false);
+  const [allExpanded, setAllExpanded] = useState<boolean | null>(null);
 
   if (!joinAnalysisDetails || joinAnalysisDetails.length === 0) {
     return (
@@ -214,8 +225,8 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
 
   return (
     <div
-      className="flex-shrink-0 border-t border-border bg-card overflow-hidden"
-      style={{ minHeight: '400px' }}
+      className="flex-shrink-0 border-t border-border bg-card overflow-hidden flex flex-col"
+      style={{ maxHeight: '50vh' }}
     >
       {/* Section Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
@@ -249,7 +260,13 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
       >
         <div className="px-4 py-3 space-y-2.5">
           {joinAnalysisDetails.map((item, idx) => (
-            <JoinDetailsCard key={item.id} item={item} index={idx} t={t} />
+            <JoinDetailsCard
+              key={item.id}
+              item={item}
+              index={idx}
+              t={t}
+              allExpanded={allExpanded}
+            />
           ))}
         </div>
       </div>

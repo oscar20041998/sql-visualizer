@@ -2,7 +2,22 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { GitFork, Info, Table2, Link2, Copy, Check, Code2, Search, X, Zap, ChevronDown, AlertCircle, Layers, TrendingUp } from 'lucide-react';
+import {
+  GitFork,
+  Info,
+  Table2,
+  Link2,
+  Copy,
+  Check,
+  Code2,
+  Search,
+  X,
+  Zap,
+  ChevronDown,
+  AlertCircle,
+  Layers,
+  TrendingUp,
+} from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';

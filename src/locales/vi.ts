@@ -922,7 +922,7 @@ const vi = {
   homeReadyToAnalyzeDesc:
     'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
   homeGetStartedNowButton: 'Bắt đầu ngay bây giờ',
-  homeCopyrightText: '© 2024 SQL Visualizer. Thiết kế với',
+  homeCopyrightText: '©Bản quyền - SQL Visualizer. Thiết kế với',
   homeForDevelopers: 'cho các nhà phát triển.',
   homeDocsLink: 'Tài liệu',
   homeGitHubLink: 'GitHub',

@@ -145,12 +145,6 @@ export default function HomePage() {
                 <p className="text-xs text-muted-foreground">{t.appTagline}</p>
               </div>
             </div>
-            <button
-              onClick={handleGetStarted}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 transition-colors duration-200"
-            >
-              {t.homeGetStartedButton}
-            </button>
           </div>
         </nav>
 
@@ -285,13 +279,6 @@ export default function HomePage() {
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 {t.homeReadyToAnalyzeDesc}
               </p>
-              <button
-                onClick={handleGetStarted}
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-lg font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-300 hover:scale-105"
-              >
-                {t.homeGetStartedNowButton}
-                <ChevronRight className="w-5 h-5" />
-              </button>
             </div>
           </div>
         </section>
@@ -305,10 +292,14 @@ export default function HomePage() {
               </p>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <button className="hover:text-primary transition-colors">{t.homeDocsLink}</button>
-                <button className="hover:text-primary transition-colors">{t.homeGitHubLink}</button>
-                <button className="hover:text-primary transition-colors">
-                  {t.homeContactLink}
-                </button>
+                <a
+                  className="hover:text-primary transition-colors"
+                  href="https://github.com/oscar20041998/sql-visualizer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t.homeGitHubLink}
+                </a>
               </div>
             </div>
           </div>

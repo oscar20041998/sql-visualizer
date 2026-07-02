@@ -929,7 +929,7 @@ const en = {
   homeReadyToAnalyzeDesc:
     'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',
   homeGetStartedNowButton: 'Get Started Now',
-  homeCopyrightText: '©SQL Visualizer. Designed with',
+  homeCopyrightText: '©Copy Right - SQL Visualizer. Designed with',
   homeForDevelopers: 'for developers.',
   homeDocsLink: 'Docs',
   homeGitHubLink: 'GitHub',
