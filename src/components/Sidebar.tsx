@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useTransition } from 'react';
+import React, { useTransition, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -16,6 +16,7 @@ import {
   Zap,
   BookOpen,
   Loader,
+  ChevronLeft,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -34,6 +35,7 @@ const navItems = [
 
 export default function Sidebar() {
   const [isPending, startTransition] = useTransition();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const { settings, updateSettings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
@@ -43,22 +45,41 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="relative flex flex-col flex-shrink-0 border-r border-border bg-card"
-      style={{ width: 240 }}
+      className="relative flex flex-col flex-shrink-0 border-r border-border bg-card transition-all duration-300 ease-in-out"
+      style={{ width: isCollapsed ? 64 : 240 }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-border min-h-[72px]">
-        <div className="flex-shrink-0">
-          <AppLogo size={32} />
-        </div>
-        <div className="flex flex-col overflow-hidden">
-          <span className="font-semibold text-sm text-foreground leading-tight truncate">
-            {t.appName}
-          </span>
-          <span className="text-[10px] text-muted-foreground truncate leading-tight">
-            {t.appTagline}
-          </span>
-        </div>
+      {/* Logo & Toggle */}
+      <div className="flex items-center justify-between px-4 py-5 border-b border-border min-h-[72px]">
+        {!isCollapsed && (
+          <div className="flex items-center gap-3 flex-1">
+            <div className="flex-shrink-0">
+              <AppLogo size={32} />
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-semibold text-sm text-foreground leading-tight truncate">
+                {t.appName}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate leading-tight">
+                {t.appTagline}
+              </span>
+            </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="flex justify-center w-full">
+            <AppLogo size={32} />
+          </div>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? 'Expand' : 'Collapse'}
+          className="flex-shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
+        >
+          <ChevronLeft
+            size={18}
+            className={`transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}
+          />
+        </button>
       </div>
 
       {/* Nav Items */}
@@ -88,9 +109,10 @@ export default function Sidebar() {
                   });
                 }
               }}
-              title={isLocked ? 'Analyze query first' : undefined}
+              title={isCollapsed ? label : isLocked ? 'Analyze query first' : undefined}
               className={`
-                group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                ${isCollapsed ? 'justify-center' : ''}
                 ${
                   isLocked
                     ? 'cursor-not-allowed opacity-40 text-muted-foreground'
@@ -101,18 +123,19 @@ export default function Sidebar() {
               `}
             >
               <Icon size={18} className={`flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
-              <span className="truncate">{label}</span>
-              {isActive && (
+              {!isCollapsed && <span className="truncate">{label}</span>}
+              {!isCollapsed && isActive && (
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
               )}
               {/* Loading indicator during navigation */}
-              {isPending && !isActive && (
+              {!isCollapsed && isPending && !isActive && (
                 <span className="ml-auto flex-shrink-0">
                   <Loader size={14} className="text-primary animate-spin" />
                 </span>
               )}
               {/* Analysis indicator */}
-              {item.key !== 'navHome' &&
+              {!isCollapsed &&
+                item.key !== 'navHome' &&
                 item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 item.key !== 'navGuideline' &&
@@ -123,8 +146,8 @@ export default function Sidebar() {
                   </span>
                 )}
               {/* Lock indicator for disabled items */}
-              {isLocked && (
-                <span className="ml-auto flex-shrink-0 text-xs text-muted-foreground/50">🔒</span>
+              {isCollapsed && isLocked && (
+                <span className="absolute text-xs text-muted-foreground/50">🔒</span>
               )}
             </Link>
           );
@@ -137,22 +160,20 @@ export default function Sidebar() {
         <button
           onClick={toggleTheme}
           title={settings.theme === 'dark' ? t.lightMode : t.darkMode}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
         >
           {settings.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          <span className="truncate">{settings.theme === 'dark' ? t.lightMode : t.darkMode}</span>
+          {!isCollapsed && <span className="truncate">{settings.theme === 'dark' ? t.lightMode : t.darkMode}</span>}
         </button>
 
         {/* Language Toggle */}
         <button
           onClick={toggleLocale}
           title={settings.locale === 'en' ? 'Tiếng Việt' : 'English'}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
         >
           <Globe size={18} />
-          <span className="truncate font-mono text-xs">
-            {settings.locale === 'en' ? 'EN → VI' : 'VI → EN'}
-          </span>
+          {!isCollapsed && <span className="truncate font-mono text-xs">{settings.locale === 'en' ? 'EN → VI' : 'VI → EN'}</span>}
         </button>
       </div>
 
