@@ -2,15 +2,15 @@
 
 import React from 'react';
 import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
-import type { ComplexityLevel } from '@/lib/sqlAnalyzer';
+import type { ComplexityLevelType } from '../../common/sqlAnalyzerUtils';
 
 interface Props {
   score: number;
   maxScore: number;
-  level: ComplexityLevel;
+  level: ComplexityLevelType;
 }
 
-const LEVEL_COLORS: Record<ComplexityLevel, string> = {
+const LEVEL_COLORS: Record<ComplexityLevelType, string> = {
   LOW: 'var(--complexity-low)',
   MEDIUM: 'var(--complexity-medium)',
   HIGH: 'var(--complexity-high)',

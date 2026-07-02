@@ -6,6 +6,15 @@ import {
   type DetailedComplexityScore,
 } from './complexityScorer';
 import { getT, type Translations } from './i18n';
+import {
+  SQL_KEYWORDS,
+  SQL_REGEX_PATTERNS,
+  SQL_ANALYZER_LIMITS,
+  ComplexityLevelType,
+  normalizeJoinType,
+  getJoinConditionComplexity,
+  getComplexityLevelFromScore,
+} from '../app/common/sqlAnalyzerUtils';
 
 // Import dt-sql-parser for AST-based SQL parsing with dialect support
 let parser: any = null;
@@ -24,7 +33,8 @@ export type JoinType =
   | 'FULL OUTER JOIN'
   | 'CROSS JOIN'
   | 'NATURAL JOIN'
-  | 'RELATES TO';
+  | 'RELATES TO'
+  | 'LATERAL JOIN';
 
 export interface TableNode {
   id: string;
@@ -97,7 +107,7 @@ export interface SqlMetrics {
 }
 
 export interface JoinLogicComplexity {
-  level: 'LOW' | 'MEDIUM' | 'HIGH';
+  level: ComplexityLevelType;
   score: number;
   totalJoinConditions: number;
   simpleConditions: number;
@@ -136,10 +146,8 @@ export interface StructuralAnalysisReport {
   subqueries?: NestedSubquery[]; // Detailed list of detected subqueries with analysis
 }
 
-export type ComplexityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'SUPER_HIGH';
-
 export interface ComplexityScore {
-  level: ComplexityLevel;
+  level: ComplexityLevelType;
   score: number;
   maxScore: number;
   factors: { name: string; value: number; weight: number; contribution: number }[];
@@ -243,7 +251,7 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
     if (existing) {
       existing.isCTE = true;
       if (!existing.columns.length && cte.fields.length) {
-        existing.columns = cte.fields.slice(0, 8);
+        existing.columns = cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS);
       }
       return;
     }
@@ -251,7 +259,7 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
     const node: TableNode = {
       id: toNodeId(cte.name),
       name: cte.name,
-      columns: cte.fields.slice(0, 8),
+      columns: cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS),
       isCTE: true,
     };
     tables.push(node);
@@ -321,37 +329,9 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
 function extractTables(sql: string): TableNode[] {
   const tables: Map<string, TableNode> = new Map();
 
-  const SQL_KEYWORDS = new Set([
-    'WHERE',
-    'ON',
-    'SET',
-    'SELECT',
-    'WITH',
-    'GROUP',
-    'ORDER',
-    'HAVING',
-    'LIMIT',
-    'OFFSET',
-    'UNION',
-    'AND',
-    'OR',
-    'WHEN',
-    'THEN',
-    'ELSE',
-    'END',
-    'FROM',
-    'JOIN',
-    'LEFT',
-    'RIGHT',
-    'FULL',
-    'INNER',
-    'CROSS',
-    'NATURAL',
-  ]);
-
   // Extract CTEs first to mark them
   const cteNames = new Set<string>();
-  const cteRegex = /WITH\s+([\w\s,()]+?)\s+AS\s*\(/gi;
+  const cteRegex = SQL_REGEX_PATTERNS.CTE_EXTRACTION;
   let cteMatch;
   while ((cteMatch = cteRegex.exec(sql)) !== null) {
     const names = cteMatch[1].split(',').map((n) => n.trim().split(/\s+/)[0]);
@@ -359,12 +339,11 @@ function extractTables(sql: string): TableNode[] {
   }
 
   // FROM and JOIN table extraction
-  const tablePattern =
-    /(?:FROM|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?([`"\[]?\w+[`"\]]?))?/gi;
+  const tablePattern = SQL_REGEX_PATTERNS.TABLE_PATTERN;
   let match;
   while ((match = tablePattern.exec(sql)) !== null) {
-    const rawName = match[1].replace(/[`"\[\]]/g, '');
-    const alias = match[2]?.replace(/[`"\[\]]/g, '');
+    const rawName = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
+    const alias = match[2]?.replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
     const normalizedName = rawName.toUpperCase();
     if (SQL_KEYWORDS.has(normalizedName) || normalizedName.length === 0) continue;
     const key = rawName.toUpperCase();
@@ -392,7 +371,7 @@ function extractColumnsForTable(sql: string, tableRef: string): string[] {
   while ((m = pattern.exec(sql)) !== null) {
     if (!cols.includes(m[1])) cols.push(m[1]);
   }
-  return cols.slice(0, 8);
+  return cols.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS);
 }
 
 function analyzeJoinCondition(condition: string): JoinConditionAnalysis {
@@ -410,27 +389,27 @@ function analyzeJoinCondition(condition: string): JoinConditionAnalysis {
   }
 
   // Extract operators
-  const operatorMatches = condition.match(/(<>|!=|<=|>=|<|>|=|AND|OR|IN|LIKE|BETWEEN)/gi);
+  const operatorMatches = condition.match(SQL_REGEX_PATTERNS.OPERATORS);
   if (operatorMatches) {
     operatorMatches.forEach((op) => operators.add(op.toUpperCase()));
   }
 
   // Check if it's an equi-join (uses = operator only)
-  const isEquiJoin = /^\s*(\w+\.\w+\s*=\s*\w+\.\w+\s*(?:AND\s+\w+\.\w+\s*=\s*\w+\.\w+)*)\s*$/i.test(
-    condition
-  );
+  const isEquiJoin = SQL_REGEX_PATTERNS.EQUI_JOIN.test(condition);
 
   // Check if it's a natural join
   const isNaturalJoin = false; // Would be indicated by NATURAL JOIN keyword
 
   // Calculate complexity score
   let complexity_score = 0;
-  if (operators.size > 1) complexity_score += 2; // Multiple operators
-  if (operators.has('OR')) complexity_score += 2; // OR makes it more complex
-  if (columns.length > 2) complexity_score += 1; // More than 2 columns
-  if (operatorMatches && operatorMatches.length > 1) complexity_score += 1; // Multiple conditions
+  if (operators.size > 1)
+    complexity_score += SQL_ANALYZER_LIMITS.COMPLEXITY_SCORE_MULTIPLE_OPERATORS; // Multiple operators
+  if (operators.has('OR')) complexity_score += SQL_ANALYZER_LIMITS.COMPLEXITY_SCORE_OR_OPERATOR; // OR makes it more complex
+  if (columns.length > 2) complexity_score += SQL_ANALYZER_LIMITS.COMPLEXITY_SCORE_MULTIPLE_COLUMNS; // More than 2 columns
+  if (operatorMatches && operatorMatches.length > 1)
+    complexity_score += SQL_ANALYZER_LIMITS.COMPLEXITY_SCORE_MULTIPLE_CONDITIONS; // Multiple conditions
 
-  const complexity: 'simple' | 'complex' = complexity_score >= 3 ? 'complex' : 'simple';
+  const complexity = getJoinConditionComplexity(complexity_score);
 
   return {
     columns,
@@ -451,19 +430,15 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   // SQL Server: CROSS APPLY, OUTER APPLY
   // Oracle: USING
   const joinPatterns = [
-    // Standard JOINs with ON clause
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|STRAIGHT_JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\s+APPLY|OUTER\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|;|$))/gi,
-    // USING clause pattern
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+USING\s*\(\s*([\w\s,]+)\s*\)/gi,
-    // LATERAL JOIN (PostgreSQL)
-    /LATERAL\s+(?:LEFT\s+(?:OUTER\s+)?)?JOIN\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+([\s\S]+?)(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|$))/gi,
-    // CROSS APPLY / OUTER APPLY (SQL Server)
-    /(CROSS\s+APPLY|OUTER\s+APPLY)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/gi,
+    SQL_REGEX_PATTERNS.STANDARD_JOIN,
+    SQL_REGEX_PATTERNS.USING_JOIN,
+    SQL_REGEX_PATTERNS.LATERAL_JOIN,
+    SQL_REGEX_PATTERNS.APPLY_JOIN,
   ];
 
   let idx = 0;
-  const fromMatch = /FROM\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/i.exec(sql);
-  const fromTable = fromMatch ? fromMatch[1].replace(/[`"\[\]]/g, '') : '';
+  const fromMatch = SQL_REGEX_PATTERNS.FROM_CLAUSE.exec(sql);
+  const fromTable = fromMatch ? fromMatch[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '') : '';
 
   // Track all matched joins to avoid duplicates
   const processedPositions = new Set<number>();
@@ -486,45 +461,31 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
       if (match[1] && match[1].toUpperCase().includes('APPLY')) {
         // CROSS APPLY / OUTER APPLY pattern
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
-        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         tableAlias = match[3] || '';
         condition = ''; // APPLY doesn't have ON clause in same way
       } else if (match[4] && match[4].match(/^\s*[\w\s,]+\s*$/)) {
         // USING clause pattern
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
-        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         tableAlias = match[3] || '';
         condition = `USING (${match[4]})`; // Keep USING info in condition
       } else if (match[1] && match[1].toUpperCase().includes('LATERAL')) {
         // LATERAL JOIN pattern
         rawJoinType = 'LATERAL JOIN';
-        joinedTable = match[1].replace(/[`"\[\]]/g, '');
+        joinedTable = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         tableAlias = match[2] || '';
         condition = match[3]?.trim() || '';
       } else {
         // Standard JOIN pattern
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
-        joinedTable = match[2].replace(/[`"\[\]]/g, '');
+        joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         tableAlias = match[3] || '';
         condition = match[4]?.trim() || '';
       }
 
-      // Normalize join type
-      let joinType: JoinType = 'INNER JOIN';
-      if (rawJoinType.includes('LEFT')) joinType = 'LEFT JOIN';
-      else if (rawJoinType.includes('RIGHT')) joinType = 'RIGHT JOIN';
-      else if (rawJoinType.includes('FULL')) joinType = 'FULL OUTER JOIN';
-      else if (rawJoinType.includes('CROSS')) {
-        joinType = rawJoinType.includes('APPLY') ? 'RELATES TO' : 'CROSS JOIN';
-      } else if (rawJoinType.includes('NATURAL')) joinType = 'NATURAL JOIN';
-      else if (rawJoinType.includes('STRAIGHT'))
-        joinType = 'INNER JOIN'; // MySQL STRAIGHT_JOIN
-      else if (rawJoinType.includes('LATERAL'))
-        joinType = 'RELATES TO'; // Non-standard join type
-      else if (rawJoinType.includes('APPLY'))
-        joinType = 'RELATES TO'; // SQL Server APPLY
-      else if (rawJoinType.includes('OUTER') && !rawJoinType.includes('FULL'))
-        joinType = 'LEFT JOIN'; // Default OUTER to LEFT
+      // Normalize join type using helper
+      const joinType = normalizeJoinType(rawJoinType);
 
       // Find source table from condition or use previous table
       let sourceTable = fromTable;
@@ -533,9 +494,7 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
         !condition.toUpperCase().includes('USING') &&
         !condition.toUpperCase().includes('APPLY')
       ) {
-        const condParts = condition.match(
-          /(\w+)\.(\w+)\s*([<>=!]+|IN|LIKE|BETWEEN)\s*(\w+)\.(\w+)/
-        );
+        const condParts = condition.match(SQL_REGEX_PATTERNS.JOIN_CONDITION);
         if (condParts) {
           const t1 = condParts[1];
           const t2 = condParts[4];
@@ -595,7 +554,7 @@ function extractCTEs(sql: string): CTE[] {
   const ctes: CTE[] = [];
 
   // Check if SQL starts with WITH (case-insensitive, allowing leading whitespace/comments)
-  const withStartMatch = /^\s*WITH\s+/i.exec(sql);
+  const withStartMatch = SQL_REGEX_PATTERNS.WITH_START.exec(sql);
   if (!withStartMatch) return ctes;
 
   // Use a depth-aware parser to extract each CTE name and its body
@@ -607,21 +566,21 @@ function extractCTEs(sql: string): CTE[] {
 
   while (pos < len) {
     // Skip whitespace and commas between CTEs
-    while (pos < len && /[\s,]/.test(sql[pos])) pos++;
+    while (pos < len && SQL_REGEX_PATTERNS.WHITESPACE.test(sql[pos])) pos++;
     if (pos >= len) break;
 
     // Check for RECURSIVE keyword
-    const recursiveMatch = /^RECURSIVE\s+/i.exec(sql.slice(pos));
+    const recursiveMatch = SQL_REGEX_PATTERNS.RECURSIVE_KEYWORD.exec(sql.slice(pos));
     if (recursiveMatch) pos += recursiveMatch[0].length;
 
     // Read CTE name (word characters)
-    const nameMatch = /^(\w+)\s*/i.exec(sql.slice(pos));
+    const nameMatch = SQL_REGEX_PATTERNS.CTE_NAME.exec(sql.slice(pos));
     if (!nameMatch) break;
     const cteName = nameMatch[1];
     pos += nameMatch[0].length;
 
     // Expect "AS"
-    const asMatch = /^AS\s*/i.exec(sql.slice(pos));
+    const asMatch = SQL_REGEX_PATTERNS.AS_KEYWORD.exec(sql.slice(pos));
     if (!asMatch) break;
     pos += asMatch[0].length;
 
@@ -675,7 +634,7 @@ function extractCTEs(sql: string): CTE[] {
 
     // Column references from SELECT clause
     const colRefs: string[] = [];
-    const selectPart = /SELECT\s+([\s\S]+?)\s+FROM/i.exec(body);
+    const selectPart = SQL_REGEX_PATTERNS.SELECT_CLAUSE.exec(body);
     if (selectPart) {
       const parts = selectPart[1].split(',').map((p) => p.trim());
       parts.forEach((p) => {
@@ -706,24 +665,28 @@ function extractCTEs(sql: string): CTE[] {
 
     // Estimated complexity based on body characteristics
     const upperBody = body.toUpperCase();
-    const hasJoins = /\bJOIN\b/.test(upperBody);
-    const hasSubquery = /SELECT[\s\S]+?FROM[\s\S]+?SELECT/i.test(body);
-    const hasWindow = /\bOVER\s*\(/.test(upperBody);
-    const hasGroupBy = /\bGROUP\s+BY\b/.test(upperBody);
-    const hasHaving = /\bHAVING\b/.test(upperBody);
-    const hasWhere = /\bWHERE\b/.test(upperBody);
+    const hasJoins = SQL_REGEX_PATTERNS.JOIN_KEYWORD.test(upperBody);
+    const hasSubquery = SQL_REGEX_PATTERNS.SUBQUERY.test(body);
+    const hasWindow = SQL_REGEX_PATTERNS.WINDOW_FUNCTION.test(upperBody);
+    const hasGroupBy = SQL_REGEX_PATTERNS.GROUP_BY.test(upperBody);
+    const hasHaving = SQL_REGEX_PATTERNS.HAVING_CLAUSE.test(upperBody);
+    const hasWhere = SQL_REGEX_PATTERNS.WHERE_CLAUSE.test(upperBody);
     const bodyLines = body.split('\n').length;
     let complexityScore = 0;
-    if (hasJoins) complexityScore += 2;
-    if (hasSubquery) complexityScore += 3;
-    if (hasWindow) complexityScore += 2;
-    if (hasGroupBy) complexityScore += 1;
-    if (hasHaving) complexityScore += 1;
-    if (hasWhere) complexityScore += 1;
-    if (bodyLines > 20) complexityScore += 2;
-    if (bodyLines > 10) complexityScore += 1;
-    const estimatedComplexity: 'LOW' | 'MEDIUM' | 'HIGH' =
-      complexityScore >= 5 ? 'HIGH' : complexityScore >= 2 ? 'MEDIUM' : 'LOW';
+    if (hasJoins) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_JOINS;
+    if (hasSubquery) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_SUBQUERY;
+    if (hasWindow) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_WINDOW;
+    if (hasGroupBy) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_GROUP_BY;
+    if (hasHaving) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_HAVING;
+    if (hasWhere) complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_WHERE;
+    if (bodyLines > SQL_ANALYZER_LIMITS.LARGE_BODY_LINE_COUNT)
+      complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_LARGE_BODY_20;
+    if (bodyLines > SQL_ANALYZER_LIMITS.MEDIUM_BODY_LINE_COUNT)
+      complexityScore += SQL_ANALYZER_LIMITS.CTE_COMPLEXITY_SCORE_MEDIUM_BODY_10;
+    const estimatedComplexity = getComplexityLevelFromScore(complexityScore) as
+      | 'LOW'
+      | 'MEDIUM'
+      | 'HIGH';
 
     // Unused: not referenced in main query at all
     const isUnused = usageCount === 0;
@@ -742,7 +705,7 @@ function extractCTEs(sql: string): CTE[] {
       isRecursive,
       estimatedComplexity,
       isUnused,
-      columnReferences: colRefs.slice(0, 15),
+      columnReferences: colRefs.slice(0, SQL_ANALYZER_LIMITS.MAX_CTE_FIELD_REFERENCES),
       lineCount: bodyLines,
       nestedSubqueries,
     });
@@ -756,7 +719,7 @@ function extractCTEs(sql: string): CTE[] {
  * Example: "WITH cte AS (...) SELECT * FROM cte" → "SELECT * FROM cte"
  */
 export function extractMainQuery(sql: string): string {
-  const withMatch = /^\s*WITH\s+/i.exec(sql);
+  const withMatch = SQL_REGEX_PATTERNS.WITH_START.exec(sql);
   if (!withMatch) {
     // No WITH clause, entire SQL is the main query
     return sql.trim();
@@ -782,22 +745,22 @@ export function extractMainQuery(sql: string): string {
 
   // Walk through all CTEs until we find the main query
   let cteCount = 0;
-  while (pos < len && cteCount < 100) {
+  while (pos < len && cteCount < SQL_ANALYZER_LIMITS.MAX_CTE_COUNT) {
     // Skip whitespace
     while (pos < len && /\s/.test(sql[pos])) pos++;
     if (pos >= len) return '';
 
     // Skip RECURSIVE keyword if present
-    const recursiveMatch = /^RECURSIVE\s+/i.exec(sql.slice(pos));
+    const recursiveMatch = SQL_REGEX_PATTERNS.RECURSIVE_KEYWORD.exec(sql.slice(pos));
     if (recursiveMatch) pos += recursiveMatch[0].length;
 
     // Read CTE name
-    const nameMatch = /^(\w+)\s*/i.exec(sql.slice(pos));
+    const nameMatch = SQL_REGEX_PATTERNS.CTE_NAME.exec(sql.slice(pos));
     if (!nameMatch) break;
     pos += nameMatch[0].length;
 
     // Expect "AS"
-    const asMatch = /^AS\s*/i.exec(sql.slice(pos));
+    const asMatch = SQL_REGEX_PATTERNS.AS_KEYWORD.exec(sql.slice(pos));
     if (!asMatch) break;
     pos += asMatch[0].length;
 
@@ -881,9 +844,7 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
   // Determine context keyword before a '(' that contains SELECT
   function getContext(pos: number): string {
     const before = sql.slice(Math.max(0, pos - 60), pos).trimEnd();
-    const kw = before.match(
-      /\b(WHERE|FROM|SELECT|JOIN|ON|HAVING|IN|EXISTS|NOT\s+EXISTS|NOT\s+IN|AND|OR|SET|VALUES)\s*$/i
-    );
+    const kw = before.match(SQL_REGEX_PATTERNS.CONTEXT_KEYWORD);
     return kw ? kw[1].replace(/\s+/g, ' ').toUpperCase() : 'UNKNOWN';
   }
 
@@ -1490,11 +1451,11 @@ function computeComplexity(metrics: SqlMetrics): ComplexityScore {
   const score = scored.reduce((s, f) => s + f.contribution, 0);
   const maxScore = scored.reduce((s, f) => s + f.weight * 5, 0);
 
-  let level: ComplexityLevel = 'LOW';
+  let level: ComplexityLevelType = 'LOW';
   const ratio = score / maxScore;
-  if (ratio >= 0.75) level = 'SUPER_HIGH';
-  else if (ratio >= 0.5) level = 'HIGH';
-  else if (ratio >= 0.25) level = 'MEDIUM';
+  if (ratio >= SQL_ANALYZER_LIMITS.COMPLEXITY_RATIO_SUPER_HIGH) level = 'SUPER_HIGH';
+  else if (ratio >= SQL_ANALYZER_LIMITS.COMPLEXITY_RATIO_HIGH) level = 'HIGH';
+  else if (ratio >= SQL_ANALYZER_LIMITS.COMPLEXITY_RATIO_MEDIUM) level = 'MEDIUM';
 
   return { level, score, maxScore, factors: scored };
 }

@@ -68,6 +68,17 @@ sql-visualizer/
 │   │   ├── store.ts               # Zustand state management
 │   │   ├── logger.ts              # Logging utilities
 │   │   └── i18n.ts                # Internationalization setup
+│   ├── app/common/
+│   │   └── sqlAnalyzerUtils.ts    # **Centralized constants file** containing:
+│   │       │                      # - Complexity levels & thresholds
+│   │       │                      # - Join types and condition complexity
+│   │       │                      # - SQL keywords & operators
+│   │       │                      # - 20+ regex patterns for SQL parsing
+│   │       │                      # - Magic numbers & analyzer limits
+│   │       │                      # - Helper functions (normalizeJoinType,
+│   │       │                      #   getComplexityLevelFromScore, etc.)
+│   │       │                      # - Color constants for visualization
+│   │       │                      # - Nesting levels & context types
 │   ├── locales/
 │   │   ├── en.ts                  # English translations
 │   │   └── vi.ts                  # Vietnamese translations
@@ -119,6 +130,66 @@ This project uses Tailwind CSS with extensive customization:
 - **Responsive Design** - Mobile-first approach optimized for desktop analysis
 - **CSS Animations** - Smooth transitions with float, slideUp, fadeIn, and shimmer keyframes
 - **PostCSS & Autoprefixer** - Automatic vendor prefixing and CSS optimization
+
+## ⚙️ Centralized Constants Management
+
+All repeated values, thresholds, and patterns are organized in a single source of truth file for improved maintainability:
+
+**File:** `src/app/common/sqlAnalyzerUtils.ts`
+
+### Constant Groups
+
+| Category              | Examples                                             | Purpose                                                |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| **Complexity Levels** | LOW, MEDIUM, HIGH, SUPER_HIGH                        | Query complexity classification                        |
+| **Join Types**        | INNER JOIN, LEFT JOIN, FULL OUTER JOIN, LATERAL JOIN | SQL join type normalization                            |
+| **Operators**         | =, <>, !=, <=, >=, IN, LIKE, BETWEEN                 | SQL operator symbols                                   |
+| **SQL Keywords**      | SELECT, FROM, WHERE, JOIN, GROUP, ORDER, etc.        | Reserved SQL keywords                                  |
+| **Regex Patterns**    | 20+ named patterns                                   | Table extraction, CTE parsing, join condition analysis |
+| **Analyzer Limits**   | MAX_COLUMNS: 8, MAX_CTE_COUNT: 100                   | Thresholds and bounds                                  |
+| **Complexity Ratios** | 0.75 (SUPER_HIGH), 0.5 (HIGH), 0.25 (MEDIUM)         | Complexity score thresholds                            |
+| **Colors**            | Primary, Accent, Success, Warning, Error             | UI visualization colors                                |
+
+### Helper Functions
+
+```typescript
+// Normalize raw join keywords to standard JoinType
+normalizeJoinType(rawJoinType: string): JoinTypeValue
+
+// Convert numeric score to complexity level
+getComplexityLevelFromScore(score: number): ComplexityLevelType
+
+// Determine join condition simplicity
+getJoinConditionComplexity(score: number): JoinConditionComplexityType
+
+// Check if word is SQL keyword
+isSqlKeyword(word: string): boolean
+```
+
+### Usage Example
+
+```typescript
+import {
+  SQL_ANALYZER_LIMITS,
+  COMPLEXITY_LEVELS,
+  normalizeJoinType,
+} from '../app/common/sqlAnalyzerUtils';
+
+// Access a limit constant
+const maxColumns = SQL_ANALYZER_LIMITS.MAX_COLUMNS; // 8
+
+// Use helper functions
+const joinType = normalizeJoinType('LEFT OUTER JOIN'); // 'LEFT JOIN'
+const level = getComplexityLevelFromScore(6); // 'HIGH'
+```
+
+### Benefits
+
+- **Single Source of Truth** - All constants in one location
+- **Easy Maintenance** - Change thresholds once, affects entire codebase
+- **Type Safety** - Full TypeScript support with IntelliSense
+- **Consistency** - Prevents duplicate magic numbers and regex patterns
+- **Scalability** - Simple to add new constants and helper functions
 
 ## 📦 Available Scripts
 
