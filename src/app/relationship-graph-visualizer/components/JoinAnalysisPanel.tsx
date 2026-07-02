@@ -1,7 +1,7 @@
 'use client';
 
-import React, { memo, useState, useCallback } from 'react';
-import { GitFork, ChevronDown, ChevronUp, Tag, Zap } from 'lucide-react';
+import React, { memo, useState, useCallback, useMemo } from 'react';
+import { GitFork, ChevronDown, ChevronUp, Tag, Zap, Search, X, Database } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
 import type { JoinConditionAnalysis, JoinEdge } from '@/lib/sqlAnalyzer';
@@ -22,15 +22,24 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
   index,
   t,
   allExpanded,
+  searchQuery,
 }: {
   item: JoinAnalysisItem;
   index: number;
   t: ReturnType<typeof getT>;
   allExpanded: boolean | null;
+  searchQuery: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { joinEdge, analysis } = item;
   const joinColor = JOIN_COLORS[joinEdge.joinType] || '#6ee7f7';
+
+  // Highlight search matches
+  const highlightMatches = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  };
 
   // Respond to global expand/collapse
   React.useEffect(() => {
@@ -89,6 +98,32 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
       {/* Details */}
       {expanded && (
         <div className="px-4 py-3 border-t border-border/50 space-y-3">
+          {/* Tables Involved */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2 rounded-lg bg-muted/50 border border-border/50">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                {t.joinSourceTable}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <Database size={12} className="text-primary flex-shrink-0" />
+                <code className="text-xs font-mono text-foreground truncate">
+                  {joinEdge.source}
+                </code>
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/50 border border-border/50">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                {t.joinTargetTable}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <Database size={12} className="text-accent flex-shrink-0" />
+                <code className="text-xs font-mono text-foreground truncate">
+                  {joinEdge.target}
+                </code>
+              </div>
+            </div>
+          </div>
+
           {/* Complexity */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -200,6 +235,28 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
 }: JoinAnalysisPanelProps) {
   const t = getT(locale);
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Smart search filter
+  const filteredDetails = useMemo(() => {
+    if (!joinAnalysisDetails || !searchQuery.trim()) {
+      return joinAnalysisDetails || [];
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return joinAnalysisDetails.filter((item) => {
+      const { joinEdge, analysis } = item;
+      // Search in: source table, target table, join type, condition, columns, operators
+      return (
+        joinEdge.source.toLowerCase().includes(query) ||
+        joinEdge.target.toLowerCase().includes(query) ||
+        joinEdge.joinType.toLowerCase().includes(query) ||
+        joinEdge.condition.toLowerCase().includes(query) ||
+        analysis.columns.some((col) => col.toLowerCase().includes(query)) ||
+        analysis.operators.some((op) => op.toLowerCase().includes(query))
+      );
+    });
+  }, [joinAnalysisDetails, searchQuery]);
 
   if (!joinAnalysisDetails || joinAnalysisDetails.length === 0) {
     return (
@@ -223,6 +280,9 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
     );
   }
 
+  // Show no results message if search filtered everything out
+  const showNoResults = searchQuery.trim() !== '' && filteredDetails.length === 0;
+
   return (
     <div
       className="flex-shrink-0 border-t border-border bg-card overflow-hidden flex flex-col"
@@ -234,7 +294,7 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
           <GitFork size={14} className="text-primary" />
           <span className="text-sm font-semibold text-foreground">{t.joinAnalysisTitle}</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {joinAnalysisDetails.length} {t.rows}
+            {filteredDetails.length} {searchQuery.trim() ? `/ ${joinAnalysisDetails.length}` : ''} {t.rows}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -253,23 +313,59 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
         </div>
       </div>
 
-      {/* Cards Container */}
-      <div
-        className="overflow-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
-        style={{ maxHeight: 'calc(100% - 50px)' }}
-      >
-        <div className="px-4 py-3 space-y-2.5">
-          {joinAnalysisDetails.map((item, idx) => (
-            <JoinDetailsCard
-              key={item.id}
-              item={item}
-              index={idx}
-              t={t}
-              allExpanded={allExpanded}
-            />
-          ))}
+      {/* Search Input */}
+      <div className="px-4 py-2.5 border-b border-border/50 flex-shrink-0">
+        <div className="relative">
+          <Search
+            size={13}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t.joinDetailSearchPlaceholder}
+            className="w-full pl-8 pr-8 py-1.5 rounded text-xs font-mono bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              title={t.joinDetailClearSearch}
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Cards Container */}
+      {showNoResults ? (
+        <div className="flex-1 flex items-center justify-center text-center p-4">
+          <div>
+            <Search size={20} className="mx-auto mb-2 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">{t.joinDetailNoResults}</p>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="overflow-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          style={{ maxHeight: 'calc(100% - 130px)' }}
+        >
+          <div className="px-4 py-3 space-y-2.5">
+            {filteredDetails.map((item, idx) => (
+              <JoinDetailsCard
+                key={item.id}
+                item={item}
+                index={idx}
+                t={t}
+                allExpanded={allExpanded}
+                searchQuery={searchQuery}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="px-4 py-2 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground text-center">
