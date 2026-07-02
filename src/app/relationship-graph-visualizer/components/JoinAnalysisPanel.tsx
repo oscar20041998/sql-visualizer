@@ -294,7 +294,8 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
           <GitFork size={14} className="text-primary" />
           <span className="text-sm font-semibold text-foreground">{t.joinAnalysisTitle}</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {filteredDetails.length} {searchQuery.trim() ? `/ ${joinAnalysisDetails.length}` : ''} {t.rows}
+            {filteredDetails.length} {searchQuery.trim() ? `/ ${joinAnalysisDetails.length}` : ''}{' '}
+            {t.rows}
           </span>
         </div>
         <div className="flex items-center gap-2">

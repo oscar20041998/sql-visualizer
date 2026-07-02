@@ -4,6 +4,7 @@
  */
 
 import { getT, type Locale, type Translations } from './i18n';
+import { COMPLEXITY_SCORER_CONSTANTS } from '../app/common/sqlAnalyzerUtils';
 
 const SCORE_LIST_KEY = 'complexityScoreList';
 
@@ -144,12 +145,12 @@ export function generateComplexityDefinitions(
   locale: Locale = 'en'
 ): ComplexityLevelDefinition[] {
   const t = getT(locale);
-  // Ensure median is at least 10 to avoid overly low thresholds
-  const safeMedian = Math.max(median, 10);
+  // Ensure median is at least MIN_SAFE_MEDIAN to avoid overly low thresholds
+  const safeMedian = Math.max(median, COMPLEXITY_SCORER_CONSTANTS.MIN_SAFE_MEDIAN);
 
-  const lowMax = Math.round(safeMedian * 0.5); // Half of Median
-  const mediumMax = Math.round(safeMedian); // Median
-  const highMax = Math.round(safeMedian * 2); // Double Median
+  const lowMax = Math.round(safeMedian * COMPLEXITY_SCORER_CONSTANTS.LOW_THRESHOLD_RATIO); // Half of Median
+  const mediumMax = Math.round(safeMedian * COMPLEXITY_SCORER_CONSTANTS.MEDIUM_THRESHOLD_RATIO); // Median
+  const highMax = Math.round(safeMedian * COMPLEXITY_SCORER_CONSTANTS.HIGH_THRESHOLD_RATIO); // Double Median
 
   return [
     { level: 'LOW', min: 0, max: lowMax, labelKey: 'complexityLow' },
@@ -160,7 +161,7 @@ export function generateComplexityDefinitions(
 }
 
 /**
- * Hàm tính Median từ danh sách scores lấy từ localStorage và phân loại Level động
+ * Calculates the median score from a list of scores and determines the corresponding complexity level.
  */
 export function calculateScoredByMedian(scores: number[]): {
   median: number;
@@ -171,19 +172,19 @@ export function calculateScoredByMedian(scores: number[]): {
     return { median: 0, level: 'LOW', dynamicDefinitions: generateComplexityDefinitions(0) };
   }
 
-  // Khử nhiễu & sắp xếp
+  // Remove noise & sort
   const sortedScores = [...scores].sort((a, b) => a - b);
   const len = sortedScores.length;
   const mid = Math.floor(len / 2);
 
-  // Tính số trung vị (Median)
+  // Calculate median
   const median =
     len % 2 !== 0 ? sortedScores[mid] : (sortedScores[mid - 1] + sortedScores[mid]) / 2;
 
-  // Khởi tạo các mốc khoảng cách MỚI dựa trên Median vừa tính
+  // Initialize new dynamic thresholds based on the calculated median
   const dynamicDefinitions = generateComplexityDefinitions(median);
 
-  // Đối chiếu tìm Level hiện tại
+  // Determine the current level
   const level =
     dynamicDefinitions.find((item) => median >= item.min && median <= item.max)?.level || 'LOW';
 
@@ -197,6 +198,9 @@ function normalizeUniqueScores(scores: number[]): number[] {
   return [...new Set(validScores)];
 }
 
+/**
+ * Retrieves the list of complexity scores from localStorage, ensuring they are unique and valid numbers.
+ */
 export function getScoresFromLocalStorage(): number[] {
   try {
     const rawData = localStorage.getItem(SCORE_LIST_KEY);
@@ -248,7 +252,7 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
       depth--;
     }
   }
-  if (maxDepth > 6) {
+  if (maxDepth > COMPLEXITY_SCORER_CONSTANTS.MAX_NESTING_DEPTH_WARNING) {
     issues.push({
       rule: t.lintingDeepNesting,
       severity: 'warning',
@@ -272,7 +276,8 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
   if (
     upper.includes('FROM') &&
     !upper.includes('WHERE') &&
-    (upper.match(/\b(SELECT|FROM|JOIN)\b/g) || []).length > 3
+    (upper.match(/\b(SELECT|FROM|JOIN)\b/g) || []).length >
+      COMPLEXITY_SCORER_CONSTANTS.LARGE_QUERY_KEYWORD_THRESHOLD
   ) {
     issues.push({
       rule: t.lintingMissingWhere,
@@ -328,7 +333,11 @@ function analyzeSelectFields(sql: string, t: Translations = getT('en')): SelectF
     }
 
     // Check for aggregate functions
-    if (/\b(SUM|COUNT|AVG|MIN|MAX|GROUP_CONCAT|LISTAGG)\s*\(/i.test(withoutAlias)) {
+    const aggregateFuncsPattern = new RegExp(
+      `\\b(${COMPLEXITY_SCORER_CONSTANTS.AGGREGATE_FUNCTIONS.join('|')})\\s*\\(`,
+      'i'
+    );
+    if (aggregateFuncsPattern.test(withoutAlias)) {
       return {
         field,
         type: 'aggregate',
@@ -338,11 +347,11 @@ function analyzeSelectFields(sql: string, t: Translations = getT('en')): SelectF
     }
 
     // Check for scalar functions
-    if (
-      /\b(UPPER|LOWER|TRIM|SUBSTR|LENGTH|DATE_TRUNC|ROUND|CAST|COALESCE|NULLIF)\s*\(/i.test(
-        withoutAlias
-      )
-    ) {
+    const scalarFuncsPattern = new RegExp(
+      `\\b(${COMPLEXITY_SCORER_CONSTANTS.SCALAR_FUNCTIONS.join('|')})\\s*\\(`,
+      'i'
+    );
+    if (scalarFuncsPattern.test(withoutAlias)) {
       return {
         field,
         type: 'function',
@@ -404,7 +413,7 @@ function splitSelectFields(fieldList: string): string[] {
       continue;
     }
 
-    if (ch === "'" || ch === '"' || ch === '`') {
+    if (COMPLEXITY_SCORER_CONSTANTS.QUOTE_CHARACTERS.includes(ch as any)) {
       quote = ch;
       current += ch;
       continue;
@@ -546,7 +555,7 @@ function countCteDefinitions(sql: string): number {
     }
   }
 
-  while (pos < len && count < 100) {
+  while (pos < len && count < COMPLEXITY_SCORER_CONSTANTS.MAX_CTE_PARSE_LIMIT) {
     skipWhitespaceAndCommas();
     if (pos >= len) break;
 
@@ -568,7 +577,7 @@ function countCteDefinitions(sql: string): number {
     let depth = 1;
     while (pos < len && depth > 0) {
       const ch = sql[pos];
-      if (ch === "'" || ch === '"' || ch === '`') {
+      if (COMPLEXITY_SCORER_CONSTANTS.QUOTE_CHARACTERS.includes(ch as any)) {
         skipQuoted(ch);
         continue;
       }
@@ -616,7 +625,7 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
     const ch = sql[i];
 
     // Handle strings
-    if (!inString && (ch === "'" || ch === '"' || ch === '`')) {
+    if (!inString && COMPLEXITY_SCORER_CONSTANTS.QUOTE_CHARACTERS.includes(ch as any)) {
       inString = true;
       stringChar = ch;
     } else if (inString && ch === stringChar && sql[i - 1] !== '\\') {

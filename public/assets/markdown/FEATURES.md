@@ -8,6 +8,7 @@ The latest update introduces:
 
 - **Deep JOIN Analysis** - Detailed analysis of JOIN conditions with complexity breakdown
 - **Adaptive Complexity Evaluation** - Median-based complexity thresholds that adapt to your workload
+- **Collapsible Sidebar** - Toggle sidebar to maximize workspace for large queries
 - **Multi-Dialect Support** - Complete support for MySQL, PostgreSQL, SQL Server, and Oracle
 
 ## 🎯 Quick Feature Overview
@@ -99,6 +100,7 @@ All features are documented in separate, easy-to-read markdown files:
 ### Technical Reference
 
 - [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md) - Weight matrix and scoring details
+- [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md) - Adaptive threshold system explained
 - [Advanced Topics](features/ADVANCED_TOPICS.md) - Enterprise patterns and customization
 
 ## 🛠️ Tool Overview
@@ -151,14 +153,23 @@ Assess multi-dialect compatibility and plan migration tasks. See [Advanced Topic
 
 ## 📊 Complexity Levels
 
-| Level          | Score Range | Meaning                 | Action                           |
-| -------------- | ----------- | ----------------------- | -------------------------------- |
-| **LOW**        | 0-20        | Simple, well-optimized  | No action needed                 |
-| **MEDIUM**     | 21-50       | Moderate complexity     | Review and optimize if needed    |
-| **HIGH**       | 51-100      | Complex with risks      | Consider refactoring             |
-| **SUPER_HIGH** | 101+        | Very complex, high risk | Requires significant refactoring |
+The SQL Visualizer uses an **adaptive, median-based complexity evaluation system** that dynamically adjusts complexity thresholds based on your query history:
 
-For detailed interpretation, see [Metrics Dashboard](features/METRICS_DASHBOARD.md) or [Best Practices](features/BEST_PRACTICES.md).
+| Level          | Threshold (% of Median) | Meaning                 | Action                           |
+| -------------- | ----------------------- | ----------------------- | -------------------------------- |
+| **LOW**        | 0-50% of median         | Simple, well-optimized  | No action needed                 |
+| **MEDIUM**     | 50-100% of median       | Moderate complexity     | Review and optimize if needed    |
+| **HIGH**       | 100-200% of median      | Complex with risks      | Consider refactoring             |
+| **SUPER_HIGH** | 200%+ of median         | Very complex, high risk | Requires significant refactoring |
+
+**How It Works**: Instead of fixed thresholds, the system calculates the **median complexity score** from your historical query analysis. As you analyze more queries, the thresholds automatically adapt to better reflect your workload's complexity distribution.
+
+**Example**: If your typical queries average a complexity score of 100, the adaptive system will set:
+- LOW: 0-50 | MEDIUM: 51-100 | HIGH: 101-200 | SUPER_HIGH: 201+
+
+This makes complexity levels meaningful and contextual to *your* specific project.
+
+For a deep technical explanation of the median-based evaluation system, see [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md).
 
 ## 🌐 Language Support
 
@@ -206,6 +217,7 @@ For detailed interpretation, see [Metrics Dashboard](features/METRICS_DASHBOARD.
 ## 📞 Need Help?
 
 - **Getting started?** → [Learning Path](features/LEARNING_PATH.md)
+- **Understanding complexity scoring?** → [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md)
 - **Optimizing a query?** → [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md)
 - **Want examples?** → [Workflow Examples](features/WORKFLOW_EXAMPLES.md)
 - **Technical details?** → [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md)

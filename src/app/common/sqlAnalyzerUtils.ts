@@ -302,3 +302,43 @@ export function getJoinConditionComplexity(score: number): JoinConditionComplexi
     ? JOIN_CONDITION_COMPLEXITY.COMPLEX
     : JOIN_CONDITION_COMPLEXITY.SIMPLE;
 }
+
+// ─── Complexity Scorer Constants ──────────────────────────────────────────────
+/**
+ * Constants used by the complexity scoring engine (complexityScorer.ts)
+ * Extracted to avoid magic numbers and improve maintainability
+ */
+export const COMPLEXITY_SCORER_CONSTANTS = {
+  // Threshold Ratios for Dynamic Complexity Levels (based on median score)
+  MIN_SAFE_MEDIAN: 10, // Minimum median to avoid overly low thresholds
+  LOW_THRESHOLD_RATIO: 0.5, // LOW level threshold as % of median (50%)
+  MEDIUM_THRESHOLD_RATIO: 1.0, // MEDIUM level threshold as % of median (100%)
+  HIGH_THRESHOLD_RATIO: 2.0, // HIGH level threshold as % of median (200%)
+
+  // Linting Rule Thresholds
+  MAX_NESTING_DEPTH_WARNING: 6, // Threshold for deep nesting warning (triggers if > 6 levels)
+  LARGE_QUERY_KEYWORD_THRESHOLD: 3, // Min SELECT/FROM/JOIN keywords to consider "large query"
+
+  // CTE Parsing Limits
+  MAX_CTE_PARSE_LIMIT: 100, // Maximum CTEs to count before stopping (safety limit)
+
+  // SQL String Delimiters
+  QUOTE_CHARACTERS: ["'", '"', '`'] as const,
+
+  // SQL Aggregate Functions
+  AGGREGATE_FUNCTIONS: ['SUM', 'COUNT', 'AVG', 'MIN', 'MAX', 'GROUP_CONCAT', 'LISTAGG'] as const,
+
+  // SQL Scalar Functions
+  SCALAR_FUNCTIONS: [
+    'UPPER',
+    'LOWER',
+    'TRIM',
+    'SUBSTR',
+    'LENGTH',
+    'DATE_TRUNC',
+    'ROUND',
+    'CAST',
+    'COALESCE',
+    'NULLIF',
+  ] as const,
+} as const;

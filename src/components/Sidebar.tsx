@@ -163,7 +163,9 @@ export default function Sidebar() {
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
         >
           {settings.theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          {!isCollapsed && <span className="truncate">{settings.theme === 'dark' ? t.lightMode : t.darkMode}</span>}
+          {!isCollapsed && (
+            <span className="truncate">{settings.theme === 'dark' ? t.lightMode : t.darkMode}</span>
+          )}
         </button>
 
         {/* Language Toggle */}
@@ -173,7 +175,11 @@ export default function Sidebar() {
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
         >
           <Globe size={18} />
-          {!isCollapsed && <span className="truncate font-mono text-xs">{settings.locale === 'en' ? 'EN → VI' : 'VI → EN'}</span>}
+          {!isCollapsed && (
+            <span className="truncate font-mono text-xs">
+              {settings.locale === 'en' ? 'EN → VI' : 'VI → EN'}
+            </span>
+          )}
         </button>
       </div>
 

@@ -10,6 +10,7 @@ export const JOIN_COLORS_DARK: Record<JoinType, string> = {
   'CROSS JOIN': '#fb7185',
   'NATURAL JOIN': '#a78bfa',
   'RELATES TO': '#22d3ee',
+  'LATERAL JOIN': '#8b5cf6' 
 };
 
 export const JOIN_COLORS_LIGHT: Record<JoinType, string> = {
@@ -20,6 +21,7 @@ export const JOIN_COLORS_LIGHT: Record<JoinType, string> = {
   'CROSS JOIN': '#dc2626',
   'NATURAL JOIN': '#7c3aed',
   'RELATES TO': '#0e7490',
+  'LATERAL JOIN': '#6d28d9',
 };
 
 // Keep existing export for compatibility in older call sites.
