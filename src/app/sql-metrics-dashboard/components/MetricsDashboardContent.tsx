@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { BarChart3, AlertTriangle, Layers, Download } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import ComplexityBreakdown from '@/components/ui/ComplexityBreakdown';
 import ComplexityHeroCard from './ComplexityHeroCard';
 import MetricCardsGrid from './MetricCardsGrid';
-import BarChartExecutionCost from './BarChartExecutionCost';
 import ComplexityFactorsBreakdown from './ComplexityFactorsBreakdown';
-import JoinLogicComplexity from './JoinLogicComplexity';
 import NestedSubqueryAnalysis from './NestedSubqueryAnalysis';
 import FieldExtractionSummary from './FieldExtractionSummary';
 import ReferencedTablesOverview from './ReferencedTablesOverview';
@@ -33,8 +30,9 @@ export default function MetricsDashboardContent() {
     );
   }
 
-  const { metrics, complexity, executionCost, structuralReport, ctes, tables } = analysisResult;
-  const isHighRisk = complexity.level === 'HIGH' || complexity.level === 'SUPER_HIGH';
+  const { metrics, detailedComplexity, structuralReport, ctes, tables } = analysisResult;
+  const isHighRisk =
+    detailedComplexity?.level === 'HIGH' || detailedComplexity?.level === 'SUPER_HIGH';
 
   const handleExportAnalysisJson = () => {
     const json = JSON.stringify(analysisResult, null, 2);
@@ -98,29 +96,21 @@ export default function MetricsDashboardContent() {
         {/* Top Section: Complexity Hero (Left) + Metric Cards (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           <div className="lg:col-span-1 h-full">
-            <ComplexityHeroCard complexity={complexity} t={t} />
+            <ComplexityHeroCard
+              detailedComplexity={detailedComplexity}
+              t={t}
+            />
           </div>
           <div className="lg:col-span-2 h-full">
             <MetricCardsGrid metrics={metrics} t={t} />
           </div>
         </div>
 
-        {/* Bar Chart & Execution Cost */}
-        <BarChartExecutionCost
-          metrics={metrics}
-          complexity={complexity}
-          executionCost={executionCost}
+        {/* Complexity Factors */}
+        <ComplexityFactorsBreakdown
+          detailedComplexity={detailedComplexity}
           t={t}
         />
-
-        {/* Complexity Breakdown */}
-        <ComplexityBreakdown sql={analysisResult.rawSql} />
-
-        {/* Complexity Factors */}
-        <ComplexityFactorsBreakdown complexity={complexity} t={t} />
-
-        {/* Join Logic Complexity */}
-        <JoinLogicComplexity joinLogicComplexity={structuralReport.joinLogicComplexity} t={t} />
 
         {/* Nested Subquery Analysis */}
         <NestedSubqueryAnalysis metrics={metrics} structuralReport={structuralReport} t={t} />

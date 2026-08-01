@@ -15,17 +15,18 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
   const [fieldPage, setFieldPage] = useState(1);
   const fieldPageSize = 20;
   const { structuralReport } = analysisResult;
+  const finalSelectFields = structuralReport.finalSelectFields;
 
   const filteredFields = useMemo(() => {
     const search = fieldSearch.trim().toLowerCase();
-    if (!search) return structuralReport.allFields;
+    if (!search) return finalSelectFields;
 
-    return structuralReport.allFields.filter((field) => {
+    return finalSelectFields.filter((field) => {
       const haystack =
         `${field.expression} ${field.alias || ''} ${field.category || ''}`.toLowerCase();
       return haystack.includes(search);
     });
-  }, [fieldSearch, structuralReport.allFields]);
+  }, [fieldSearch, finalSelectFields]);
 
   useEffect(() => {
     setFieldPage(1);
@@ -170,7 +171,7 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
       </div>
       <div className="text-xs text-muted-foreground mb-3">
         {t.metricsTotalExtractedFields}:{' '}
-        <span className="font-mono text-foreground">{structuralReport.allFieldsCount}</span>
+        <span className="font-mono text-foreground">{structuralReport.finalSelectFieldCount}</span>
       </div>
       <div className="overflow-x-auto scrollbar-thin border border-border rounded-lg">
         <table id="metrics-field-table" className="w-full text-sm border-collapse">

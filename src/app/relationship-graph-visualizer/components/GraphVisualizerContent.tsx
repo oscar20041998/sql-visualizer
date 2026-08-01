@@ -546,135 +546,56 @@ export default function GraphVisualizerContent() {
       {/* Main area: canvas + sidebar */}
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1 relative">
-          {/* Header Bar */}
-          <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between gap-2 flex-wrap">
-            <div className="glass-panel rounded-lg px-4 py-2.5 flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <GitFork size={16} className="text-primary" />
-                <span className="text-sm font-semibold text-foreground">{t.graphTitle}</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Table2 size={11} />
-                  {filteredTables.length} {t.tableCount}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Link2 size={11} />
-                  {filteredJoins.length} {t.joinCount}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span>{t.graphFilterLabel}</span>
-                  <select
-                    value={relationshipFilter}
-                    onChange={(e) =>
-                      setRelationshipFilter(e.target.value as RelationshipFilterMode)
-                    }
-                    className="px-2 py-1 rounded-md bg-muted border border-border text-foreground font-mono"
-                  >
-                    <option value="all">{t.graphFilterAll}</option>
-                    <option value="cte">{t.graphFilterCte}</option>
-                    <option value="table">{t.graphFilterTable}</option>
-                  </select>
-                </div>
+        <div className="flex-1 relative flex flex-col overflow-hidden">
+          {/* ── Top Bar Menu — all graph controls grouped in one flexible row ── */}
+          <div className="relative z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2.5">
+            {/* Title */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <GitFork size={16} className="text-primary" />
+              <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                {t.graphTitle}
+              </span>
+            </div>
+
+            {/* Stats + Filter */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Table2 size={11} />
+                {filteredTables.length} {t.tableCount}
+              </span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Link2 size={11} />
+                {filteredJoins.length} {t.joinCount}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="whitespace-nowrap">{t.graphFilterLabel}</span>
+                <select
+                  value={relationshipFilter}
+                  onChange={(e) => setRelationshipFilter(e.target.value as RelationshipFilterMode)}
+                  className="px-2 py-1 rounded-md bg-muted border border-border text-foreground font-mono"
+                >
+                  <option value="all">{t.graphFilterAll}</option>
+                  <option value="cte">{t.graphFilterCte}</option>
+                  <option value="table">{t.graphFilterTable}</option>
+                </select>
               </div>
             </div>
 
-            {/* Panel Toggles & Action buttons */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                {/* Suggestions Toggle */}
-                <button
-                  onClick={() => setShowSuggestions(!showSuggestions)}
-                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                  style={{
-                    background: showSuggestions ? 'rgba(239,68,68,0.1)' : 'var(--muted)',
-                    borderColor: showSuggestions ? '#ef4444' : 'var(--border)',
-                    color: showSuggestions ? '#ef4444' : 'var(--muted-foreground)',
-                  }}
-                  title="Toggle Suggestions Panel"
-                >
-                  <AlertCircle size={12} />
-                  {errorCount + warnCount > 0 && (
-                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                      {errorCount + warnCount}
-                    </span>
-                  )}
-                </button>
+            <div className="hidden md:block w-px h-6 bg-border flex-shrink-0" />
 
-                {/* Join Analysis Toggle */}
-                <button
-                  onClick={() => setShowJoinAnalysis(!showJoinAnalysis)}
-                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                  style={{
-                    background: showJoinAnalysis ? 'rgba(59,130,246,0.1)' : 'var(--muted)',
-                    borderColor: showJoinAnalysis ? '#3b82f6' : 'var(--border)',
-                    color: showJoinAnalysis ? '#3b82f6' : 'var(--muted-foreground)',
-                  }}
-                  title="Toggle Join Analysis Panel"
-                >
-                  <TrendingUp size={12} />
-                </button>
-
-                {/* Extracted Tables Toggle */}
-                <button
-                  onClick={() => setShowExtracted(!showExtracted)}
-                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                  style={{
-                    background: showExtracted ? 'rgba(34,197,94,0.1)' : 'var(--muted)',
-                    borderColor: showExtracted ? '#22c55e' : 'var(--border)',
-                    color: showExtracted ? '#22c55e' : 'var(--muted-foreground)',
-                  }}
-                  title="Toggle Extracted Tables Panel"
-                >
-                  <Layers size={12} />
-                  {extractedRows.length > 0 && (
-                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] font-bold">
-                      {extractedRows.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              <div className="w-px h-6 bg-border" />
-
-              <button
-                onClick={() => updateSettings({ performanceMode: !settings.performanceMode })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                style={{
-                  background: settings.performanceMode ? 'rgba(168,85,247,0.1)' : 'var(--muted)',
-                  borderColor: settings.performanceMode ? '#a855f7' : 'var(--border)',
-                  color: settings.performanceMode ? '#a855f7' : 'var(--muted-foreground)',
-                }}
-                title={settings.performanceMode ? 'Performance Mode: ON' : 'Performance Mode: OFF'}
-              >
-                <Zap size={12} />
-                {t.performanceMode || 'Performance'}
-              </button>
-              <CopyButton
-                getText={getMermaidText}
-                label={t.convertMermaid}
-                icon={<Code2 size={12} />}
-              />
-              <CopyButton getText={getChartSvg} label={t.copyChart} icon={<Copy size={12} />} />
-            </div>
-          </div>
-
-          {/* ── Graph Search Box ── */}
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 w-72">
-            <div className="relative">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[160px] max-w-xs order-last md:order-none basis-full md:basis-auto">
               <div
-                className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-150"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150"
                 style={{
-                  background: 'rgba(26,31,46,0.92)',
-                  backdropFilter: 'blur(8px)',
-                  borderColor: graphSearchFocused ? 'var(--primary)' : 'rgba(45,51,72,0.8)',
+                  background: 'var(--muted)',
+                  borderColor: graphSearchFocused ? 'var(--primary)' : 'var(--border)',
                   boxShadow: graphSearchFocused
-                    ? '0 0 0 2px rgba(99,102,241,0.2), 0 4px 16px rgba(0,0,0,0.4)'
-                    : '0 2px 12px rgba(0,0,0,0.35)',
+                    ? '0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent)'
+                    : 'none',
                 }}
               >
-                <Search size={14} className="text-muted-foreground flex-shrink-0" />
+                <Search size={13} className="text-muted-foreground flex-shrink-0" />
                 <input
                   ref={graphSearchRef}
                   type="text"
@@ -683,7 +604,7 @@ export default function GraphVisualizerContent() {
                   onFocus={() => setGraphSearchFocused(true)}
                   onBlur={() => setTimeout(() => setGraphSearchFocused(false), 150)}
                   placeholder={t.searchTables}
-                  className="flex-1 bg-transparent text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
+                  className="flex-1 bg-transparent text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
                 />
                 {(graphSearch || selectedNodeId) && (
                   <button
@@ -693,13 +614,14 @@ export default function GraphVisualizerContent() {
                     }}
                     className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </button>
                 )}
                 {selectedNodeId && !graphSearch && (
                   <span
-                    className="flex-shrink-0 text-xs font-mono px-1.5 py-0.5 rounded"
+                    className="max-w-20 truncate flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded"
                     style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}
+                    title={filteredTables.find((t) => t.id === selectedNodeId)?.name ?? ''}
                   >
                     {filteredTables.find((t) => t.id === selectedNodeId)?.name ?? ''}
                   </span>
@@ -709,12 +631,12 @@ export default function GraphVisualizerContent() {
               {/* Dropdown suggestions */}
               {graphSearchFocused && graphSearch.trim() !== '' && (
                 <div
-                  className="absolute top-full mt-1.5 left-0 right-0 rounded-xl overflow-hidden border"
+                  className="absolute top-full mt-1.5 left-0 right-0 rounded-xl overflow-hidden border z-30"
                   style={{
-                    background: 'rgba(26,31,46,0.97)',
+                    background: 'var(--card)',
                     backdropFilter: 'blur(8px)',
-                    borderColor: 'rgba(45,51,72,0.9)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                    borderColor: 'var(--border)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
                     maxHeight: 220,
                     overflowY: 'auto',
                   }}
@@ -773,9 +695,94 @@ export default function GraphVisualizerContent() {
                 </div>
               )}
             </div>
+
+            <div className="hidden md:block w-px h-6 bg-border flex-shrink-0" />
+
+            {/* Panel Toggles */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Suggestions Toggle */}
+              <button
+                onClick={() => setShowSuggestions(!showSuggestions)}
+                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                style={{
+                  background: showSuggestions ? 'rgba(239,68,68,0.1)' : 'var(--muted)',
+                  borderColor: showSuggestions ? '#ef4444' : 'var(--border)',
+                  color: showSuggestions ? '#ef4444' : 'var(--muted-foreground)',
+                }}
+                title="Toggle Suggestions Panel"
+              >
+                <AlertCircle size={12} />
+                {errorCount + warnCount > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                    {errorCount + warnCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Join Analysis Toggle */}
+              <button
+                onClick={() => setShowJoinAnalysis(!showJoinAnalysis)}
+                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                style={{
+                  background: showJoinAnalysis ? 'rgba(59,130,246,0.1)' : 'var(--muted)',
+                  borderColor: showJoinAnalysis ? '#3b82f6' : 'var(--border)',
+                  color: showJoinAnalysis ? '#3b82f6' : 'var(--muted-foreground)',
+                }}
+                title="Toggle Join Analysis Panel"
+              >
+                <TrendingUp size={12} />
+              </button>
+
+              {/* Extracted Tables Toggle */}
+              <button
+                onClick={() => setShowExtracted(!showExtracted)}
+                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                style={{
+                  background: showExtracted ? 'rgba(34,197,94,0.1)' : 'var(--muted)',
+                  borderColor: showExtracted ? '#22c55e' : 'var(--border)',
+                  color: showExtracted ? '#22c55e' : 'var(--muted-foreground)',
+                }}
+                title="Toggle Extracted Tables Panel"
+              >
+                <Layers size={12} />
+                {extractedRows.length > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] font-bold">
+                    {extractedRows.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="w-px h-6 bg-border flex-shrink-0" />
+
+            {/* Performance + Copy actions */}
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              <button
+                onClick={() => updateSettings({ performanceMode: !settings.performanceMode })}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
+                style={{
+                  background: settings.performanceMode ? 'rgba(168,85,247,0.1)' : 'var(--muted)',
+                  borderColor: settings.performanceMode ? '#a855f7' : 'var(--border)',
+                  color: settings.performanceMode ? '#a855f7' : 'var(--muted-foreground)',
+                }}
+                title={settings.performanceMode ? 'Performance Mode: ON' : 'Performance Mode: OFF'}
+              >
+                <Zap size={12} />
+                {t.performanceMode || 'Performance'}
+              </button>
+              <CopyButton
+                getText={getMermaidText}
+                label={t.convertMermaid}
+                icon={<Code2 size={12} />}
+              />
+              <CopyButton getText={getChartSvg} label={t.copyChart} icon={<Copy size={12} />} />
+            </div>
           </div>
 
-          <FlowCanvas ref={flowRef} tables={filteredTables} joins={filteredJoins} />
+          {/* Canvas fills remaining space below the bar */}
+          <div className="flex-1 relative">
+            <FlowCanvas ref={flowRef} tables={filteredTables} joins={filteredJoins} />
+          </div>
         </div>
 
         {/* Right Sidebar */}

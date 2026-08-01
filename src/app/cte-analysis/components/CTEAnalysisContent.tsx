@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layers, GitBranch, BarChart2, RefreshCw, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Layers, GitBranch, BarChart2, RefreshCw, EyeOff, BarChart3 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import CTECard from './CTECard';
 import MainQueryFieldsTable from './MainQueryFieldsTable';
 
 export default function CTEAnalysisContent() {
+  const router = useRouter();
   const { settings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -59,6 +61,11 @@ export default function CTEAnalysisContent() {
       : 0;
   const avgComplexityLabel =
     avgComplexity >= 1.5 ? 'HIGH' : avgComplexity >= 0.5 ? 'MEDIUM' : 'LOW';
+  const complexityLabels = {
+    LOW: t.complexityLow,
+    MEDIUM: t.complexityMedium,
+    HIGH: t.complexityHigh,
+  };
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
@@ -71,8 +78,16 @@ export default function CTEAnalysisContent() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.cteSubtitle}</p>
         </div>
-        {ctes.length > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/sql-metrics-dashboard')}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <BarChart3 size={14} className="text-primary" />
+            {t.navMetricsDashboard}
+          </button>
+          {ctes.length > 0 && (
+            <>
             <button
               onClick={expandAll}
               className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
@@ -85,9 +100,10 @@ export default function CTEAnalysisContent() {
             >
               {t.collapseAll}
             </button>
+            </>
+          )}
           </div>
-        )}
-      </div>
+        </div>
 
       {/* CTE Summary Stats */}
       {ctes.length > 0 && (
@@ -144,7 +160,7 @@ export default function CTEAnalysisContent() {
                       : 'text-emerald-500'
                 }`}
               >
-                {avgComplexityLabel}
+                {complexityLabels[avgComplexityLabel]}
               </span>
             </div>
           </div>

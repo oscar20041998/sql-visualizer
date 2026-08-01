@@ -60,7 +60,17 @@ export interface DetailedComplexityScore {
   levelLabel: string;
   scoreBreakdown: {
     keywords: { category: string; count: number; baseScore: number; subtotal: number }[];
-    selectFields: { complexityScore: number; fieldCount: number; avgComplexity: number };
+    selectFields: {
+      complexityScore: number;
+      fieldCount: number;
+      avgComplexity: number;
+      factors?: {
+        type: SelectFieldComplexity['type'];
+        count: number;
+        weight: number;
+        subtotal: number;
+      }[];
+    };
     joins: { count: number; totalScore: number };
     ctes: { count: number; totalScore: number };
     subqueries: { count: number; totalScore: number };
@@ -292,12 +302,14 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
 
 // ─── SELECT Field Complexity Analysis ────────────────────────────────────
 
-function analyzeSelectFields(sql: string, t: Translations = getT('en')): SelectFieldComplexity[] {
-  const selectMatch = /SELECT\s+([\s\S]+?)\s+FROM/i.exec(sql);
-  if (!selectMatch) return [];
-
-  const fieldList = selectMatch[1];
-  const fields = splitSelectFields(fieldList);
+function analyzeSelectFields(
+  sql: string,
+  t: Translations = getT('en'),
+  mainQuerySql?: string
+): SelectFieldComplexity[] {
+  const mainQuery = mainQuerySql ?? extractMainQuery(sql);
+  const mainSelectClause = extractSelectClauses(mainQuery)[0];
+  const fields = mainSelectClause ? splitSelectFields(mainSelectClause) : [];
 
   return fields.map((field) => {
     if (field.match(/^\*$/)) {
@@ -388,6 +400,153 @@ function analyzeSelectFields(sql: string, t: Translations = getT('en')): SelectF
       reason: t.complexityFieldReasonDirectColumn,
     };
   });
+}
+
+function isSqlWordBoundary(text: string, start: number, length: number): boolean {
+  const before = start <= 0 ? ' ' : text[start - 1];
+  const after = start + length >= text.length ? ' ' : text[start + length];
+  return !/[A-Z0-9_]/i.test(before) && !/[A-Z0-9_]/i.test(after);
+}
+
+function extractMainQuery(sql: string): string {
+  const withMatch = /^\s*WITH\b/i.exec(sql);
+  if (!withMatch) return sql.trim();
+
+  let position = withMatch[0].length;
+  let cteCount = 0;
+
+  while (position < sql.length && cteCount < 100) {
+    while (position < sql.length && /\s/.test(sql[position])) position++;
+    if (/^RECURSIVE\b/i.test(sql.slice(position))) position += 'RECURSIVE'.length;
+
+    const cteMatch = /^[A-Za-z_][\w$]*(?:\s*\([^)]*\))?\s+AS\s*\(/i.exec(sql.slice(position));
+    if (!cteMatch) break;
+    position += cteMatch[0].length;
+
+    let depth = 1;
+    while (position < sql.length && depth > 0) {
+      const character = sql[position];
+      if (character === "'" || character === '"' || character === '`') {
+        const quote = character;
+        position++;
+        while (position < sql.length) {
+          if (sql[position] === quote && sql[position + 1] === quote) {
+            position += 2;
+            continue;
+          }
+          if (sql[position] === quote) {
+            position++;
+            break;
+          }
+          position++;
+        }
+        continue;
+      }
+      if (character === '(') depth++;
+      else if (character === ')') depth--;
+      position++;
+    }
+
+    while (position < sql.length && /\s/.test(sql[position])) position++;
+    if (sql[position] !== ',') break;
+    position++;
+    cteCount++;
+  }
+
+  return sql.slice(position).trim();
+}
+
+function extractSelectClauses(sql: string): string[] {
+  const clauses: string[] = [];
+  const upper = sql.toUpperCase();
+  let depth = 0;
+
+  for (let index = 0; index < sql.length; index++) {
+    const character = sql[index];
+
+    if (character === "'" || character === '"' || character === '`') {
+      const quote = character;
+      index++;
+      while (index < sql.length) {
+        if (sql[index] === quote && sql[index + 1] === quote) {
+          index += 2;
+          continue;
+        }
+        if (sql[index] === quote) break;
+        index++;
+      }
+      continue;
+    }
+
+    if (character === '(') {
+      depth++;
+      continue;
+    }
+    if (character === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (!upper.startsWith('SELECT', index) || !isSqlWordBoundary(upper, index, 6)) continue;
+
+    const selectDepth = depth;
+    let clauseIndex = index + 6;
+    let clause = '';
+
+    while (clauseIndex < sql.length) {
+      const clauseCharacter = sql[clauseIndex];
+
+      if (clauseCharacter === "'" || clauseCharacter === '"' || clauseCharacter === '`') {
+        const quote = clauseCharacter;
+        clause += clauseCharacter;
+        clauseIndex++;
+        while (clauseIndex < sql.length) {
+          clause += sql[clauseIndex];
+          if (sql[clauseIndex] === quote && sql[clauseIndex + 1] === quote) {
+            clause += sql[clauseIndex + 1] || '';
+            clauseIndex += 2;
+            continue;
+          }
+          if (sql[clauseIndex] === quote) {
+            clauseIndex++;
+            break;
+          }
+          clauseIndex++;
+        }
+        continue;
+      }
+
+      if (clauseCharacter === '(') {
+        depth++;
+        clause += clauseCharacter;
+        clauseIndex++;
+        continue;
+      }
+      if (clauseCharacter === ')') {
+        depth = Math.max(0, depth - 1);
+        clause += clauseCharacter;
+        clauseIndex++;
+        continue;
+      }
+
+      if (
+        depth === selectDepth &&
+        upper.startsWith('FROM', clauseIndex) &&
+        isSqlWordBoundary(upper, clauseIndex, 4)
+      ) {
+        break;
+      }
+
+      clause += clauseCharacter;
+      clauseIndex++;
+    }
+
+    const normalizedClause = clause.trim();
+    if (normalizedClause) clauses.push(normalizedClause);
+    index = clauseIndex;
+  }
+
+  return clauses;
 }
 
 function splitSelectFields(fieldList: string): string[] {
@@ -660,19 +819,37 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
 
 export function calculateQueryComplexity(
   sql: string,
-  locale: Locale = 'en'
+  locale: Locale = 'en',
+  mainQuerySql?: string
 ): DetailedComplexityScore {
   const t = getT(locale);
   const keywords = scoreKeywords(sql);
-  const selectFields = analyzeSelectFields(sql, t);
+  const selectFields = analyzeSelectFields(sql, t, mainQuerySql);
   const ctes = scoreCTEs(sql);
   const windowFunctions = scoreWindowFunctions(sql);
   const subqueries = scoreSubqueries(sql);
 
   // Calculate SELECT field complexity
   const selectComplexityScore = selectFields.reduce((sum, field) => sum + field.complexity, 0);
-  const selectFieldCount = selectFields.filter((f) => f.field !== '*').length;
+  const selectFieldCount = selectFields.length;
   const avgSelectComplexity = selectFieldCount > 0 ? selectComplexityScore / selectFieldCount : 0;
+  const selectFieldFactors = Array.from(
+    selectFields.reduce((factors, field) => {
+      const existing = factors.get(field.type);
+      if (existing) {
+        existing.count++;
+        existing.subtotal += field.complexity;
+      } else {
+        factors.set(field.type, {
+          type: field.type,
+          count: 1,
+          weight: field.complexity,
+          subtotal: field.complexity,
+        });
+      }
+      return factors;
+    }, new Map<SelectFieldComplexity['type'], { type: SelectFieldComplexity['type']; count: number; weight: number; subtotal: number }>()).values()
+  );
   const scoreList = getScoresFromLocalStorage();
 
   // Calculate total score
@@ -681,6 +858,10 @@ export function calculateQueryComplexity(
 
   // Calculate max possible score (estimate for scaling)
   const dataScoreAnalyis = calculateScoredByMedian(scoreList); // Reasonable cap for very complex queries
+  const scoreBaseline = Math.max(
+    dataScoreAnalyis.median,
+    COMPLEXITY_SCORER_CONSTANTS.MIN_SAFE_MEDIAN
+  );
 
   const levelList = getComplexityLevelList(locale, dataScoreAnalyis.dynamicDefinitions);
   // Determine complexity level from the level definition list.
@@ -705,6 +886,7 @@ export function calculateQueryComplexity(
         complexityScore: selectComplexityScore,
         fieldCount: selectFieldCount,
         avgComplexity: avgSelectComplexity,
+        factors: selectFieldFactors,
       },
       joins: {
         count: (sql.match(/\bJOIN\b/gi) || []).length,
@@ -726,8 +908,8 @@ export function calculateQueryComplexity(
       },
     },
     lintingIssues,
-    maxScorePossible: dataScoreAnalyis.median,
-    percentageOfMax: (totalScore / dataScoreAnalyis.median) * 100,
+    maxScorePossible: scoreBaseline,
+    percentageOfMax: (totalScore / scoreBaseline) * 100,
   };
 }
 

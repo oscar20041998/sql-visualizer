@@ -94,10 +94,18 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sqlvisualizer-store',
+      // Bumped to drop any previously persisted analysisResult from older schema versions.
+      version: 1,
+      migrate: (persistedState) => {
+        const { analysisResult: _drop, ...rest } = (persistedState as Record<string, unknown>) || {};
+        return rest;
+      },
+      // analysisResult is intentionally not persisted: it must always be recomputed
+      // fresh so all derived sections (metrics, detailedComplexity, etc.) stay
+      // consistent with the current analyzer logic instead of showing stale values.
       partialize: (state) => ({
         settings: state.settings,
         dialect: state.dialect,
-        analysisResult: state.analysisResult,
       }),
     }
   )

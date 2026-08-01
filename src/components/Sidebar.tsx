@@ -187,7 +187,7 @@ export default function Sidebar() {
       <LoadingOverlay
         visible={isPending}
         title={t.loading || 'Loading...'}
-        description="Navigating to page..."
+        description={t.navigatingToPage}
       />
     </aside>
   );

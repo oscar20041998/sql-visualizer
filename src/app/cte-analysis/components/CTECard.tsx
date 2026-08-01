@@ -24,7 +24,13 @@ import { getT } from '@/lib/i18n';
 import type { CTE } from '@/lib/sqlAnalyzer';
 import NestedSubquerySection from './NestedSubquerySection';
 
-function ComplexityBadge({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' }) {
+function ComplexityBadge({
+  level,
+  t,
+}: {
+  level: 'LOW' | 'MEDIUM' | 'HIGH';
+  t: ReturnType<typeof getT>;
+}) {
   const cfg = {
     LOW: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     MEDIUM: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
@@ -32,7 +38,7 @@ function ComplexityBadge({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' }) {
   };
   return (
     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${cfg[level]}`}>
-      {level}
+      {{ LOW: t.complexityLow, MEDIUM: t.complexityMedium, HIGH: t.complexityHigh }[level]}
     </span>
   );
 }
@@ -120,7 +126,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               <Eye size={10} />
               {cte.usageCount}× {t.cteMetadataUsed}
             </span>
-            <ComplexityBadge level={cte.estimatedComplexity} />
+            <ComplexityBadge level={cte.estimatedComplexity} t={t} />
           </div>
         </div>
         {expanded ? (
@@ -172,7 +178,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               </span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <BarChart2 size={13} className="text-primary" />
-                <ComplexityBadge level={cte.estimatedComplexity} />
+                <ComplexityBadge level={cte.estimatedComplexity} t={t} />
               </div>
             </div>
             <div className="px-4 py-3 flex flex-col gap-0.5">

@@ -12,6 +12,13 @@ interface NestedSubqueryAnalysisProps {
   t: ReturnType<typeof getT>;
 }
 
+const SUBQUERY_RISK_LIMITS = [
+  { level: 'LOW', maxDepth: 1, maxCount: 2, color: 'var(--success)' },
+  { level: 'MEDIUM', maxDepth: 2, maxCount: 4, color: 'var(--warning)' },
+  { level: 'HIGH', maxDepth: 3, maxCount: 6, color: 'var(--danger)' },
+  { level: 'SUPER_HIGH', maxDepth: Infinity, maxCount: Infinity, color: 'var(--danger)' },
+] as const;
+
 function MetricCard({
   label,
   value,
@@ -63,6 +70,19 @@ export default function NestedSubqueryAnalysis({
   structuralReport,
   t,
 }: NestedSubqueryAnalysisProps) {
+  const risk =
+    SUBQUERY_RISK_LIMITS.find(
+      (limit) =>
+        metrics.subqueryDepth <= limit.maxDepth && metrics.subqueryCount <= limit.maxCount
+    ) ?? SUBQUERY_RISK_LIMITS[SUBQUERY_RISK_LIMITS.length - 1];
+  const riskLabel = {
+    LOW: t.complexityLow,
+    MEDIUM: t.complexityMedium,
+    HIGH: t.complexityHigh,
+    SUPER_HIGH: t.complexitySuperHigh,
+  }[risk.level];
+  const isHighRisk = risk.level === 'HIGH' || risk.level === 'SUPER_HIGH';
+
   return (
     <div className="bg-card border border-border rounded-xl p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -84,20 +104,50 @@ export default function NestedSubqueryAnalysis({
           icon={Layers}
           color="var(--info)"
           subtitle={t.metricsTotalSubqueriesFound}
-          alert={metrics.subqueryCount > 3}
+          alert={metrics.subqueryCount > 6}
         />
         <MetricCard
           label={t.metricsComplexityRisk}
-          value={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3 ? 'HIGH' : 'MODERATE'}
+          value={riskLabel}
           icon={AlertTriangle}
-          color={
-            metrics.subqueryDepth > 3 || metrics.subqueryCount > 3
-              ? 'var(--danger)'
-              : 'var(--warning)'
-          }
+          color={risk.color}
           subtitle={t.metricsBased}
-          alert={metrics.subqueryDepth > 3 || metrics.subqueryCount > 3}
+          alert={isHighRisk}
         />
+      </div>
+
+      <div className="mb-6 border border-border rounded-lg p-3">
+        <p className="text-xs font-semibold text-foreground mb-2">{t.metricsSubqueryRiskLimits}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 text-xs">
+          {SUBQUERY_RISK_LIMITS.map((limit) => (
+            <div
+              key={limit.level}
+              className={`rounded border p-2 ${
+                risk.level === limit.level ? 'border-primary bg-primary/5' : 'border-border/60'
+              }`}
+            >
+              <p className="font-semibold" style={{ color: limit.color }}>
+                {
+                  {
+                    LOW: t.complexityLow,
+                    MEDIUM: t.complexityMedium,
+                    HIGH: t.complexityHigh,
+                    SUPER_HIGH: t.complexitySuperHigh,
+                  }[limit.level]
+                }
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                {limit.level === 'LOW'
+                  ? t.metricsSubqueryRiskLowLimit
+                  : limit.level === 'MEDIUM'
+                    ? t.metricsSubqueryRiskMediumLimit
+                    : limit.level === 'HIGH'
+                      ? t.metricsSubqueryRiskHighLimit
+                      : t.metricsSubqueryRiskSuperHighLimit}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Nesting Level Breakdown */}
@@ -141,7 +191,7 @@ export default function NestedSubqueryAnalysis({
       </div>
 
       {/* Optimization Recommendation */}
-      {(metrics.subqueryDepth > 3 || metrics.subqueryCount > 3) && (
+      {isHighRisk && (
         <div className="mt-4 p-3 rounded-lg bg-danger/5 border border-danger/30">
           <p className="text-xs font-semibold text-danger mb-1">
             {t.metricsOptimizationRecommended}

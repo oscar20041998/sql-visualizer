@@ -18,7 +18,7 @@ const LEVEL_COLORS: Record<ComplexityLevelType, string> = {
 };
 
 export default function ComplexityGauge({ score, maxScore, level }: Props) {
-  const pct = Math.round((score / maxScore) * 100);
+  const pct = Math.min(100, Math.max(0, Math.round((score / maxScore) * 100)));
   const color = LEVEL_COLORS[level];
 
   const data = [

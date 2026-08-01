@@ -3,22 +3,26 @@
 import React from 'react';
 import { getT } from '@/lib/i18n';
 import ComplexityGauge from './ComplexityGauge';
-import type { ComplexityScore } from '@/lib/sqlAnalyzer';
+import type { ComplexityLevel, DetailedComplexityScore } from '@/lib/complexityScorer';
 
 interface ComplexityHeroCardProps {
-  complexity: ComplexityScore;
+  detailedComplexity?: DetailedComplexityScore;
   t: ReturnType<typeof getT>;
 }
 
-export default function ComplexityHeroCard({ complexity, t }: ComplexityHeroCardProps) {
-  const complexityBadgeMap: Record<ComplexityScore['level'], string> = {
+export default function ComplexityHeroCard({ detailedComplexity, t }: ComplexityHeroCardProps) {
+  if (!detailedComplexity) {
+    return null;
+  }
+
+  const complexityBadgeMap: Record<ComplexityLevel, string> = {
     LOW: 'complexity-badge-low',
     MEDIUM: 'complexity-badge-medium',
     HIGH: 'complexity-badge-high',
     SUPER_HIGH: 'complexity-badge-super',
   };
 
-  const complexityLabelMap: Record<ComplexityScore['level'], string> = {
+  const complexityLabelMap: Record<ComplexityLevel, string> = {
     LOW: t.complexityLow,
     MEDIUM: t.complexityMedium,
     HIGH: t.complexityHigh,
@@ -34,19 +38,20 @@ export default function ComplexityHeroCard({ complexity, t }: ComplexityHeroCard
         {t.complexityLevel}
       </span>
       <ComplexityGauge
-        score={complexity.score}
-        maxScore={complexity.maxScore}
-        level={complexity.level}
+        score={detailedComplexity.totalScore}
+        maxScore={detailedComplexity.maxScorePossible}
+        level={detailedComplexity.level}
       />
       <div
-        className={`px-4 py-1.5 rounded-full text-sm font-bold ${complexityBadgeMap[complexity.level]}`}
+        className={`px-4 py-1.5 rounded-full text-sm font-bold ${complexityBadgeMap[detailedComplexity.level]}`}
       >
-        {complexityLabelMap[complexity.level]}
+        {detailedComplexity.levelLabel ?? complexityLabelMap[detailedComplexity.level]}
       </div>
       <div className="text-center">
         <p className="text-xs text-muted-foreground">
-          {t.complexityScore}: <span className="font-mono text-foreground">{complexity.score}</span>
-          <span className="text-muted-foreground/50"> / {complexity.maxScore}</span>
+          {t.complexityScore}:{' '}
+          <span className="font-mono text-foreground">{detailedComplexity.totalScore}</span>
+          <span className="text-muted-foreground/50"> / {detailedComplexity.maxScorePossible}</span>
         </p>
       </div>
     </div>

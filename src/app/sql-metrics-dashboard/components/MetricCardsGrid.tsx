@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   Filter,
   GitBranch,
-  Clock,
   BarChart3,
   Zap,
 } from 'lucide-react';
@@ -24,14 +23,14 @@ function MetricCard({
   label,
   value,
   icon: Icon,
-  color,
+  accentColor,
   subtitle,
   alert,
 }: {
   label: string;
   value: number | string;
   icon: React.ElementType;
-  color: string;
+  accentColor: string;
   subtitle?: string;
   alert?: boolean;
 }) {
@@ -43,20 +42,20 @@ function MetricCard({
       style={{ containment: 'layout style paint' } as any}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: accentColor }}>
           {label}
         </span>
         <div
           className="w-7 h-7 rounded flex items-center justify-center"
-          style={{ background: `${color}15` }}
+          style={{ background: `${accentColor}15` }}
         >
-          <Icon size={14} style={{ color }} />
+          <Icon size={14} style={{ color: accentColor }} />
         </div>
       </div>
       <div>
         <span
           className="text-2xl font-bold tabular-nums"
-          style={{ color: alert ? 'var(--danger)' : color }}
+          style={{ color: 'var(--primary)' }}
         >
           {value}
         </span>
@@ -73,7 +72,7 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.windowFunctions}
         value={metrics.windowFunctions}
         icon={TrendingUp}
-        color="var(--accent)"
+        accentColor="var(--accent)"
         subtitle={t.metricsSubtitleWindowClauses}
         alert={metrics.windowFunctions > 3}
       />
@@ -81,28 +80,28 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.groupBy}
         value={metrics.groupBy}
         icon={Filter}
-        color="var(--info)"
+        accentColor="var(--info)"
         subtitle={t.metricsSubtitleAggregationClauses}
       />
       <MetricCard
         label={t.orderBy}
         value={metrics.orderBy}
         icon={ArrowUpDown}
-        color="var(--join-inner)"
+        accentColor="var(--join-inner)"
         subtitle={t.metricsSubtitleSortOperations}
       />
       <MetricCard
         label={t.distinct}
         value={metrics.distinct}
         icon={Hash}
-        color="var(--join-right)"
+        accentColor="var(--join-right)"
         subtitle={t.metricsSubtitleDeduplicationOps}
       />
       <MetricCard
         label={t.subqueryDepth}
         value={metrics.subqueryDepth}
         icon={Layers}
-        color="var(--warning)"
+        accentColor="var(--warning)"
         subtitle={t.metricsSubtitleNestingLevels}
         alert={metrics.subqueryDepth > 3}
       />
@@ -110,7 +109,7 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.metricsSubqueryCount}
         value={metrics.subqueryCount}
         icon={Layers}
-        color="var(--warning)"
+        accentColor="var(--warning)"
         subtitle={t.metricsSubtitleNestedSelects}
         alert={metrics.subqueryCount > 3}
       />
@@ -118,7 +117,7 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.joinCount}
         value={metrics.joinCount}
         icon={GitBranch}
-        color="var(--join-left)"
+        accentColor="var(--join-left)"
         subtitle={t.metricsSubtitleJoinOperations}
         alert={metrics.joinCount > 5}
       />
@@ -126,7 +125,7 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.metricsConditionCount}
         value={metrics.conditionCount}
         icon={Filter}
-        color="var(--info)"
+        accentColor="var(--info)"
         subtitle={t.metricsSubtitleConditionFormula}
         alert={metrics.conditionCount > 8}
       />
@@ -134,7 +133,7 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.metricsOpsFunctions}
         value={metrics.operationAndFunctionCount}
         icon={Zap}
-        color="var(--accent)"
+        accentColor="var(--accent)"
         subtitle={t.metricsSubtitleOpsFunctions}
         alert={metrics.operationAndFunctionCount > 12}
       />
@@ -142,14 +141,14 @@ export default function MetricCardsGrid({ metrics, t }: MetricCardsGridProps) {
         label={t.metricsLinesOfSql}
         value={metrics.lineCount}
         icon={Hash}
-        color="var(--primary)"
+        accentColor="var(--primary)"
         subtitle={t.metricsSubtitleRawInputLines}
       />
       <MetricCard
         label={t.metricsFinalSelectFields}
         value={metrics.finalSelectFieldCount}
         icon={BarChart3}
-        color="var(--join-inner)"
+        accentColor="var(--join-inner)"
         subtitle={t.metricsSubtitleFinalOutputProjection}
       />
     </div>

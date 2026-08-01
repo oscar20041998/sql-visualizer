@@ -16,6 +16,10 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
   const { settings } = useAppStore();
   const t = getT(settings.locale);
 
+  React.useEffect(() => {
+    setDismissed(new Set());
+  }, [sql]);
+
   if (!sql.trim()) {
     return null;
   }

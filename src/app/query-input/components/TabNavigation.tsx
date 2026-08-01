@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Code2, FileCode, BookOpen } from 'lucide-react';
+import { Code2, BookOpen } from 'lucide-react';
 import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
 
 interface TabNavigationProps {
@@ -17,7 +17,6 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
     icon: React.ReactNode;
   }> = [
     { value: 'sql', label: t.tabPasteSQL, icon: <Code2 size={14} /> },
-    { value: 'mybatis', label: t.tabMyBatisContent, icon: <FileCode size={14} /> },
     { value: 'import-xml', label: t.tabImportMyBatis, icon: <BookOpen size={14} /> },
     { value: 'smart-editor', label: t.tabSmartEditor, icon: <Code2 size={14} /> },
   ];

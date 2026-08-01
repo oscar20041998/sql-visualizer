@@ -9,9 +9,12 @@ import {
   Zap,
   BarChart3,
   Network,
-  ChevronRight,
   Sparkles,
   ArrowUpRight,
+  Check,
+  SearchCheck,
+  ShieldAlert,
+  Table2,
 } from 'lucide-react';
 
 const FeatureCard = ({
@@ -26,42 +29,19 @@ const FeatureCard = ({
   delay: number;
 }) => (
   <div
-    className="group relative bg-card border border-border rounded-xl p-6 hover:border-primary/50 hover:shadow-lg transition-all duration-300 overflow-hidden"
+    className="group relative border-t-2 border-primary/50 bg-card p-6 transition-colors hover:bg-muted/40"
     style={{
       animation: `slideUp 0.6s ease-out ${delay}ms both`,
     }}
   >
-    {/* Background gradient on hover */}
-    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
     <div className="relative z-10">
-      <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+      <div className="w-11 h-11 border border-primary/20 bg-primary/10 rounded-md flex items-center justify-center mb-4">
         <div className="text-primary">{Icon}</div>
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </div>
   </div>
-);
-
-const FloatingOrb = ({
-  delay,
-  size,
-  className,
-}: {
-  delay: number;
-  size: string;
-  className?: string;
-}) => (
-  <div
-    className={`absolute rounded-full blur-3xl pointer-events-none ${className}`}
-    style={{
-      animation: `float ${6 + delay * 0.5}s ease-in-out infinite`,
-      animationDelay: `${delay}s`,
-      width: size,
-      height: size,
-    }}
-  />
 );
 
 export default function HomePage() {
@@ -76,11 +56,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden">
-      {/* Animated background orbs */}
-      <FloatingOrb delay={0} size="400px" className="top-0 left-0 bg-primary/10 opacity-30" />
-      <FloatingOrb delay={2} size="300px" className="bottom-0 right-0 bg-accent/10 opacity-20" />
-      <FloatingOrb delay={1} size="250px" className="top-1/3 right-1/4 bg-info/10 opacity-25" />
-
       {/* Grid pattern overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -93,12 +68,6 @@ export default function HomePage() {
       />
 
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) translateX(0px); }
-          33% { transform: translateY(-30px) translateX(20px); }
-          66% { transform: translateY(20px) translateX(-20px); }
-        }
-
         @keyframes slideUp {
           from {
             opacity: 0;
@@ -110,25 +79,6 @@ export default function HomePage() {
           }
         }
 
-        @keyframes shimmer {
-          0%, 100% { background-position: 200% center; }
-          50% { background-position: -200% center; }
-        }
-
-        .shimmer-button {
-          background: linear-gradient(
-            90deg,
-            var(--primary),
-            var(--accent),
-            var(--primary)
-          );
-          background-size: 200% auto;
-          animation: shimmer 3s linear infinite;
-        }
-
-        .glow-effect {
-          box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.3);
-        }
       `}</style>
 
       {/* Content */}
@@ -172,6 +122,42 @@ export default function HomePage() {
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
                 {t.homeDescription}
               </p>
+            </div>
+
+            <div
+              className="mx-auto grid max-w-4xl grid-cols-1 overflow-hidden border border-border bg-card text-left shadow-xl shadow-black/20 md:grid-cols-[1.2fr_0.8fr]"
+              style={{ animation: 'slideUp 0.6s ease-out 160ms both' }}
+            >
+              <div className="bg-[#0d1117] p-5 font-mono text-xs leading-7">
+                <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3 text-[#8b949e]">
+                  <span>{t.homePreviewQueryTitle}</span>
+                  <span className="rounded bg-[#238636]/20 px-2 py-0.5 text-[#3fb950]">
+                    {t.homePreviewAnalyzed}
+                  </span>
+                </div>
+                <p><span className="text-[#79c0ff]">WITH</span> <span className="text-[#d2a8ff]">revenue_by_region</span> <span className="text-[#c9d1d9]">AS (</span></p>
+                <p className="pl-4"><span className="text-[#79c0ff]">SELECT</span> region, SUM(amount) <span className="text-[#79c0ff]">AS</span> revenue</p>
+                <p className="pl-4"><span className="text-[#79c0ff]">FROM</span> orders <span className="text-[#79c0ff]">GROUP BY</span> region</p>
+                <p><span className="text-[#c9d1d9]">)</span> <span className="text-[#79c0ff]">SELECT</span> region, revenue</p>
+                <p><span className="text-[#79c0ff]">FROM</span> revenue_by_region <span className="text-[#79c0ff]">ORDER BY</span> revenue DESC;</p>
+              </div>
+              <div className="space-y-3 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t.homePreviewInsightTitle}
+                </p>
+                <div className="border-l-2 border-primary bg-primary/5 p-3">
+                  <p className="text-[10px] text-muted-foreground">{t.homePreviewComplexity}</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">24 <span className="text-xs text-primary">MEDIUM</span></p>
+                </div>
+                <div className="border-l-2 border-accent bg-accent/5 p-3">
+                  <p className="text-[10px] text-muted-foreground">{t.homePreviewRelationships}</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">3 {t.homePreviewTables}</p>
+                </div>
+                <div className="border-l-2 border-warning bg-warning/5 p-3">
+                  <p className="text-[10px] text-muted-foreground">{t.homePreviewRecommendation}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-foreground">{t.homePreviewRecommendationText}</p>
+                </div>
+              </div>
             </div>
 
             {/* CTA Button */}
@@ -223,6 +209,29 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="border-y border-border/50 bg-card/40">
+          <div className="max-w-7xl mx-auto px-6 py-16 lg:px-8 xl:px-10">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t.homeWorkflowEyebrow}</p>
+              <h3 className="mt-3 text-3xl font-bold text-foreground">{t.homeWorkflowTitle}</h3>
+              <p className="mt-3 text-muted-foreground leading-relaxed">{t.homeWorkflowDescription}</p>
+            </div>
+            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+              {[
+                { number: '01', icon: Database, title: t.homeWorkflowInputTitle, description: t.homeWorkflowInputDescription },
+                { number: '02', icon: Table2, title: t.homeWorkflowInspectTitle, description: t.homeWorkflowInspectDescription },
+                { number: '03', icon: ShieldAlert, title: t.homeWorkflowImproveTitle, description: t.homeWorkflowImproveDescription },
+              ].map(({ number, icon: Icon, title, description }) => (
+                <div key={number} className="border-t-2 border-primary/50 bg-background p-6">
+                  <div className="flex items-center justify-between"><span className="font-mono text-xs text-primary">{number}</span><Icon size={19} className="text-primary" /></div>
+                  <h4 className="mt-7 text-lg font-semibold text-foreground">{title}</h4>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Features Section */}
         <section className="max-w-7xl mx-auto px-6 py-20 border-t border-border/50">
           <div
@@ -262,6 +271,20 @@ export default function HomePage() {
               description={t.homeSmartRecommendationsDesc}
               delay={250}
             />
+          </div>
+        </section>
+
+        <section className="border-y border-border/50 bg-card/40">
+          <div className="max-w-7xl mx-auto flex flex-col gap-6 px-6 py-10 md:flex-row md:items-center md:justify-between lg:px-8 xl:px-10">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.homeDialectsLabel}</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{t.homeDialectsTitle}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-6">
+              {['my_sql_logo.png', 'postgresql_logo.jpg', 'mssql_logo.png', 'oracle_logo.png'].map((asset) => (
+                <img key={asset} src={`/assets/images/${asset}`} alt="" className="h-9 w-auto object-contain opacity-80" />
+              ))}
+            </div>
           </div>
         </section>
 
