@@ -3,6 +3,7 @@
 import React, { memo, useState, useCallback } from 'react';
 import { Table2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getT } from '@/lib/i18n';
+import { useAppStore } from '@/lib/store';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
 import type { JoinType } from '@/lib/sqlAnalyzer';
 
@@ -92,7 +93,8 @@ const ExtractedTablesPanel = memo(function ExtractedTablesPanelComponent({
   onGetCsv,
 }: ExtractedTablesPanelProps) {
   const [showExtracted, setShowExtracted] = useState(true);
-  const t = getT('en');
+  const locale = useAppStore((state) => state.settings.locale);
+  const t = getT(locale);
 
   return (
     <div
@@ -113,7 +115,7 @@ const ExtractedTablesPanel = memo(function ExtractedTablesPanelComponent({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <CopyButton getText={onGetCsv} label="Copy CSV" />
+          <CopyButton getText={onGetCsv} label={`${t.copy} CSV`} />
           <button
             onClick={() => setShowExtracted((v) => !v)}
             className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground flex-shrink-0"

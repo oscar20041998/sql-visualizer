@@ -58,6 +58,7 @@ export interface DetailedComplexityScore {
   totalScore: number;
   level: ComplexityLevel;
   levelLabel: string;
+  levelThresholds: ComplexityLevelItem[];
   scoreBreakdown: {
     keywords: { category: string; count: number; baseScore: number; subtotal: number }[];
     selectFields: {
@@ -880,6 +881,7 @@ export function calculateQueryComplexity(
     totalScore,
     level,
     levelLabel: matchedLevel.label,
+    levelThresholds: levelList,
     scoreBreakdown: {
       keywords: keywords.keywords,
       selectFields: {

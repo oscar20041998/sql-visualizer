@@ -3,6 +3,7 @@
 import React from 'react';
 import { getT } from '@/lib/i18n';
 import ComplexityGauge from './ComplexityGauge';
+import ComplexityLevelRange from './ComplexityLevelRange';
 import type { ComplexityLevel, DetailedComplexityScore } from '@/lib/complexityScorer';
 
 interface ComplexityHeroCardProps {
@@ -54,6 +55,11 @@ export default function ComplexityHeroCard({ detailedComplexity, t }: Complexity
           <span className="text-muted-foreground/50"> / {detailedComplexity.maxScorePossible}</span>
         </p>
       </div>
+      <ComplexityLevelRange
+        score={detailedComplexity.totalScore}
+        thresholds={detailedComplexity.levelThresholds}
+        t={t}
+      />
     </div>
   );
 }
