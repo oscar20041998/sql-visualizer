@@ -171,8 +171,12 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
           label: t.guidelineSettingsStep4Label,
           desc: t.guidelineSettingsStep4Desc,
         },
+        {
+          label: t.guidelineSettingsStep5Label,
+          desc: t.guidelineSettingsStep5Desc,
+        },
       ],
-      tips: [{ text: t.guidelineSettingsTip1 }],
+      tips: [{ text: t.guidelineSettingsTip1 }, { text: t.guidelineSettingsTip2 }],
     },
     {
       id: 'tools',

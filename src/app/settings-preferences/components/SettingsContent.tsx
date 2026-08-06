@@ -7,6 +7,7 @@ import {
   Globe,
   Database,
   GitFork,
+  Bot,
   Moon,
   Sun,
   Check,
@@ -14,7 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAppStore, type AppSettings, DEFAULT_SETTINGS } from '@/lib/store';
+import { useAppStore, type AppSettings, type AIModelConfig, DEFAULT_SETTINGS } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -110,6 +111,7 @@ const SETTINGS_CATEGORIES = [
   { key: 'language', icon: Globe },
   { key: 'analysis', icon: Database },
   { key: 'graph', icon: GitFork },
+  { key: 'ai', icon: Bot },
 ] as const;
 
 const DIALECT_OPTIONS: { value: SqlDialect; label: string }[] = [
@@ -142,11 +144,18 @@ export default function SettingsContent() {
   const { settings, updateSettings } = useAppStore();
   const t = getT(settings.locale);
   const [activeCategory, setActiveCategory] = useState<
-    'appearance' | 'language' | 'analysis' | 'graph'
+    'appearance' | 'language' | 'analysis' | 'graph' | 'ai'
   >('appearance');
+
+  const aiConfig = settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig;
 
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     updateSettings({ [key]: value });
+    toast.success(t.saved, { duration: 1500 });
+  };
+
+  const updateAI = <K extends keyof AIModelConfig>(key: K, value: AIModelConfig[K]) => {
+    updateSettings({ aiConfig: { ...aiConfig, [key]: value } });
     toast.success(t.saved, { duration: 1500 });
   };
 
@@ -160,6 +169,7 @@ export default function SettingsContent() {
     language: t.settingsLanguage,
     analysis: t.settingsAnalysis,
     graph: t.settingsGraph,
+    ai: t.settingsAI,
   };
 
   // Fill in translated labels for options
@@ -177,6 +187,12 @@ export default function SettingsContent() {
     { value: 'smooth' as const, label: t.edgeSmooth },
     { value: 'straight' as const, label: t.edgeStraight },
     { value: 'step' as const, label: t.edgeStep },
+  ];
+  const aiProviderOptionsTranslated: { value: AIModelConfig['provider']; label: string }[] = [
+    { value: 'ollama', label: t.aiProviderOllama },
+    { value: 'openai', label: t.aiProviderOpenAI },
+    { value: 'anthropic', label: t.aiProviderAnthropic },
+    { value: 'gemini', label: t.aiProviderGemini },
   ];
 
   return (
@@ -333,6 +349,93 @@ export default function SettingsContent() {
                       onChange={(v) => update('edgeStyle', v)}
                     />
                   </SettingRow>
+                </div>
+              )}
+
+              {/* AI Model Configuration */}
+              {activeCategory === 'ai' && (
+                <div>
+                  <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
+                    <SelectDropdown
+                      value={aiConfig.provider}
+                      options={aiProviderOptionsTranslated}
+                      onChange={(v) => updateAI('provider', v)}
+                    />
+                  </SettingRow>
+
+                  {aiConfig.provider === 'ollama' ? (
+                    <>
+                      <SettingRow label={t.aiBaseUrl} hint={t.aiBaseUrlHint}>
+                        <input
+                          type="text"
+                          value={aiConfig.ollamaBaseUrl}
+                          onChange={(e) => updateAI('ollamaBaseUrl', e.target.value)}
+                          placeholder="http://localhost:11434"
+                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </SettingRow>
+                      <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
+                        <input
+                          type="text"
+                          value={aiConfig.ollamaModel}
+                          onChange={(e) => updateAI('ollamaModel', e.target.value)}
+                          placeholder="qwen2.5-coder:7b"
+                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </SettingRow>
+                    </>
+                  ) : (
+                    <>
+                      <SettingRow label={t.aiApiKey} hint={t.aiApiKeyHint}>
+                        <input
+                          type="password"
+                          value={aiConfig.apiKey}
+                          onChange={(e) => updateAI('apiKey', e.target.value)}
+                          placeholder="sk-..."
+                          autoComplete="off"
+                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </SettingRow>
+                      <SettingRow label={t.aiModelId} hint={t.aiModelIdHint}>
+                        <input
+                          type="text"
+                          value={aiConfig.modelId}
+                          onChange={(e) => updateAI('modelId', e.target.value)}
+                          placeholder="gpt-4o"
+                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </SettingRow>
+                    </>
+                  )}
+
+                  <SettingRow label={t.aiTemperature} hint={t.aiTemperatureHint}>
+                    <div className="flex items-center gap-3 min-w-[200px]">
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={aiConfig.temperature}
+                        onChange={(e) => updateAI('temperature', parseFloat(e.target.value))}
+                        className="w-36 accent-primary"
+                      />
+                      <span className="text-xs font-mono text-muted-foreground w-8 text-right">
+                        {aiConfig.temperature.toFixed(1)}
+                      </span>
+                    </div>
+                  </SettingRow>
+
+                  <div className="py-4">
+                    <p className="text-sm font-medium text-foreground mb-0.5">{t.aiSystemPrompt}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{t.aiSystemPromptHint}</p>
+                    <textarea
+                      value={aiConfig.systemPrompt}
+                      onChange={(e) => updateAI('systemPrompt', e.target.value)}
+                      rows={4}
+                      placeholder={t.aiSystemPromptPlaceholder}
+                      className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                    />
+                  </div>
                 </div>
               )}
             </div>

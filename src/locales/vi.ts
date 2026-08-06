@@ -368,6 +368,29 @@ const vi = {
   spacingNormal: 'Bình thường',
   spacingSpacious: 'Rộng rãi',
 
+  // Settings - AI Model Configuration
+  settingsAI: 'Cấu hình mô hình AI',
+  aiConfigSubtitle: 'Cấu hình nhà cung cấp AI dùng để diễn giải SQL sang ngôn ngữ tự nhiên',
+  aiProvider: 'Nhà cung cấp AI',
+  aiProviderHint: 'Chọn giữa mô hình Ollama cục bộ hoặc nhà cung cấp AI đám mây',
+  aiProviderOllama: 'Ollama (LLM cục bộ)',
+  aiProviderOpenAI: 'OpenAI',
+  aiProviderAnthropic: 'Anthropic (Claude)',
+  aiProviderGemini: 'Google Gemini',
+  aiBaseUrl: 'Địa chỉ Base URL',
+  aiBaseUrlHint: 'Địa chỉ máy chủ Ollama cục bộ của bạn',
+  aiLocalModel: 'Tên mô hình cục bộ',
+  aiLocalModelHint: 'Tag mô hình đã tải trong Ollama, ví dụ qwen2.5-coder:7b hoặc llama3',
+  aiApiKey: 'API Key',
+  aiApiKeyHint: 'Được lưu cục bộ trên trình duyệt và dùng để xác thực yêu cầu',
+  aiModelId: 'Model ID',
+  aiModelIdHint: 'Định danh mô hình sử dụng, ví dụ gpt-4o hoặc claude-3-5-sonnet',
+  aiTemperature: 'Temperature',
+  aiTemperatureHint: 'Kiểm soát mức độ ngẫu nhiên — giá trị thấp cho kết quả ổn định hơn',
+  aiSystemPrompt: 'System Prompt',
+  aiSystemPromptHint: 'Hướng dẫn mặc định cho cách AI diễn giải truy vấn SQL',
+  aiSystemPromptPlaceholder: 'Ví dụ: Diễn giải truy vấn SQL rõ ràng, súc tích cho lập trình viên junior...',
+
   // Guideline
   guidelineTitle: 'Hướng Dẫn Sử Dụng',
   guidelineQuickStart: 'Bắt đầu nhanh',
@@ -464,8 +487,13 @@ const vi = {
   guidelineSettingsStep4Label: 'Tự động phân tích khi dán',
   guidelineSettingsStep4Desc:
     'Khi bật, công cụ tự động chạy phân tích ngay khi bạn dán SQL vào trình soạn thảo — không cần nhấn Phân tích.',
+  guidelineSettingsStep5Label: 'Cấu hình mô hình AI',
+  guidelineSettingsStep5Desc:
+    'Cấu hình nhà cung cấp AI dùng để diễn giải SQL sang ngôn ngữ tự nhiên. Chọn Ollama cho LLM cục bộ, hoặc nhà cung cấp đám mây (OpenAI, Anthropic, Gemini) với API key, Model ID, temperature và system prompt riêng của bạn.',
   guidelineSettingsTip1:
     'Cài đặt được lưu trong trình duyệt — tùy chọn của bạn sẽ được giữ nguyên sau khi tải lại trang.',
+  guidelineSettingsTip2:
+    'API key được lưu cục bộ trên trình duyệt và chỉ được gửi trực tiếp đến nhà cung cấp bạn đã chọn.',
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Các công cụ có sẵn',
   guidelineToolsSubtitle: 'Tổng quan đầy đủ về tính năng và mô tả công cụ',
@@ -496,7 +524,7 @@ const vi = {
   guidelineToolsSettingsDesc:
     'Tùy chỉnh ứng dụng theo tùy chọn của bạn. Kiểm soát giao diện, ngôn ngữ, kiểu trực quan hóa biểu đồ và hành vi phân tích.',
   guidelineToolsSettingsFeatures:
-    'Chủ đề tối/sáng • Chuyển đổi ngôn ngữ EN/VI • Tùy chọn bố cục biểu đồ (Dagre/Force/Grid) • Lựa chọn kiểu cạnh • Bật tắt phân tích tự động',
+    'Chủ đề tối/sáng • Chuyển đổi ngôn ngữ EN/VI • Tùy chọn bố cục biểu đồ (Dagre/Force/Grid) • Lựa chọn kiểu cạnh • Bật tắt phân tích tự động • Cấu hình mô hình AI (Ollama/OpenAI/Anthropic/Gemini)',
   guidelineToolsWorkflowTitle: 'Quy trình công việc thông thường',
   guidelineToolsWorkflowQuickAudit: 'Kiểm tra nhanh (5 phút)',
   guidelineToolsWorkflowQuickAuditDesc: 'Dán truy vấn → Kiểm tra số liệu → Xem xét phân tích CTE',

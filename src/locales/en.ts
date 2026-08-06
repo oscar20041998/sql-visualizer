@@ -373,6 +373,29 @@ const en = {
   spacingNormal: 'Normal',
   spacingSpacious: 'Spacious',
 
+  // Settings - AI Model Configuration
+  settingsAI: 'AI Model Configuration',
+  aiConfigSubtitle: 'Configure the AI provider used for SQL-to-natural-language explanations',
+  aiProvider: 'AI Provider',
+  aiProviderHint: 'Choose between a local Ollama model or a cloud AI provider',
+  aiProviderOllama: 'Ollama (Local LLM)',
+  aiProviderOpenAI: 'OpenAI',
+  aiProviderAnthropic: 'Anthropic (Claude)',
+  aiProviderGemini: 'Google Gemini',
+  aiBaseUrl: 'Base URL',
+  aiBaseUrlHint: 'Address of your local Ollama server',
+  aiLocalModel: 'Local Model Name',
+  aiLocalModelHint: 'Model tag pulled in Ollama, e.g. qwen2.5-coder:7b or llama3',
+  aiApiKey: 'API Key',
+  aiApiKeyHint: 'Stored locally in your browser and used to authenticate requests',
+  aiModelId: 'Model ID',
+  aiModelIdHint: 'Identifier of the model to use, e.g. gpt-4o or claude-3-5-sonnet',
+  aiTemperature: 'Temperature',
+  aiTemperatureHint: 'Controls randomness — lower values are more deterministic',
+  aiSystemPrompt: 'System Prompt',
+  aiSystemPromptHint: 'Default instructions guiding how the AI explains SQL queries',
+  aiSystemPromptPlaceholder: 'e.g. Explain SQL queries clearly and concisely for a junior developer...',
+
   // Guideline
   guidelineTitle: 'User Guide',
   guidelineQuickStart: 'Quick Start',
@@ -468,8 +491,13 @@ const en = {
   guidelineSettingsStep4Label: 'Auto-Analyze on Paste',
   guidelineSettingsStep4Desc:
     'When enabled, the tool automatically runs analysis as soon as you paste SQL into the editor — no need to click Analyze.',
+  guidelineSettingsStep5Label: 'AI Model Configuration',
+  guidelineSettingsStep5Desc:
+    'Configure the AI provider used for SQL-to-natural-language explanations. Choose Ollama for a local LLM, or a cloud provider (OpenAI, Anthropic, Gemini) with your own API key, Model ID, temperature, and system prompt.',
   guidelineSettingsTip1:
     'Settings are persisted in your browser — your preferences survive page refreshes.',
+  guidelineSettingsTip2:
+    'API keys are stored locally in your browser and are sent only directly to the provider you selected.',
 
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Tools Available',
@@ -501,7 +529,7 @@ const en = {
   guidelineToolsSettingsDesc:
     'Customize the application to your preferences. Control appearance, language, graph visualization style, and analysis behavior.',
   guidelineToolsSettingsFeatures:
-    'Dark/light theme • EN/VI language switching • Graph layout options (Dagre/Force/Grid) • Edge style selection • Auto-analyze toggle',
+    'Dark/light theme • EN/VI language switching • Graph layout options (Dagre/Force/Grid) • Edge style selection • Auto-analyze toggle • AI Model Configuration (Ollama/OpenAI/Anthropic/Gemini)',
   guidelineToolsWorkflowTitle: 'Common Workflows',
   guidelineToolsWorkflowQuickAudit: 'Quick Audit (5 min)',
   guidelineToolsWorkflowQuickAuditDesc: 'Paste query → Check Metrics → Review CTE Analysis',

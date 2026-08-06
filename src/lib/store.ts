@@ -5,6 +5,18 @@ import { persist } from 'zustand/middleware';
 import type { SqlDialect, AnalysisResult } from './sqlAnalyzer';
 import type { Locale } from './i18n';
 
+export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'gemini';
+
+export interface AIModelConfig {
+  provider: AIProvider;
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+  apiKey: string;
+  modelId: string;
+  temperature: number;
+  systemPrompt: string;
+}
+
 export interface AppSettings {
   theme: 'dark' | 'light';
   locale: Locale;
@@ -15,6 +27,7 @@ export interface AppSettings {
   edgeStyle: 'smooth' | 'straight' | 'step';
   accentColor?: string;
   performanceMode: boolean;
+  aiConfig: AIModelConfig;
 }
 
 interface AppState {
@@ -43,6 +56,17 @@ interface AppState {
   resetAll: () => void;
 }
 
+export const DEFAULT_AI_CONFIG: AIModelConfig = {
+  provider: 'ollama',
+  ollamaBaseUrl: 'http://localhost:11434',
+  ollamaModel: 'qwen2.5-coder:7b',
+  apiKey: '',
+  modelId: 'gpt-4o',
+  temperature: 0.1,
+  systemPrompt:
+    'You are a SQL expert assistant. Explain SQL queries in plain, clear language: describe the purpose, tables involved, joins, filters, and the expected result set.',
+};
+
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   locale: 'en',
@@ -53,6 +77,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   edgeStyle: 'smooth',
   accentColor: '#6ee7f7',
   performanceMode: false,
+  aiConfig: DEFAULT_AI_CONFIG,
 };
 
 const defaultSettings: AppSettings = DEFAULT_SETTINGS;
@@ -94,11 +119,19 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sqlvisualizer-store',
-      // Bumped to drop any previously persisted analysisResult from older schema versions.
-      version: 1,
+      // Bumped to backfill aiConfig on settings persisted before AI configuration existed.
+      version: 2,
       migrate: (persistedState) => {
         const { analysisResult: _drop, ...rest } = (persistedState as Record<string, unknown>) || {};
-        return rest;
+        const state = rest as { settings?: Partial<AppSettings> };
+        if (state.settings) {
+          state.settings = {
+            ...DEFAULT_SETTINGS,
+            ...state.settings,
+            aiConfig: { ...DEFAULT_AI_CONFIG, ...state.settings.aiConfig },
+          };
+        }
+        return state;
       },
       // analysisResult is intentionally not persisted: it must always be recomputed
       // fresh so all derived sections (metrics, detailedComplexity, etc.) stay
