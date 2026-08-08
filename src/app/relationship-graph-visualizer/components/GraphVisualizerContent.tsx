@@ -565,7 +565,8 @@ export default function GraphVisualizerContent() {
               </span>
               <span className="flex items-center gap-1 whitespace-nowrap">
                 <Link2 size={11} />
-                {filteredJoins.length} {t.joinCount}
+                {relationshipFilter === 'all' ? analysisResult.metrics.joinCount : filteredJoins.length}{' '}
+                {t.joinCount}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="whitespace-nowrap">{t.graphFilterLabel}</span>
