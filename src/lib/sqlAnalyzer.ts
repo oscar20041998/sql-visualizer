@@ -554,6 +554,55 @@ export function analyzeAllJoins(
   }));
 }
 
+function maskSqlStringLiterals(sql: string): string {
+  let masked = '';
+
+  for (let index = 0; index < sql.length; index++) {
+    const character = sql[index];
+    if (character !== "'") {
+      masked += character;
+      continue;
+    }
+
+    const quote = character;
+    masked += ' ';
+    index++;
+    while (index < sql.length) {
+      if (sql[index] === quote && sql[index + 1] === quote) {
+        masked += '  ';
+        index += 2;
+      } else if (sql[index] === quote) {
+        masked += ' ';
+        break;
+      } else {
+        masked += sql[index] === '\n' ? '\n' : ' ';
+      }
+      index++;
+    }
+  }
+
+  return masked;
+}
+
+function countCteSourceReferences(sql: string, cteNames: Set<string>): Map<string, number> {
+  const counts = new Map<string, number>();
+  cteNames.forEach((name) => counts.set(name, 0));
+
+  const sourcePattern =
+    /\b(?:FROM|JOIN)\s+((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[\w.]+))/gi;
+  const sourceSql = maskSqlStringLiterals(sql);
+  let match: RegExpExecArray | null;
+
+  while ((match = sourcePattern.exec(sourceSql)) !== null) {
+    const name = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '').toLowerCase();
+    if (counts.has(name)) {
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+}
+
 function extractCTEs(sql: string): CTE[] {
   const ctes: CTE[] = [];
 
@@ -580,7 +629,7 @@ function extractCTEs(sql: string): CTE[] {
     // Read CTE name (word characters)
     const nameMatch = SQL_REGEX_PATTERNS.CTE_NAME.exec(sql.slice(pos));
     if (!nameMatch) break;
-    const cteName = nameMatch[1];
+    const cteName = nameMatch[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
     pos += nameMatch[0].length;
 
     // Expect "AS"
@@ -628,6 +677,30 @@ function extractCTEs(sql: string): CTE[] {
 
   // Extract the main query: everything after the last CTE closing paren
   const mainQuery = extractMainQuery(sql);
+  const cteNames = new Set(rawCtes.map((cte) => cte.name.toLowerCase()));
+  const mainQueryUsage = countCteSourceReferences(mainQuery, cteNames);
+  const dependenciesByCte = new Map<string, string[]>();
+
+  rawCtes.forEach((cte) => {
+    const references = countCteSourceReferences(cte.body, cteNames);
+    const dependencies = Array.from(references.entries())
+      .filter(([name, count]) => name !== cte.name.toLowerCase() && count > 0)
+      .map(([name]) => rawCtes.find((candidate) => candidate.name.toLowerCase() === name)!.name);
+    dependenciesByCte.set(cte.name.toLowerCase(), dependencies);
+  });
+
+  const usedCtes = new Set<string>();
+  const markDependenciesUsed = (name: string) => {
+    if (usedCtes.has(name)) return;
+    usedCtes.add(name);
+    (dependenciesByCte.get(name) ?? []).forEach((dependency) =>
+      markDependenciesUsed(dependency.toLowerCase())
+    );
+  };
+
+  mainQueryUsage.forEach((count, name) => {
+    if (count > 0) markDependenciesUsed(name);
+  });
 
   rawCtes.forEach((raw, i) => {
     const name = raw.name;
@@ -647,25 +720,10 @@ function extractCTEs(sql: string): CTE[] {
       });
     }
 
-    // Usage count in main query (how many times this CTE name appears after the WITH block)
-    const usageRegex = new RegExp(`\\b${name}\\b`, 'gi');
-    const usageMatches = mainQuery.match(usageRegex);
-    const usageCount = usageMatches ? usageMatches.length : 0;
-
-    // Dependencies: which other CTE names are referenced inside this CTE body
-    const dependencies: string[] = [];
-    rawCtes.forEach((other) => {
-      if (other.name !== name) {
-        const depRegex = new RegExp(`\\b${other.name}\\b`, 'i');
-        if (depRegex.test(body)) {
-          dependencies.push(other.name);
-        }
-      }
-    });
-
-    // Recursive detection: CTE references itself
-    const selfRef = new RegExp(`\\b${name}\\b`, 'i');
-    const isRecursive = selfRef.test(body);
+    const normalizedName = name.toLowerCase();
+    const usageCount = mainQueryUsage.get(normalizedName) ?? 0;
+    const dependencies = dependenciesByCte.get(normalizedName) ?? [];
+    const isRecursive = (countCteSourceReferences(body, cteNames).get(normalizedName) ?? 0) > 0;
 
     // Estimated complexity based on body characteristics
     const upperBody = body.toUpperCase();
@@ -692,8 +750,8 @@ function extractCTEs(sql: string): CTE[] {
       | 'MEDIUM'
       | 'HIGH';
 
-    // Unused: not referenced in main query at all
-    const isUnused = usageCount === 0;
+    // A CTE is used when the main query references it directly or through a used CTE.
+    const isUnused = !usedCtes.has(normalizedName);
 
     // Extract nested subqueries within this CTE body
     const nestedSubqueries = extractNestedSubqueries(body, `cte-${i}`);
