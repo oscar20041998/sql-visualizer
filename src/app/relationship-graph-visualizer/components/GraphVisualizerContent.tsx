@@ -529,7 +529,7 @@ export default function GraphVisualizerContent() {
           <p className="text-sm text-muted-foreground mt-1">{t.noGraphHint}</p>
         </div>
         <a
-          href="/"
+          href="/query-input"
           className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
         >
           {t.navQueryInput}
