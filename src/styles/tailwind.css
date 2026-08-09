@@ -251,6 +251,121 @@
     color: var(--complexity-super);
     border: 1px solid rgba(248, 81, 73, 0.3);
   }
+
+  /* AI panels inside Smart SQL Editor were designed against a dark-only gray palette. */
+  .smart-sql-editor-theme .bg-gray-950,
+  .smart-sql-editor-theme .bg-gray-900,
+  .smart-sql-editor-theme .bg-gray-800,
+  .smart-sql-editor-theme .bg-gray-800\/40,
+  .smart-sql-editor-theme .bg-gray-800\/50,
+  .smart-sql-editor-theme .bg-gray-800\/30 {
+    background-color: var(--card) !important;
+  }
+
+  .smart-sql-editor-theme .bg-gray-700,
+  .smart-sql-editor-theme .bg-gray-700\/70,
+  .smart-sql-editor-theme .bg-gray-700\/50 {
+    background-color: var(--muted) !important;
+  }
+
+  .smart-sql-editor-theme .border-gray-900,
+  .smart-sql-editor-theme .border-gray-800,
+  .smart-sql-editor-theme .border-gray-700 {
+    border-color: var(--border) !important;
+  }
+
+  .smart-sql-editor-theme .text-gray-200,
+  .smart-sql-editor-theme .text-gray-300 {
+    color: var(--foreground) !important;
+  }
+
+  .smart-sql-editor-theme .text-gray-400,
+  .smart-sql-editor-theme .text-gray-500,
+  .smart-sql-editor-theme .text-gray-600 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .smart-sql-editor-theme .hover\:bg-gray-700:hover,
+  .smart-sql-editor-theme .hover\:bg-gray-600:hover {
+    background-color: var(--muted) !important;
+  }
+
+  .smart-sql-editor-theme .bg-indigo-950,
+  .smart-sql-editor-theme .bg-indigo-950\/30,
+  .smart-sql-editor-theme .bg-indigo-950\/40,
+  .smart-sql-editor-theme .bg-indigo-950\/50,
+  .smart-sql-editor-theme .bg-indigo-500\/10,
+  .smart-sql-editor-theme .bg-indigo-500\/15,
+  .smart-sql-editor-theme .bg-cyan-500\/15,
+  .smart-sql-editor-theme .bg-violet-500\/15,
+  .smart-sql-editor-theme .bg-violet-950\/30 {
+    background-color: color-mix(in srgb, var(--primary) 12%, transparent) !important;
+  }
+
+  .smart-sql-editor-theme .bg-amber-500\/15,
+  .smart-sql-editor-theme .bg-yellow-950\/30,
+  .smart-sql-editor-theme .bg-yellow-950\/40 {
+    background-color: color-mix(in srgb, var(--warning) 12%, transparent) !important;
+  }
+
+  .smart-sql-editor-theme .bg-red-950\/30,
+  .smart-sql-editor-theme .bg-red-950\/40 {
+    background-color: color-mix(in srgb, var(--danger) 12%, transparent) !important;
+  }
+
+  .smart-sql-editor-theme .bg-emerald-950\/20,
+  .smart-sql-editor-theme .bg-emerald-950\/40,
+  .smart-sql-editor-theme .bg-emerald-950\/50 {
+    background-color: color-mix(in srgb, var(--success) 12%, transparent) !important;
+  }
+
+  .smart-sql-editor-theme .border-indigo-700,
+  .smart-sql-editor-theme .border-indigo-800,
+  .smart-sql-editor-theme .border-indigo-500,
+  .smart-sql-editor-theme .border-cyan-700,
+  .smart-sql-editor-theme .border-violet-700,
+  .smart-sql-editor-theme .border-violet-800 {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border)) !important;
+  }
+
+  .smart-sql-editor-theme .border-yellow-800,
+  .smart-sql-editor-theme .border-amber-800 {
+    border-color: color-mix(in srgb, var(--warning) 45%, var(--border)) !important;
+  }
+
+  .smart-sql-editor-theme .border-red-900 {
+    border-color: color-mix(in srgb, var(--danger) 45%, var(--border)) !important;
+  }
+
+  .smart-sql-editor-theme .border-emerald-800 {
+    border-color: color-mix(in srgb, var(--success) 45%, var(--border)) !important;
+  }
+
+  .smart-sql-editor-theme .text-indigo-200,
+  .smart-sql-editor-theme .text-indigo-300,
+  .smart-sql-editor-theme .text-indigo-400,
+  .smart-sql-editor-theme .text-cyan-300,
+  .smart-sql-editor-theme .text-violet-200,
+  .smart-sql-editor-theme .text-violet-300 {
+    color: var(--primary) !important;
+  }
+
+  .smart-sql-editor-theme .text-yellow-200,
+  .smart-sql-editor-theme .text-yellow-300,
+  .smart-sql-editor-theme .text-amber-300 {
+    color: var(--warning) !important;
+  }
+
+  .smart-sql-editor-theme .text-red-200,
+  .smart-sql-editor-theme .text-red-300 {
+    color: var(--danger) !important;
+  }
+
+  .smart-sql-editor-theme .text-emerald-200,
+  .smart-sql-editor-theme .text-emerald-300,
+  .smart-sql-editor-theme .text-emerald-400 {
+    color: var(--success) !important;
+  }
 }
 
 @keyframes fadeIn {
