@@ -237,11 +237,10 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                isLocalProvider
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${isLocalProvider
                   ? 'border-emerald-800/60 bg-emerald-950/50 text-emerald-300'
                   : 'border-gray-700 bg-gray-800 text-gray-300'
-              }`}
+                }`}
               title={isLocalProvider ? t.aiExplainerLocalBadgeHint : t.aiExplainerCloudBadgeHint}
             >
               <ShieldCheck size={11} />
@@ -314,9 +313,8 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           {/* Context-window meter: makes the token cost of the query visible up front. */}
           {sql.trim() && (
             <span
-              className={`ml-auto font-mono text-[11px] ${
-                preflight.overflows ? 'text-yellow-300' : 'text-gray-500'
-              }`}
+              className={`ml-auto font-mono text-[11px] ${preflight.overflows ? 'text-yellow-300' : 'text-gray-500'
+                }`}
               title={t.aiContextMeterHint}
             >
               ~{preflight.needsTokens} / {preflight.promptTokens} tok

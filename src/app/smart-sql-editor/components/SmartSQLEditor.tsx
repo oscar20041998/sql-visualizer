@@ -11,6 +11,7 @@ import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles } from 'luc
 import { analyzeSql } from '@/lib/sqlAnalyzer';
 import { buildSqlContextBrief } from '@/lib/aiSqlContext';
 import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/aiService';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -386,6 +387,7 @@ export const SmartSQLEditor: React.FC<{
           )}
         </div>
       </div>
+      <LoadingOverlay visible={state.isOptimizing} title={t.smartEditorOptimizing} hideDelay={150} />
     </div>
   );
 };

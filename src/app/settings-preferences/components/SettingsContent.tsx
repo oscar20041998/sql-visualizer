@@ -36,14 +36,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
-        checked ? 'bg-primary' : 'bg-muted'
-      }`}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${checked ? 'bg-primary' : 'bg-muted'
+        }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0.5'
+          }`}
       />
     </button>
   );
@@ -99,11 +97,10 @@ function SelectDropdown<T extends string>({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
-                value === opt.value
+              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${value === opt.value
                   ? 'text-primary bg-primary/10'
                   : 'text-foreground hover:bg-muted'
-              }`}
+                }`}
             >
               {value === opt.value && <Check size={12} className="text-primary flex-shrink-0" />}
               {value !== opt.value && <span className="w-3" />}
@@ -329,11 +326,10 @@ export default function SettingsContent() {
               <button
                 key={`settings-cat-${key}`}
                 onClick={() => setActiveCategory(key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                  activeCategory === key
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${activeCategory === key
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <Icon size={16} className="flex-shrink-0" />
                 {categoryLabels[key]}
@@ -394,22 +390,20 @@ export default function SettingsContent() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => update('locale', 'en')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                          settings.locale === 'en'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'en'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         <span>🇺🇸</span>
                         {t.languageEnglish}
                       </button>
                       <button
                         onClick={() => update('locale', 'vi')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                          settings.locale === 'vi'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'vi'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         <span>🇻🇳</span>
                         {t.languageVietnamese}
@@ -510,9 +504,8 @@ export default function SettingsContent() {
                           value={aiDraft.ollamaModel}
                           onChange={(e) => updateAI('ollamaModel', e.target.value)}
                           placeholder="llama3"
-                          className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
-                            !aiDraft.ollamaModel.trim() ? 'border-rose-500 focus:border-rose-500' : 'border-border'
-                          }`}
+                          className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${!aiDraft.ollamaModel.trim() ? 'border-rose-500 focus:border-rose-500' : 'border-border'
+                            }`}
                         />
                         {!aiDraft.ollamaModel.trim() && (
                           <p className="mt-2 text-xs text-rose-500">{t.aiLocalModelRequired}</p>
