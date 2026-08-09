@@ -42,6 +42,8 @@ const en = {
   parsingSQL: 'Parsing SQL structure...',
   analysisCompleteMessage: 'Analysis complete — {tables} tables, {joins} joins detected',
   parseErrorMessage: 'Failed to parse query. Check SQL syntax.',
+  dialectMismatchError:
+    'Dialect mismatch: this query looks like {detected} syntax ({reason}), but {selected} is selected. Fix the dialect or the query before analyzing.',
   clearButton: 'Clear',
   loadSample: 'Load Sample',
   resolvedPreviewTitle: 'Resolved SQL Preview',

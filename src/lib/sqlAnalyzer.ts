@@ -554,7 +554,7 @@ export function analyzeAllJoins(
   }));
 }
 
-function maskSqlStringLiterals(sql: string): string {
+export function maskSqlStringLiterals(sql: string): string {
   let masked = '';
 
   for (let index = 0; index < sql.length; index++) {
@@ -1920,7 +1920,7 @@ export function getConditionalParams(xml: string): Record<string, string> {
 }
 
 // Strip all SQL comments (-- single-line and /* */ multi-line) from a string
-function stripSqlComments(sql: string): string {
+export function stripSqlComments(sql: string): string {
   let result = '';
   let i = 0;
   while (i < sql.length) {

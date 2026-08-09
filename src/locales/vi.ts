@@ -40,6 +40,8 @@ const vi = {
   parsingSQL: 'Đang phân tích cấu trúc SQL...',
   analysisCompleteMessage: 'Phân tích hoàn tất — {tables} bảng, {joins} kết nối được phát hiện',
   parseErrorMessage: 'Không thể phân tích truy vấn. Kiểm tra cú pháp SQL.',
+  dialectMismatchError:
+    'Không khớp dialect: truy vấn có cú pháp giống {detected} ({reason}), nhưng dialect đang chọn là {selected}. Vui lòng chỉnh lại dialect hoặc truy vấn trước khi phân tích.',
   clearButton: 'Xóa',
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',

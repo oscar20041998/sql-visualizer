@@ -17,6 +17,7 @@ import {
   getConditionalParams,
   type SqlDialect,
 } from '@/lib/sqlAnalyzer';
+import { validateSqlDialect, DIALECT_LABELS } from '@/lib/dialectValidator';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -165,6 +166,19 @@ export default function QueryInputContent() {
     const sqlToAnalyze = inputMode === 'sql' ? rawSql : resolvedSql;
     if (!sqlToAnalyze.trim()) {
       toast.error(t.emptyQueryError);
+      return;
+    }
+
+    const dialectCheck = validateSqlDialect(sqlToAnalyze, dialect);
+    if (!dialectCheck.valid) {
+      const mismatch = dialectCheck.mismatches[0];
+      toast.error(
+        (t.dialectMismatchError || '')
+          .replace('{detected}', mismatch.detectedLabel)
+          .replace('{reason}', mismatch.reason)
+          .replace('{selected}', DIALECT_LABELS[dialect]),
+        { duration: 6000 }
+      );
       return;
     }
 
