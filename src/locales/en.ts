@@ -510,6 +510,26 @@ const en = {
   guidelineSettingsTip2:
     'API keys are stored locally in your browser and are sent only directly to the provider you selected.',
 
+  // Guideline - AI SQL Explainer Section
+  guidelineAiExplainerTitle: 'AI SQL Explainer',
+  guidelineAiExplainerSubtitle: 'Turn SQL into a structured, natural-language explanation',
+  guidelineAiExplainerStep1Label: 'Open the Smart SQL Editor',
+  guidelineAiExplainerStep1Desc:
+    'Open Smart SQL Editor from the sidebar or switch to the Smart Editor tab on the Query Input page.',
+  guidelineAiExplainerStep2Label: 'Enter or load a query',
+  guidelineAiExplainerStep2Desc:
+    'Type SQL directly, select a sample query, or paste a query you want to understand.',
+  guidelineAiExplainerStep3Label: 'Generate an explanation',
+  guidelineAiExplainerStep3Desc:
+    'Select Explain SQL to receive a structured summary of the query objective, output, filters, and referenced tables. The app includes parsed query context to improve the explanation.',
+  guidelineAiExplainerStep4Label: 'Configure the AI provider',
+  guidelineAiExplainerStep4Desc:
+    'Choose a local Ollama model or a cloud provider in Settings. You can set the model, temperature, and system prompt for your team.',
+  guidelineAiExplainerTip1:
+    'Use follow-up questions to investigate parts of the explanation, and copy the result when you need to share it.',
+  guidelineAiExplainerTip2:
+    'Review AI output alongside the metrics and relationship graph; it is an aid for understanding SQL, not an execution plan.',
+
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Tools Available',
   guidelineToolsSubtitle: 'Complete feature overview and tool descriptions',
@@ -573,6 +593,7 @@ const en = {
   guidelineQuickRefMetrics: 'Metrics Dashboard',
   guidelineQuickRefCTE: 'CTE Analysis',
   guidelineQuickRefSettings: 'Settings',
+  guidelineQuickRefAiExplainer: 'AI SQL Explainer',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Dark / Light toggle',
@@ -994,6 +1015,9 @@ const en = {
   homeSmartRecommendationsTitle: 'Smart Recommendations',
   homeSmartRecommendationsDesc:
     'AI-powered suggestions to optimize your queries and improve performance',
+  homeAiExplainerTitle: 'AI SQL Explainer',
+  homeAiExplainerDesc:
+    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables.',
   homeReadyToAnalyzeTitle: 'Ready to analyze?',
   homeReadyToAnalyzeDesc:
     'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',

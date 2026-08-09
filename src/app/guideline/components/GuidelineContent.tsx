@@ -20,6 +20,7 @@ import {
   Info,
   Lightbulb,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -177,6 +178,32 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         },
       ],
       tips: [{ text: t.guidelineSettingsTip1 }, { text: t.guidelineSettingsTip2 }],
+    },
+    {
+      id: 'ai-sql-explainer',
+      icon: Sparkles,
+      color: '#818cf8',
+      title: t.guidelineAiExplainerTitle,
+      subtitle: t.guidelineAiExplainerSubtitle,
+      steps: [
+        {
+          label: t.guidelineAiExplainerStep1Label,
+          desc: t.guidelineAiExplainerStep1Desc,
+        },
+        {
+          label: t.guidelineAiExplainerStep2Label,
+          desc: t.guidelineAiExplainerStep2Desc,
+        },
+        {
+          label: t.guidelineAiExplainerStep3Label,
+          desc: t.guidelineAiExplainerStep3Desc,
+        },
+        {
+          label: t.guidelineAiExplainerStep4Label,
+          desc: t.guidelineAiExplainerStep4Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineAiExplainerTip1 }, { text: t.guidelineAiExplainerTip2 }],
     },
     {
       id: 'tools',
@@ -412,6 +439,12 @@ function createQuickRef(t: ReturnType<typeof getT>) {
       color: '#8b949e',
       label: t.guidelineQuickRefSettings,
       href: '/settings-preferences',
+    },
+    {
+      icon: Sparkles,
+      color: '#818cf8',
+      label: t.guidelineQuickRefAiExplainer,
+      href: '/smart-sql-editor',
     },
   ];
 }

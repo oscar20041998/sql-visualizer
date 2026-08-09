@@ -505,6 +505,27 @@ const vi = {
     'Cài đặt được lưu trong trình duyệt — tùy chọn của bạn sẽ được giữ nguyên sau khi tải lại trang.',
   guidelineSettingsTip2:
     'API key được lưu cục bộ trên trình duyệt và chỉ được gửi trực tiếp đến nhà cung cấp bạn đã chọn.',
+
+  // Guideline - AI SQL Explainer Section
+  guidelineAiExplainerTitle: 'AI Diễn Giải SQL',
+  guidelineAiExplainerSubtitle: 'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên',
+  guidelineAiExplainerStep1Label: 'Mở Smart SQL Editor',
+  guidelineAiExplainerStep1Desc:
+    'Mở Smart SQL Editor từ thanh bên hoặc chuyển sang tab Smart Editor trên trang Nhập truy vấn.',
+  guidelineAiExplainerStep2Label: 'Nhập hoặc tải truy vấn',
+  guidelineAiExplainerStep2Desc:
+    'Nhập SQL trực tiếp, chọn truy vấn mẫu hoặc dán truy vấn bạn muốn tìm hiểu.',
+  guidelineAiExplainerStep3Label: 'Tạo phần diễn giải',
+  guidelineAiExplainerStep3Desc:
+    'Chọn Diễn giải SQL để nhận tóm tắt có cấu trúc về mục đích, đầu ra, bộ lọc và các bảng được tham chiếu. Ứng dụng đưa ngữ cảnh truy vấn đã phân tích vào để cải thiện phần diễn giải.',
+  guidelineAiExplainerStep4Label: 'Cấu hình nhà cung cấp AI',
+  guidelineAiExplainerStep4Desc:
+    'Chọn mô hình Ollama cục bộ hoặc nhà cung cấp đám mây trong Cài đặt. Bạn có thể đặt model, temperature và system prompt cho nhóm của mình.',
+  guidelineAiExplainerTip1:
+    'Dùng câu hỏi tiếp theo để tìm hiểu các phần trong phần diễn giải và sao chép kết quả khi cần chia sẻ.',
+  guidelineAiExplainerTip2:
+    'Đọc kết quả AI cùng chỉ số và biểu đồ quan hệ; đây là công cụ hỗ trợ hiểu SQL, không phải kế hoạch thực thi.',
+
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Các công cụ có sẵn',
   guidelineToolsSubtitle: 'Tổng quan đầy đủ về tính năng và mô tả công cụ',
@@ -567,6 +588,7 @@ const vi = {
   guidelineQuickRefMetrics: 'Bảng chỉ số',
   guidelineQuickRefCTE: 'Phân tích CTE',
   guidelineQuickRefSettings: 'Cài đặt',
+  guidelineQuickRefAiExplainer: 'AI Diễn Giải SQL',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Chuyển tối / sáng',
@@ -987,6 +1009,9 @@ const vi = {
   homeSmartRecommendationsTitle: 'Gợi ý thông minh',
   homeSmartRecommendationsDesc:
     'Gợi ý được hỗ trợ bởi AI để tối ưu hóa truy vấn của bạn và cải thiện hiệu suất',
+  homeAiExplainerTitle: 'AI Diễn Giải SQL',
+  homeAiExplainerDesc:
+    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu.',
   homeReadyToAnalyzeTitle: 'Sẵn sàng để phân tích?',
   homeReadyToAnalyzeDesc:
     'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
