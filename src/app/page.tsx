@@ -246,7 +246,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard
               icon={<Database className="w-6 h-6" />}
               title={t.homeQueryAnalysisTitle}
@@ -270,6 +270,12 @@ export default function HomePage() {
               title={t.homeSmartRecommendationsTitle}
               description={t.homeSmartRecommendationsDesc}
               delay={250}
+            />
+            <FeatureCard
+              icon={<Sparkles className="w-6 h-6" />}
+              title={t.homeAiExplainerTitle}
+              description={t.homeAiExplainerDesc}
+              delay={300}
             />
           </div>
         </section>
