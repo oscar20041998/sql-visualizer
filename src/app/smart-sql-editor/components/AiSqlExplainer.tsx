@@ -223,7 +223,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
       <div
         ref={containerRef}
-        className="flex flex-col rounded-lg border border-gray-800 bg-gray-900 overflow-hidden"
+        className="smart-sql-editor-theme flex flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
       >
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-800 px-4 py-3">

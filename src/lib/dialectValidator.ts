@@ -110,12 +110,17 @@ async function crossCheckWithAst(
     const { MySQL, PostgreSQL } = await import('dt-sql-parser');
     const makeParser = (dialect: SqlDialect) =>
       dialect === 'mysql' ? new MySQL() : new PostgreSQL();
+    const hasParseErrors = (dialect: SqlDialect) => {
+      const errors: unknown[] = [];
+      // `validate()` emits expected parser failures to the browser console. This is only a
+      // dialect probe, so collect syntax errors through the parser's custom listener instead.
+      makeParser(dialect).parse(strippedSql, (error: unknown) => errors.push(error));
+      return errors.length > 0;
+    };
 
-    const selectedErrors = makeParser(selectedDialect).validate(strippedSql);
-    if (selectedErrors.length === 0) return null; // parses fine under the selected dialect
+    if (!hasParseErrors(selectedDialect)) return null; // parses fine under the selected dialect
 
-    const otherErrors = makeParser(otherDialect).validate(strippedSql);
-    if (otherErrors.length === 0) {
+    if (!hasParseErrors(otherDialect)) {
       return {
         detectedDialect: otherDialect,
         detectedLabel: DIALECT_LABELS[otherDialect],

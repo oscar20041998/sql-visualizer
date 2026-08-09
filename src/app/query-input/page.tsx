@@ -265,7 +265,7 @@ export default function QueryInputContent() {
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (
-          <div className="mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
+          <div className="smart-sql-editor-theme mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
             <div className="mt-4 flex flex-col gap-4">
               <div className="min-h-[620px] flex flex-col">

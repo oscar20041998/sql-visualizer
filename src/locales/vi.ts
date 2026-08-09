@@ -97,7 +97,6 @@ const vi = {
   error: 'Lỗi',
 
   // Smart Suggestions — titles
-  suggMissingIndexTitle: 'Thiếu chỉ mục trên cột JOIN',
   suggExcessiveJoinsTitle: 'Phát hiện quá nhiều JOIN',
   suggManyJoinsTitle: 'Nhiều JOIN — kiểm tra thứ tự JOIN',
   suggCrossJoinTitle: 'CROSS JOIN tạo tích Descartes',
@@ -111,8 +110,6 @@ const vi = {
   suggLooksGoodTitle: 'Truy vấn có cấu trúc tốt',
 
   // Smart Suggestions — details
-  suggMissingIndexDetail:
-    'Đảm bảo có chỉ mục trên các cột khóa JOIN. Thiếu chỉ mục trên khóa JOIN gây ra quét toàn bộ bảng.',
   suggExcessiveJoinsDetail:
     'JOIN trong một truy vấn làm tăng đáng kể chi phí thực thi. Hãy xem xét chia thành các truy vấn nhỏ hơn hoặc dùng CTE trung gian để tổng hợp dữ liệu trước.',
   suggManyJoinsDetail:

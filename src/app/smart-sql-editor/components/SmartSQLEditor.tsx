@@ -34,7 +34,6 @@ interface EditorState {
 
 const editorOptions: MonacoEditorNS.IStandaloneEditorConstructionOptions = {
   language: 'sql',
-  theme: 'vs-dark',
   minimap: { enabled: true, maxColumn: 40 },
   wordWrap: 'on',
   fontSize: 14,
@@ -68,6 +67,7 @@ export const SmartSQLEditor: React.FC<{
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
   const t = getT(settings.locale);
+  const monacoTheme = settings.theme === 'dark' ? 'vs-dark' : 'vs';
 
   const [state, setState] = useState<EditorState>({
     originalSql: initialSql,
@@ -231,7 +231,7 @@ export const SmartSQLEditor: React.FC<{
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 bg-gray-900 rounded-lg overflow-hidden border border-gray-800">
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 overflow-hidden rounded-lg border border-border bg-card">
       {/* Toolbar */}
       <div className="flex flex-col gap-3 px-4 pt-4 pb-0">
         {/* Title Bar */}
@@ -243,8 +243,8 @@ export const SmartSQLEditor: React.FC<{
                 background: state.hasChanges ? '#f59e0b' : '#10b981',
               }}
             />
-            <h2 className="text-lg font-semibold text-white">{t.smartEditorTitle}</h2>
-            <span className="text-xs text-gray-400 font-mono">
+            <h2 className="text-lg font-semibold text-foreground">{t.smartEditorTitle}</h2>
+            <span className="font-mono text-xs text-muted-foreground">
               {state.hasChanges ? `● ${t.smartEditorModified}` : `○ ${t.smartEditorOriginal}`}
             </span>
           </div>
@@ -255,7 +255,7 @@ export const SmartSQLEditor: React.FC<{
           <button
             onClick={handleFormatSQL}
             disabled={state.isFormatting || !state.currentSql.trim()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-200 text-xs font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             title="Format SQL (Ctrl+Shift+F)"
           >
             <Zap size={12} />
@@ -291,7 +291,7 @@ export const SmartSQLEditor: React.FC<{
 
           <button
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-200 text-xs font-medium hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
           >
             {state.copiedToClipboard ? (
               <>
@@ -309,7 +309,7 @@ export const SmartSQLEditor: React.FC<{
           {state.hasChanges && (
             <button
               onClick={handleResetToOriginal}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-yellow-700/50 bg-yellow-950/40 text-yellow-300 text-xs font-medium hover:bg-yellow-950/60 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20"
               title={t.smartEditorResetTitle}
             >
               <RotateCcw size={12} />
@@ -319,23 +319,23 @@ export const SmartSQLEditor: React.FC<{
         </div>
 
         {/* Stats Bar */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-800">
-          <div className="flex items-center gap-4 text-xs text-gray-400">
+        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono">
-              <span className="text-blue-400">{stats.lines}</span> {t.smartEditorLines}
+              <span className="text-primary">{stats.lines}</span> {t.smartEditorLines}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.chars}</span> {t.smartEditorChars}
+              <span className="text-primary">{stats.chars}</span> {t.smartEditorChars}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.words}</span> {t.smartEditorWords}
+              <span className="text-primary">{stats.words}</span> {t.smartEditorWords}
             </span>
-            <span className="text-gray-500">•</span>
-            <span className="text-gray-500">
-              {t.smartEditorDialect} <span className="text-blue-400 font-mono">{dialect}</span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">
+              {t.smartEditorDialect} <span className="font-mono text-primary">{dialect}</span>
             </span>
           </div>
-          <div className="text-xs text-gray-500">{stats.changeSummary}</div>
+          <div className="text-xs text-muted-foreground">{stats.changeSummary}</div>
         </div>
       </div>
 
@@ -346,16 +346,16 @@ export const SmartSQLEditor: React.FC<{
             original={state.originalSql}
             modified={state.currentSql}
             language="sql"
-            theme="vs-dark"
+            theme={monacoTheme}
             options={diffEditorOptions}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         ) : (
           <Editor
             value={state.currentSql}
             language="sql"
-            theme="vs-dark"
+            theme={monacoTheme}
             options={editorOptions}
             saveViewState={true}
             onMount={handleEditorMount}
@@ -366,23 +366,23 @@ export const SmartSQLEditor: React.FC<{
               }));
             }}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         )}
       </div>
 
       {/* Status Footer */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gray-800/50 text-xs text-gray-400 border-t border-gray-800">
+      <div className="flex items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <FileText size={12} className="text-gray-500" />
+          <FileText size={12} className="text-muted-foreground" />
           <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>
         </div>
-        <div className="text-gray-600">
+        <div className="text-muted-foreground">
           {state.hasChanges && (
-            <span className="text-yellow-500">{t.smartEditorChangesDetected}</span>
+            <span className="text-warning">{t.smartEditorChangesDetected}</span>
           )}
           {!state.hasChanges && state.currentSql !== '' && (
-            <span className="text-green-500">{t.smartEditorSyncedWithOriginal}</span>
+            <span className="text-success">{t.smartEditorSyncedWithOriginal}</span>
           )}
         </div>
       </div>
