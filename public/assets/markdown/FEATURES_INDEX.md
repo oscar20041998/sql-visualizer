@@ -2,26 +2,28 @@
 
 A comprehensive SQL analysis and visualization tool built with Next.js, React, and Tailwind CSS. Analyze complex SQL queries, visualize table relationships, measure query complexity, and explore Common Table Expressions (CTEs).
 
-## 🆕 Version 2.1: Enhanced with Deep JOIN Analysis
+## 🆕 Version 2.2: Smart SQL Editor and AI SQL Explainer
 
 The latest update introduces:
 
-- **Deep JOIN Analysis** - Detailed analysis of JOIN conditions with complexity breakdown
-- **Adaptive Complexity Evaluation** - Median-based complexity thresholds that adapt to your workload
-- **Multi-Dialect Support** - Complete support for MySQL, PostgreSQL, SQL Server, and Oracle
+- **Shared Smart SQL Editor** - One theme-aware Monaco editor powers the standalone editor and Query Input tab.
+- **AI SQL Explainer** - Structured explanations, contextual follow-up chat, and per-CTE batch explanations.
+- **Dialect Mismatch Validation** - Query Input warns before analysis when selected syntax conflicts with the chosen dialect.
 
 ## 🎯 Quick Feature Overview
 
 ### Core Analysis Tools
 
-| Tool                   | Purpose                                                         | Link                                        |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------------------- |
-| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/QUERY_INPUT.md)        |
-| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/RELATIONSHIP_GRAPH.md) |
-| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/JOIN_ANALYSIS.md)      |
-| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/METRICS_DASHBOARD.md)  |
-| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/CTE_ANALYSIS.md)       |
-| **Settings**           | Customize theme, language, and analysis options                 | [Read More](features/SETTINGS.md)           |
+| Tool                   | Purpose                                                         | Link                                                |
+| ---------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
+| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/1_0_0/QUERY_INPUT.md)         |
+| **Smart SQL Editor**   | Format, compare, and edit SQL in a full-height Monaco editor    | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
+| **AI SQL Explainer**   | Explain SQL, ask follow-ups, and batch-explain CTEs             | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
+| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/1_0_0/RELATIONSHIP_GRAPH.md)  |
+| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/1_0_0/JOIN_ANALYSIS.md)       |
+| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/1_0_0/METRICS_DASHBOARD.md)   |
+| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/1_0_0/CTE_ANALYSIS.md)        |
+| **Settings**           | Customize theme, language, analysis, and AI options             | [Read More](features/1_0_0/SETTINGS.md)            |
 
 ## 📊 Supported SQL Dialects
 
@@ -213,6 +215,6 @@ For detailed interpretation, see [Metrics Dashboard](features/METRICS_DASHBOARD.
 
 ---
 
-_Last Updated: 2026-07-01_
-_Version: 2.1 (Enhanced with Deep JOIN Analysis)_
+_Last Updated: 2026-08-09_
+_Version: 2.2 (Smart SQL Editor and AI SQL Explainer)_
 _Built with Next.js 15, React 19, TypeScript, and Tailwind CSS_
