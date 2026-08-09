@@ -44,6 +44,7 @@ LIMIT 50;`,
 export default function SmartSQLEditorPage() {
   const [selectedQuery, setSelectedQuery] = useState<keyof typeof SAMPLE_QUERIES>('simple');
   const [currentSql, setCurrentSql] = useState<string>(SAMPLE_QUERIES.simple);
+  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/aiService').SqlOptimizationResult>(null);
   const [hydrated, setHydrated] = useState(false);
   const settings = useAppStore((s) => s.settings);
   const t = getT(settings.locale);
@@ -114,11 +115,12 @@ export default function SmartSQLEditorPage() {
               <SmartSQLEditor
                 initialSql={SAMPLE_QUERIES[selectedQuery]}
                 onSqlChange={setCurrentSql}
+                onOptimizationResult={setOptimizationResult}
               />
             </div>
 
             {/* SQL → natural language */}
-            <AiSqlExplainer sql={currentSql} />
+            <AiSqlExplainer sql={currentSql} optimizationResult={optimizationResult} />
           </div>
         </div>
 

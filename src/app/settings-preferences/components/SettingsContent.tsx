@@ -215,6 +215,23 @@ export default function SettingsContent() {
     [aiDraft, savedAiConfig]
   );
 
+  const isAiConfigValid = useMemo(() => {
+    if (aiDraft.provider === 'ollama') {
+      return aiDraft.ollamaModel.trim().length > 0;
+    }
+    return aiDraft.modelId.trim().length > 0;
+  }, [aiDraft]);
+
+  const aiConfigValidationMessage = useMemo(() => {
+    if (aiDraft.provider === 'ollama' && !aiDraft.ollamaModel.trim()) {
+      return t.aiLocalModelRequired;
+    }
+    if (aiDraft.provider !== 'ollama' && !aiDraft.modelId.trim()) {
+      return t.aiModelIdRequired;
+    }
+    return '';
+  }, [aiDraft, t]);
+
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     updateSettings({ [key]: value });
     toast.success(t.saved, { duration: 1500 });
@@ -487,13 +504,20 @@ export default function SettingsContent() {
 
                   {aiDraft.provider === 'ollama' ? (
                     <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
-                      <input
-                        type="text"
-                        value={aiDraft.ollamaModel}
-                        onChange={(e) => updateAI('ollamaModel', e.target.value)}
-                        placeholder="qwen2.5-coder:7b"
-                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
+                      <div className="min-w-[220px]">
+                        <input
+                          type="text"
+                          value={aiDraft.ollamaModel}
+                          onChange={(e) => updateAI('ollamaModel', e.target.value)}
+                          placeholder="llama3"
+                          className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                            !aiDraft.ollamaModel.trim() ? 'border-rose-500 focus:border-rose-500' : 'border-border'
+                          }`}
+                        />
+                        {!aiDraft.ollamaModel.trim() && (
+                          <p className="mt-2 text-xs text-rose-500">{t.aiLocalModelRequired}</p>
+                        )}
+                      </div>
                     </SettingRow>
                   ) : (
                     <>
@@ -661,7 +685,7 @@ export default function SettingsContent() {
                     </button>
                     <button
                       onClick={saveAiConfig}
-                      disabled={!isAiDirty}
+                      disabled={!isAiDirty || !isAiConfigValid}
                       className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Check size={14} />

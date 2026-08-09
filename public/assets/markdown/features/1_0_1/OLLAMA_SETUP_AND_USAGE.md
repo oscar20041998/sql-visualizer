@@ -52,6 +52,8 @@ ollama run qwen2.5-coder:7b "Explain what a SQL JOIN does in one sentence."
 
 If the response succeeds, the model and local Ollama service are ready.
 
+> Important: before clicking **Analyze & Optimize** in SQL Visualizer, make sure Ollama is running, a model is downloaded, and the exact model tag is entered in Settings.
+
 ## 4. Configure SQL Visualizer
 
 1. Start SQL Visualizer:
@@ -64,9 +66,15 @@ If the response succeeds, the model and local Ollama service are ready.
 3. Go to **Settings > AI Model Configuration**.
 4. Select **Ollama** as the provider.
 5. Set **Base URL** to `http://localhost:11434` when Ollama runs locally.
-6. Set **Ollama Model** to `qwen2.5-coder:7b`, or the exact name shown by `ollama list`.
-7. Keep the default context window of `4096` unless the Ollama model and server have been configured for a larger context.
-8. Select **Save AI Configuration**.
+6. Set **Local Model Name** to the exact model tag shown by `ollama list`, for example:
+   - `qwen2.5-coder:7b`
+   - `llama2`
+   - `qwen2.5`
+7. If the model is not installed, run `ollama pull <model-name>` in your terminal, then refresh the app and enter the exact model tag again.
+8. Keep the default context window of `4096` unless the Ollama model and server have been configured for a larger context.
+9. Select **Save AI Configuration**.
+
+> Note: do not click **Analyze & Optimize** until Ollama is running and the exact model name is set in Settings.
 
 No API key is needed for Ollama.
 

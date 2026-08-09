@@ -85,7 +85,7 @@ interface AppState {
 export const DEFAULT_AI_CONFIG: AIModelConfig = {
   provider: 'ollama',
   baseUrls: { ...DEFAULT_BASE_URLS },
-  ollamaModel: 'qwen2.5-coder:7b',
+  ollamaModel: '',
   modelId: 'gpt-4o',
   temperature: 0.1,
   systemPrompt:
@@ -166,6 +166,14 @@ export const useAppStore = create<AppState>()(
             apiKey?: string;
             ollamaBaseUrl?: string;
           };
+
+          // Clear stale Ollama default model names that no longer exist on newer local servers.
+          if (
+            persistedAiConfig.ollamaModel === 'qwen2.5-coder:7b' ||
+            persistedAiConfig.ollamaModel === 'qwen2.5-coder'
+          ) {
+            persistedAiConfig.ollamaModel = '';
+          }
 
           // A scalar budget belonged to whichever provider was selected at the time; every other
           // provider takes the new default rather than inheriting an unrelated number.
