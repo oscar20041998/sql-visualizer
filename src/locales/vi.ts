@@ -42,6 +42,7 @@ const vi = {
   parseErrorMessage: 'Không thể phân tích truy vấn. Kiểm tra cú pháp SQL.',
   dialectMismatchError:
     'Không khớp dialect: truy vấn có cú pháp giống {detected} ({reason}), nhưng dialect đang chọn là {selected}. Vui lòng chỉnh lại dialect hoặc truy vấn trước khi phân tích.',
+  dialectReasonAstParse: 'cú pháp không hợp lệ cho dialect đã chọn',
   clearButton: 'Xóa',
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',

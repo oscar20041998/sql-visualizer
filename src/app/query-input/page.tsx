@@ -169,13 +169,16 @@ export default function QueryInputContent() {
       return;
     }
 
-    const dialectCheck = validateSqlDialect(sqlToAnalyze, dialect);
+    const dialectCheck = await validateSqlDialect(sqlToAnalyze, dialect);
     if (!dialectCheck.valid) {
       const mismatch = dialectCheck.mismatches[0];
+      const reasonText = mismatch.reasonKey
+        ? (t as Record<string, string>)[mismatch.reasonKey] || mismatch.reason
+        : mismatch.reason;
       toast.error(
         (t.dialectMismatchError || '')
           .replace('{detected}', mismatch.detectedLabel)
-          .replace('{reason}', mismatch.reason)
+          .replace('{reason}', reasonText)
           .replace('{selected}', DIALECT_LABELS[dialect]),
         { duration: 6000 }
       );

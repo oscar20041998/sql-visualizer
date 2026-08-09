@@ -44,6 +44,7 @@ const en = {
   parseErrorMessage: 'Failed to parse query. Check SQL syntax.',
   dialectMismatchError:
     'Dialect mismatch: this query looks like {detected} syntax ({reason}), but {selected} is selected. Fix the dialect or the query before analyzing.',
+  dialectReasonAstParse: 'syntax not valid for the selected dialect',
   clearButton: 'Clear',
   loadSample: 'Load Sample',
   resolvedPreviewTitle: 'Resolved SQL Preview',
