@@ -2,27 +2,29 @@
 
 A comprehensive SQL analysis and visualization tool built with Next.js, React, and Tailwind CSS. Analyze complex SQL queries, visualize table relationships, measure query complexity, and explore Common Table Expressions (CTEs).
 
-## 🆕 Version 2.1: Enhanced with Deep JOIN Analysis
+## 🆕 Version 2.2: Smart SQL Editor and AI SQL Explainer
 
 The latest update introduces:
 
-- **Deep JOIN Analysis** - Detailed analysis of JOIN conditions with complexity breakdown
-- **Adaptive Complexity Evaluation** - Median-based complexity thresholds that adapt to your workload
-- **Collapsible Sidebar** - Toggle sidebar to maximize workspace for large queries
-- **Multi-Dialect Support** - Complete support for MySQL, PostgreSQL, SQL Server, and Oracle
+- **One Shared Smart SQL Editor** - A single Monaco-based editor powers the standalone editor and Query Input Smart Editor tab.
+- **AI SQL Explainer** - Generate structured explanations, ask follow-up questions, and explain CTEs in bounded batches.
+- **Theme-Aware Editor Experience** - Monaco, the diff view, and AI panels follow the selected light or dark theme.
+- **Dialect Mismatch Validation** - Query Input warns before analysis when syntax strongly indicates another SQL dialect.
 
 ## 🎯 Quick Feature Overview
 
 ### Core Analysis Tools
 
-| Tool                   | Purpose                                                         | Link                                        |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------------------- |
-| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/QUERY_INPUT.md)        |
-| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/RELATIONSHIP_GRAPH.md) |
-| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/JOIN_ANALYSIS.md)      |
-| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/METRICS_DASHBOARD.md)  |
-| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/CTE_ANALYSIS.md)       |
-| **Settings**           | Customize theme, language, and analysis options                 | [Read More](features/SETTINGS.md)           |
+| Tool                   | Purpose                                                         | Link                                                |
+| ---------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
+| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/1_0_0/QUERY_INPUT.md)         |
+| **Smart SQL Editor**   | Format, compare, and edit SQL in a full-height Monaco editor    | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
+| **AI SQL Explainer**   | Explain SQL, ask follow-ups, and batch-explain CTEs             | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
+| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/1_0_0/RELATIONSHIP_GRAPH.md)  |
+| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/1_0_0/JOIN_ANALYSIS.md)       |
+| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/1_0_0/METRICS_DASHBOARD.md)   |
+| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/1_0_0/CTE_ANALYSIS.md)        |
+| **Settings**           | Customize theme, language, analysis, and AI options             | [Read More](features/1_0_0/SETTINGS.md)            |
 
 ## 📊 Supported SQL Dialects
 
@@ -37,6 +39,15 @@ Analysis adapts to dialect-specific features:
 - CTE support
 - JOIN variations
 - Subquery handling
+- Dialect mismatch warnings before analysis when syntax identifies another dialect
+
+## 🤖 Smart SQL Editor and AI
+
+The shared Smart SQL Editor is available from the sidebar and the Smart Editor tab in Query Input. It provides SQL formatting, copy, original-versus-edited diff comparison, theme-aware Monaco rendering, and a full-height editing body.
+
+The AI SQL Explainer turns the current query into a structured natural-language explanation of its objective, output, filters, and data sources. After an explanation is generated, you can ask follow-up questions and run separate explanations for every CTE.
+
+Configure the AI provider in Settings. Ollama runs locally; OpenAI, Anthropic, and Google Gemini can be configured with server-managed credentials. Treat AI output as an aid to review, not a substitute for an execution plan.
 
 ## 🎨 UI Features
 
@@ -225,6 +236,6 @@ For a deep technical explanation of the median-based evaluation system, see [Com
 
 ---
 
-_Last Updated: 2026-07-01_
-_Version: 2.1 (Enhanced with Deep JOIN Analysis)_
+_Last Updated: 2026-08-09_
+_Version: 2.2 (Smart SQL Editor and AI SQL Explainer)_
 _Built with Next.js 15, React 19, TypeScript, and Tailwind CSS_

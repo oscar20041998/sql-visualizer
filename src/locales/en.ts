@@ -99,7 +99,6 @@ const en = {
   error: 'Error',
 
   // Smart Suggestions — titles
-  suggMissingIndexTitle: 'Missing indexes on join columns',
   suggExcessiveJoinsTitle: 'Excessive joins detected',
   suggManyJoinsTitle: 'Multiple joins — review join order',
   suggCrossJoinTitle: 'CROSS JOIN produces Cartesian product',
@@ -113,8 +112,6 @@ const en = {
   suggLooksGoodTitle: 'Query looks well-structured',
 
   // Smart Suggestions — details
-  suggMissingIndexDetail:
-    'Ensure indexes exist on join key columns. Missing indexes on join keys cause full table scans.',
   suggExcessiveJoinsDetail:
     'Excessive joins in a single query significantly increases execution cost. Consider splitting into smaller queries or using intermediate CTEs to pre-aggregate data.',
   suggManyJoinsDetail:

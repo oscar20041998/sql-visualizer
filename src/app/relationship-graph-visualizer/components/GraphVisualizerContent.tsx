@@ -74,27 +74,6 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
   const suggestions: Suggestion[] = [];
   const { metrics, joins, tables, ctes, complexity } = result;
 
-  // ── Missing indexes on join columns ──
-  const joinConditions = joins.filter((j) => j.condition);
-  if (joinConditions.length > 0) {
-    const colsWithoutIndex: string[] = [];
-    joinConditions.forEach((j) => {
-      const match = j.condition.match(/(\w+\.\w+)\s*=\s*(\w+\.\w+)/);
-      if (match) {
-        colsWithoutIndex.push(match[1], match[2]);
-      }
-    });
-    if (colsWithoutIndex.length > 0) {
-      const cols = [...new Set(colsWithoutIndex)].slice(0, 4).join(', ');
-      suggestions.push({
-        id: 'missing-index',
-        severity: metrics.joinCount > 3 ? 'error' : 'warning',
-        title: t.suggMissingIndexTitle,
-        detail: `${t.suggMissingIndexDetail.replace('Ensure indexes exist on join key columns.', `Ensure indexes exist on: ${cols}.`)}`,
-      });
-    }
-  }
-
   // ── Excessive joins ──
   if (metrics.joinCount >= 5) {
     suggestions.push({

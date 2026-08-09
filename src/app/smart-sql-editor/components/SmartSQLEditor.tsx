@@ -281,7 +281,7 @@ export const SmartSQLEditor: React.FC<{
             theme={monacoTheme}
             options={diffEditorOptions}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         ) : (
           <Editor
@@ -298,7 +298,7 @@ export const SmartSQLEditor: React.FC<{
               }));
             }}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         )}
       </div>
