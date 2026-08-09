@@ -243,6 +243,7 @@ export default function QueryInputContent() {
 
   // Live content of the Smart Editor, fed to the AI explainer panel below it.
   const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/aiService').SqlOptimizationResult>(null);
 
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
@@ -270,11 +271,15 @@ export default function QueryInputContent() {
               <div className="min-h-[620px] flex flex-col">
                 <SmartSQLEditor
                   initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'}
-                  onSqlChange={setSmartEditorSql}
+                  onSqlChange={(sql) => {
+                    setSmartEditorSql(sql);
+                    setOptimizationResult(null);
+                  }}
+                  onOptimizationResult={setOptimizationResult}
                 />
               </div>
               {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}
-              <AiSqlExplainer sql={smartEditorSql} />
+              <AiSqlExplainer sql={smartEditorSql} optimizationResult={optimizationResult} />
             </div>
           </div>
         )}

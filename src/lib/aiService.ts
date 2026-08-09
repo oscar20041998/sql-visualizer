@@ -310,6 +310,16 @@ async function callAnthropic(
   return data.content?.[0]?.text ?? '';
 }
 
+function buildGeminiV1Prompt(messages: AIMessage[]): string {
+  return messages
+    .map((message) => {
+      if (message.role === 'system') return message.content;
+      const prefix = message.role === 'assistant' ? 'Assistant:' : 'User:';
+      return `${prefix} ${message.content}`;
+    })
+    .join('\n\n');
+}
+
 async function callGemini(
   apiKey: string,
   modelId: string,
@@ -320,6 +330,40 @@ async function callGemini(
     .filter((message) => message.role === 'system')
     .map((message) => message.content)
     .join('\n\n');
+
+  const useGeminiV1 = modelId.startsWith('gemini-');
+
+  if (useGeminiV1) {
+    const promptText = buildGeminiV1Prompt(call.messages);
+    const response = await safeFetch(
+      `${resolveProviderUrl('gemini', baseUrl)}/v1/models/${encodeURIComponent(
+        modelId
+      )}:generateText?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: call.signal,
+        body: JSON.stringify({
+          prompt: { text: promptText },
+          temperature: call.temperature,
+          ...(call.maxTokens ? { maxOutputTokens: call.maxTokens } : {}),
+        }),
+      },
+      'Unable to reach Google Gemini API. Check the server network connection.'
+    );
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new AIServiceError(
+        `Gemini request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return (
+      data.candidates?.[0]?.output ?? data.output?.[0]?.content?.[0]?.text ?? ''
+    ).toString();
+  }
 
   const response = await safeFetch(
     `${resolveProviderUrl('gemini', baseUrl)}/models/${encodeURIComponent(
@@ -481,6 +525,56 @@ export interface ExplainSqlOptions {
   signal?: AbortSignal;
 }
 
+export interface SqlOptimizationResult {
+  optimizedSql: string;
+  analysis: string;
+  suggestions: string[];
+  raw: string;
+  structured: boolean;
+  budget: AIBudgetReport;
+}
+
+const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
+  en: (sql) => `Optimize the following SQL query for performance without changing its business logic or the rows it returns. Preserve the same filters, joins, grouping, ordering, limits, and output columns.
+
+Return only a JSON object with exactly these keys:
+{
+  "optimized_sql": "the full rewritten SQL query",
+  "analysis": "a short summary of the performance improvements made",
+  "suggestions": ["specific performance improvement suggestions"]
+}
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Rules:
+- Do not change business logic or result semantics.
+- Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
+- Do not change NULL handling or DISTINCT semantics.
+- If the query is already optimal, return it unchanged and explain why.`,
+  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất mà không thay đổi logic nghiệp vụ hoặc các hàng trả về. Giữ nguyên bộ lọc, phép nối, nhóm, sắp xếp, giới hạn và các cột đầu ra.
+
+Chỉ trả về một đối tượng JSON với đúng các khóa sau:
+{
+  "optimized_sql": "toàn bộ truy vấn SQL đã được viết lại",
+  "analysis": "tóm tắt ngắn gọn về các cải tiến hiệu suất đã thực hiện",
+  "suggestions": ["những đề xuất cải tiến hiệu suất cụ thể"]
+}
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Quy tắc:
+- Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
+- Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
+- Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
+- Nếu truy vấn đã tối ưu, trả lại chính nó và giải thích lý do.`,
+};
+
 /** Resolves the effective context budget for the active provider from the saved settings. */
 export function resolveBudget(config: AIModelConfig) {
   return buildContextBudget(
@@ -559,6 +653,73 @@ export async function explainSqlStructured({
     filters: asList(parsed.filters),
     output,
     tables: asList(parsed.tables),
+    raw,
+    structured: true,
+    budget: report,
+  };
+}
+
+export async function optimizeSqlWithAI({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  signal,
+}: ExplainSqlOptions): Promise<SqlOptimizationResult> {
+  if (!sql.trim()) throw new AIServiceError('There is no SQL query to optimize.');
+
+  const budget = resolveBudget(config);
+  const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
+  const available = Math.max(128, budget.promptTokens - systemTokens);
+
+  const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
+  const briefTokens = estimateTokens(brief);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
+
+  const buildPrompt = OPTIMIZE_SQL_STRUCTURED_PROMPT[locale] ?? OPTIMIZE_SQL_STRUCTURED_PROMPT.en;
+  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+
+  const report: AIBudgetReport = {
+    contextTokens: budget.contextTokens,
+    promptBudgetTokens: budget.promptTokens,
+    estimatedPromptTokens: systemTokens + estimateTokens(prompt),
+    sqlTruncated: fitted.truncated,
+    omittedSqlLines: fitted.omittedLines,
+    droppedMessages: 0,
+    contextBriefDropped: Boolean(contextBrief) && !brief,
+  };
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: budget.maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+
+  const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
+  const optimizedSql = asText(parsed?.optimized_sql);
+  const analysis = asText(parsed?.analysis);
+  const suggestions = asList(parsed?.suggestions);
+
+  if (!parsed || !optimizedSql) {
+    return {
+      optimizedSql: sql,
+      analysis: raw,
+      suggestions: [],
+      raw,
+      structured: false,
+      budget: report,
+    };
+  }
+
+  return {
+    optimizedSql: optimizedSql || sql,
+    analysis,
+    suggestions,
     raw,
     structured: true,
     budget: report,

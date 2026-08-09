@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAppStore, DEFAULT_SETTINGS } from '@/lib/store';
 import { getT, type Translations } from '@/lib/i18n';
-import { explainSqlStructured, resolveBudget, type SqlExplanation } from '@/lib/aiService';
+import { explainSqlStructured, resolveBudget, type SqlExplanation, type SqlOptimizationResult } from '@/lib/aiService';
 import { analyzeSql, type AnalysisResult } from '@/lib/sqlAnalyzer';
 import { buildSqlContextBrief } from '@/lib/aiSqlContext';
 import { estimateTokens } from '@/lib/aiTokens';
@@ -49,13 +49,14 @@ function toPlainText(explanation: SqlExplanation, t: Translations): string {
 interface AiSqlExplainerProps {
   /** SQL currently held by the editor. */
   sql: string;
+  optimizationResult?: SqlOptimizationResult | null;
 }
 
 /**
  * Converts the SQL in the editor into a natural-language explanation using the provider
  * and parameters saved on the Settings page (Settings → AI Model Configuration).
  */
-export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql }) => {
+export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizationResult }) => {
   const settings = useAppStore((store) => store.settings);
   const dialect = useAppStore((store) => store.dialect);
   const t = getT(settings.locale);
@@ -404,6 +405,32 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql }) => {
 
               {contextBrief && (
                 <p className="text-[11px] text-gray-500">{t.aiContextBriefUsed}</p>
+              )}
+
+              {optimizationResult && (
+                <div className="rounded-lg border border-sky-800 bg-sky-950/20 p-3.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+                    {t.optimizationResultsTitle}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-200">
+                    {optimizationResult.analysis || t.aiExplainerNoContent}
+                  </p>
+                  {optimizationResult.suggestions.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        {t.performanceNotesLabel}
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-gray-200">
+                        {optimizationResult.suggestions.map((suggestion, index) => (
+                          <li key={`opt-suggestion-${index}`} className="flex items-start gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )}
 
               {explanation.structured ? (

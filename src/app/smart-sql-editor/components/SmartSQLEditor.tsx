@@ -7,7 +7,10 @@ import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
-import { FileText, GitCompare, Copy, Check, RotateCcw, Zap } from 'lucide-react';
+import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles } from 'lucide-react';
+import { analyzeSql } from '@/lib/sqlAnalyzer';
+import { buildSqlContextBrief } from '@/lib/aiSqlContext';
+import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/aiService';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -24,6 +27,7 @@ interface EditorState {
   currentSql: string;
   isDiffMode: boolean;
   isFormatting: boolean;
+  isOptimizing: boolean;
   hasChanges: boolean;
   copiedToClipboard: boolean;
 }
@@ -57,7 +61,8 @@ export const SmartSQLEditor: React.FC<{
   initialSql?: string;
   /** Lets the page observe the live editor content (used by the AI SQL Explainer). */
   onSqlChange?: (sql: string) => void;
-}> = ({ initialSql = 'SELECT * FROM table_name LIMIT 10;', onSqlChange }) => {
+  onOptimizationResult?: (result: SqlOptimizationResult | null) => void;
+}> = ({ initialSql = 'SELECT * FROM table_name LIMIT 10;', onSqlChange, onOptimizationResult }) => {
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
 
   const dialect = useAppStore((store) => store.dialect);
@@ -69,9 +74,11 @@ export const SmartSQLEditor: React.FC<{
     currentSql: initialSql,
     isDiffMode: false,
     isFormatting: false,
+    isOptimizing: false,
     hasChanges: false,
     copiedToClipboard: false,
   });
+  const optimizeAbortRef = useRef<AbortController | null>(null);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -162,6 +169,57 @@ export const SmartSQLEditor: React.FC<{
     }
   }, [state.currentSql, t]);
 
+  const handleOptimizeSQL = useCallback(async () => {
+    const sql = state.currentSql.trim();
+    if (!sql) {
+      toast.error(t.emptyQueryError);
+      return;
+    }
+
+    optimizeAbortRef.current?.abort();
+    const controller = new AbortController();
+    optimizeAbortRef.current = controller;
+
+    setState((prev) => ({ ...prev, isOptimizing: true }));
+    onOptimizationResult?.(null);
+
+    let brief = '';
+    try {
+      const parsed = await analyzeSql(sql, dialect, settings.locale);
+      brief = buildSqlContextBrief(parsed);
+    } catch {
+      brief = '';
+    }
+
+    try {
+      const result = await optimizeSqlWithAI({
+        sql,
+        config: settings.aiConfig,
+        locale: settings.locale,
+        contextBrief: brief,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+
+      setState((prev) => ({
+        ...prev,
+        originalSql: sql,
+        currentSql: result.optimizedSql || sql,
+        isDiffMode: result.optimizedSql.trim() !== sql ? true : prev.isDiffMode,
+        isOptimizing: false,
+      }));
+      onOptimizationResult?.(result);
+      toast.success(t.smartEditorOptimizationSuccess);
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') return;
+      setState((prev) => ({ ...prev, isOptimizing: false }));
+      onOptimizationResult?.(null);
+      toast.error((error as Error)?.message || t.smartEditorOptimizationError);
+    } finally {
+      if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
+    }
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult]);
+
   // Calculate statistics
   const stats = {
     lines: state.currentSql.split('\n').length,
@@ -204,6 +262,16 @@ export const SmartSQLEditor: React.FC<{
             {state.isFormatting
               ? t.smartEditorFormatting
               : t.formatSqlButton || t.smartEditorFormat}
+          </button>
+
+          <button
+            onClick={handleOptimizeSQL}
+            disabled={state.isOptimizing || !state.currentSql.trim()}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-slate-800 text-gray-200 text-xs font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={t.analyzeOptimizeTitle}
+          >
+            <Sparkles size={12} />
+            {state.isOptimizing ? t.smartEditorOptimizing : t.analyzeOptimizeButton}
           </button>
 
           <button
