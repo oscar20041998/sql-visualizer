@@ -58,6 +58,27 @@ describe('validateSqlDialect', () => {
     expect(result.mismatches[0].detectedDialect).toBe('postgresql');
   });
 
+  it('accepts FROM DUAL when MySQL is selected (MySQL supports DUAL too, not Oracle-exclusive)', () => {
+    const sql = `SELECT 1 FROM DUAL`;
+    const result = validateSqlDialect(sql, 'mysql');
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts OFFSET…FETCH NEXT paging when Oracle is selected (Oracle 12c+ supports it too, not SQL Server-exclusive)', () => {
+    const sql = `SELECT employee_id, salary FROM employees ORDER BY salary DESC OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY`;
+    const result = validateSqlDialect(sql, 'oracle');
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts RETURNING when Oracle is selected (Oracle DML supports RETURNING INTO, not PostgreSQL-exclusive)', () => {
+    const sql = `UPDATE employees SET salary = salary * 1.1 WHERE department_id = 10 RETURNING employee_id, salary INTO :emp_id, :new_salary`;
+    const result = validateSqlDialect(sql, 'oracle');
+
+    expect(result.valid).toBe(true);
+  });
+
   it('accepts a plain ANSI query for any dialect', () => {
     const sql = `SELECT o.id, o.total FROM orders o INNER JOIN customers c ON o.customer_id = c.id WHERE o.status = 'completed'`;
     (['mysql', 'postgresql', 'sqlserver', 'oracle'] as const).forEach((dialect) => {

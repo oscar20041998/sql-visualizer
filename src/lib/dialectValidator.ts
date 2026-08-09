@@ -39,7 +39,6 @@ const DIALECT_SIGNATURES: Record<SqlDialect, DialectSignature[]> = {
   oracle: [
     { pattern: /\bROWNUM\b/i, reason: 'ROWNUM pseudo-column' },
     { pattern: /\bCONNECT\s+BY\b/i, reason: 'CONNECT BY clause' },
-    { pattern: /\bFROM\s+DUAL\b/i, reason: 'DUAL table reference' },
     { pattern: /\(\s*\+\s*\)/, reason: '(+) Oracle outer-join operator' },
     { pattern: /\b\w+\.(NEXTVAL|CURRVAL)\b/i, reason: 'sequence NEXTVAL/CURRVAL reference' },
     { pattern: /\bMINUS\b/i, reason: 'MINUS set operator' },
@@ -50,7 +49,6 @@ const DIALECT_SIGNATURES: Record<SqlDialect, DialectSignature[]> = {
     { pattern: /\bGETDATE\s*\(\)/i, reason: 'GETDATE() function' },
     { pattern: /@@(IDENTITY|ROWCOUNT|VERSION)\b/i, reason: 'system variable (e.g. @@IDENTITY)' },
     { pattern: /\bDECLARE\s+@\w+/i, reason: 'DECLARE @variable syntax' },
-    { pattern: /\bOFFSET\s+\d+\s+ROWS\s+FETCH\s+NEXT\b/i, reason: 'OFFSET…FETCH NEXT paging' },
   ],
   mysql: [
     { pattern: /`[^`]+`/, reason: 'backtick-quoted identifier' },
@@ -61,7 +59,6 @@ const DIALECT_SIGNATURES: Record<SqlDialect, DialectSignature[]> = {
   postgresql: [
     { pattern: /::[A-Za-z_][\w]*/, reason: '"::type" cast syntax' },
     { pattern: /\bILIKE\b/i, reason: 'ILIKE operator' },
-    { pattern: /\bRETURNING\b/i, reason: 'RETURNING clause' },
     { pattern: /\$\d+\b/, reason: '$n positional parameter' },
   ],
 };
