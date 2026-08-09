@@ -79,11 +79,10 @@ export default function SmartSQLEditorPage() {
                 <button
                   key={key}
                   onClick={() => setSelectedQuery(key as keyof typeof SAMPLE_QUERIES)}
-                  className={`px-4 py-2 rounded font-medium transition ${
-                    selectedQuery === key
+                  className={`px-4 py-2 rounded font-medium transition ${selectedQuery === key
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'border border-border bg-card text-foreground hover:bg-muted'
-                  }`}
+                    }`}
                 >
                   {key === 'simple' && t.editorPageQuerySimple}
                   {key === 'withJoin' && t.editorPageQueryWithJoin}
