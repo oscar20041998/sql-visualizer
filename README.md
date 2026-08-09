@@ -1,18 +1,17 @@
 # SQL Visualizer
 
-A comprehensive SQL analysis and visualization tool built with Next.js 15, React 19, and TypeScript. Analyze query complexity, visualize table relationships, explore CTEs, validate SQL dialects, and use AI-assisted SQL explanations across multiple dialects.
+A comprehensive SQL analysis and visualization tool built with Next.js 15, React 19, and TypeScript. Analyze query complexity, visualize table relationships, explore CTEs, and deep-dive into JOIN conditions across multiple SQL dialects.
 
 ## 🚀 Features
 
 ### Core Analysis Tools
 
-- **Query Input** - Paste SQL or import MyBatis XML with multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle) and mismatch warnings before analysis
+- **Query Input** - Paste SQL or import MyBatis XML with multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle)
 - **Relationship Graph Visualizer** - Interactive visualization of table relationships and JOIN connections with color-coded edges and multiple layout options
 - **JOIN Analysis** - Deep-dive analysis of JOIN conditions with complexity breakdown, column/operator detection, and multi-dialect support
 - **Metrics Dashboard** - Real-time complexity scoring (0-100) with detailed breakdowns of keywords, SELECT fields, JOINs, CTEs, subqueries, and window functions
-- **CTE Analysis** - Explore Common Table Expressions and field origins with visual tree structure
-- **Smart SQL Editor** - The shared multi-dialect Monaco editor with formatting, copy, diff comparison, full-height editing, and theme-aware light/dark modes
-- **AI SQL Explainer** - Generate structured explanations, ask follow-up questions, and explain CTEs in batches with Ollama or supported cloud providers
+- **CTE Analysgit is** - Explore Common Table Expressions and field origins with visual tree structure
+- **Smart SQL Editor** - Multi-dialect query editor with syntax awareness and real-time analysis
 
 ### Technical Stack
 
@@ -53,26 +52,19 @@ sql-visualizer/
 │   ├── app/
 │   │   ├── layout.tsx              # Root layout with theme provider
 │   │   ├── page.tsx                # Dashboard page
-│   │   ├── api/ai/generate/        # Server-side AI generation endpoint
-│   │   ├── common/                 # Shared SQL analysis utilities and colors
-│   │   ├── query-input/            # SQL input, MyBatis import, and parameter configuration
+│   │   ├── query-input/            # SQL input and parameter configuration
 │   │   ├── relationship-graph-visualizer/  # Graph visualization and JOIN analysis
 │   │   ├── cte-analysis/           # CTE exploration and analysis
 │   │   ├── sql-metrics-dashboard/  # Complexity metrics and scoring
-│   │   ├── smart-sql-editor/       # Shared Monaco editor and AI SQL Explainer
-│   │   └── settings-preferences/   # User preferences, theme, and AI configuration
+│   │   └── settings-preferences/   # User preferences and theme
 │   ├── components/
 │   │   ├── AppLayout.tsx          # Main layout component
 │   │   ├── Sidebar.tsx            # Navigation sidebar
 │   │   ├── ThemeProvider.tsx      # Theme context provider
 │   │   └── ui/                    # Reusable UI components (ComplexityDashboard, LintingAlerts, etc.)
 │   ├── lib/
-│   │   ├── aiProviders.ts          # Supported AI provider configuration
-│   │   ├── aiService.ts            # AI request orchestration
-│   │   ├── aiSqlContext.ts         # Local SQL context for AI prompts
 │   │   ├── sqlAnalyzer.ts         # SQL parsing and analysis engine
 │   │   ├── complexityScorer.ts    # Complexity calculation logic
-│   │   ├── dialectValidator.ts     # SQL dialect compatibility validation
 │   │   ├── store.ts               # Zustand state management
 │   │   ├── logger.ts              # Logging utilities
 │   │   └── i18n.ts                # Internationalization setup
@@ -93,16 +85,26 @@ sql-visualizer/
 │   ├── styles/
 │   │   ├── index.css              # Global styles
 │   │   └── tailwind.css           # Tailwind CSS configuration
-│   └── sample/                     # Example SQL and MyBatis input files
-├── public/
-│   └── assets/
-│       ├── images/                 # Static application images
-│       └── markdown/               # Versioned feature documentation and guides
-│           ├── FEATURES.md         # Feature overview
-│           ├── FEATURES_INDEX.md   # Documentation index
-│           └── features/
-│               ├── 1_0_0/          # Core feature and workflow documentation
-│               └── 1_0_1/          # Smart editor and AI documentation
+│   ├── markdown/                  # Documentation and guides
+│   │   ├── FEATURES.md            # Feature overview and landing page
+│   │   ├── FEATURES_INDEX.md      # Comprehensive feature index with navigation
+│   │   ├── features/              # Modular feature documentation (12 files)
+│   │   │   ├── QUERY_INPUT.md     # SQL input functionality guide
+│   │   │   ├── RELATIONSHIP_GRAPH.md  # Graph visualization guide
+│   │   │   ├── JOIN_ANALYSIS.md   # Deep JOIN condition analysis guide
+│   │   │   ├── METRICS_DASHBOARD.md  # Complexity scoring guide
+│   │   │   ├── COMPLEXITY_SCORING.md # Technical scoring details
+│   │   │   ├── CTE_ANALYSIS.md    # CTE exploration guide
+│   │   │   ├── SETTINGS.md        # UI customization guide
+│   │   │   ├── BEST_PRACTICES.md  # Query optimization best practices
+│   │   │   ├── OPTIMIZATION_WORKFLOW.md # Step-by-step optimization
+│   │   │   ├── WORKFLOW_EXAMPLES.md # Real-world use case examples
+│   │   │   ├── LEARNING_PATH.md   # Structured learning guide
+│   │   │   └── ADVANCED_TOPICS.md # Enterprise patterns
+│   │   ├── AST_*.md               # Architecture and AST documentation
+│   │   ├── SMART_SQL_EDITOR_*.md  # Smart editor implementation docs
+│   │   ├── ENTITY_EXTRACTION_*.md # Entity extraction documentation
+│   │   └── sample/                # Sample SQL queries
 ├── next.config.mjs                # Next.js configuration
 ├── package.json                   # Project dependencies and scripts
 ├── postcss.config.js              # PostCSS configuration
@@ -118,7 +120,6 @@ sql-visualizer/
 - **CTE Analysis** (`/cte-analysis`) - Explore CTEs and field data flow
 - **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores and breakdowns
 - **Settings** (`/settings-preferences`) - Configure theme, language, and analysis options
-- **Smart SQL Editor** (`/smart-sql-editor`) - Format, compare, and explain SQL with AI
 
 ## 🎨 Styling & Theming
 
@@ -254,34 +255,33 @@ The project includes comprehensive, modularized documentation to keep guides foc
 
 **Core Features** - Start here to understand each analysis tool:
 
-- [Query Input](public/assets/markdown/features/1_0_0/QUERY_INPUT.md) - How to input SQL and configure dialects
-- [Relationship Graph](public/assets/markdown/features/1_0_0/RELATIONSHIP_GRAPH.md) - Visualizing table relationships
-- [JOIN Analysis](public/assets/markdown/features/1_0_0/JOIN_ANALYSIS.md) - Deep-dive into JOIN conditions
-- [Metrics Dashboard](public/assets/markdown/features/1_0_0/METRICS_DASHBOARD.md) - Understanding complexity scores
-- [CTE Analysis](public/assets/markdown/features/1_0_0/CTE_ANALYSIS.md) - Exploring Common Table Expressions
-- [Settings & Preferences](public/assets/markdown/features/1_0_0/SETTINGS.md) - UI customization and AI configuration
-- [Smart SQL Editor & AI Explainer](public/assets/markdown/features/1_0_1/SMART_SQL_EDITOR_AI.md) - Editor and AI workflow guide
+- [Query Input](src/markdown/features/QUERY_INPUT.md) - How to input SQL and configure dialects
+- [Relationship Graph](src/markdown/features/RELATIONSHIP_GRAPH.md) - Visualizing table relationships
+- [JOIN Analysis](src/markdown/features/JOIN_ANALYSIS.md) - Deep-dive into JOIN conditions
+- [Metrics Dashboard](src/markdown/features/METRICS_DASHBOARD.md) - Understanding complexity scores
+- [CTE Analysis](src/markdown/features/CTE_ANALYSIS.md) - Exploring Common Table Expressions
+- [Settings & Preferences](src/markdown/features/SETTINGS.md) - UI customization
 
 ### Guides & Workflows
 
 **Practical Guides** - Achieve specific goals:
 
-- [Best Practices](public/assets/markdown/features/1_0_0/BEST_PRACTICES.md) - Query optimization guidelines
-- [Optimization Workflow](public/assets/markdown/features/1_0_0/OPTIMIZATION_WORKFLOW.md) - Step-by-step query improvement
-- [Workflow Examples](public/assets/markdown/features/1_0_0/WORKFLOW_EXAMPLES.md) - Real-world scenarios and use cases
-- [Learning Path](public/assets/markdown/features/1_0_0/LEARNING_PATH.md) - Structured learning for all skill levels
+- [Best Practices](src/markdown/features/BEST_PRACTICES.md) - Query optimization guidelines
+- [Optimization Workflow](src/markdown/features/OPTIMIZATION_WORKFLOW.md) - Step-by-step query improvement
+- [Workflow Examples](src/markdown/features/WORKFLOW_EXAMPLES.md) - Real-world scenarios and use cases
+- [Learning Path](src/markdown/features/LEARNING_PATH.md) - Structured learning for all skill levels
 
 ### Technical Reference
 
 **For Deep Dives** - Technical details and customization:
 
-- [Complexity Scoring Engine](public/assets/markdown/features/1_0_0/COMPLEXITY_SCORING.md) - How scoring works with weight matrix
-- [Advanced Topics](public/assets/markdown/features/1_0_0/ADVANCED_TOPICS.md) - Enterprise patterns and customization
+- [Complexity Scoring Engine](src/markdown/features/COMPLEXITY_SCORING.md) - How scoring works with weight matrix
+- [Advanced Topics](src/markdown/features/ADVANCED_TOPICS.md) - Enterprise patterns and customization
 
 ### Quick Navigation
 
-- [FEATURES_INDEX.md](public/assets/markdown/FEATURES_INDEX.md) - Complete index with all documentation links
-- [FEATURES.md](public/assets/markdown/FEATURES.md) - Quick feature overview and getting started
+- [FEATURES_INDEX.md](src/markdown/FEATURES_INDEX.md) - Complete index with all documentation links
+- [FEATURES.md](src/markdown/FEATURES.md) - Quick feature overview and getting started
 
 ## � Getting Started
 
@@ -330,7 +330,7 @@ You can check out the [Next.js GitHub repository](https://github.com/vercel/next
 
 ## � Documentation
 
-For comprehensive feature documentation, see [FEATURES.md](./public/assets/markdown/FEATURES.md) which includes:
+For comprehensive feature documentation, see [FEATURES.md](./src/markdown/FEATURES.md) which includes:
 
 - Detailed feature descriptions
 - Use case scenarios
@@ -355,7 +355,3 @@ Contributions are welcome! Please ensure:
 - Internationalization support
 
 Built with ❤️ for SQL analysis and query optimization
-
----
-
-_Version: 2.2 (Smart SQL Editor and AI SQL Explainer)_
