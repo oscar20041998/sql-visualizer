@@ -180,6 +180,26 @@ export default function NestedSubquerySection({
                     </div>
                   )}
 
+                  {/* SELECT fields */}
+                  {sub.fields.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                        {t.cteSubqueryFields}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {sub.fields.map((field, fieldIndex) => (
+                          <span
+                            key={`${sub.id}-field-${fieldIndex}`}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded bg-violet-500/10 text-violet-500 text-xs font-mono"
+                          >
+                            <Hash size={9} />
+                            {field}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* SQL body */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
