@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { validateSqlDialect } from './dialectValidator';
 
 describe('validateSqlDialect', () => {
@@ -56,6 +56,15 @@ describe('validateSqlDialect', () => {
 
     expect(result.valid).toBe(false);
     expect(result.mismatches[0].detectedDialect).toBe('postgresql');
+  });
+
+  it('does not log expected syntax failures during an AST dialect cross-check', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await validateSqlDialect('SELECT DISTINCT ON (customer_id) customer_id FROM orders', 'mysql');
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it('runs the AST cross-check on unmasked SQL so string literals do not disable detection', async () => {
