@@ -105,7 +105,7 @@ export const SQL_REGEX_PATTERNS = {
   RECURSIVE_KEYWORD: /^RECURSIVE\s+/i,
 
   // CTE name extraction
-  CTE_NAME: /^((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|\w+))\s*/i,
+  CTE_NAME: /^(\w+)\s*/i,
 
   // AS keyword
   AS_KEYWORD: /^AS\s*/i,

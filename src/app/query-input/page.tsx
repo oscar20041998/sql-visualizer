@@ -7,7 +7,8 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
+import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
+import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import {
   analyzeSql,
   extractMyBatisParams,
@@ -223,6 +224,9 @@ export default function QueryInputContent() {
 
   const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
 
+  // Live content of the Smart Editor, fed to the AI explainer panel below it.
+  const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
+
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
   return (
@@ -245,8 +249,15 @@ export default function QueryInputContent() {
         {inputMode === 'smart-editor' && (
           <div className="mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-            <div className="mt-4 flex-1 min-h-0">
-              <SmartSQLEditor initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'} />
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="min-h-[620px] flex flex-col">
+                <SmartSQLEditor
+                  initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'}
+                  onSqlChange={setSmartEditorSql}
+                />
+              </div>
+              {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}
+              <AiSqlExplainer sql={smartEditorSql} />
             </div>
           </div>
         )}

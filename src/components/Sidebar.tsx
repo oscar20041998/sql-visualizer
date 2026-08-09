@@ -17,6 +17,7 @@ import {
   BookOpen,
   Loader,
   ChevronLeft,
+  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -27,11 +28,24 @@ import LoadingOverlay from '@/components/ui/LoadingOverlay';
 const navItems = [
   { key: 'navHome', href: '/', icon: Home, badge: null },
   { key: 'navQueryInput', href: '/query-input', icon: Code2, badge: null },
+  { key: 'navSmartEditor', href: '/smart-sql-editor', icon: Sparkles, badge: null },
   { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
   { key: 'navSettings', href: '/settings-preferences', icon: Settings, badge: null },
 ] as const;
+
+/**
+ * Pages that stand on their own; everything else needs an analysis result first. The Smart SQL
+ * Editor belongs here — formatting and the AI explainer work straight from typed SQL.
+ */
+const NAV_WITHOUT_ANALYSIS = new Set<string>([
+  'navHome',
+  'navQueryInput',
+  'navSmartEditor',
+  'navGuideline',
+  'navSettings',
+]);
 
 export default function Sidebar() {
   const [isPending, startTransition] = useTransition();
@@ -89,12 +103,7 @@ export default function Sidebar() {
           const label = t[item.key as keyof typeof t] as string;
           const isActive = pathname === item.href;
           // Lock navigation for analysis pages when no data
-          const isLocked =
-            item.key !== 'navHome' &&
-            item.key !== 'navQueryInput' &&
-            item.key !== 'navSettings' &&
-            item.key !== 'navGuideline' &&
-            !analysisResult;
+          const isLocked = !NAV_WITHOUT_ANALYSIS.has(item.key) && !analysisResult;
 
           return (
             <Link

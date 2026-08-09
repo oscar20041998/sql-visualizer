@@ -41,7 +41,7 @@ export default function CTEAnalysisContent() {
           <p className="text-sm text-muted-foreground mt-1">{t.noCTEsHint}</p>
         </div>
         <a
-          href="/query-input"
+          href="/"
           className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
         >
           {t.navQueryInput}

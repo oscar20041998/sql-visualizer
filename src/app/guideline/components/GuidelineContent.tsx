@@ -384,11 +384,7 @@ function SectionCard({ section }: { section: Section }) {
 // ─── Quick Reference ──────────────────────────────────────────────────────────
 function createQuickRef(t: ReturnType<typeof getT>) {
   return [
-    { icon: Code2, 
-      color: '#6ee7f7', 
-      label: t.guidelineQuickRefQueryInput, 
-      href: '/query-input' 
-    },
+    { icon: Code2, color: '#6ee7f7', label: t.guidelineQuickRefQueryInput, href: '/' },
     {
       icon: GitFork,
       color: '#f59e0b',
