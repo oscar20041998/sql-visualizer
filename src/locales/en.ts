@@ -6,6 +6,7 @@ const en = {
   // Nav
   navHome: 'Home',
   navQueryInput: 'Query Input',
+  navSmartEditor: 'Smart SQL Editor',
   navGraphVisualizer: 'Graph Visualizer',
   navMetricsDashboard: 'Metrics Dashboard',
   navCTEAnalysis: 'CTE Analysis',
@@ -18,7 +19,7 @@ const en = {
   tabPasteSQL: 'Paste SQL Direct',
   tabMyBatisContent: 'Paste your XML content',
   tabImportMyBatis: 'Import MyBatis (XML) file',
-  tabSmartEditor: 'Smart Editor (WIP)',
+  tabSmartEditor: 'Smart Editor',
   dialectLabel: 'SQL Dialect',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -41,6 +42,9 @@ const en = {
   parsingSQL: 'Parsing SQL structure...',
   analysisCompleteMessage: 'Analysis complete — {tables} tables, {joins} joins detected',
   parseErrorMessage: 'Failed to parse query. Check SQL syntax.',
+  dialectMismatchError:
+    'Dialect mismatch: this query looks like {detected} syntax ({reason}), but {selected} is selected. Fix the dialect or the query before analyzing.',
+  dialectReasonAstParse: 'syntax not valid for the selected dialect',
   clearButton: 'Clear',
   loadSample: 'Load Sample',
   resolvedPreviewTitle: 'Resolved SQL Preview',
@@ -95,7 +99,6 @@ const en = {
   error: 'Error',
 
   // Smart Suggestions — titles
-  suggMissingIndexTitle: 'Missing indexes on join columns',
   suggExcessiveJoinsTitle: 'Excessive joins detected',
   suggManyJoinsTitle: 'Multiple joins — review join order',
   suggCrossJoinTitle: 'CROSS JOIN produces Cartesian product',
@@ -109,8 +112,6 @@ const en = {
   suggLooksGoodTitle: 'Query looks well-structured',
 
   // Smart Suggestions — details
-  suggMissingIndexDetail:
-    'Ensure indexes exist on join key columns. Missing indexes on join keys cause full table scans.',
   suggExcessiveJoinsDetail:
     'Excessive joins in a single query significantly increases execution cost. Consider splitting into smaller queries or using intermediate CTEs to pre-aggregate data.',
   suggManyJoinsDetail:
@@ -383,11 +384,23 @@ const en = {
   aiProviderAnthropic: 'Anthropic (Claude)',
   aiProviderGemini: 'Google Gemini',
   aiBaseUrl: 'Base URL',
-  aiBaseUrlHint: 'Address of your local Ollama server',
+  aiBaseUrlHint: 'Address of your local Ollama server, e.g. http://localhost:11434',
+  aiBaseUrlCloudHint:
+    'API root for this provider. Override it to use an OpenAI-compatible gateway — the host must also be listed in AI_ALLOWED_BASE_URLS on the server before a key is sent to it.',
+  aiBaseUrlReset: 'Restore default',
   aiLocalModel: 'Local Model Name',
   aiLocalModelHint: 'Model tag pulled in Ollama, e.g. qwen2.5-coder:7b or llama3',
-  aiApiKey: 'API Key',
-  aiApiKeyHint: 'Stored locally in your browser and used to authenticate requests',
+  aiServerKeyTitle: 'API key is managed on the server',
+  aiServerKeyHint:
+    'The browser never receives a provider credential. Set the key in the .env file at the project root and restart the dev server — this is the variable the server reads for the selected provider:',
+  aiConfigSave: 'Save changes',
+  aiConfigDiscard: 'Discard',
+  aiLocalModelRequired: 'Ollama local model name is required.',
+  aiModelIdRequired: 'Model ID is required for cloud providers.',
+  aiConfigSaved: 'AI configuration saved',
+  aiConfigDiscarded: 'Changes discarded',
+  aiConfigUnsaved: 'You have unsaved changes',
+  aiConfigUpToDate: 'All changes saved',
   aiModelId: 'Model ID',
   aiModelIdHint: 'Identifier of the model to use, e.g. gpt-4o or claude-3-5-sonnet',
   aiTemperature: 'Temperature',
@@ -499,6 +512,26 @@ const en = {
   guidelineSettingsTip2:
     'API keys are stored locally in your browser and are sent only directly to the provider you selected.',
 
+  // Guideline - AI SQL Explainer Section
+  guidelineAiExplainerTitle: 'AI SQL Explainer',
+  guidelineAiExplainerSubtitle: 'Turn SQL into a structured, natural-language explanation',
+  guidelineAiExplainerStep1Label: 'Open the Smart SQL Editor',
+  guidelineAiExplainerStep1Desc:
+    'Open Smart SQL Editor from the sidebar or switch to the Smart Editor tab on the Query Input page.',
+  guidelineAiExplainerStep2Label: 'Enter or load a query',
+  guidelineAiExplainerStep2Desc:
+    'Type SQL directly, select a sample query, or paste a query you want to understand.',
+  guidelineAiExplainerStep3Label: 'Generate an explanation',
+  guidelineAiExplainerStep3Desc:
+    'Select Explain SQL to receive a structured summary of the query objective, output, filters, and referenced tables. The app includes parsed query context to improve the explanation.',
+  guidelineAiExplainerStep4Label: 'Configure the AI provider',
+  guidelineAiExplainerStep4Desc:
+    'Choose a local Ollama model or a cloud provider in Settings. You can set the model, temperature, and system prompt for your team.',
+  guidelineAiExplainerTip1:
+    'Use follow-up questions to investigate parts of the explanation, and copy the result when you need to share it.',
+  guidelineAiExplainerTip2:
+    'Review AI output alongside the metrics and relationship graph; it is an aid for understanding SQL, not an execution plan.',
+
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Tools Available',
   guidelineToolsSubtitle: 'Complete feature overview and tool descriptions',
@@ -562,6 +595,7 @@ const en = {
   guidelineQuickRefMetrics: 'Metrics Dashboard',
   guidelineQuickRefCTE: 'CTE Analysis',
   guidelineQuickRefSettings: 'Settings',
+  guidelineQuickRefAiExplainer: 'AI SQL Explainer',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Dark / Light toggle',
@@ -846,36 +880,37 @@ const en = {
   reset: 'Reset',
   save: 'Save',
 
-  // Smart SQL Editor Demo
-  demoTitle: '🚀 Smart SQL Editor Demo',
-  demoSubtitle:
+  // Smart SQL Editor - page
+  editorPageTitle: '🚀 Smart SQL Editor',
+  editorPageSubtitle:
     'Powerful SQL editing with real-time validation, formatting, and AI-powered optimization',
-  demoLoadSampleQueryLabel: '📋 Load Sample Query:',
-  demoQuerySimple: '✨ Simple',
-  demoQueryWithJoin: '🔗 With JOIN',
-  demoQueryWithCTE: '📦 With CTE',
-  demoQueryComplex: '🎯 Complex',
-  demoProTipsTitle: '💡 Pro Tips:',
-  demoProTip1: 'Type or paste SQL and watch real-time validation (500ms debounce)',
-  demoProTip2: 'Click "Format SQL" to beautify with uppercase keywords',
-  demoProTip3: 'Click "Analyze & Optimize" to get AI suggestions (requires local Ollama running)',
-  demoProTip4: 'Click "Compare" to see side-by-side diff of original vs optimized',
-  demoProTip5: 'Open DevTools (F12) Console to see detailed debug logs',
-  demoSetupTitle: '🛠️ Setup Instructions',
-  demoInstallDepsLabel: 'Install dependencies:',
-  demoInstallDepsCmd: 'npm install monaco-editor sql-formatter',
-  demoStartOllamaLabel: 'Start Ollama (for AI optimization):',
-  demoStartOllamaCmd: 'ollama run mistral',
-  demoTestInDemoLabel: 'Test in this demo or integrate into your dashboard',
-  demoFeaturesTitle: '✨ Key Features',
-  demoFeature1: 'Real-time syntax validation (dt-sql-parser)',
-  demoFeature2: 'SQL formatting (sql-formatter with MySQL options)',
-  demoFeature3: 'Diff view for before/after comparison',
-  demoFeature4: 'AI optimization with local Ollama LLM',
-  demoFeature5: 'Performance insights and recommendations',
-  demoFeature6: 'Comprehensive error handling and logging',
-  demoMoreInfoLabel: '📚 For detailed setup and API documentation, see',
-  demoMoreInfoFile: 'SMART_SQL_EDITOR_SETUP.md',
+  editorPageLoadSampleQueryLabel: '📋 Load Sample Query:',
+  editorPageQuerySimple: '✨ Simple',
+  editorPageQueryWithJoin: '🔗 With JOIN',
+  editorPageQueryWithCTE: '📦 With CTE',
+  editorPageQueryComplex: '🎯 Complex',
+  editorPageProTipsTitle: '💡 Pro Tips:',
+  editorPageProTip1: 'Type or paste SQL and watch real-time validation (500ms debounce)',
+  editorPageProTip2: 'Click "Format SQL" to beautify with uppercase keywords',
+  editorPageProTip3: 'Click "Analyze & Optimize" to get AI suggestions (requires local Ollama running)',
+  editorPageProTip4: 'Click "Compare" to see side-by-side diff of original vs optimized',
+  editorPageProTip5: 'Open DevTools (F12) Console to see detailed debug logs',
+  editorPageProTip6: 'Click "Explain this query" to translate the SQL into plain natural language',
+  editorPageSetupTitle: '🛠️ Setup Instructions',
+  editorPageInstallDepsLabel: 'Install dependencies:',
+  editorPageInstallDepsCmd: 'npm install monaco-editor sql-formatter',
+  editorPageStartOllamaLabel: 'Start Ollama (for AI optimization):',
+  editorPageStartOllamaCmd: 'ollama run mistral',
+  editorPageTestLabel: 'Test it right here or integrate it into your dashboard',
+  editorPageFeaturesTitle: '✨ Key Features',
+  editorPageFeature1: 'Real-time syntax validation (dt-sql-parser)',
+  editorPageFeature2: 'SQL formatting (sql-formatter with MySQL options)',
+  editorPageFeature3: 'Diff view for before/after comparison',
+  editorPageFeature4: 'AI optimization with local Ollama LLM',
+  editorPageFeature5: 'Performance insights and recommendations',
+  editorPageFeature6: 'Comprehensive error handling and logging',
+  editorPageMoreInfoLabel: '📚 For detailed setup and API documentation, see',
+  editorPageMoreInfoFile: 'SMART_SQL_EDITOR_SETUP.md',
 
   // Smart SQL Editor
   smartEditorTitle: 'Smart SQL Editor',
@@ -886,6 +921,37 @@ const en = {
   toggleDiffTitle: 'Toggle between single and diff view',
   analyzeOptimizeButton: '🤖 Analyze & Optimize',
   analyzeOptimizeTitle: 'Analyze and optimize SQL with AI',
+  smartEditorOptimizing: 'Optimizing…',
+  smartEditorOptimizationSuccess: 'SQL optimization complete',
+  smartEditorOptimizationError: 'SQL optimization failed',
+  demoTitle: 'Smart SQL Demo',
+  demoSubtitle: 'Try sample SQL queries and AI-powered optimization in a sandboxed editor',
+  demoLoadSampleQueryLabel: '📋 Load Sample Query:',
+  demoQuerySimple: '✨ Simple',
+  demoQueryWithJoin: '🔗 With JOIN',
+  demoQueryWithCTE: '📦 With CTE',
+  demoQueryComplex: '🎯 Complex',
+  demoProTipsTitle: '💡 Demo Pro Tips:',
+  demoProTip1: 'Switch samples to see optimization examples quickly',
+  demoProTip2: 'Use the toolbar buttons to format and compare changes',
+  demoProTip3: 'AI optimization uses the configured model in Settings',
+  demoProTip4: 'Optimized SQL is placed back into the editor automatically',
+  demoProTip5: 'Use the diff view to inspect the exact code changes',
+  demoSetupTitle: '🛠️ Demo Setup Instructions',
+  demoInstallDepsLabel: 'Install dependencies for local development:',
+  demoInstallDepsCmd: 'npm install',
+  demoStartOllamaLabel: 'Start Ollama if using local model optimization:',
+  demoStartOllamaCmd: 'ollama serve',
+  demoTestInDemoLabel: 'Then run this demo and click Analyze & Optimize.',
+  demoFeaturesTitle: '✨ Demo Features',
+  demoFeature1: 'Interactive SQL editor with formatting',
+  demoFeature2: 'AI optimization and performance guidance',
+  demoFeature3: 'Side-by-side diff review mode',
+  demoFeature4: 'Sample queries for different SQL patterns',
+  demoFeature5: 'Natural-language query explanation panel',
+  demoFeature6: 'Live dialect-aware analytics',
+  demoMoreInfoLabel: 'More information and source code in',
+  demoMoreInfoFile: 'src/app/smart-sql-editor-demo/page.tsx',
   analyzingLabel: 'Analyzing...',
   syntaxErrorsTitle: '❌ Syntax Errors:',
   optimizationResultsTitle: '✅ Optimization Results',
@@ -982,6 +1048,9 @@ const en = {
   homeSmartRecommendationsTitle: 'Smart Recommendations',
   homeSmartRecommendationsDesc:
     'AI-powered suggestions to optimize your queries and improve performance',
+  homeAiExplainerTitle: 'AI SQL Explainer',
+  homeAiExplainerDesc:
+    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables.',
   homeReadyToAnalyzeTitle: 'Ready to analyze?',
   homeReadyToAnalyzeDesc:
     'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',
@@ -1034,6 +1103,113 @@ const en = {
   joinNo: 'No',
   joinExpandDetails: 'Expand Details',
   joinCollapseDetails: 'Collapse Details',
+
+  // AI SQL Explainer - release announcement
+  aiAnnounceBadge: 'Feature release',
+  aiAnnounceHeading: '🎉 New: Understand SQL queries in seconds with AI!',
+  aiAnnounceBody:
+    'No more wasting time deciphering hundreds of lines of complex code. The new AI SQL Explainer automatically helps you:',
+  aiAnnounceBullet1: 'Summarize the core objective of the query.',
+  aiAnnounceBullet2: 'Clarify complex filters and constraints (timeframes, statuses, regions, etc.).',
+  aiAnnounceBullet3: 'Translate technical dataset outputs into clear, natural language.',
+  aiAnnounceSecurity: '🔒 Powered by a secure local AI model, ensuring 100% data privacy.',
+  aiAnnounceSettingsHint: 'Choose your model and parameters in Settings → AI Model Configuration',
+  aiAnnouncePrimaryCta: 'Try it now',
+  aiAnnounceSecondaryCta: 'Dismiss',
+  aiAnnounceClose: 'Close announcement',
+  aiAnnounceReopen: "What's new",
+
+  // AI SQL Explainer - panel
+  aiExplainerTitle: 'AI SQL Explainer',
+  aiExplainerSubtitle: 'Turn the query in the editor into plain natural language',
+  aiExplainerLocalBadge: 'Local & private',
+  aiExplainerLocalBadgeHint: 'Your query is sent only to the Ollama model running on your machine',
+  aiExplainerCloudBadge: 'Cloud provider',
+  aiExplainerCloudBadgeHint: 'Your query is sent to the cloud provider configured in Settings',
+  aiExplainerNoModel: 'No model set',
+  aiExplainerOpenSettings: 'Model settings',
+  aiExplainerRunButton: 'Explain this query',
+  aiExplainerRerunButton: 'Explain again',
+  aiExplainerRunning: 'Reading your query…',
+  aiExplainerCancel: 'Cancel',
+  aiExplainerCancelled: 'Explanation cancelled',
+  aiExplainerCopy: 'Copy explanation',
+  aiExplainerCopiedShort: 'Copied',
+  aiExplainerCopied: 'Explanation copied to clipboard',
+  aiExplainerCopyFailed: 'Failed to copy the explanation',
+  aiExplainerGeneratedIn: 'Generated in',
+  aiExplainerStaleWarning:
+    'The query changed after this explanation was generated. Run the explainer again to refresh it.',
+  aiExplainerSuccess: 'Explanation ready',
+  aiExplainerEmptySql: 'Write a SQL query in the editor first, then run the explainer.',
+  aiExplainerEmptyStateTitle: 'No explanation yet',
+  aiExplainerEmptyStateHint:
+    'Run the explainer to get the query objective, its filters and constraints, and a plain-language description of the result set.',
+  aiExplainerErrorTitle: 'Could not explain this query',
+  aiExplainerErrorHint:
+    'Check that the AI provider is reachable and that the model, base URL, or API key in Settings → AI Model Configuration are correct.',
+  aiExplainerObjective: 'Query objective',
+  aiExplainerFilters: 'Filters & constraints',
+  aiExplainerNoFilters: 'This query has no filters or constraints.',
+  aiExplainerOutput: 'What you get back',
+  aiExplainerTables: 'Data sources',
+  aiExplainerNoContent: 'The model did not describe this section.',
+  aiExplainerShowRaw: 'Show raw model response',
+  aiExplainerHideRaw: 'Hide raw model response',
+  aiExplainerUnstructuredNotice:
+    'The model did not return structured sections, so here is its full answer.',
+
+  // AI - context window management
+  aiContextTokens: 'Context Window (tokens)',
+  aiContextTokensHint:
+    "Saved per provider. Must match the selected model's real context size — Ollama silently drops anything over the limit, so raise it with OLLAMA_CONTEXT_LENGTH or a Modelfile before raising it here.",
+  aiMaxOutputTokens: 'Max Answer Length (tokens)',
+  aiMaxOutputTokensHint: 'Saved per provider. Reserved out of the context window for the answer itself.',
+  aiBatchConcurrency: 'Batch Concurrency',
+  aiBatchConcurrencyHint:
+    'How many AI requests run at once during a batch explain. Ollama serialises per model unless OLLAMA_NUM_PARALLEL is raised.',
+  aiContextMeterHint: 'Estimated prompt tokens vs the budget available for the prompt',
+  aiContextOverflowTitle: 'This query is larger than the model context window',
+  aiContextOverflowBody:
+    'The prompt needs about {needed} tokens but only {budget} are available out of a {context}-token window. The query will be trimmed in the middle before sending, so the explanation may miss parts of it.',
+  aiContextOverflowFix:
+    'To send it whole: raise the context window in Settings (and on the Ollama server via OLLAMA_CONTEXT_LENGTH or a Modelfile), or use "Explain each CTE" below to cover the query step by step.',
+  aiContextTruncatedNotice:
+    '⚠ {lines} lines were omitted from the middle of the query to fit the context window — this explanation is based on a partial query.',
+  aiContextBriefDropped:
+    'The local parser summary was too large for the context window and was left out.',
+  aiContextBriefUsed: '✓ Grounded with verified facts from the local SQL parser.',
+
+  // AI - follow-up conversation
+  aiChatTitle: 'Ask a follow-up',
+  aiChatSubtitle: 'Multi-turn questions about this query. Older turns drop out as context fills up.',
+  aiChatPlaceholder: 'e.g. What does status = 3 mean here?',
+  aiChatSend: 'Ask',
+  aiChatReset: 'Clear',
+  aiChatThinking: 'Thinking…',
+  aiChatRoleYou: 'You',
+  aiChatRoleAssistant: 'AI',
+  aiChatHistoryTrimmed:
+    '{count} earlier message(s) were dropped from the conversation to stay inside the context window.',
+  aiChatSuggestion1: 'Which part is most likely to be slow?',
+  aiChatSuggestion2: 'Explain the JOIN conditions in more detail.',
+  aiChatSuggestion3: 'What would change if I removed the date filter?',
+
+  // AI - batch explain per CTE
+  aiBatchTitle: 'Explain each CTE',
+  aiBatchSubtitle:
+    '{count} CTE(s) in this query, explained separately — {concurrency} at a time. Each step stays well inside the context window.',
+  aiBatchRun: 'Run batch',
+  aiBatchRerun: 'Run again',
+  aiBatchCancel: 'Cancel',
+  aiBatchCancelled: 'Batch cancelled',
+  aiBatchDone: 'All CTEs explained',
+  aiBatchPartialError: '{count} CTE(s) could not be explained',
+  aiBatchStatus_pending: 'Queued',
+  aiBatchStatus_running: 'Running',
+  aiBatchStatus_done: 'Done',
+  aiBatchStatus_error: 'Failed',
+  aiBatchStatus_cancelled: 'Cancelled',
 } as const;
 
 export default en;

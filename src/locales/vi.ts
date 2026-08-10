@@ -6,6 +6,7 @@ const vi = {
   // Nav
   navHome: 'Trang chủ',
   navQueryInput: 'Nhập truy vấn',
+  navSmartEditor: 'Soạn thảo SQL thông minh',
   navGraphVisualizer: 'Biểu đồ quan hệ',
   navMetricsDashboard: 'Bảng chỉ số',
   navCTEAnalysis: 'Phân tích CTE',
@@ -18,7 +19,7 @@ const vi = {
   tabPasteSQL: 'Dán SQL trực tiếp',
   tabMyBatisContent: 'Dán nội dung XML của bạn',
   tabImportMyBatis: 'Tải tệp MyBatis (XML)',
-  tabSmartEditor: 'Trình soạn thảo thông minh (WIP)',
+  tabSmartEditor: 'Trình soạn thảo thông minh',
   dialectLabel: 'Phương ngữ SQL',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -39,6 +40,9 @@ const vi = {
   parsingSQL: 'Đang phân tích cấu trúc SQL...',
   analysisCompleteMessage: 'Phân tích hoàn tất — {tables} bảng, {joins} kết nối được phát hiện',
   parseErrorMessage: 'Không thể phân tích truy vấn. Kiểm tra cú pháp SQL.',
+  dialectMismatchError:
+    'Không khớp dialect: truy vấn có cú pháp giống {detected} ({reason}), nhưng dialect đang chọn là {selected}. Vui lòng chỉnh lại dialect hoặc truy vấn trước khi phân tích.',
+  dialectReasonAstParse: 'cú pháp không hợp lệ cho dialect đã chọn',
   clearButton: 'Xóa',
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',
@@ -93,7 +97,6 @@ const vi = {
   error: 'Lỗi',
 
   // Smart Suggestions — titles
-  suggMissingIndexTitle: 'Thiếu chỉ mục trên cột JOIN',
   suggExcessiveJoinsTitle: 'Phát hiện quá nhiều JOIN',
   suggManyJoinsTitle: 'Nhiều JOIN — kiểm tra thứ tự JOIN',
   suggCrossJoinTitle: 'CROSS JOIN tạo tích Descartes',
@@ -107,8 +110,6 @@ const vi = {
   suggLooksGoodTitle: 'Truy vấn có cấu trúc tốt',
 
   // Smart Suggestions — details
-  suggMissingIndexDetail:
-    'Đảm bảo có chỉ mục trên các cột khóa JOIN. Thiếu chỉ mục trên khóa JOIN gây ra quét toàn bộ bảng.',
   suggExcessiveJoinsDetail:
     'JOIN trong một truy vấn làm tăng đáng kể chi phí thực thi. Hãy xem xét chia thành các truy vấn nhỏ hơn hoặc dùng CTE trung gian để tổng hợp dữ liệu trước.',
   suggManyJoinsDetail:
@@ -378,11 +379,23 @@ const vi = {
   aiProviderAnthropic: 'Anthropic (Claude)',
   aiProviderGemini: 'Google Gemini',
   aiBaseUrl: 'Địa chỉ Base URL',
-  aiBaseUrlHint: 'Địa chỉ máy chủ Ollama cục bộ của bạn',
+  aiBaseUrlHint: 'Địa chỉ server Ollama cục bộ của bạn, ví dụ http://localhost:11434',
+  aiBaseUrlCloudHint:
+    'API root của nhà cung cấp này. Ghi đè để dùng gateway tương thích OpenAI — host đó cũng phải được khai báo trong AI_ALLOWED_BASE_URLS ở server trước khi key được gửi tới.',
+  aiBaseUrlReset: 'Khôi phục mặc định',
   aiLocalModel: 'Tên mô hình cục bộ',
   aiLocalModelHint: 'Tag mô hình đã tải trong Ollama, ví dụ qwen2.5-coder:7b hoặc llama3',
-  aiApiKey: 'API Key',
-  aiApiKeyHint: 'Được lưu cục bộ trên trình duyệt và dùng để xác thực yêu cầu',
+  aiServerKeyTitle: 'API key được quản lý ở phía server',
+  aiServerKeyHint:
+    'Trình duyệt không bao giờ nhận được credential của nhà cung cấp. Hãy đặt key trong file .env ở thư mục gốc dự án rồi khởi động lại dev server — đây là biến mà server sẽ đọc cho nhà cung cấp đang chọn:',
+  aiConfigSave: 'Lưu thay đổi',
+  aiConfigDiscard: 'Hủy bỏ',
+  aiLocalModelRequired: 'Cần nhập tên mô hình Ollama cục bộ.',
+  aiModelIdRequired: 'Cần nhập Model ID cho nhà cung cấp đám mây.',
+  aiConfigSaved: 'Đã lưu cấu hình AI',
+  aiConfigDiscarded: 'Đã hủy các thay đổi',
+  aiConfigUnsaved: 'Bạn có thay đổi chưa lưu',
+  aiConfigUpToDate: 'Đã lưu tất cả thay đổi',
   aiModelId: 'Model ID',
   aiModelIdHint: 'Định danh mô hình sử dụng, ví dụ gpt-4o hoặc claude-3-5-sonnet',
   aiTemperature: 'Temperature',
@@ -494,6 +507,27 @@ const vi = {
     'Cài đặt được lưu trong trình duyệt — tùy chọn của bạn sẽ được giữ nguyên sau khi tải lại trang.',
   guidelineSettingsTip2:
     'API key được lưu cục bộ trên trình duyệt và chỉ được gửi trực tiếp đến nhà cung cấp bạn đã chọn.',
+
+  // Guideline - AI SQL Explainer Section
+  guidelineAiExplainerTitle: 'AI Diễn Giải SQL',
+  guidelineAiExplainerSubtitle: 'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên',
+  guidelineAiExplainerStep1Label: 'Mở Smart SQL Editor',
+  guidelineAiExplainerStep1Desc:
+    'Mở Smart SQL Editor từ thanh bên hoặc chuyển sang tab Smart Editor trên trang Nhập truy vấn.',
+  guidelineAiExplainerStep2Label: 'Nhập hoặc tải truy vấn',
+  guidelineAiExplainerStep2Desc:
+    'Nhập SQL trực tiếp, chọn truy vấn mẫu hoặc dán truy vấn bạn muốn tìm hiểu.',
+  guidelineAiExplainerStep3Label: 'Tạo phần diễn giải',
+  guidelineAiExplainerStep3Desc:
+    'Chọn Diễn giải SQL để nhận tóm tắt có cấu trúc về mục đích, đầu ra, bộ lọc và các bảng được tham chiếu. Ứng dụng đưa ngữ cảnh truy vấn đã phân tích vào để cải thiện phần diễn giải.',
+  guidelineAiExplainerStep4Label: 'Cấu hình nhà cung cấp AI',
+  guidelineAiExplainerStep4Desc:
+    'Chọn mô hình Ollama cục bộ hoặc nhà cung cấp đám mây trong Cài đặt. Bạn có thể đặt model, temperature và system prompt cho nhóm của mình.',
+  guidelineAiExplainerTip1:
+    'Dùng câu hỏi tiếp theo để tìm hiểu các phần trong phần diễn giải và sao chép kết quả khi cần chia sẻ.',
+  guidelineAiExplainerTip2:
+    'Đọc kết quả AI cùng chỉ số và biểu đồ quan hệ; đây là công cụ hỗ trợ hiểu SQL, không phải kế hoạch thực thi.',
+
   // Guideline - Tools Available Section
   guidelineToolsTitle: 'Các công cụ có sẵn',
   guidelineToolsSubtitle: 'Tổng quan đầy đủ về tính năng và mô tả công cụ',
@@ -556,6 +590,7 @@ const vi = {
   guidelineQuickRefMetrics: 'Bảng chỉ số',
   guidelineQuickRefCTE: 'Phân tích CTE',
   guidelineQuickRefSettings: 'Cài đặt',
+  guidelineQuickRefAiExplainer: 'AI Diễn Giải SQL',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Chuyển tối / sáng',
@@ -842,35 +877,36 @@ const vi = {
   reset: 'Đặt lại',
   save: 'Lưu',
 
-  // Smart SQL Editor Demo
-  demoTitle: '🚀 Trình soạn thảo SQL thông minh Demo',
-  demoSubtitle: 'Soạn thảo SQL mạnh mẽ với xác thực thời gian thực, định dạng và tối ưu hóa AI',
-  demoLoadSampleQueryLabel: '📋 Tải truy vấn mẫu:',
-  demoQuerySimple: '✨ Đơn giản',
-  demoQueryWithJoin: '🔗 Với JOIN',
-  demoQueryWithCTE: '📦 Với CTE',
-  demoQueryComplex: '🎯 Phức tạp',
-  demoProTipsTitle: '💡 Mẹo hữu ích:',
-  demoProTip1: 'Nhập hoặc dán SQL và xem xác thực thời gian thực (debounce 500ms)',
-  demoProTip2: 'Nhấp "Định dạng SQL" để làm đẹp với từ khóa viết hoa',
-  demoProTip3: 'Nhấp "Phân tích & Tối ưu hóa" để nhận các gợi ý AI (yêu cầu Ollama chạy cục bộ)',
-  demoProTip4: 'Nhấp "So sánh" để xem diff của bản gốc so với đã tối ưu hóa',
-  demoProTip5: 'Mở DevTools (F12) Console để xem các bản ghi gỡ lỗi chi tiết',
-  demoSetupTitle: '🛠️ Hướng dẫn thiết lập',
-  demoInstallDepsLabel: 'Cài đặt các phụ thuộc:',
-  demoInstallDepsCmd: 'npm install monaco-editor sql-formatter',
-  demoStartOllamaLabel: 'Khởi động Ollama (để tối ưu hóa AI):',
-  demoStartOllamaCmd: 'ollama run mistral',
-  demoTestInDemoLabel: 'Kiểm tra trong demo này hoặc tích hợp vào bảng điều khiển của bạn',
-  demoFeaturesTitle: '✨ Các tính năng chính',
-  demoFeature1: 'Xác thực cú pháp thời gian thực (dt-sql-parser)',
-  demoFeature2: 'Định dạng SQL (sql-formatter với tùy chọn MySQL)',
-  demoFeature3: 'Xem diff để so sánh trước/sau',
-  demoFeature4: 'Tối ưu hóa AI với Ollama LLM cục bộ',
-  demoFeature5: 'Những hiểu biết về hiệu suất và khuyến nghị',
-  demoFeature6: 'Xử lý lỗi và ghi nhật ký toàn diện',
-  demoMoreInfoLabel: '📚 Để xem hướng dẫn thiết lập và tài liệu API chi tiết, xem',
-  demoMoreInfoFile: 'SMART_SQL_EDITOR_SETUP.md',
+  // Smart SQL Editor - page
+  editorPageTitle: '🚀 Trình soạn thảo SQL thông minh',
+  editorPageSubtitle: 'Soạn thảo SQL mạnh mẽ với xác thực thời gian thực, định dạng và tối ưu hóa AI',
+  editorPageLoadSampleQueryLabel: '📋 Tải truy vấn mẫu:',
+  editorPageQuerySimple: '✨ Đơn giản',
+  editorPageQueryWithJoin: '🔗 Với JOIN',
+  editorPageQueryWithCTE: '📦 Với CTE',
+  editorPageQueryComplex: '🎯 Phức tạp',
+  editorPageProTipsTitle: '💡 Mẹo hữu ích:',
+  editorPageProTip1: 'Nhập hoặc dán SQL và xem xác thực thời gian thực (debounce 500ms)',
+  editorPageProTip2: 'Nhấp "Định dạng SQL" để làm đẹp với từ khóa viết hoa',
+  editorPageProTip3: 'Nhấp "Phân tích & Tối ưu hóa" để nhận các gợi ý AI (yêu cầu Ollama chạy cục bộ)',
+  editorPageProTip4: 'Nhấp "So sánh" để xem diff của bản gốc so với đã tối ưu hóa',
+  editorPageProTip5: 'Mở DevTools (F12) Console để xem các bản ghi gỡ lỗi chi tiết',
+  editorPageProTip6: 'Nhấn "Giải thích truy vấn này" để chuyển SQL thành ngôn ngữ tự nhiên dễ hiểu',
+  editorPageSetupTitle: '🛠️ Hướng dẫn thiết lập',
+  editorPageInstallDepsLabel: 'Cài đặt các phụ thuộc:',
+  editorPageInstallDepsCmd: 'npm install monaco-editor sql-formatter',
+  editorPageStartOllamaLabel: 'Khởi động Ollama (để tối ưu hóa AI):',
+  editorPageStartOllamaCmd: 'ollama run mistral',
+  editorPageTestLabel: 'Kiểm tra ngay tại đây hoặc tích hợp vào bảng điều khiển của bạn',
+  editorPageFeaturesTitle: '✨ Các tính năng chính',
+  editorPageFeature1: 'Xác thực cú pháp thời gian thực (dt-sql-parser)',
+  editorPageFeature2: 'Định dạng SQL (sql-formatter với tùy chọn MySQL)',
+  editorPageFeature3: 'Xem diff để so sánh trước/sau',
+  editorPageFeature4: 'Tối ưu hóa AI với Ollama LLM cục bộ',
+  editorPageFeature5: 'Những hiểu biết về hiệu suất và khuyến nghị',
+  editorPageFeature6: 'Xử lý lỗi và ghi nhật ký toàn diện',
+  editorPageMoreInfoLabel: '📚 Để xem hướng dẫn thiết lập và tài liệu API chi tiết, xem',
+  editorPageMoreInfoFile: 'SMART_SQL_EDITOR_SETUP.md',
 
   // Smart SQL Editor
   smartEditorTitle: 'Trình soạn thảo SQL thông minh',
@@ -881,6 +917,37 @@ const vi = {
   toggleDiffTitle: 'Chuyển đổi giữa chế độ đơn và chế độ diff',
   analyzeOptimizeButton: '🤖 Phân tích & Tối ưu hóa',
   analyzeOptimizeTitle: 'Phân tích và tối ưu hóa SQL bằng AI',
+  smartEditorOptimizing: 'Đang tối ưu hóa…',
+  smartEditorOptimizationSuccess: 'Tối ưu hóa SQL hoàn tất',
+  smartEditorOptimizationError: 'Tối ưu hóa SQL thất bại',
+  demoTitle: 'Demo SQL Thông Minh',
+  demoSubtitle: 'Thử các truy vấn SQL mẫu và tối ưu hóa bằng AI trong môi trường thử nghiệm',
+  demoLoadSampleQueryLabel: '📋 Tải truy vấn mẫu:',
+  demoQuerySimple: '✨ Đơn giản',
+  demoQueryWithJoin: '🔗 Có JOIN',
+  demoQueryWithCTE: '📦 Có CTE',
+  demoQueryComplex: '🎯 Phức tạp',
+  demoProTipsTitle: '💡 Mẹo dùng demo:',
+  demoProTip1: 'Chuyển đổi mẫu để xem ví dụ tối ưu nhanh chóng',
+  demoProTip2: 'Dùng nút toolbar để định dạng và so sánh thay đổi',
+  demoProTip3: 'Tối ưu hóa AI sử dụng mô hình đã cấu hình trong Cài đặt',
+  demoProTip4: 'SQL đã tối ưu tự động được chèn lại vào trình chỉnh sửa',
+  demoProTip5: 'Dùng chế độ diff để kiểm tra chính xác các thay đổi mã',
+  demoSetupTitle: '🛠️ Hướng dẫn thiết lập demo',
+  demoInstallDepsLabel: 'Cài đặt phụ thuộc cho phát triển cục bộ:',
+  demoInstallDepsCmd: 'npm install',
+  demoStartOllamaLabel: 'Khởi động Ollama nếu dùng tối ưu hóa mô hình cục bộ:',
+  demoStartOllamaCmd: 'ollama serve',
+  demoTestInDemoLabel: 'Sau đó chạy demo và nhấn Analyze & Optimize.',
+  demoFeaturesTitle: '✨ Tính năng demo',
+  demoFeature1: 'Trình chỉnh sửa SQL tương tác với định dạng',
+  demoFeature2: 'Tối ưu hóa AI và hướng dẫn hiệu suất',
+  demoFeature3: 'Chế độ diff so sánh hai bên',
+  demoFeature4: 'Truy vấn mẫu cho nhiều mẫu SQL khác nhau',
+  demoFeature5: 'Bảng giải thích truy vấn bằng ngôn ngữ tự nhiên',
+  demoFeature6: 'Phân tích theo ngữ cảnh ngôn ngữ SQL',
+  demoMoreInfoLabel: 'Thêm thông tin và mã nguồn trong',
+  demoMoreInfoFile: 'src/app/smart-sql-editor-demo/page.tsx',
   analyzingLabel: 'Đang phân tích...',
   syntaxErrorsTitle: '❌ Lỗi cú pháp:',
   optimizationResultsTitle: '✅ Kết quả tối ưu hóa',
@@ -975,6 +1042,9 @@ const vi = {
   homeSmartRecommendationsTitle: 'Gợi ý thông minh',
   homeSmartRecommendationsDesc:
     'Gợi ý được hỗ trợ bởi AI để tối ưu hóa truy vấn của bạn và cải thiện hiệu suất',
+  homeAiExplainerTitle: 'AI Diễn Giải SQL',
+  homeAiExplainerDesc:
+    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu.',
   homeReadyToAnalyzeTitle: 'Sẵn sàng để phân tích?',
   homeReadyToAnalyzeDesc:
     'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
@@ -1026,6 +1096,116 @@ const vi = {
   joinNo: 'Không',
   joinExpandDetails: 'Mở Rộng Chi Tiết',
   joinCollapseDetails: 'Thu Gọn Chi Tiết',
+
+  // AI SQL Explainer - thông báo tính năng mới
+  aiAnnounceBadge: 'Tính năng mới',
+  aiAnnounceHeading: '🎉 Mới: Hiểu truy vấn SQL trong vài giây với AI!',
+  aiAnnounceBody:
+    'Không còn mất thời gian giải mã hàng trăm dòng code phức tạp. AI SQL Explainer tự động giúp bạn:',
+  aiAnnounceBullet1: 'Tóm tắt mục tiêu chính của truy vấn.',
+  aiAnnounceBullet2:
+    'Làm rõ các điều kiện lọc và ràng buộc phức tạp (khoảng thời gian, trạng thái, khu vực, v.v.).',
+  aiAnnounceBullet3: 'Diễn giải dữ liệu kỹ thuật trả về thành ngôn ngữ tự nhiên rõ ràng.',
+  aiAnnounceSecurity: '🔒 Sử dụng mô hình AI cục bộ an toàn, bảo mật dữ liệu 100%.',
+  aiAnnounceSettingsHint: 'Chọn mô hình và tham số tại Cài đặt → Cấu hình Mô hình AI',
+  aiAnnouncePrimaryCta: 'Dùng thử ngay',
+  aiAnnounceSecondaryCta: 'Để sau',
+  aiAnnounceClose: 'Đóng thông báo',
+  aiAnnounceReopen: 'Có gì mới',
+
+  // AI SQL Explainer - bảng điều khiển
+  aiExplainerTitle: 'AI Giải Thích SQL',
+  aiExplainerSubtitle: 'Chuyển truy vấn trong trình soạn thảo thành ngôn ngữ tự nhiên dễ hiểu',
+  aiExplainerLocalBadge: 'Cục bộ & riêng tư',
+  aiExplainerLocalBadgeHint: 'Truy vấn chỉ được gửi tới mô hình Ollama đang chạy trên máy của bạn',
+  aiExplainerCloudBadge: 'Nhà cung cấp cloud',
+  aiExplainerCloudBadgeHint: 'Truy vấn được gửi tới nhà cung cấp cloud đã cấu hình trong Cài đặt',
+  aiExplainerNoModel: 'Chưa chọn mô hình',
+  aiExplainerOpenSettings: 'Cài đặt mô hình',
+  aiExplainerRunButton: 'Giải thích truy vấn này',
+  aiExplainerRerunButton: 'Giải thích lại',
+  aiExplainerRunning: 'Đang đọc truy vấn của bạn…',
+  aiExplainerCancel: 'Hủy',
+  aiExplainerCancelled: 'Đã hủy việc giải thích',
+  aiExplainerCopy: 'Sao chép giải thích',
+  aiExplainerCopiedShort: 'Đã sao chép',
+  aiExplainerCopied: 'Đã sao chép giải thích vào clipboard',
+  aiExplainerCopyFailed: 'Không thể sao chép giải thích',
+  aiExplainerGeneratedIn: 'Hoàn thành trong',
+  aiExplainerStaleWarning:
+    'Truy vấn đã thay đổi sau khi giải thích này được tạo. Hãy chạy lại để cập nhật.',
+  aiExplainerSuccess: 'Đã có giải thích',
+  aiExplainerEmptySql: 'Hãy viết một truy vấn SQL trong trình soạn thảo trước khi giải thích.',
+  aiExplainerEmptyStateTitle: 'Chưa có giải thích',
+  aiExplainerEmptyStateHint:
+    'Chạy tính năng giải thích để biết mục tiêu của truy vấn, các điều kiện lọc và ràng buộc, cùng mô tả dễ hiểu về dữ liệu trả về.',
+  aiExplainerErrorTitle: 'Không thể giải thích truy vấn này',
+  aiExplainerErrorHint:
+    'Hãy kiểm tra nhà cung cấp AI có thể truy cập được và mô hình, Base URL hoặc API Key trong Cài đặt → Cấu hình Mô hình AI là chính xác.',
+  aiExplainerObjective: 'Mục tiêu truy vấn',
+  aiExplainerFilters: 'Điều kiện lọc & ràng buộc',
+  aiExplainerNoFilters: 'Truy vấn này không có điều kiện lọc hay ràng buộc nào.',
+  aiExplainerOutput: 'Dữ liệu bạn nhận được',
+  aiExplainerTables: 'Nguồn dữ liệu',
+  aiExplainerNoContent: 'Mô hình không mô tả phần này.',
+  aiExplainerShowRaw: 'Xem phản hồi gốc của mô hình',
+  aiExplainerHideRaw: 'Ẩn phản hồi gốc của mô hình',
+  aiExplainerUnstructuredNotice:
+    'Mô hình không trả về các mục có cấu trúc, dưới đây là toàn bộ câu trả lời của mô hình.',
+
+  // AI - quản lý cửa sổ ngữ cảnh
+  aiContextTokens: 'Cửa sổ ngữ cảnh (token)',
+  aiContextTokensHint:
+    'Lưu riêng theo từng provider. Phải khớp với cửa sổ ngữ cảnh thật của mô hình đang chọn — Ollama âm thầm bỏ phần vượt giới hạn, nên hãy tăng bằng OLLAMA_CONTEXT_LENGTH hoặc Modelfile trước khi tăng ở đây.',
+  aiMaxOutputTokens: 'Độ dài câu trả lời tối đa (token)',
+  aiMaxOutputTokensHint:
+    'Lưu riêng theo từng provider. Phần được giữ lại trong cửa sổ ngữ cảnh cho chính câu trả lời.',
+  aiBatchConcurrency: 'Số request song song',
+  aiBatchConcurrencyHint:
+    'Số request AI chạy đồng thời khi giải thích theo lô. Ollama xử lý tuần tự trên mỗi mô hình trừ khi tăng OLLAMA_NUM_PARALLEL.',
+  aiContextMeterHint: 'Số token prompt ước tính so với hạn mức dành cho prompt',
+  aiContextOverflowTitle: 'Truy vấn này lớn hơn cửa sổ ngữ cảnh của mô hình',
+  aiContextOverflowBody:
+    'Prompt cần khoảng {needed} token nhưng chỉ còn {budget} token khả dụng trong cửa sổ {context} token. Truy vấn sẽ bị cắt bớt phần giữa trước khi gửi, nên phần giải thích có thể bỏ sót một số đoạn.',
+  aiContextOverflowFix:
+    'Để gửi trọn truy vấn: tăng cửa sổ ngữ cảnh trong Cài đặt (và trên server Ollama qua OLLAMA_CONTEXT_LENGTH hoặc Modelfile), hoặc dùng "Giải thích từng CTE" bên dưới để bao phủ truy vấn theo từng bước.',
+  aiContextTruncatedNotice:
+    '⚠ {lines} dòng ở giữa truy vấn đã bị lược bỏ để vừa cửa sổ ngữ cảnh — phần giải thích này dựa trên truy vấn chưa đầy đủ.',
+  aiContextBriefDropped:
+    'Bản tóm tắt từ parser cục bộ quá lớn so với cửa sổ ngữ cảnh nên đã bị bỏ qua.',
+  aiContextBriefUsed: '✓ Có đối chiếu với dữ kiện đã được parser SQL cục bộ xác thực.',
+
+  // AI - hội thoại nhiều lượt
+  aiChatTitle: 'Hỏi thêm',
+  aiChatSubtitle:
+    'Hỏi đáp nhiều lượt về truy vấn này. Các lượt cũ sẽ bị lược bỏ khi ngữ cảnh gần đầy.',
+  aiChatPlaceholder: 'ví dụ: status = 3 ở đây nghĩa là gì?',
+  aiChatSend: 'Hỏi',
+  aiChatReset: 'Xóa',
+  aiChatThinking: 'Đang suy nghĩ…',
+  aiChatRoleYou: 'Bạn',
+  aiChatRoleAssistant: 'AI',
+  aiChatHistoryTrimmed:
+    '{count} tin nhắn cũ đã bị lược bỏ khỏi hội thoại để không vượt cửa sổ ngữ cảnh.',
+  aiChatSuggestion1: 'Phần nào có khả năng chạy chậm nhất?',
+  aiChatSuggestion2: 'Giải thích chi tiết hơn các điều kiện JOIN.',
+  aiChatSuggestion3: 'Nếu bỏ điều kiện lọc theo ngày thì kết quả thay đổi thế nào?',
+
+  // AI - giải thích theo lô từng CTE
+  aiBatchTitle: 'Giải thích từng CTE',
+  aiBatchSubtitle:
+    'Truy vấn có {count} CTE, giải thích riêng từng cái — {concurrency} cái mỗi lượt. Mỗi bước đều nằm gọn trong cửa sổ ngữ cảnh.',
+  aiBatchRun: 'Chạy theo lô',
+  aiBatchRerun: 'Chạy lại',
+  aiBatchCancel: 'Hủy',
+  aiBatchCancelled: 'Đã hủy chạy theo lô',
+  aiBatchDone: 'Đã giải thích xong tất cả CTE',
+  aiBatchPartialError: 'Không giải thích được {count} CTE',
+  aiBatchStatus_pending: 'Chờ',
+  aiBatchStatus_running: 'Đang chạy',
+  aiBatchStatus_done: 'Xong',
+  aiBatchStatus_error: 'Lỗi',
+  aiBatchStatus_cancelled: 'Đã hủy',
 } as const;
 
 export default vi;

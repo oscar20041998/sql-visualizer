@@ -7,7 +7,8 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import SmartSQLEditor from '@/app/smart-sql-editor-demo/components/SmartSQLEditor';
+import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
+import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import {
   analyzeSql,
   extractMyBatisParams,
@@ -16,6 +17,7 @@ import {
   getConditionalParams,
   type SqlDialect,
 } from '@/lib/sqlAnalyzer';
+import { validateSqlDialect, DIALECT_LABELS } from '@/lib/dialectValidator';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -167,6 +169,22 @@ export default function QueryInputContent() {
       return;
     }
 
+    const dialectCheck = await validateSqlDialect(sqlToAnalyze, dialect);
+    if (!dialectCheck.valid) {
+      const mismatch = dialectCheck.mismatches[0];
+      const reasonText = mismatch.reasonKey
+        ? (t as Record<string, string>)[mismatch.reasonKey] || mismatch.reason
+        : mismatch.reason;
+      toast.error(
+        (t.dialectMismatchError || '')
+          .replace('{detected}', mismatch.detectedLabel)
+          .replace('{reason}', reasonText)
+          .replace('{selected}', DIALECT_LABELS[dialect]),
+        { duration: 6000 }
+      );
+      return;
+    }
+
     const runAnalyze = async (): Promise<void> => {
       setIsAnalyzing(true);
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
@@ -223,6 +241,10 @@ export default function QueryInputContent() {
 
   const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
 
+  // Live content of the Smart Editor, fed to the AI explainer panel below it.
+  const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/aiService').SqlOptimizationResult>(null);
+
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
   return (
@@ -243,10 +265,21 @@ export default function QueryInputContent() {
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (
-          <div className="mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
+          <div className="smart-sql-editor-theme mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-            <div className="mt-4 flex-1 min-h-0">
-              <SmartSQLEditor initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'} />
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="min-h-[620px] flex flex-col">
+                <SmartSQLEditor
+                  initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'}
+                  onSqlChange={(sql) => {
+                    setSmartEditorSql(sql);
+                    setOptimizationResult(null);
+                  }}
+                  onOptimizationResult={setOptimizationResult}
+                />
+              </div>
+              {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}
+              <AiSqlExplainer sql={smartEditorSql} optimizationResult={optimizationResult} />
             </div>
           </div>
         )}

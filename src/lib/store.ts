@@ -5,16 +5,42 @@ import { persist } from 'zustand/middleware';
 import type { SqlDialect, AnalysisResult } from './sqlAnalyzer';
 import type { Locale } from './i18n';
 
-export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'gemini';
+// Provider constants live in aiProviders (no 'use client') so the server API route can read
+// their real values; re-exported here for the client code that already imports from the store.
+import {
+  DEFAULT_BASE_URLS,
+  DEFAULT_CONTEXT_TOKENS,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  type AIProvider,
+} from './aiProviders';
+
+export { DEFAULT_BASE_URLS, DEFAULT_CONTEXT_TOKENS, DEFAULT_MAX_OUTPUT_TOKENS };
+export type { AIProvider };
 
 export interface AIModelConfig {
   provider: AIProvider;
-  ollamaBaseUrl: string;
+  /**
+   * Per-provider API root, all persisted so switching provider does not lose the others.
+   * Cloud overrides must also be allow-listed server-side (AI_ALLOWED_BASE_URLS) before the
+   * route will send a credential to them.
+   */
+  baseUrls: Record<AIProvider, string>;
   ollamaModel: string;
-  apiKey: string;
+  // No apiKey here on purpose: cloud credentials are read server-side from .env by
+  // /api/ai/generate, so they never reach the browser or localStorage.
   modelId: string;
   temperature: number;
   systemPrompt: string;
+  /**
+   * Context window per provider, in tokens. Used to fit the prompt before sending — Ollama
+   * silently drops overflow instead of erroring, so its value must match the server's real
+   * limit (raise it with OLLAMA_CONTEXT_LENGTH or a Modelfile, then update this value).
+   */
+  contextTokens: Record<AIProvider, number>;
+  /** Tokens reserved for the answer, per provider. */
+  maxOutputTokens: Record<AIProvider, number>;
+  /** How many AI requests may run at once during a batch explain. */
+  batchConcurrency: number;
 }
 
 export interface AppSettings {
@@ -58,13 +84,15 @@ interface AppState {
 
 export const DEFAULT_AI_CONFIG: AIModelConfig = {
   provider: 'ollama',
-  ollamaBaseUrl: 'http://localhost:11434',
-  ollamaModel: 'qwen2.5-coder:7b',
-  apiKey: '',
+  baseUrls: { ...DEFAULT_BASE_URLS },
+  ollamaModel: '',
   modelId: 'gpt-4o',
   temperature: 0.1,
   systemPrompt:
     'You are a SQL expert assistant. Explain SQL queries in plain, clear language: describe the purpose, tables involved, joins, filters, and the expected result set.',
+  contextTokens: { ...DEFAULT_CONTEXT_TOKENS },
+  maxOutputTokens: { ...DEFAULT_MAX_OUTPUT_TOKENS },
+  batchConcurrency: 2,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -119,16 +147,64 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'sqlvisualizer-store',
-      // Bumped to backfill aiConfig on settings persisted before AI configuration existed.
-      version: 2,
+      // v2 backfilled aiConfig; v3 added the context-window / batching fields;
+      // v4 moved cloud API keys to the server; v5 replaced ollamaBaseUrl with a per-provider map;
+      // v6 made contextTokens / maxOutputTokens per-provider as well.
+      version: 6,
       migrate: (persistedState) => {
         const { analysisResult: _drop, ...rest } = (persistedState as Record<string, unknown>) || {};
         const state = rest as { settings?: Partial<AppSettings> };
         if (state.settings) {
+          // Older builds kept the provider API key in localStorage, a single Ollama base URL,
+          // and one shared token budget. Drop the credential, and fold the single-valued
+          // settings into the new per-provider maps so customised values survive the upgrade.
+          const {
+            apiKey: _discardedApiKey,
+            ollamaBaseUrl: legacyOllamaBaseUrl,
+            ...persistedAiConfig
+          } = (state.settings.aiConfig ?? {}) as AIModelConfig & {
+            apiKey?: string;
+            ollamaBaseUrl?: string;
+          };
+
+          // Clear stale Ollama default model names that no longer exist on newer local servers.
+          if (
+            persistedAiConfig.ollamaModel === 'qwen2.5-coder:7b' ||
+            persistedAiConfig.ollamaModel === 'qwen2.5-coder'
+          ) {
+            persistedAiConfig.ollamaModel = '';
+          }
+
+          // A scalar budget belonged to whichever provider was selected at the time; every other
+          // provider takes the new default rather than inheriting an unrelated number.
+          const activeProvider = persistedAiConfig.provider ?? DEFAULT_AI_CONFIG.provider;
+          const legacyBudget = <T,>(value: unknown, defaults: Record<AIProvider, T>) =>
+            typeof value === 'number' ? { ...defaults, [activeProvider]: value } : defaults;
+
           state.settings = {
             ...DEFAULT_SETTINGS,
             ...state.settings,
-            aiConfig: { ...DEFAULT_AI_CONFIG, ...state.settings.aiConfig },
+            aiConfig: {
+              ...DEFAULT_AI_CONFIG,
+              ...persistedAiConfig,
+              baseUrls: {
+                ...DEFAULT_BASE_URLS,
+                ...(legacyOllamaBaseUrl ? { ollama: legacyOllamaBaseUrl } : {}),
+                ...persistedAiConfig.baseUrls,
+              },
+              contextTokens: {
+                ...legacyBudget(persistedAiConfig.contextTokens, DEFAULT_CONTEXT_TOKENS),
+                ...(typeof persistedAiConfig.contextTokens === 'object'
+                  ? persistedAiConfig.contextTokens
+                  : {}),
+              },
+              maxOutputTokens: {
+                ...legacyBudget(persistedAiConfig.maxOutputTokens, DEFAULT_MAX_OUTPUT_TOKENS),
+                ...(typeof persistedAiConfig.maxOutputTokens === 'object'
+                  ? persistedAiConfig.maxOutputTokens
+                  : {}),
+              },
+            },
           };
         }
         return state;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Settings,
   Palette,
@@ -13,9 +13,19 @@ import {
   Check,
   RotateCcw,
   ChevronDown,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, type AppSettings, type AIModelConfig, DEFAULT_SETTINGS } from '@/lib/store';
+import {
+  CONTEXT_TOKENS_RANGE,
+  DEFAULT_BASE_URLS,
+  DEFAULT_CONTEXT_TOKENS,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  ENV_VAR_BY_PROVIDER,
+  MAX_OUTPUT_TOKENS_RANGE,
+  type AIProvider,
+} from '@/lib/aiProviders';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -26,14 +36,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
-        checked ? 'bg-primary' : 'bg-muted'
-      }`}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${checked ? 'bg-primary' : 'bg-muted'
+        }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0.5'
+          }`}
       />
     </button>
   );
@@ -89,11 +97,10 @@ function SelectDropdown<T extends string>({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
-                value === opt.value
+              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${value === opt.value
                   ? 'text-primary bg-primary/10'
                   : 'text-foreground hover:bg-muted'
-              }`}
+                }`}
             >
               {value === opt.value && <Check size={12} className="text-primary flex-shrink-0" />}
               {value !== opt.value && <span className="w-3" />}
@@ -127,6 +134,45 @@ const LAYOUT_OPTIONS = [
   { value: 'grid' as const, label: '' },
 ];
 
+/**
+ * Wraps a per-provider field with a "back to default" button. These defaults differ per provider
+ * (a 4096-token Ollama window vs 128k on gpt-4o), so there is no single number a user can be
+ * expected to remember once they have edited one.
+ */
+function ResettableField({
+  isModified,
+  onReset,
+  resetTitle,
+  children,
+}: {
+  isModified: boolean;
+  onReset: () => void;
+  resetTitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {children}
+      {isModified && (
+        <button
+          onClick={onReset}
+          title={resetTitle}
+          className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <RotateCcw size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Keeps a numeric input inside range, falling back to the default while the field is empty. */
+function clampNumber(raw: string, min: number, max: number, fallback: number): number {
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
 // Labels will be provided dynamically from i18n in component
 const SPACING_OPTIONS = [
   { value: 'compact' as const, label: '' },
@@ -147,7 +193,41 @@ export default function SettingsContent() {
     'appearance' | 'language' | 'analysis' | 'graph' | 'ai'
   >('appearance');
 
-  const aiConfig = settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig;
+  const savedAiConfig = settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig;
+
+  /**
+   * The AI section edits a draft and commits on Save, unlike the other categories which apply
+   * instantly. Model IDs, URLs and prompts are typed character by character — saving on every
+   * keystroke would fire a toast per letter and persist half-typed values.
+   */
+  const [aiDraft, setAiDraft] = useState<AIModelConfig>(savedAiConfig);
+
+  // Re-sync when the stored config changes from elsewhere (Reset to defaults, another tab).
+  useEffect(() => {
+    setAiDraft(savedAiConfig);
+  }, [savedAiConfig]);
+
+  const isAiDirty = useMemo(
+    () => JSON.stringify(aiDraft) !== JSON.stringify(savedAiConfig),
+    [aiDraft, savedAiConfig]
+  );
+
+  const isAiConfigValid = useMemo(() => {
+    if (aiDraft.provider === 'ollama') {
+      return aiDraft.ollamaModel.trim().length > 0;
+    }
+    return aiDraft.modelId.trim().length > 0;
+  }, [aiDraft]);
+
+  const aiConfigValidationMessage = useMemo(() => {
+    if (aiDraft.provider === 'ollama' && !aiDraft.ollamaModel.trim()) {
+      return t.aiLocalModelRequired;
+    }
+    if (aiDraft.provider !== 'ollama' && !aiDraft.modelId.trim()) {
+      return t.aiModelIdRequired;
+    }
+    return '';
+  }, [aiDraft, t]);
 
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     updateSettings({ [key]: value });
@@ -155,12 +235,35 @@ export default function SettingsContent() {
   };
 
   const updateAI = <K extends keyof AIModelConfig>(key: K, value: AIModelConfig[K]) => {
-    updateSettings({ aiConfig: { ...aiConfig, [key]: value } });
-    toast.success(t.saved, { duration: 1500 });
+    setAiDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateBaseUrl = (provider: AIProvider, value: string) => {
+    setAiDraft((prev) => ({ ...prev, baseUrls: { ...prev.baseUrls, [provider]: value } }));
+  };
+
+  /** Updates one provider's entry in a per-provider numeric map, leaving the others alone. */
+  const updateProviderNumber = (
+    key: 'contextTokens' | 'maxOutputTokens',
+    provider: AIProvider,
+    value: number
+  ) => {
+    setAiDraft((prev) => ({ ...prev, [key]: { ...prev[key], [provider]: value } }));
+  };
+
+  const saveAiConfig = () => {
+    updateSettings({ aiConfig: aiDraft });
+    toast.success(t.aiConfigSaved, { duration: 1500 });
+  };
+
+  const discardAiConfig = () => {
+    setAiDraft(savedAiConfig);
+    toast.info(t.aiConfigDiscarded, { duration: 1500 });
   };
 
   const resetDefaults = () => {
     updateSettings(DEFAULT_SETTINGS);
+    setAiDraft(DEFAULT_SETTINGS.aiConfig);
     toast.success(t.resetSettingsSuccess, { duration: 1500 });
   };
 
@@ -223,14 +326,20 @@ export default function SettingsContent() {
               <button
                 key={`settings-cat-${key}`}
                 onClick={() => setActiveCategory(key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                  activeCategory === key
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${activeCategory === key
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <Icon size={16} className="flex-shrink-0" />
                 {categoryLabels[key]}
+                {/* Unsaved-changes dot, so switching category does not hide pending edits. */}
+                {key === 'ai' && isAiDirty && (
+                  <span
+                    title={t.aiConfigUnsaved}
+                    className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400"
+                  />
+                )}
               </button>
             ))}
           </nav>
@@ -281,22 +390,20 @@ export default function SettingsContent() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => update('locale', 'en')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                          settings.locale === 'en'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'en'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         <span>🇺🇸</span>
                         {t.languageEnglish}
                       </button>
                       <button
                         onClick={() => update('locale', 'vi')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                          settings.locale === 'vi'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'vi'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         <span>🇻🇳</span>
                         {t.languageVietnamese}
@@ -357,54 +464,79 @@ export default function SettingsContent() {
                 <div>
                   <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
                     <SelectDropdown
-                      value={aiConfig.provider}
+                      value={aiDraft.provider}
                       options={aiProviderOptionsTranslated}
                       onChange={(v) => updateAI('provider', v)}
                     />
                   </SettingRow>
 
-                  {aiConfig.provider === 'ollama' ? (
-                    <>
-                      <SettingRow label={t.aiBaseUrl} hint={t.aiBaseUrlHint}>
+                  {/* Every provider has its own base URL, all kept so switching does not lose them. */}
+                  <SettingRow
+                    label={t.aiBaseUrl}
+                    hint={
+                      aiDraft.provider === 'ollama' ? t.aiBaseUrlHint : t.aiBaseUrlCloudHint
+                    }
+                  >
+                    <ResettableField
+                      isModified={
+                        aiDraft.baseUrls[aiDraft.provider] !== DEFAULT_BASE_URLS[aiDraft.provider]
+                      }
+                      onReset={() =>
+                        updateBaseUrl(aiDraft.provider, DEFAULT_BASE_URLS[aiDraft.provider])
+                      }
+                      resetTitle={t.aiBaseUrlReset}
+                    >
+                      <input
+                        type="text"
+                        value={aiDraft.baseUrls[aiDraft.provider] ?? ''}
+                        onChange={(e) => updateBaseUrl(aiDraft.provider, e.target.value)}
+                        placeholder={DEFAULT_BASE_URLS[aiDraft.provider]}
+                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[260px] focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </ResettableField>
+                  </SettingRow>
+
+                  {aiDraft.provider === 'ollama' ? (
+                    <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
+                      <div className="min-w-[220px]">
                         <input
                           type="text"
-                          value={aiConfig.ollamaBaseUrl}
-                          onChange={(e) => updateAI('ollamaBaseUrl', e.target.value)}
-                          placeholder="http://localhost:11434"
-                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </SettingRow>
-                      <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
-                        <input
-                          type="text"
-                          value={aiConfig.ollamaModel}
+                          value={aiDraft.ollamaModel}
                           onChange={(e) => updateAI('ollamaModel', e.target.value)}
-                          placeholder="qwen2.5-coder:7b"
-                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                          placeholder="llama3"
+                          className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${!aiDraft.ollamaModel.trim() ? 'border-rose-500 focus:border-rose-500' : 'border-border'
+                            }`}
                         />
-                      </SettingRow>
-                    </>
+                        {!aiDraft.ollamaModel.trim() && (
+                          <p className="mt-2 text-xs text-rose-500">{t.aiLocalModelRequired}</p>
+                        )}
+                      </div>
+                    </SettingRow>
                   ) : (
                     <>
-                      <SettingRow label={t.aiApiKey} hint={t.aiApiKeyHint}>
-                        <input
-                          type="password"
-                          value={aiConfig.apiKey}
-                          onChange={(e) => updateAI('apiKey', e.target.value)}
-                          placeholder="sk-..."
-                          autoComplete="off"
-                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </SettingRow>
                       <SettingRow label={t.aiModelId} hint={t.aiModelIdHint}>
                         <input
                           type="text"
-                          value={aiConfig.modelId}
+                          value={aiDraft.modelId}
                           onChange={(e) => updateAI('modelId', e.target.value)}
                           placeholder="gpt-4o"
                           className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </SettingRow>
+
+                      {/* Replaces the old API Key input: credentials live in .env, server-side. */}
+                      <div className="py-4 border-t border-border">
+                        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                          <ShieldCheck size={14} className="text-primary" />
+                          {t.aiServerKeyTitle}
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          {t.aiServerKeyHint}
+                        </p>
+                        <code className="mt-2 inline-block rounded bg-muted px-2 py-1 font-mono text-xs text-foreground">
+                          {ENV_VAR_BY_PROVIDER[aiDraft.provider as keyof typeof ENV_VAR_BY_PROVIDER] ?? ''}
+                        </code>
+                      </div>
                     </>
                   )}
 
@@ -415,12 +547,107 @@ export default function SettingsContent() {
                         min={0}
                         max={1}
                         step={0.1}
-                        value={aiConfig.temperature}
+                        value={aiDraft.temperature}
                         onChange={(e) => updateAI('temperature', parseFloat(e.target.value))}
                         className="w-36 accent-primary"
                       />
                       <span className="text-xs font-mono text-muted-foreground w-8 text-right">
-                        {aiConfig.temperature.toFixed(1)}
+                        {aiDraft.temperature.toFixed(1)}
+                      </span>
+                    </div>
+                  </SettingRow>
+
+                  <SettingRow label={t.aiContextTokens} hint={t.aiContextTokensHint}>
+                    <ResettableField
+                      isModified={
+                        aiDraft.contextTokens[aiDraft.provider] !==
+                        DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
+                      }
+                      onReset={() =>
+                        updateProviderNumber(
+                          'contextTokens',
+                          aiDraft.provider,
+                          DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
+                        )
+                      }
+                      resetTitle={t.aiBaseUrlReset}
+                    >
+                      <input
+                        type="number"
+                        min={CONTEXT_TOKENS_RANGE.min}
+                        max={CONTEXT_TOKENS_RANGE.max}
+                        step={512}
+                        value={aiDraft.contextTokens[aiDraft.provider]}
+                        onChange={(e) =>
+                          updateProviderNumber(
+                            'contextTokens',
+                            aiDraft.provider,
+                            clampNumber(
+                              e.target.value,
+                              CONTEXT_TOKENS_RANGE.min,
+                              CONTEXT_TOKENS_RANGE.max,
+                              DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
+                            )
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </ResettableField>
+                  </SettingRow>
+
+                  <SettingRow label={t.aiMaxOutputTokens} hint={t.aiMaxOutputTokensHint}>
+                    <ResettableField
+                      isModified={
+                        aiDraft.maxOutputTokens[aiDraft.provider] !==
+                        DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
+                      }
+                      onReset={() =>
+                        updateProviderNumber(
+                          'maxOutputTokens',
+                          aiDraft.provider,
+                          DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
+                        )
+                      }
+                      resetTitle={t.aiBaseUrlReset}
+                    >
+                      <input
+                        type="number"
+                        min={MAX_OUTPUT_TOKENS_RANGE.min}
+                        max={MAX_OUTPUT_TOKENS_RANGE.max}
+                        step={128}
+                        value={aiDraft.maxOutputTokens[aiDraft.provider]}
+                        onChange={(e) =>
+                          updateProviderNumber(
+                            'maxOutputTokens',
+                            aiDraft.provider,
+                            clampNumber(
+                              e.target.value,
+                              MAX_OUTPUT_TOKENS_RANGE.min,
+                              MAX_OUTPUT_TOKENS_RANGE.max,
+                              DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
+                            )
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </ResettableField>
+                  </SettingRow>
+
+                  <SettingRow label={t.aiBatchConcurrency} hint={t.aiBatchConcurrencyHint}>
+                    <div className="flex items-center gap-3 min-w-[200px]">
+                      <input
+                        type="range"
+                        min={1}
+                        max={6}
+                        step={1}
+                        value={aiDraft.batchConcurrency}
+                        onChange={(e) =>
+                          updateAI('batchConcurrency', clampNumber(e.target.value, 1, 6, 2))
+                        }
+                        className="w-36 accent-primary"
+                      />
+                      <span className="text-xs font-mono text-muted-foreground w-8 text-right">
+                        {aiDraft.batchConcurrency}
                       </span>
                     </div>
                   </SettingRow>
@@ -429,12 +656,34 @@ export default function SettingsContent() {
                     <p className="text-sm font-medium text-foreground mb-0.5">{t.aiSystemPrompt}</p>
                     <p className="text-xs text-muted-foreground mb-2">{t.aiSystemPromptHint}</p>
                     <textarea
-                      value={aiConfig.systemPrompt}
+                      value={aiDraft.systemPrompt}
                       onChange={(e) => updateAI('systemPrompt', e.target.value)}
                       rows={4}
                       placeholder={t.aiSystemPromptPlaceholder}
                       className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                     />
+                  </div>
+
+                  {/* Explicit commit for this section; nothing above takes effect until saved. */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border py-4">
+                    <span className="mr-auto text-xs text-muted-foreground">
+                      {isAiDirty ? t.aiConfigUnsaved : t.aiConfigUpToDate}
+                    </span>
+                    <button
+                      onClick={discardAiConfig}
+                      disabled={!isAiDirty}
+                      className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {t.aiConfigDiscard}
+                    </button>
+                    <button
+                      onClick={saveAiConfig}
+                      disabled={!isAiDirty || !isAiConfigValid}
+                      className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Check size={14} />
+                      {t.aiConfigSave}
+                    </button>
                   </div>
                 </div>
               )}

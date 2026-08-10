@@ -7,7 +7,11 @@ import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
-import { FileText, GitCompare, Copy, Check, RotateCcw, Zap } from 'lucide-react';
+import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles } from 'lucide-react';
+import { analyzeSql } from '@/lib/sqlAnalyzer';
+import { buildSqlContextBrief } from '@/lib/aiSqlContext';
+import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/aiService';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -24,13 +28,13 @@ interface EditorState {
   currentSql: string;
   isDiffMode: boolean;
   isFormatting: boolean;
+  isOptimizing: boolean;
   hasChanges: boolean;
   copiedToClipboard: boolean;
 }
 
 const editorOptions: MonacoEditorNS.IStandaloneEditorConstructionOptions = {
   language: 'sql',
-  theme: 'vs-dark',
   minimap: { enabled: true, maxColumn: 40 },
   wordWrap: 'on',
   fontSize: 14,
@@ -53,23 +57,29 @@ const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
   renderSideBySide: true,
 };
 
-export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
-  initialSql = 'SELECT * FROM table_name LIMIT 10;',
-}) => {
+export const SmartSQLEditor: React.FC<{
+  initialSql?: string;
+  /** Lets the page observe the live editor content (used by the AI SQL Explainer). */
+  onSqlChange?: (sql: string) => void;
+  onOptimizationResult?: (result: SqlOptimizationResult | null) => void;
+}> = ({ initialSql = 'SELECT * FROM table_name LIMIT 10;', onSqlChange, onOptimizationResult }) => {
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
   const t = getT(settings.locale);
+  const monacoTheme = settings.theme === 'dark' ? 'vs-dark' : 'vs';
 
   const [state, setState] = useState<EditorState>({
     originalSql: initialSql,
     currentSql: initialSql,
     isDiffMode: false,
     isFormatting: false,
+    isOptimizing: false,
     hasChanges: false,
     copiedToClipboard: false,
   });
+  const optimizeAbortRef = useRef<AbortController | null>(null);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -90,6 +100,11 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     const hasChanges = state.currentSql.trim() !== state.originalSql.trim();
     setState((prev) => ({ ...prev, hasChanges }));
   }, [state.currentSql, state.originalSql]);
+
+  // Publish the current SQL upward so sibling panels stay in sync with the editor.
+  useEffect(() => {
+    onSqlChange?.(state.currentSql);
+  }, [state.currentSql, onSqlChange]);
 
   const handleEditorMount = useCallback(
     (editor: MonacoEditorNS.IStandaloneCodeEditor) => {
@@ -155,6 +170,57 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
     }
   }, [state.currentSql, t]);
 
+  const handleOptimizeSQL = useCallback(async () => {
+    const sql = state.currentSql.trim();
+    if (!sql) {
+      toast.error(t.emptyQueryError);
+      return;
+    }
+
+    optimizeAbortRef.current?.abort();
+    const controller = new AbortController();
+    optimizeAbortRef.current = controller;
+
+    setState((prev) => ({ ...prev, isOptimizing: true }));
+    onOptimizationResult?.(null);
+
+    let brief = '';
+    try {
+      const parsed = await analyzeSql(sql, dialect, settings.locale);
+      brief = buildSqlContextBrief(parsed);
+    } catch {
+      brief = '';
+    }
+
+    try {
+      const result = await optimizeSqlWithAI({
+        sql,
+        config: settings.aiConfig,
+        locale: settings.locale,
+        contextBrief: brief,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+
+      setState((prev) => ({
+        ...prev,
+        originalSql: sql,
+        currentSql: result.optimizedSql || sql,
+        isDiffMode: result.optimizedSql.trim() !== sql ? true : prev.isDiffMode,
+        isOptimizing: false,
+      }));
+      onOptimizationResult?.(result);
+      toast.success(t.smartEditorOptimizationSuccess);
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') return;
+      setState((prev) => ({ ...prev, isOptimizing: false }));
+      onOptimizationResult?.(null);
+      toast.error((error as Error)?.message || t.smartEditorOptimizationError);
+    } finally {
+      if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
+    }
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult]);
+
   // Calculate statistics
   const stats = {
     lines: state.currentSql.split('\n').length,
@@ -166,7 +232,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 bg-gray-900 rounded-lg overflow-hidden border border-gray-800">
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 overflow-hidden rounded-lg border border-border bg-card">
       {/* Toolbar */}
       <div className="flex flex-col gap-3 px-4 pt-4 pb-0">
         {/* Title Bar */}
@@ -178,8 +244,8 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
                 background: state.hasChanges ? '#f59e0b' : '#10b981',
               }}
             />
-            <h2 className="text-lg font-semibold text-white">{t.smartEditorTitle}</h2>
-            <span className="text-xs text-gray-400 font-mono">
+            <h2 className="text-lg font-semibold text-foreground">{t.smartEditorTitle}</h2>
+            <span className="font-mono text-xs text-muted-foreground">
               {state.hasChanges ? `● ${t.smartEditorModified}` : `○ ${t.smartEditorOriginal}`}
             </span>
           </div>
@@ -190,13 +256,23 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
           <button
             onClick={handleFormatSQL}
             disabled={state.isFormatting || !state.currentSql.trim()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-200 text-xs font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             title="Format SQL (Ctrl+Shift+F)"
           >
             <Zap size={12} />
             {state.isFormatting
               ? t.smartEditorFormatting
               : t.formatSqlButton || t.smartEditorFormat}
+          </button>
+
+          <button
+            onClick={handleOptimizeSQL}
+            disabled={state.isOptimizing || !state.currentSql.trim()}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-slate-800 text-gray-200 text-xs font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={t.analyzeOptimizeTitle}
+          >
+            <Sparkles size={12} />
+            {state.isOptimizing ? t.smartEditorOptimizing : t.analyzeOptimizeButton}
           </button>
 
           <button
@@ -216,7 +292,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
 
           <button
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-200 text-xs font-medium hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
           >
             {state.copiedToClipboard ? (
               <>
@@ -234,7 +310,7 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
           {state.hasChanges && (
             <button
               onClick={handleResetToOriginal}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-yellow-700/50 bg-yellow-950/40 text-yellow-300 text-xs font-medium hover:bg-yellow-950/60 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20"
               title={t.smartEditorResetTitle}
             >
               <RotateCcw size={12} />
@@ -244,23 +320,23 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
         </div>
 
         {/* Stats Bar */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-800">
-          <div className="flex items-center gap-4 text-xs text-gray-400">
+        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono">
-              <span className="text-blue-400">{stats.lines}</span> {t.smartEditorLines}
+              <span className="text-primary">{stats.lines}</span> {t.smartEditorLines}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.chars}</span> {t.smartEditorChars}
+              <span className="text-primary">{stats.chars}</span> {t.smartEditorChars}
             </span>
             <span className="font-mono">
-              <span className="text-blue-400">{stats.words}</span> {t.smartEditorWords}
+              <span className="text-primary">{stats.words}</span> {t.smartEditorWords}
             </span>
-            <span className="text-gray-500">•</span>
-            <span className="text-gray-500">
-              {t.smartEditorDialect} <span className="text-blue-400 font-mono">{dialect}</span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">
+              {t.smartEditorDialect} <span className="font-mono text-primary">{dialect}</span>
             </span>
           </div>
-          <div className="text-xs text-gray-500">{stats.changeSummary}</div>
+          <div className="text-xs text-muted-foreground">{stats.changeSummary}</div>
         </div>
       </div>
 
@@ -271,16 +347,16 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
             original={state.originalSql}
             modified={state.currentSql}
             language="sql"
-            theme="vs-dark"
+            theme={monacoTheme}
             options={diffEditorOptions}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         ) : (
           <Editor
             value={state.currentSql}
             language="sql"
-            theme="vs-dark"
+            theme={monacoTheme}
             options={editorOptions}
             saveViewState={true}
             onMount={handleEditorMount}
@@ -291,26 +367,27 @@ export const SmartSQLEditor: React.FC<{ initialSql?: string }> = ({
               }));
             }}
             className="min-h-0 w-full"
-            height="48vh"
+            height="100vh"
           />
         )}
       </div>
 
       {/* Status Footer */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gray-800/50 text-xs text-gray-400 border-t border-gray-800">
+      <div className="flex items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <FileText size={12} className="text-gray-500" />
+          <FileText size={12} className="text-muted-foreground" />
           <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>
         </div>
-        <div className="text-gray-600">
+        <div className="text-muted-foreground">
           {state.hasChanges && (
-            <span className="text-yellow-500">{t.smartEditorChangesDetected}</span>
+            <span className="text-warning">{t.smartEditorChangesDetected}</span>
           )}
           {!state.hasChanges && state.currentSql !== '' && (
-            <span className="text-green-500">{t.smartEditorSyncedWithOriginal}</span>
+            <span className="text-success">{t.smartEditorSyncedWithOriginal}</span>
           )}
         </div>
       </div>
+      <LoadingOverlay visible={state.isOptimizing} title={t.smartEditorOptimizing} hideDelay={150} />
     </div>
   );
 };

@@ -10,7 +10,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **Relationship Graph Visualizer** - Interactive visualization of table relationships and JOIN connections with color-coded edges and multiple layout options
 - **JOIN Analysis** - Deep-dive analysis of JOIN conditions with complexity breakdown, column/operator detection, and multi-dialect support
 - **Metrics Dashboard** - Real-time complexity scoring (0-100) with detailed breakdowns of keywords, SELECT fields, JOINs, CTEs, subqueries, and window functions
-- **CTE Analysis** - Explore Common Table Expressions and field origins with visual tree structure
+- **CTE Analysgit is** - Explore Common Table Expressions and field origins with visual tree structure
 - **Smart SQL Editor** - Multi-dialect query editor with syntax awareness and real-time analysis
 
 ### Technical Stack
