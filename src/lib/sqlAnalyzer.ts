@@ -146,6 +146,23 @@ export interface StructuralAnalysisReport {
   subqueries?: NestedSubquery[]; // Detailed list of detected subqueries with analysis
 }
 
+// Itemized detail behind the scalar metric-card counts, used by the "click to see detail" modal.
+export interface MetricDetailItem {
+  id: string;
+  snippet: string;
+  clause: string;
+  scope: string;
+}
+
+export interface MetricDetailsReport {
+  windowFunctions: MetricDetailItem[];
+  groupBy: MetricDetailItem[];
+  orderBy: MetricDetailItem[];
+  distinct: MetricDetailItem[];
+  conditions: MetricDetailItem[];
+  opsAndFunctions: MetricDetailItem[];
+}
+
 export interface ComplexityScore {
   level: ComplexityLevelType;
   score: number;
@@ -184,6 +201,7 @@ export interface AnalysisResult {
   dialect: SqlDialect;
   rawSql: string;
   structuralReport: StructuralAnalysisReport;
+  metricDetails: MetricDetailsReport;
   hasCTE: boolean;
 }
 
@@ -220,6 +238,9 @@ export async function analyzeSql(
   // Analyze all joins with deep analysis
   const joinAnalysisDetails = analyzeAllJoins(cleaned, tables);
 
+  // Itemized detail behind the metric-card counts, for the detail modal
+  const metricDetails = buildMetricDetails(cleaned, ctes);
+
   return {
     tables,
     joins,
@@ -233,6 +254,7 @@ export async function analyzeSql(
     dialect,
     rawSql: cleaned,
     structuralReport,
+    metricDetails,
     hasCTE: ctes.length > 0,
   };
 }
@@ -1460,6 +1482,364 @@ function buildStructuralAnalysisReport(
     finalSelectFieldCount: finalSelectFields.length,
     hasCTE: ctes.length > 0,
     subqueries: enhancedSubqueries, // Add detailed subqueries list
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Itemized metric detail extraction (feeds the metric-card "click for detail"
+// modal on the dashboard). These are purely additive: they do not affect any
+// of the numeric counts computed above.
+// ---------------------------------------------------------------------------
+
+function resolveScope(sql: string, ctes: CTE[], index: number): string {
+  for (const cte of ctes) {
+    if (!cte.body) continue;
+    const bodyStart = sql.indexOf(cte.body);
+    if (bodyStart === -1) continue;
+    const bodyEnd = bodyStart + cte.body.length;
+    if (index >= bodyStart && index < bodyEnd) {
+      return `CTE: ${cte.name}`;
+    }
+  }
+  return 'Main Query';
+}
+
+function skipQuotedLiteral(sql: string, j: number): number {
+  const quote = sql[j];
+  let k = j + 1;
+  while (k < sql.length) {
+    if (sql[k] === quote && sql[k + 1] === quote) {
+      k += 2;
+      continue;
+    }
+    if (sql[k] === quote) return k + 1;
+    k++;
+  }
+  return k;
+}
+
+/**
+ * Scans for every occurrence of `keywordRegex` and captures the clause body
+ * that follows, up to (but not including) the first top-level match of
+ * `stopPattern` or an unowned closing paren. Mirrors the balanced-paren/quote
+ * scanning style used elsewhere in this file (e.g. extractSelectClauses).
+ */
+function findClauseBodies(
+  sql: string,
+  keywordRegex: RegExp,
+  stopPattern: RegExp
+): { start: number; end: number; body: string }[] {
+  const upper = sql.toUpperCase();
+  const results: { start: number; end: number; body: string }[] = [];
+  const flags = keywordRegex.flags.includes('g') ? keywordRegex.flags : `${keywordRegex.flags}g`;
+  const re = new RegExp(keywordRegex.source, flags);
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(sql)) !== null) {
+    const start = match.index;
+    let depth = 0;
+    let j = start + match[0].length;
+
+    while (j < sql.length) {
+      const c = sql[j];
+
+      if (c === "'" || c === '"' || c === '`') {
+        j = skipQuotedLiteral(sql, j);
+        continue;
+      }
+      if (c === '(') {
+        depth++;
+        j++;
+        continue;
+      }
+      if (c === ')') {
+        if (depth === 0) break;
+        depth--;
+        j++;
+        continue;
+      }
+      if (depth === 0 && stopPattern.test(upper.slice(j))) break;
+
+      j++;
+    }
+
+    const body = sql.slice(start + match[0].length, j).trim();
+    results.push({ start, end: j, body });
+  }
+
+  return results;
+}
+
+function extractGroupOrOrderItems(
+  sql: string,
+  ctes: CTE[],
+  keywordRegex: RegExp,
+  stopPattern: RegExp,
+  clauseLabel: string,
+  idPrefix: string
+): MetricDetailItem[] {
+  const bodies = findClauseBodies(sql, keywordRegex, stopPattern);
+  const items: MetricDetailItem[] = [];
+  let idx = 0;
+
+  bodies.forEach((occurrence) => {
+    splitTopLevelComma(occurrence.body)
+      .filter((expr) => expr.length > 0)
+      .forEach((expr) => {
+        items.push({
+          id: `${idPrefix}-${idx++}`,
+          snippet: expr,
+          clause: clauseLabel,
+          scope: resolveScope(sql, ctes, occurrence.start),
+        });
+      });
+  });
+
+  return items;
+}
+
+function extractSingleBodyItems(
+  sql: string,
+  ctes: CTE[],
+  keywordRegex: RegExp,
+  stopPattern: RegExp,
+  clauseLabel: string,
+  idPrefix: string
+): MetricDetailItem[] {
+  return findClauseBodies(sql, keywordRegex, stopPattern)
+    .filter((occurrence) => occurrence.body.length > 0)
+    .map((occurrence, idx) => ({
+      id: `${idPrefix}-${idx}`,
+      snippet: occurrence.body,
+      clause: clauseLabel,
+      scope: resolveScope(sql, ctes, occurrence.start),
+    }));
+}
+
+function extractCaseWhenItems(sql: string): { start: number; snippet: string }[] {
+  const upper = sql.toUpperCase();
+  const tokenPattern = /\b(CASE|WHEN|THEN|END)\b/g;
+  const items: { start: number; snippet: string }[] = [];
+  let caseDepth = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenPattern.exec(upper)) !== null) {
+    const token = match[1];
+
+    if (token === 'CASE') {
+      caseDepth++;
+      continue;
+    }
+    if (token === 'END') {
+      if (caseDepth > 0) caseDepth--;
+      continue;
+    }
+    if (token === 'WHEN' && caseDepth > 0) {
+      const conditionStart = match.index + match[0].length;
+      const thenMatch = /\bTHEN\b/i.exec(sql.slice(conditionStart));
+      const conditionEnd = thenMatch ? conditionStart + thenMatch.index : conditionStart;
+      const snippet = sql.slice(match.index, conditionEnd).trim();
+      if (snippet) items.push({ start: match.index, snippet });
+    }
+  }
+
+  return items;
+}
+
+function extractWindowFunctionItems(sql: string, ctes: CTE[]): MetricDetailItem[] {
+  const overPattern = /\bOVER\s*\(/gi;
+  const items: MetricDetailItem[] = [];
+  let match: RegExpExecArray | null;
+  let idx = 0;
+
+  while ((match = overPattern.exec(sql)) !== null) {
+    const overStart = match.index;
+    const parenStart = overStart + match[0].length - 1;
+
+    let funcStart = overStart;
+    let k = overStart - 1;
+    while (k >= 0 && /\s/.test(sql[k])) k--;
+    if (k >= 0 && sql[k] === ')') {
+      let depth = 1;
+      k--;
+      while (k >= 0 && depth > 0) {
+        if (sql[k] === ')') depth++;
+        else if (sql[k] === '(') depth--;
+        k--;
+      }
+      while (k >= 0 && /[A-Za-z0-9_$.]/.test(sql[k])) k--;
+      funcStart = k + 1;
+    }
+
+    let depth = 1;
+    let j = parenStart + 1;
+    while (j < sql.length && depth > 0) {
+      if (sql[j] === '(') depth++;
+      else if (sql[j] === ')') depth--;
+      j++;
+    }
+
+    items.push({
+      id: `window-${idx++}`,
+      snippet: sql.slice(funcStart, j).trim(),
+      clause: 'Window Function',
+      scope: resolveScope(sql, ctes, overStart),
+    });
+  }
+
+  return items;
+}
+
+function extractDistinctItems(sql: string, ctes: CTE[]): MetricDetailItem[] {
+  const pattern = /\bDISTINCT\b/gi;
+  const items: MetricDetailItem[] = [];
+  let match: RegExpExecArray | null;
+  let idx = 0;
+
+  while ((match = pattern.exec(sql)) !== null) {
+    const start = match.index;
+    let depth = 0;
+    let j = start + match[0].length;
+
+    while (j < sql.length) {
+      const c = sql[j];
+      if (c === "'" || c === '"' || c === '`') {
+        j = skipQuotedLiteral(sql, j);
+        continue;
+      }
+      if (c === '(') {
+        depth++;
+        j++;
+        continue;
+      }
+      if (c === ')') {
+        if (depth === 0) break;
+        depth--;
+        j++;
+        continue;
+      }
+      if (depth === 0 && c === ',') break;
+      if (depth === 0 && /^\s*FROM\b/i.test(sql.slice(j))) break;
+      j++;
+    }
+
+    const trailing = sql.slice(start + match[0].length, j).trim();
+    items.push({
+      id: `distinct-${idx++}`,
+      snippet: trailing ? `DISTINCT ${trailing}` : 'DISTINCT',
+      clause: 'DISTINCT',
+      scope: resolveScope(sql, ctes, start),
+    });
+  }
+
+  return items;
+}
+
+function extractFunctionCallItems(sql: string, ctes: CTE[]): MetricDetailItem[] {
+  const excluded = new Set([
+    'SELECT',
+    'FROM',
+    'WHERE',
+    'JOIN',
+    'ON',
+    'AS',
+    'CASE',
+    'WHEN',
+    'THEN',
+    'ELSE',
+    'END',
+    'WITH',
+    'IN',
+    'EXISTS',
+    'VALUES',
+    'OVER',
+  ]);
+  const pattern = /\b([A-Za-z_][A-Za-z0-9_$]*)\s*\(/g;
+  const items: MetricDetailItem[] = [];
+  let match: RegExpExecArray | null;
+  let idx = 0;
+
+  while ((match = pattern.exec(sql)) !== null) {
+    if (excluded.has(match[1].toUpperCase())) continue;
+
+    const openParenIndex = match.index + match[0].length - 1;
+    let depth = 1;
+    let j = openParenIndex + 1;
+
+    while (j < sql.length && depth > 0) {
+      const c = sql[j];
+      if (c === "'" || c === '"' || c === '`') {
+        j = skipQuotedLiteral(sql, j);
+        continue;
+      }
+      if (c === '(') depth++;
+      else if (c === ')') depth--;
+      j++;
+    }
+
+    items.push({
+      id: `func-${idx++}`,
+      snippet: sql.slice(match.index, j).trim(),
+      clause: 'Function Call',
+      scope: resolveScope(sql, ctes, match.index),
+    });
+  }
+
+  return items;
+}
+
+function buildMetricDetails(cleanedSql: string, ctes: CTE[]): MetricDetailsReport {
+  const groupByStop = /^\s*(?:HAVING\b|ORDER\s+BY\b|LIMIT\b|UNION\b|WINDOW\b)/i;
+  const orderByStop = /^\s*(?:LIMIT\b|UNION\b|FETCH\b|OFFSET\b)/i;
+  const whereStop = /^\s*(?:GROUP\s+BY\b|ORDER\s+BY\b|HAVING\b|LIMIT\b|UNION\b|WINDOW\b)/i;
+  const havingStop = /^\s*(?:ORDER\s+BY\b|LIMIT\b|UNION\b|WINDOW\b)/i;
+
+  const groupBy = extractGroupOrOrderItems(
+    cleanedSql,
+    ctes,
+    /\bGROUP\s+BY\b/gi,
+    groupByStop,
+    'GROUP BY',
+    'group'
+  );
+  const orderBy = extractGroupOrOrderItems(
+    cleanedSql,
+    ctes,
+    /\bORDER\s+BY\b/gi,
+    orderByStop,
+    'ORDER BY',
+    'order'
+  );
+  const whereItems = extractSingleBodyItems(
+    cleanedSql,
+    ctes,
+    /\bWHERE\b/gi,
+    whereStop,
+    'WHERE',
+    'where'
+  );
+  const havingItems = extractSingleBodyItems(
+    cleanedSql,
+    ctes,
+    /\bHAVING\b/gi,
+    havingStop,
+    'HAVING',
+    'having'
+  );
+  const caseWhenItems = extractCaseWhenItems(cleanedSql).map((item, idx) => ({
+    id: `case-${idx}`,
+    snippet: item.snippet,
+    clause: 'CASE WHEN',
+    scope: resolveScope(cleanedSql, ctes, item.start),
+  }));
+
+  return {
+    windowFunctions: extractWindowFunctionItems(cleanedSql, ctes),
+    groupBy,
+    orderBy,
+    distinct: extractDistinctItems(cleanedSql, ctes),
+    conditions: [...whereItems, ...havingItems, ...caseWhenItems],
+    opsAndFunctions: extractFunctionCallItems(cleanedSql, ctes),
   };
 }
 
