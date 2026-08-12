@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { checkOtherLintingRules } from '.sql/complexityScorer';
+import { checkOtherLintingRules } from './sql/complexityScorer';
 
 describe('performance lint locations', () => {
   it('points demo_query5 warnings to the actual syntax lines', () => {
