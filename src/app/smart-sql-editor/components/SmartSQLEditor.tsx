@@ -8,9 +8,9 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
 import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles } from 'lucide-react';
-import { analyzeSql } from '@/lib/sqlAnalyzer';
-import { buildSqlContextBrief } from '@/lib/aiSqlContext';
-import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/aiService';
+import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
+import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
+import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/ai/aiService';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {

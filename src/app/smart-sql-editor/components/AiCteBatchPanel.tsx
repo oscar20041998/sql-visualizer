@@ -5,9 +5,9 @@ import { toast } from 'sonner';
 import { AlertTriangle, Check, Layers, RefreshCw } from 'lucide-react';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
-import type { CTE } from '@/lib/sqlAnalyzer';
-import { explainSqlStructured, type SqlExplanation } from '@/lib/aiService';
-import { runBatch, type BatchItemState } from '@/lib/aiQueue';
+import type { CTE } from '@/lib/sql/sqlAnalyzer';
+import { explainSqlStructured, type SqlExplanation } from '@/lib/ai/aiService';
+import { runBatch, type BatchItemState } from '@/lib/ai/aiQueue';
 
 interface AiCteBatchPanelProps {
   ctes: CTE[];

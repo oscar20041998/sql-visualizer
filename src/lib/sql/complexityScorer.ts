@@ -3,8 +3,8 @@
  * Comprehensive scoring based on keywords, window functions, SELECT fields, and linting rules
  */
 
-import { getT, type Locale, type Translations } from './i18n';
-import { COMPLEXITY_SCORER_CONSTANTS } from '../app/common/sqlAnalyzerUtils';
+import { getT, type Locale, type Translations } from '../i18n';
+import { COMPLEXITY_SCORER_CONSTANTS } from '../../app/common/sqlAnalyzerUtils';
 
 const SCORE_LIST_KEY = 'complexityScoreList';
 
@@ -230,6 +230,181 @@ export function getScoresFromLocalStorage(): number[] {
 }
 // ─── Linting Rules ──────────────────────────────────────────────────────
 
+function stripSqlNoise(sql: string, maskStringContents = true): string {
+  let result = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let index = 0; index < sql.length; index++) {
+    const char = sql[index];
+    const next = sql[index + 1];
+
+    if (inLineComment) {
+      if (char === '\n') {
+        inLineComment = false;
+        result += char;
+      } else {
+        result += ' ';
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '*' && next === '/') {
+        inBlockComment = false;
+        result += '  ';
+        index++;
+      } else {
+        result += char === '\n' ? '\n' : ' ';
+      }
+      continue;
+    }
+
+    if (inSingleQuote) {
+      if (char === "'" && next === "'") {
+        result += maskStringContents ? '  ' : "''";
+        index++;
+      } else if (char === "'") {
+        inSingleQuote = false;
+        result += maskStringContents ? ' ' : char;
+      } else {
+        result += maskStringContents && char !== '\n' ? ' ' : char;
+      }
+      continue;
+    }
+
+    if (inDoubleQuote) {
+      if (char === '"' && next === '"') {
+        result += maskStringContents ? '  ' : '""';
+        index++;
+      } else if (char === '"') {
+        inDoubleQuote = false;
+        result += maskStringContents ? ' ' : char;
+      } else {
+        result += maskStringContents && char !== '\n' ? ' ' : char;
+      }
+      continue;
+    }
+
+    if (inBacktick) {
+      if (char === '`') {
+        inBacktick = false;
+        result += maskStringContents ? ' ' : char;
+      } else {
+        result += maskStringContents && char !== '\n' ? ' ' : char;
+      }
+      continue;
+    }
+
+    if (char === '-' && next === '-') {
+      inLineComment = true;
+      result += ' ';
+      index++;
+      continue;
+    }
+
+    if (char === '/' && next === '*') {
+      inBlockComment = true;
+      result += ' ';
+      index++;
+      continue;
+    }
+
+    if (char === "'") {
+      inSingleQuote = true;
+      result += maskStringContents ? ' ' : char;
+      continue;
+    }
+
+    if (char === '"') {
+      inDoubleQuote = true;
+      result += maskStringContents ? ' ' : char;
+      continue;
+    }
+
+    if (char === '`') {
+      inBacktick = true;
+      result += maskStringContents ? ' ' : char;
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function getLineContext(sql: string, pattern: RegExp): string | undefined {
+  const normalizedSql = sql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+  const cleanedSql = stripSqlNoise(normalizedSql);
+  pattern.lastIndex = 0;
+  const result = pattern.exec(cleanedSql);
+  pattern.lastIndex = 0;
+
+  if (!result || result.index === undefined) {
+    return undefined;
+  }
+
+  const lineNumber = cleanedSql.slice(0, result.index).split('\n').length;
+  return getLineContextByLineNumber(normalizedSql, lineNumber) ?? `${lineNumber}`;
+}
+
+function getNestedLineContext(sql: string, outerPattern: RegExp, nestedPattern: RegExp): string | undefined {
+  const normalizedSql = sql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+  const cleanedSql = stripSqlNoise(normalizedSql);
+  outerPattern.lastIndex = 0;
+  const outerMatch = outerPattern.exec(cleanedSql);
+  outerPattern.lastIndex = 0;
+  if (!outerMatch || outerMatch.index === undefined) return undefined;
+
+  nestedPattern.lastIndex = 0;
+  const nestedMatch = nestedPattern.exec(outerMatch[0]);
+  nestedPattern.lastIndex = 0;
+  if (!nestedMatch || nestedMatch.index === undefined) return undefined;
+
+  const absoluteIndex = outerMatch.index + nestedMatch.index;
+  const lineNumber = cleanedSql.slice(0, absoluteIndex).split('\n').length;
+  return getLineContextByLineNumber(normalizedSql, lineNumber) ?? `${lineNumber}`;
+}
+
+function getLineContextByLineNumber(sql: string, lineNumber: number): string | undefined {
+  const normalizedSql = sql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+  const lines = normalizedSql.split('\n');
+  const lineText = lines[Math.max(0, lineNumber - 1)]?.trim();
+
+  return lineText ? `${lineNumber}: ${lineText}` : undefined;
+}
+
+function getMaxDepthLineContext(sql: string): string | undefined {
+  const normalizedSql = sql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+  let depth = 0;
+  let maxDepth = 0;
+  let maxDepthLine = 1;
+  let lineNumber = 1;
+
+  for (const ch of normalizedSql) {
+    if (ch === '\n') {
+      lineNumber++;
+      continue;
+    }
+
+    if (ch === '(') {
+      depth++;
+      if (depth > maxDepth) {
+        maxDepth = depth;
+        maxDepthLine = lineNumber;
+      }
+    } else if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+
+  return maxDepth > 0 ? getLineContextByLineNumber(normalizedSql, maxDepthLine) : undefined;
+}
+
 export function checkSelectAll(sql: string, locale: Locale = 'en'): LintingIssue[] {
   const issues: LintingIssue[] = [];
   const selectAllPattern = /SELECT\s+\*/gi;
@@ -241,6 +416,7 @@ export function checkSelectAll(sql: string, locale: Locale = 'en'): LintingIssue
       severity: 'warning',
       message: t.lintingSelectAllMessage,
       suggestion: t.lintingSelectAllSuggestion,
+      location: getLineContext(sql, /SELECT\s+\*/i) ?? 'SELECT *',
     });
   }
 
@@ -249,13 +425,15 @@ export function checkSelectAll(sql: string, locale: Locale = 'en'): LintingIssue
 
 export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): LintingIssue[] {
   const issues: LintingIssue[] = [];
-  const upper = sql.toUpperCase();
+  const sanitizedSql = stripSqlNoise(sql);
+  const commentFreeSql = stripSqlNoise(sql, false);
+  const upper = sanitizedSql.toUpperCase();
   const t = getT(locale);
 
   // Deep nesting warning
   let maxDepth = 0;
   let depth = 0;
-  for (const ch of sql) {
+  for (const ch of sanitizedSql) {
     if (ch === '(') {
       depth++;
       maxDepth = Math.max(maxDepth, depth);
@@ -269,18 +447,133 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
       severity: 'warning',
       message: t.lintingDeepNestingMessage,
       suggestion: t.lintingDeepNestingSuggestion,
-      location: `${maxDepth} levels`,
+      location: getMaxDepthLineContext(sql) ?? `${maxDepth} levels`,
     });
   }
 
   // Cross join warning
-  if (/CROSS\s+JOIN/i.test(sql)) {
+  if (/CROSS\s+JOIN/i.test(sanitizedSql)) {
     issues.push({
       rule: t.lintingCrossJoin,
       severity: 'warning',
       message: t.lintingCrossJoinMessage,
       suggestion: t.lintingCrossJoinSuggestion,
+      location: getLineContext(sql, /CROSS\s+JOIN/i) ?? 'CROSS JOIN',
     });
+  }
+
+  // Distinct/deduplication warning
+  if (/\bDISTINCT\b/i.test(sanitizedSql) || /\bCOUNT\s*\(\s*DISTINCT\b/i.test(sanitizedSql)) {
+    issues.push({
+      rule: t.lintingDistinct,
+      severity: 'warning',
+      message: t.lintingDistinctMessage,
+      suggestion: t.lintingDistinctSuggestion,
+      location: getLineContext(sql, /\bDISTINCT\b/i) ?? 'distinct/deduplication',
+    });
+  }
+
+  // OR predicate warning
+  if (/\bOR\b/i.test(sanitizedSql) && /\b(WHERE|JOIN|HAVING|ON)\b/i.test(upper)) {
+    issues.push({
+      rule: t.lintingOrPredicate,
+      severity: 'warning',
+      message: t.lintingOrPredicateMessage,
+      suggestion: t.lintingOrPredicateSuggestion,
+      location: getLineContext(sql, /\bOR\b/i) ?? 'WHERE/HAVING predicate',
+    });
+  }
+
+  // IN/NOT IN subquery warning
+  if (/\b(?:NOT\s+)?IN\b\s*\(\s*SELECT\b/i.test(sanitizedSql)) {
+    issues.push({
+      rule: t.lintingInSubquery,
+      severity: 'warning',
+      message: t.lintingInSubqueryMessage,
+      suggestion: t.lintingInSubquerySuggestion,
+      location: getLineContext(sql, /\b(?:NOT\s+)?IN\b\s*\(\s*SELECT\b/i) ?? 'IN/NOT IN subquery',
+    });
+  }
+
+  // Function applied to a column in a filtering/joining/grouping clause. Keep the
+  // clause and function in the same match so a function in SELECT is not reported.
+  const functionOnColumnPattern =
+    /\b(?:WHERE|HAVING|ON)\b[^;\n]*\b(?:DATE|TRIM|LOWER|UPPER|SUBSTRING|CHAR_LENGTH|REPLACE)\s*\(\s*[A-Z_][\w$.]*|\bGROUP\s+BY\b(?:(?!\b(?:SELECT|FROM|WHERE|HAVING|JOIN|ORDER\s+BY|LIMIT|UNION)\b)[\s\S])*?\b(?:DATE|TRIM|LOWER|UPPER|SUBSTRING|CHAR_LENGTH|REPLACE)\s*\(\s*[A-Z_][\w$.]*/i;
+  if (functionOnColumnPattern.test(sanitizedSql)) {
+    issues.push({
+      rule: t.lintingFunctionOnColumn,
+      severity: 'warning',
+      message: t.lintingFunctionOnColumnMessage,
+      suggestion: t.lintingFunctionOnColumnSuggestion,
+      location: getNestedLineContext(
+        sql,
+        functionOnColumnPattern,
+        /\b(?:DATE|TRIM|LOWER|UPPER|SUBSTRING|CHAR_LENGTH|REPLACE)\s*\(/i
+      ),
+    });
+  }
+
+  const additionalRules: Array<{
+    pattern: RegExp;
+    rule: string;
+    message: string;
+    suggestion: string;
+  }> = [
+    {
+      pattern: /\bUNION\b(?!\s+ALL\b)/i,
+      rule: t.lintingUnionDedup,
+      message: t.lintingUnionDedupMessage,
+      suggestion: t.lintingUnionDedupSuggestion,
+    },
+    {
+      pattern: /(?:=|<>|!=)\s*NULL\b|\bNULL\s*(?:=|<>|!=)/i,
+      rule: t.lintingNullComparison,
+      message: t.lintingNullComparisonMessage,
+      suggestion: t.lintingNullComparisonSuggestion,
+    },
+    {
+      pattern: /\bLIKE\s*['"]%/i,
+      rule: t.lintingLeadingWildcard,
+      message: t.lintingLeadingWildcardMessage,
+      suggestion: t.lintingLeadingWildcardSuggestion,
+    },
+    {
+      pattern: /\bHAVING\b(?![^;\n]*\b(?:COUNT|SUM|AVG|MIN|MAX|GROUP_CONCAT|STRING_AGG)\s*\()[^;\n]+/i,
+      rule: t.lintingNonAggregateHaving,
+      message: t.lintingNonAggregateHavingMessage,
+      suggestion: t.lintingNonAggregateHavingSuggestion,
+    },
+    {
+      pattern: /\bSELECT\b(?:(?!\bFROM\b)[\s\S])*?\(\s*SELECT\b/i,
+      rule: t.lintingScalarSubquery,
+      message: t.lintingScalarSubqueryMessage,
+      suggestion: t.lintingScalarSubquerySuggestion,
+    },
+    {
+      pattern: /\(\s*SELECT\b(?:(?!\)\s*(?:AS\s+)?[\w$]+)[\s\S])*?\bORDER\s+BY\b/i,
+      rule: t.lintingSubqueryOrderBy,
+      message: t.lintingSubqueryOrderByMessage,
+      suggestion: t.lintingSubqueryOrderBySuggestion,
+    },
+  ];
+
+  for (const candidate of additionalRules) {
+    const searchableSql = candidate.rule === t.lintingLeadingWildcard ? commentFreeSql : sanitizedSql;
+    if (candidate.pattern.test(searchableSql)) {
+      issues.push({
+        rule: candidate.rule,
+        severity: 'warning',
+        message: candidate.message,
+        suggestion: candidate.suggestion,
+        location:
+          candidate.rule === t.lintingLeadingWildcard
+            ? getLineContextByLineNumber(
+                sql,
+                searchableSql.slice(0, searchableSql.search(candidate.pattern)).split(/\r\n?|\n/).length
+              )
+            : getLineContext(sql, candidate.pattern),
+      });
+    }
   }
 
   // Missing WHERE in large query
@@ -295,6 +588,7 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
       severity: 'warning',
       message: t.lintingMissingWhereMessage,
       suggestion: t.lintingMissingWhereSuggestion,
+      location: getLineContext(sql, /FROM\b/i) ?? 'missing WHERE clause',
     });
   }
 

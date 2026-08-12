@@ -3,7 +3,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Hash } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { AnalysisResult } from '@/lib/sqlAnalyzer';
+import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 
 interface FieldExtractionSummaryProps {
   analysisResult: AnalysisResult;

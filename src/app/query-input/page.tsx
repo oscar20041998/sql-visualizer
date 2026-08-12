@@ -16,8 +16,8 @@ import {
   resolveMyBatisParams,
   getConditionalParams,
   type SqlDialect,
-} from '@/lib/sqlAnalyzer';
-import { validateSqlDialect, DIALECT_LABELS } from '@/lib/dialectValidator';
+} from '@/lib/sql/sqlAnalyzer';
+import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -243,7 +243,7 @@ export default function QueryInputContent() {
 
   // Live content of the Smart Editor, fed to the AI explainer panel below it.
   const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
-  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/aiService').SqlOptimizationResult>(null);
+  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/ai/aiService').SqlOptimizationResult>(null);
 
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);

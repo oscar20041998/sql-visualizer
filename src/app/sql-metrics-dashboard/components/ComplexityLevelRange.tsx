@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { getT } from '@/lib/i18n';
-import type { ComplexityLevel, ComplexityLevelItem } from '@/lib/complexityScorer';
+import type { ComplexityLevel, ComplexityLevelItem } from '@/lib/sql/complexityScorer';
 
 interface ComplexityLevelRangeProps {
   score: number;

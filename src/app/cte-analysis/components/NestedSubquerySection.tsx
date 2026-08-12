@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getT } from '@/lib/i18n';
-import type { NestedSubquery } from '@/lib/sqlAnalyzer';
+import type { NestedSubquery } from '@/lib/sql/sqlAnalyzer';
 
 function DepthBadge({ depth }: { depth: number }) {
   const colors = [

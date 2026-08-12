@@ -30,7 +30,7 @@ export default function MetricsDashboardContent() {
     );
   }
 
-  const { metrics, detailedComplexity, structuralReport, ctes, tables } = analysisResult;
+  const { metrics, detailedComplexity, structuralReport, ctes, tables, metricDetails } = analysisResult;
   const isHighRisk =
     detailedComplexity?.level === 'HIGH' || detailedComplexity?.level === 'SUPER_HIGH';
 
@@ -102,7 +102,7 @@ export default function MetricsDashboardContent() {
             />
           </div>
           <div className="lg:col-span-2 h-full">
-            <MetricCardsGrid metrics={metrics} t={t} />
+            <MetricCardsGrid metrics={metrics} metricDetails={metricDetails} t={t} />
           </div>
         </div>
 

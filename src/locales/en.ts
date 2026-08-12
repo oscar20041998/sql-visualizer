@@ -54,6 +54,7 @@ const en = {
   linesCount: 'lines',
   sqlResolved: 'Resolved SQL',
   sqlReview: 'Review SQL',
+  sqlEditor: 'SQL Editor',
 
   // Tips
   tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
@@ -207,6 +208,17 @@ const en = {
   metricsBarFinalSelect: 'Final Select',
   metricsFieldSearchPlaceholder: 'Search extracted fields (expression, alias, type)...',
   metricsFieldNoResults: 'No extracted fields match your search.',
+  metricsDetailSnippetHeader: 'Snippet',
+  metricsDetailClauseHeader: 'Clause',
+  metricsDetailScopeHeader: 'Scope',
+  metricsDetailSearchPlaceholder: 'Search snippet, clause, scope...',
+  metricsDetailNoResults: 'No items match your search.',
+  metricsDetailItemsLabel: 'items',
+  metricsDetailCloseLabel: 'Close',
+  metricsCardDetailsHint: 'View details',
+  metricsCardOpenGraphHint: 'Open relationship graph',
+  metricsCardFieldSummaryHint: 'Jump to field summary',
+  metricsDetailOpsFooterNote: '+ {count} arithmetic operator(s) counted in the total but not itemized here.',
   metricsFieldPaginationPrev: 'Previous',
   metricsFieldPaginationNext: 'Next',
   metricsFieldPaginationPage: 'Page',
@@ -665,6 +677,26 @@ const en = {
   lintingSelectAllMessage: 'Anti-pattern detected: Avoid using `SELECT *` in large-scale systems.',
   lintingSelectAllSuggestion:
     'Please explicitly define your projection columns to reduce I/O and network overhead.',
+  lintingDistinct: 'DISTINCT_OPERATIONS',
+  lintingDistinctMessage:
+    'Using DISTINCT or COUNT(DISTINCT) often forces expensive sort/hash operations.',
+  lintingDistinctSuggestion:
+    'Consider pre-aggregating, grouping earlier, or removing duplicates at a more selective stage.',
+  lintingOrPredicate: 'OR_PREDICATE',
+  lintingOrPredicateMessage:
+    'OR predicates can prevent efficient index usage and widen the scan set.',
+  lintingOrPredicateSuggestion:
+    'Split the predicate into separate branches or rewrite it with UNION ALL / JOIN when appropriate.',
+  lintingInSubquery: 'IN_SUBQUERY',
+  lintingInSubqueryMessage:
+    'IN (subquery) or NOT IN clauses can be less efficient than EXISTS or JOIN.',
+  lintingInSubquerySuggestion:
+    'Prefer EXISTS or JOIN for correlated filtering when the subquery returns a set of keys.',
+  lintingFunctionOnColumn: 'FUNCTION_ON_COLUMN',
+  lintingFunctionOnColumnMessage:
+    'Applying functions to columns in predicates can block index usage and increase CPU cost.',
+  lintingFunctionOnColumnSuggestion:
+    'Move the expression to the other side of the comparison or use a normalized/precomputed column.',
   lintingDeepNesting: 'DEEP_NESTING',
   lintingDeepNestingMessage: 'Deep nesting detected. This may degrade query optimization.',
   lintingDeepNestingSuggestion: 'Consider refactoring using CTEs or breaking into smaller queries.',
@@ -677,6 +709,26 @@ const en = {
   lintingMissingWhereMessage:
     'Complex query without WHERE clause. May scan entire tables unnecessarily.',
   lintingMissingWhereSuggestion: 'Add filtering predicates to reduce the working set.',
+  lintingLocationLabel: 'Location',
+  lintingLineLabel: 'line',
+  lintingUnionDedup: 'UNION_DEDUPLICATION',
+  lintingUnionDedupMessage: 'UNION removes duplicates with an additional sort or hash operation.',
+  lintingUnionDedupSuggestion: 'Use UNION ALL when duplicate removal is not required by the business logic.',
+  lintingNullComparison: 'INVALID_NULL_COMPARISON',
+  lintingNullComparisonMessage: 'Comparing NULL with =, !=, or <> is invalid and never evaluates to true.',
+  lintingNullComparisonSuggestion: 'Use IS NULL or IS NOT NULL.',
+  lintingLeadingWildcard: 'LEADING_WILDCARD_LIKE',
+  lintingLeadingWildcardMessage: 'A leading wildcard in LIKE commonly prevents an index range scan.',
+  lintingLeadingWildcardSuggestion: 'Use a prefix search or a dedicated full-text search when business requirements allow it.',
+  lintingNonAggregateHaving: 'NON_AGGREGATE_HAVING',
+  lintingNonAggregateHavingMessage: 'HAVING appears to filter non-aggregated values after grouping has completed.',
+  lintingNonAggregateHavingSuggestion: 'Move non-aggregate filters to WHERE so fewer rows enter the grouping stage.',
+  lintingScalarSubquery: 'SCALAR_SUBQUERY_IN_SELECT',
+  lintingScalarSubqueryMessage: 'A subquery in the SELECT list may be evaluated repeatedly for result rows.',
+  lintingScalarSubquerySuggestion: 'Consider a pre-aggregated LEFT JOIN while preserving the original cardinality and calculations.',
+  lintingSubqueryOrderBy: 'SUBQUERY_ORDER_BY',
+  lintingSubqueryOrderByMessage: 'ORDER BY inside a subquery can cause an unnecessary sort when row order is not consumed there.',
+  lintingSubqueryOrderBySuggestion: 'Remove it unless it is required by LIMIT, OFFSET, a window function, or business logic.',
 
   // Complexity Scoring - Select Field Reasons
   complexityFieldReasonUnboundedSelection: 'Unbounded column selection',
@@ -1128,6 +1180,8 @@ const en = {
   aiExplainerCloudBadgeHint: 'Your query is sent to the cloud provider configured in Settings',
   aiExplainerNoModel: 'No model set',
   aiExplainerOpenSettings: 'Model settings',
+  aiExplainerOpenPanel: 'Open AI SQL Explainer',
+  aiExplainerClosePanel: 'Close AI SQL Explainer',
   aiExplainerRunButton: 'Explain this query',
   aiExplainerRerunButton: 'Explain again',
   aiExplainerRunning: 'Reading your query…',

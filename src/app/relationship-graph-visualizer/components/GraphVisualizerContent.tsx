@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import type { JoinType, AnalysisResult } from '@/lib/sqlAnalyzer';
+import type { JoinType, AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import type { FlowCanvasHandle } from './FlowCanvas';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
 import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
@@ -192,8 +192,8 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
 // ─── Extracted Table Row ──────────────────────────────────────────────────────
 
 function buildExtractedTableRows(
-  tables: import('@/lib/sqlAnalyzer').TableNode[],
-  joins: import('@/lib/sqlAnalyzer').JoinEdge[]
+  tables: import('@/lib/sql/sqlAnalyzer').TableNode[],
+  joins: import('@/lib/sql/sqlAnalyzer').JoinEdge[]
 ): ExtractedTableRow[] {
   const rows: ExtractedTableRow[] = [];
   const hitsMap: Record<string, number> = {};
@@ -259,8 +259,8 @@ function buildExtractedTableRows(
 }
 
 function buildMermaidDiagram(
-  tables: import('@/lib/sqlAnalyzer').TableNode[],
-  joins: import('@/lib/sqlAnalyzer').JoinEdge[],
+  tables: import('@/lib/sql/sqlAnalyzer').TableNode[],
+  joins: import('@/lib/sql/sqlAnalyzer').JoinEdge[],
   joinColors: Record<JoinType, string>
 ): string {
   const lines: string[] = ['graph LR'];

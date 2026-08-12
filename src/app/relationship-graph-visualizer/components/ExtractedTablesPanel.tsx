@@ -5,7 +5,7 @@ import { Table2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
-import type { JoinType } from '@/lib/sqlAnalyzer';
+import type { JoinType } from '@/lib/sql/sqlAnalyzer';
 
 interface ExtractedTableRow {
   tableName: string;

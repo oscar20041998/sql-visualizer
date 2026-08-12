@@ -4,7 +4,7 @@ import React, { memo, useState, useCallback, useMemo } from 'react';
 import { GitFork, ChevronDown, ChevronUp, Tag, Zap, Search, X, Database } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
-import type { JoinConditionAnalysis, JoinEdge } from '@/lib/sqlAnalyzer';
+import type { JoinConditionAnalysis, JoinEdge } from '@/lib/sql/sqlAnalyzer';
 
 export interface JoinAnalysisItem {
   id: string;

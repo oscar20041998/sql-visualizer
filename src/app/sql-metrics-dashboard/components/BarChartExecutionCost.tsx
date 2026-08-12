@@ -4,7 +4,7 @@ import React from 'react';
 import { BarChart3, Clock } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import MetricsBarChart from './MetricsBarChart';
-import type { SqlMetrics, ComplexityScore, ExecutionCostEstimate } from '@/lib/sqlAnalyzer';
+import type { SqlMetrics, ComplexityScore, ExecutionCostEstimate } from '@/lib/sql/sqlAnalyzer';
 
 interface BarChartExecutionCostProps {
   metrics: SqlMetrics;

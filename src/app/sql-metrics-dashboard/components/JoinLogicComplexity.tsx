@@ -3,7 +3,7 @@
 import React from 'react';
 import { GitBranch, AlertTriangle, ArrowUpDown, Layers, Zap, TrendingUp } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { JoinLogicComplexity } from '@/lib/sqlAnalyzer';
+import type { JoinLogicComplexity } from '@/lib/sql/sqlAnalyzer';
 
 interface JoinLogicComplexityComponentProps {
   joinLogicComplexity: JoinLogicComplexity;

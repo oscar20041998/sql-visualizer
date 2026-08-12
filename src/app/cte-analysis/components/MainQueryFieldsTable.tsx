@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Hash, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { AnalysisResult } from '@/lib/sqlAnalyzer';
+import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 
 function OriginBadge({
   type,

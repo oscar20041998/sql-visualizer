@@ -16,13 +16,19 @@ import {
   Settings,
   Copy,
   Check,
+  X,
 } from 'lucide-react';
 import { useAppStore, DEFAULT_SETTINGS } from '@/lib/store';
 import { getT, type Translations } from '@/lib/i18n';
-import { explainSqlStructured, resolveBudget, type SqlExplanation, type SqlOptimizationResult } from '@/lib/aiService';
-import { analyzeSql, type AnalysisResult } from '@/lib/sqlAnalyzer';
-import { buildSqlContextBrief } from '@/lib/aiSqlContext';
-import { estimateTokens } from '@/lib/aiTokens';
+import {
+  explainSqlStructuredStream,
+  resolveBudget,
+  type SqlExplanation,
+  type SqlOptimizationResult,
+} from '@/lib/ai/aiService';
+import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
+import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
+import { estimateTokens } from '@/lib/ai/aiTokens';
 import AiFeatureAnnouncement, { useAnnouncementVisibility } from './AiFeatureAnnouncement';
 import AiFollowUpChat from './AiFollowUpChat';
 import AiCteBatchPanel from './AiCteBatchPanel';
@@ -46,6 +52,158 @@ function toPlainText(explanation: SqlExplanation, t: Translations): string {
   return blocks.join('\n\n');
 }
 
+/** One exchange in the chat thread: the query that was sent, and the assistant's answer. */
+interface ExplainTurn {
+  id: string;
+  sql: string;
+  status: 'streaming' | 'done' | 'error';
+  streamingRaw: string;
+  explanation: SqlExplanation | null;
+  error: string | null;
+  durationMs: number;
+}
+
+function buildSections(explanation: SqlExplanation, t: Translations) {
+  if (!explanation.structured) return [];
+  return [
+    {
+      key: 'objective',
+      icon: Target,
+      title: t.aiExplainerObjective,
+      accent: 'text-indigo-300 bg-indigo-500/15',
+      body: explanation.objective || t.aiExplainerNoContent,
+    },
+    {
+      key: 'output',
+      icon: MessageSquareText,
+      title: t.aiExplainerOutput,
+      accent: 'text-sky-300 bg-sky-500/15',
+      body: explanation.output || t.aiExplainerNoContent,
+    },
+  ];
+}
+
+/** Renders the assistant's half of one turn: a live-growing bubble while streaming, the
+ * structured breakdown once the stream finishes parsing, or an error. */
+const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ turn, t }) => {
+  const [showRaw, setShowRaw] = useState(false);
+
+  if (turn.status === 'error') {
+    return (
+      <div className="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2">
+        <p className="flex items-center gap-2 text-sm font-semibold text-red-200">
+          <AlertTriangle size={13} />
+          {t.aiExplainerErrorTitle}
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-red-300/90">{turn.error}</p>
+      </div>
+    );
+  }
+
+  if (turn.status === 'streaming') {
+    return (
+      <p className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-300">
+        {turn.streamingRaw}
+        <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+      </p>
+    );
+  }
+
+  const explanation = turn.explanation;
+  if (!explanation) return null;
+
+  if (!explanation.structured) {
+    return (
+      <div>
+        <p className="mb-2 text-xs text-gray-500">{t.aiExplainerUnstructuredNotice}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{explanation.raw}</p>
+      </div>
+    );
+  }
+
+  const sections = buildSections(explanation, t);
+
+  return (
+    <div className="space-y-3">
+      {(explanation.budget.sqlTruncated || explanation.budget.contextBriefDropped) && (
+        <div className="rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3 py-2 text-xs leading-relaxed text-yellow-200">
+          {explanation.budget.sqlTruncated && (
+            <p>{t.aiContextTruncatedNotice.replace('{lines}', String(explanation.budget.omittedSqlLines))}</p>
+          )}
+          {explanation.budget.contextBriefDropped && <p className="mt-1">{t.aiContextBriefDropped}</p>}
+        </div>
+      )}
+
+      {sections.map(({ key, icon: Icon, title, accent, body }) => (
+        <div key={key} className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className={`flex h-5 w-5 items-center justify-center rounded ${accent}`}>
+              <Icon size={11} />
+            </span>
+            {title}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-gray-200">{body}</p>
+        </div>
+      ))}
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
+            <Filter size={11} />
+          </span>
+          {t.aiExplainerFilters}
+        </p>
+        {explanation.filters.length ? (
+          <ul className="mt-2 space-y-1.5">
+            {explanation.filters.map((filter, index) => (
+              <li key={`filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
+                {filter}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-gray-400">{t.aiExplainerNoFilters}</p>
+        )}
+      </div>
+
+      {explanation.tables.length > 0 && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
+              <Database size={11} />
+            </span>
+            {t.aiExplainerTables}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {explanation.tables.map((table, index) => (
+              <span
+                key={`table-${index}`}
+                className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
+              >
+                {table}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowRaw((prev) => !prev)}
+        className="flex items-center gap-1.5 text-[11px] text-gray-500 transition-colors hover:text-gray-300"
+      >
+        <ChevronDown size={11} className={`transition-transform ${showRaw ? 'rotate-180' : ''}`} />
+        {showRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
+      </button>
+      {showRaw && (
+        <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-400">
+          {explanation.raw}
+        </pre>
+      )}
+    </div>
+  );
+};
+
 interface AiSqlExplainerProps {
   /** SQL currently held by the editor. */
   sql: string;
@@ -54,7 +212,8 @@ interface AiSqlExplainerProps {
 
 /**
  * Converts the SQL in the editor into a natural-language explanation using the provider
- * and parameters saved on the Settings page (Settings → AI Model Configuration).
+ * and parameters saved on the Settings page (Settings → AI Model Configuration). Each run
+ * streams its answer in real time into a chat-style thread, like a follow-up conversation.
  */
 export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizationResult }) => {
   const settings = useAppStore((store) => store.settings);
@@ -65,23 +224,24 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
   const announcement = useAnnouncementVisibility();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef<number>(0);
 
+  // Docked as a right-side drawer so the editor keeps the full width until this is needed.
+  const [isOpen, setIsOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [explanation, setExplanation] = useState<SqlExplanation | null>(null);
+  const [turns, setTurns] = useState<ExplainTurn[]>([]);
   const [explainedSql, setExplainedSql] = useState('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [contextBrief, setContextBrief] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [durationMs, setDurationMs] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
 
   const isLocalProvider = aiConfig.provider === 'ollama';
   const modelLabel = isLocalProvider ? aiConfig.ollamaModel : aiConfig.modelId;
-  const isStale = explanation !== null && sql.trim() !== explainedSql;
+  const lastTurn = turns[turns.length - 1] ?? null;
+  const isStale = lastTurn?.status === 'done' && sql.trim() !== lastTurn.sql;
 
   /**
    * Pre-flight context check. Ollama drops prompt overflow silently, so we warn before
@@ -112,6 +272,11 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
     return () => window.clearInterval(interval);
   }, [isRunning]);
 
+  // Keep the newest turn in view as the thread grows, including while it streams in.
+  useEffect(() => {
+    if (turns.length) threadEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+  }, [turns]);
+
   const runExplain = useCallback(async () => {
     const query = sql.trim();
     if (!query) {
@@ -123,11 +288,14 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     startedAtRef.current = Date.now();
     setIsRunning(true);
     setElapsedMs(0);
-    setError(null);
-    setShowRaw(false);
+    setTurns((prev) => [
+      ...prev,
+      { id: turnId, sql: query, status: 'streaming', streamingRaw: '', explanation: null, error: null, durationMs: 0 },
+    ]);
 
     try {
       // Parse locally first: the extracted facts are injected into the prompt so the model
@@ -145,21 +313,38 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
       setAnalysis(parsed);
       setContextBrief(brief);
 
-      const result = await explainSqlStructured({
-        sql: query,
-        config: aiConfig,
-        locale: settings.locale,
-        contextBrief: brief,
-        signal: controller.signal,
-      });
+      const result = await explainSqlStructuredStream(
+        {
+          sql: query,
+          config: aiConfig,
+          locale: settings.locale,
+          contextBrief: brief,
+          signal: controller.signal,
+        },
+        (delta) => {
+          setTurns((prev) =>
+            prev.map((turn) => (turn.id === turnId ? { ...turn, streamingRaw: turn.streamingRaw + delta } : turn))
+          );
+        }
+      );
       if (controller.signal.aborted) return;
-      setExplanation(result);
+
+      const duration = Date.now() - startedAtRef.current;
+      setTurns((prev) =>
+        prev.map((turn) =>
+          turn.id === turnId ? { ...turn, status: 'done', explanation: result, durationMs: duration } : turn
+        )
+      );
       setExplainedSql(query);
-      setDurationMs(Date.now() - startedAtRef.current);
       toast.success(t.aiExplainerSuccess);
     } catch (caught) {
-      if ((caught as Error)?.name === 'AbortError') return;
-      setError(caught instanceof Error ? caught.message : String(caught));
+      const message =
+        (caught as Error)?.name === 'AbortError'
+          ? t.aiExplainerCancelled
+          : caught instanceof Error
+            ? caught.message
+            : String(caught);
+      setTurns((prev) => prev.map((turn) => (turn.id === turnId ? { ...turn, status: 'error', error: message } : turn)));
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -175,43 +360,26 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
     toast.info(t.aiExplainerCancelled);
   }, [t]);
 
-  /** Primary CTA of the release announcement: scroll the panel into view and explain right away. */
+  /** Primary CTA of the release announcement: open the drawer and explain right away. */
   const handleTryNow = useCallback(() => {
-    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setIsOpen(true);
     void runExplain();
   }, [runExplain]);
 
   const handleCopy = useCallback(async () => {
-    if (!explanation) return;
+    const lastDone = [...turns].reverse().find((turn) => turn.status === 'done' && turn.explanation);
+    if (!lastDone?.explanation) return;
     try {
-      await navigator.clipboard.writeText(toPlainText(explanation, t));
+      await navigator.clipboard.writeText(toPlainText(lastDone.explanation, t));
       setCopied(true);
       toast.success(t.aiExplainerCopied);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error(t.aiExplainerCopyFailed);
     }
-  }, [explanation, t]);
+  }, [turns, t]);
 
-  const sections = useMemo(() => {
-    if (!explanation?.structured) return [];
-    return [
-      {
-        key: 'objective',
-        icon: Target,
-        title: t.aiExplainerObjective,
-        accent: 'text-indigo-300 bg-indigo-500/15',
-        body: explanation.objective || t.aiExplainerNoContent,
-      },
-      {
-        key: 'output',
-        icon: MessageSquareText,
-        title: t.aiExplainerOutput,
-        accent: 'text-sky-300 bg-sky-500/15',
-        body: explanation.output || t.aiExplainerNoContent,
-      },
-    ];
-  }, [explanation, t]);
+  const canCopy = turns.some((turn) => turn.status === 'done' && turn.explanation);
 
   return (
     <>
@@ -221,10 +389,30 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
         onTryNow={handleTryNow}
       />
 
-      <div
-        ref={containerRef}
-        className="smart-sql-editor-theme flex flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
-      >
+      {/* Collapsed: a slim tab docked to the right edge of the viewport. */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          aria-label={t.aiExplainerOpenPanel}
+          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-lg border border-r-0 border-gray-800 bg-gray-900 px-2 py-3 text-indigo-300 shadow-lg transition-colors hover:bg-gray-800"
+        >
+          <Sparkles size={16} />
+          <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">
+            {t.aiExplainerTitle}
+          </span>
+        </button>
+      )}
+
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            ref={containerRef}
+            onClick={(event) => event.stopPropagation()}
+            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-40 flex h-full w-full flex-col overflow-hidden border-l border-gray-800 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
+          >
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-800 px-4 py-3">
           <div className="min-w-0">
@@ -264,6 +452,13 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               <Sparkles size={11} />
               {t.aiAnnounceReopen}
             </button>
+            <button
+              onClick={() => setIsOpen(false)}
+              aria-label={t.aiExplainerClosePanel}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+            >
+              <X size={14} />
+            </button>
           </div>
         </div>
 
@@ -290,11 +485,11 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles size={12} />
-              {explanation ? t.aiExplainerRerunButton : t.aiExplainerRunButton}
+              {turns.length ? t.aiExplainerRerunButton : t.aiExplainerRunButton}
             </button>
           )}
 
-          {explanation && !isRunning && (
+          {canCopy && !isRunning && (
             <button
               onClick={handleCopy}
               className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
@@ -304,9 +499,9 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             </button>
           )}
 
-          {durationMs > 0 && !isRunning && (
+          {lastTurn?.status === 'done' && lastTurn.durationMs > 0 && !isRunning && (
             <span className="text-[11px] text-gray-500">
-              {t.aiExplainerGeneratedIn} <span className="font-mono">{formatSeconds(durationMs)}</span>
+              {t.aiExplainerGeneratedIn} <span className="font-mono">{formatSeconds(lastTurn.durationMs)}</span>
             </span>
           )}
 
@@ -323,7 +518,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
         </div>
 
         {/* Body */}
-        <div className="px-4 pb-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-4 pb-4">
           {/* Pre-flight overflow warning: Ollama truncates overflow silently. */}
           {preflight.overflows && !isRunning && (
             <div className="mb-3 rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3.5 py-3">
@@ -349,30 +544,37 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             </div>
           )}
 
-          {error && !isRunning && (
-            <div className="rounded-lg border border-red-900/60 bg-red-950/40 px-3.5 py-3">
-              <p className="flex items-center gap-2 text-sm font-semibold text-red-200">
-                <AlertTriangle size={14} />
-                {t.aiExplainerErrorTitle}
+          {contextBrief && !isRunning && (
+            <p className="mb-3 text-[11px] text-gray-500">{t.aiContextBriefUsed}</p>
+          )}
+
+          {optimizationResult && !isRunning && (
+            <div className="mb-3 rounded-lg border border-sky-800 bg-sky-950/20 p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+                {t.optimizationResultsTitle}
               </p>
-              <p className="mt-1.5 text-xs leading-relaxed text-red-300/90">{error}</p>
-              <p className="mt-2 text-xs text-red-300/70">{t.aiExplainerErrorHint}</p>
-            </div>
-          )}
-
-          {isRunning && (
-            <div className="space-y-3" aria-busy="true">
-              {[0, 1, 2].map((row) => (
-                <div key={`ai-skeleton-${row}`} className="rounded-lg border border-gray-800 bg-gray-800/40 p-3">
-                  <div className="h-3 w-28 animate-pulse rounded bg-gray-700" />
-                  <div className="mt-2.5 h-2.5 w-full animate-pulse rounded bg-gray-700/70" />
-                  <div className="mt-1.5 h-2.5 w-4/5 animate-pulse rounded bg-gray-700/50" />
+              <p className="mt-2 text-sm leading-relaxed text-gray-200">
+                {optimizationResult.analysis || t.aiExplainerNoContent}
+              </p>
+              {optimizationResult.suggestions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {t.performanceNotesLabel}
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-gray-200">
+                    {optimizationResult.suggestions.map((suggestion, index) => (
+                      <li key={`opt-suggestion-${index}`} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
+                        {suggestion}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
-          {!isRunning && !error && !explanation && (
+          {turns.length === 0 && !isRunning && (
             <div className="rounded-lg border border-dashed border-gray-700 bg-gray-800/30 px-4 py-6 text-center">
               <Sparkles size={18} className="mx-auto text-indigo-400/70" />
               <p className="mt-2 text-sm text-gray-300">{t.aiExplainerEmptyStateTitle}</p>
@@ -382,151 +584,57 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             </div>
           )}
 
-          {!isRunning && explanation && (
+          {/* Chat thread: one user bubble (the query sent) + one assistant bubble per run. */}
+          {turns.length > 0 && (
             <div className="space-y-3">
-              {/* What actually reached the model. Silent truncation becomes visible here. */}
-              {(explanation.budget.sqlTruncated || explanation.budget.contextBriefDropped) && (
-                <div className="rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3 py-2 text-xs leading-relaxed text-yellow-200">
-                  {explanation.budget.sqlTruncated && (
-                    <p>
-                      {t.aiContextTruncatedNotice.replace(
-                        '{lines}',
-                        String(explanation.budget.omittedSqlLines)
-                      )}
-                    </p>
-                  )}
-                  {explanation.budget.contextBriefDropped && (
-                    <p className="mt-1">{t.aiContextBriefDropped}</p>
-                  )}
-                </div>
-              )}
-
-              {contextBrief && (
-                <p className="text-[11px] text-gray-500">{t.aiContextBriefUsed}</p>
-              )}
-
-              {optimizationResult && (
-                <div className="rounded-lg border border-sky-800 bg-sky-950/20 p-3.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
-                    {t.optimizationResultsTitle}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-200">
-                    {optimizationResult.analysis || t.aiExplainerNoContent}
-                  </p>
-                  {optimizationResult.suggestions.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        {t.performanceNotesLabel}
-                      </p>
-                      <ul className="mt-2 space-y-1 text-sm text-gray-200">
-                        {optimizationResult.suggestions.map((suggestion, index) => (
-                          <li key={`opt-suggestion-${index}`} className="flex items-start gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
-                            {suggestion}
-                          </li>
-                        ))}
-                      </ul>
+              {turns.map((turn) => (
+                <div key={turn.id} className="space-y-2">
+                  <div className="ml-6 flex items-start gap-2 rounded-lg border border-indigo-800/40 bg-indigo-950/30 px-3 py-2">
+                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-semibold text-indigo-300">
+                      {t.aiChatRoleYou}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-200">{t.aiExplainerRunButton}</p>
+                      <p className="mt-1 truncate font-mono text-[11px] text-gray-500">{turn.sql}</p>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {explanation.structured ? (
-                <>
-                  {sections.map(({ key, icon: Icon, title, accent, body }) => (
-                    <div key={key} className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        <span className={`flex h-5 w-5 items-center justify-center rounded ${accent}`}>
-                          <Icon size={11} />
-                        </span>
-                        {title}
-                      </p>
-                      <p className="mt-2 text-sm leading-relaxed text-gray-200">{body}</p>
-                    </div>
-                  ))}
-
-                  <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
-                        <Filter size={11} />
-                      </span>
-                      {t.aiExplainerFilters}
-                    </p>
-                    {explanation.filters.length ? (
-                      <ul className="mt-2 space-y-1.5">
-                        {explanation.filters.map((filter, index) => (
-                          <li
-                            key={`ai-filter-${index}`}
-                            className="flex items-start gap-2 text-sm leading-relaxed text-gray-200"
-                          >
-                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                            {filter}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-2 text-sm text-gray-400">{t.aiExplainerNoFilters}</p>
-                    )}
                   </div>
 
-                  {explanation.tables.length > 0 && (
-                    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
-                          <Database size={11} />
+                  <div className="mr-6 rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-700 text-[10px] text-gray-300">
+                        {t.aiChatRoleAssistant}
+                      </span>
+                      {turn.status === 'streaming' && (
+                        <span className="flex items-center gap-1 normal-case text-indigo-300">
+                          <RefreshCw size={10} className="animate-spin" />
+                          {t.aiExplainerRunning}
                         </span>
-                        {t.aiExplainerTables}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {explanation.tables.map((table, index) => (
-                          <span
-                            key={`ai-table-${index}`}
-                            className="rounded border border-gray-700 bg-gray-900 px-2 py-0.5 font-mono text-xs text-gray-300"
-                          >
-                            {table}
-                          </span>
-                        ))}
-                      </div>
+                      )}
+                      {turn.status === 'done' && turn.durationMs > 0 && (
+                        <span className="normal-case text-gray-500">
+                          {t.aiExplainerGeneratedIn}{' '}
+                          <span className="font-mono">{formatSeconds(turn.durationMs)}</span>
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  <button
-                    onClick={() => setShowRaw((prev) => !prev)}
-                    className="flex items-center gap-1.5 text-[11px] text-gray-500 transition-colors hover:text-gray-300"
-                  >
-                    <ChevronDown
-                      size={11}
-                      className={`transition-transform ${showRaw ? 'rotate-180' : ''}`}
-                    />
-                    {showRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
-                  </button>
-                  {showRaw && (
-                    <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-400">
-                      {explanation.raw}
-                    </pre>
-                  )}
-                </>
-              ) : (
-                /* The model ignored the JSON contract — show its answer verbatim. */
-                <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-                  <p className="mb-2 text-xs text-gray-500">{t.aiExplainerUnstructuredNotice}</p>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
-                    {explanation.raw}
-                  </p>
+                    <AssistantTurnBody turn={turn} t={t} />
+                  </div>
                 </div>
-              )}
+              ))}
+              <div ref={threadEndRef} />
+            </div>
+          )}
 
-              {/* Batch: explain each CTE of the pipeline on its own. */}
-              {analysis && analysis.ctes.length > 0 && (
-                <AiCteBatchPanel
-                  ctes={analysis.ctes}
-                  config={aiConfig}
-                  locale={settings.locale}
-                  t={t}
-                />
-              )}
+          {/* Batch: explain each CTE of the pipeline on its own. */}
+          {!isRunning && analysis && analysis.ctes.length > 0 && (
+            <div className="mt-3">
+              <AiCteBatchPanel ctes={analysis.ctes} config={aiConfig} locale={settings.locale} t={t} />
+            </div>
+          )}
 
-              {/* Multi-turn follow-up about the query that was just explained. */}
+          {/* Multi-turn follow-up about the query that was just explained. */}
+          {!isRunning && lastTurn?.status === 'done' && (
+            <div className="mt-3">
               <AiFollowUpChat
                 sql={explainedSql}
                 config={aiConfig}
@@ -537,7 +645,9 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             </div>
           )}
         </div>
-      </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

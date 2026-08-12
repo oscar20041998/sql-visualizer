@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getT } from '@/lib/i18n';
-import type { CTE } from '@/lib/sqlAnalyzer';
+import type { CTE } from '@/lib/sql/sqlAnalyzer';
 import NestedSubquerySection from './NestedSubquerySection';
 
 function ComplexityBadge({

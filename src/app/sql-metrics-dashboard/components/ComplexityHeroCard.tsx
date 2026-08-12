@@ -4,7 +4,7 @@ import React from 'react';
 import { getT } from '@/lib/i18n';
 import ComplexityGauge from './ComplexityGauge';
 import ComplexityLevelRange from './ComplexityLevelRange';
-import type { ComplexityLevel, DetailedComplexityScore } from '@/lib/complexityScorer';
+import type { ComplexityLevel, DetailedComplexityScore } from '@/lib/sql/complexityScorer';
 
 interface ComplexityHeroCardProps {
   detailedComplexity?: DetailedComplexityScore;

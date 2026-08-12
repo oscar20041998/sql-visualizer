@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { AlertTriangle, ChevronRight, MessageSquareText, RefreshCw, Trash2 } from 'lucide-react';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
-import { askFollowUp, type AIMessage } from '@/lib/aiService';
+import { askFollowUp, type AIMessage } from '@/lib/ai/aiService';
 
 interface AiFollowUpChatProps {
   sql: string;
