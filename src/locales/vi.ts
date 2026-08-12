@@ -52,6 +52,7 @@ const vi = {
   linesCount: 'dòng',
   sqlResolved: 'SQL đã giải quyết',
   sqlReview: 'Xem lại SQL',
+  sqlEditor: 'Trình soạn thảo SQL',
 
   // Tips
   tipCTE: 'Sử dụng WITH...AS cho CTE để phân tích CTE đầy đủ',
