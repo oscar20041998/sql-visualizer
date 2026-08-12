@@ -61,9 +61,12 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
         </p>
         <div className="mt-2 space-y-1">
           {visibleIssues.map((issue, idx) => (
-            <p key={`lint-compact-${idx}`} className="text-xs text-orange-700 dark:text-orange-300">
-              • <span className="font-mono">{issue.rule}</span>: {issue.message}
-            </p>
+            <div key={`lint-compact-${idx}`} className="text-xs text-orange-700 dark:text-orange-300">
+              <p>
+                • <span className="font-mono">{issue.rule}</span>: {issue.message}
+              </p>
+              {issue.location && <p className="mt-1 text-[11px] opacity-80">{t.lintingLineLabel} {issue.location}</p>}
+            </div>
           ))}
         </div>
       </div>
@@ -144,7 +147,9 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
               </div>
 
               {issue.location && (
-                <p className="text-xs text-muted-foreground mt-2">Location: {issue.location}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t.lintingLocationLabel}: {t.lintingLineLabel} {issue.location}
+                </p>
               )}
             </div>
 
