@@ -54,6 +54,7 @@ const en = {
   linesCount: 'lines',
   sqlResolved: 'Resolved SQL',
   sqlReview: 'Review SQL',
+  sqlEditor: 'SQL Editor',
 
   // Tips
   tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
