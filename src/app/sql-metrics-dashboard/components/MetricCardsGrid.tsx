@@ -14,7 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { SqlMetrics, MetricDetailsReport, MetricDetailItem } from '@/lib/sqlAnalyzer';
+import type { SqlMetrics, MetricDetailsReport, MetricDetailItem } from '@/lib/sql/sqlAnalyzer';
 import MetricDetailDrawer from './MetricDetailDrawer';
 
 interface MetricCardsGridProps {

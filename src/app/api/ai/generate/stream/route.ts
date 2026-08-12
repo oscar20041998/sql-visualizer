@@ -2,15 +2,15 @@
 // the model's answer as a normalised OpenAI-delta SSE stream instead of a single JSON body, so
 // the browser can render tokens as they arrive.
 import { NextResponse } from 'next/server';
-import { AIServiceError, generateWithCloudKeyStream } from '@/lib/aiService';
-import { ENV_VAR_BY_PROVIDER } from '@/lib/aiProviders';
+import { AIServiceError, generateWithCloudKeyStream } from '@/lib/ai/aiService';
+import { ENV_VAR_BY_PROVIDER } from '@/lib/ai/aiProviders';
 import {
   clampNumber,
   isCloudProvider,
   parseMessages,
   redactSecrets,
   resolveAllowedBaseUrl,
-} from '@/lib/aiRouteValidation';
+} from '@/lib/ai/aiRouteValidation';
 
 interface GenerateRequestBody {
   provider?: string;

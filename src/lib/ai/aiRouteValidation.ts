@@ -1,8 +1,8 @@
 // Shared request validation for the AI proxy routes (/api/ai/generate and its /stream sibling).
 // Both routes attach a real server-side credential to the outgoing request, so this validation
 // is security-sensitive: it must not diverge between the two routes.
-import { DEFAULT_BASE_URLS, ENV_VAR_BY_PROVIDER, type CloudProvider } from '@/lib/aiProviders';
-import type { AIMessage } from '@/lib/aiService';
+import { DEFAULT_BASE_URLS, ENV_VAR_BY_PROVIDER, type CloudProvider } from './aiProviders';
+import type { AIMessage } from './aiService';
 
 export const VALID_ROLES = new Set(['system', 'user', 'assistant']);
 

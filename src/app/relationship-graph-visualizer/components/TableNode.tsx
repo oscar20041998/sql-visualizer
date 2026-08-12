@@ -3,7 +3,7 @@
 import React, { memo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Table2 } from 'lucide-react';
-import type { TableNode as TableNodeType } from '@/lib/sqlAnalyzer';
+import type { TableNode as TableNodeType } from '@/lib/sql/sqlAnalyzer';
 
 export interface TableNodeData extends TableNodeType {
   isHighlighted: boolean;

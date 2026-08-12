@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import type { SqlMetrics } from '@/lib/sqlAnalyzer';
+import type { SqlMetrics } from '@/lib/sql/sqlAnalyzer';
 import type { Translations } from '@/lib/i18n';
 
 interface Props {

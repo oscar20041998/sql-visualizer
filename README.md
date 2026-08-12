@@ -63,10 +63,23 @@ sql-visualizer/
 │   │   ├── ThemeProvider.tsx      # Theme context provider
 │   │   └── ui/                    # Reusable UI components (ComplexityDashboard, LintingAlerts, etc.)
 │   ├── lib/
-│   │   ├── sqlAnalyzer.ts         # SQL parsing and analysis engine
-│   │   ├── complexityScorer.ts    # Complexity calculation logic
+│   │   ├── ai/                    # AI provider integration
+│   │   │   ├── aiProviders.ts     # Cloud/local provider configs and defaults
+│   │   │   ├── aiQueue.ts         # Batched AI request queue
+│   │   │   ├── aiRouteValidation.ts # Shared validation for AI proxy API routes
+│   │   │   ├── aiService.ts       # AI generation adapter (Ollama/cloud)
+│   │   │   ├── aiSqlContext.ts    # SQL context brief builder for AI prompts
+│   │   │   └── aiTokens.ts        # Token estimation helpers
+│   │   ├── sql/                   # SQL parsing and scoring
+│   │   │   ├── sqlAnalyzer.ts     # SQL parsing and analysis engine
+│   │   │   ├── complexityScorer.ts # Complexity calculation logic
+│   │   │   ├── dialectValidator.ts # Multi-dialect SQL validation
+│   │   │   └── dialectValidator.test.ts
+│   │   ├── logging/                # Logging utilities
+│   │   │   ├── logger.ts
+│   │   │   ├── logger-setup.ts
+│   │   │   └── CONSOLE_DEBUG_GUIDE.ts
 │   │   ├── store.ts               # Zustand state management
-│   │   ├── logger.ts              # Logging utilities
 │   │   └── i18n.ts                # Internationalization setup
 │   ├── app/common/
 │   │   └── sqlAnalyzerUtils.ts    # **Centralized constants file** containing:

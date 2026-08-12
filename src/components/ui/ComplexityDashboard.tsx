@@ -13,7 +13,7 @@ import {
   calculateQueryComplexity,
   getComplexityColor,
   type ComplexityLevel,
-} from '@/lib/complexityScorer';
+} from '@/lib/sql/complexityScorer';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 

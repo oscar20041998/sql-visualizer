@@ -11,7 +11,7 @@ import {
   setModuleLogLevel,
   createLogger,
   type LogLevel,
-} from '@/lib/logger';
+} from './logger';
 
 /**
  * EXAMPLE 1: Initialize logger on app startup
@@ -108,12 +108,12 @@ export function setupDebugControls() {
  * INTEGRATION POINTS:
  *
  * 1. App initialization (next.config.mjs or app/layout.tsx):
- *    import { setupLogging, setupDebugControls } from '@/lib/logger-setup'
+ *    import { setupLogging, setupDebugControls } from '@/lib/logging/logger-setup'
  *    setupLogging()
  *    if (process.env.NODE_ENV === 'development') setupDebugControls()
  *
  * 2. Components using logger:
- *    import { createLogger } from '@/lib/logger'
+ *    import { createLogger } from '@/lib/logging/logger'
  *    const logger = createLogger('ComponentName')
  *    logger.debug('Component state:', state)
  *

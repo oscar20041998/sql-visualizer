@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Code2, ChevronDown, CheckCircle2 } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
-import { type SqlDialect } from '@/lib/sqlAnalyzer';
+import { type SqlDialect } from '@/lib/sql/sqlAnalyzer';
 
 const DIALECTS: { value: SqlDialect; label: string; image: string }[] = [
   { value: 'mysql', label: 'MySQL', image: '/assets/images/my_sql_logo.png' },

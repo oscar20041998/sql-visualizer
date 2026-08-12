@@ -5,14 +5,14 @@
 // keys live in .env (OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY) and stay server-side.
 // Ollama is not proxied: it needs no key and runs on the user's own machine.
 import { NextResponse } from 'next/server';
-import { AIServiceError, generateWithCloudKey } from '@/lib/aiService';
+import { AIServiceError, generateWithCloudKey } from '@/lib/ai/aiService';
 import {
   clampNumber,
   isCloudProvider,
   parseMessages,
   redactSecrets,
   resolveAllowedBaseUrl,
-} from '@/lib/aiRouteValidation';
+} from '@/lib/ai/aiRouteValidation';
 
 interface GenerateRequestBody {
   provider?: string;

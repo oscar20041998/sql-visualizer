@@ -5,7 +5,7 @@ import {
   calculateQueryComplexity as scoreQueryComplexity,
   type DetailedComplexityScore,
 } from './complexityScorer';
-import { getT, type Translations } from './i18n';
+import { getT, type Translations } from '../i18n';
 import {
   SQL_KEYWORDS,
   SQL_REGEX_PATTERNS,
@@ -14,7 +14,7 @@ import {
   normalizeJoinType,
   getJoinConditionComplexity,
   getComplexityLevelFromScore,
-} from '../app/common/sqlAnalyzerUtils';
+} from '../../app/common/sqlAnalyzerUtils';
 
 // Import dt-sql-parser for AST-based SQL parsing with dialect support
 let parser: any = null;

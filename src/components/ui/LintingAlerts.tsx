@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AlertTriangle, AlertCircle, Lightbulb, X } from 'lucide-react';
-import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '@/lib/complexityScorer';
+import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '@/lib/sql/complexityScorer';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 

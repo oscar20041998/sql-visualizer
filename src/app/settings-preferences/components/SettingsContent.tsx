@@ -25,9 +25,9 @@ import {
   ENV_VAR_BY_PROVIDER,
   MAX_OUTPUT_TOKENS_RANGE,
   type AIProvider,
-} from '@/lib/aiProviders';
+} from '@/lib/ai/aiProviders';
 import { getT } from '@/lib/i18n';
-import type { SqlDialect } from '@/lib/sqlAnalyzer';
+import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Zap } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { DetailedComplexityScore } from '@/lib/complexityScorer';
+import type { DetailedComplexityScore } from '@/lib/sql/complexityScorer';
 
 interface ComplexityFactorsBreakdownProps {
   detailedComplexity?: DetailedComplexityScore;

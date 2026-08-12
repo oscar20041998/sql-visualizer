@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { MetricDetailItem } from '@/lib/sqlAnalyzer';
+import type { MetricDetailItem } from '@/lib/sql/sqlAnalyzer';
 
 interface MetricDetailDrawerProps {
   isOpen: boolean;

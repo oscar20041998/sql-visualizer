@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SqlDialect, AnalysisResult } from './sqlAnalyzer';
+import type { SqlDialect, AnalysisResult } from './sql/sqlAnalyzer';
 import type { Locale } from './i18n';
 
 // Provider constants live in aiProviders (no 'use client') so the server API route can read
@@ -12,7 +12,7 @@ import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
   type AIProvider,
-} from './aiProviders';
+} from './ai/aiProviders';
 
 export { DEFAULT_BASE_URLS, DEFAULT_CONTEXT_TOKENS, DEFAULT_MAX_OUTPUT_TOKENS };
 export type { AIProvider };

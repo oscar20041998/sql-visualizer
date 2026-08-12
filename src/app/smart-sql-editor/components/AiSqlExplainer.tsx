@@ -25,10 +25,10 @@ import {
   resolveBudget,
   type SqlExplanation,
   type SqlOptimizationResult,
-} from '@/lib/aiService';
-import { analyzeSql, type AnalysisResult } from '@/lib/sqlAnalyzer';
-import { buildSqlContextBrief } from '@/lib/aiSqlContext';
-import { estimateTokens } from '@/lib/aiTokens';
+} from '@/lib/ai/aiService';
+import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
+import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
+import { estimateTokens } from '@/lib/ai/aiTokens';
 import AiFeatureAnnouncement, { useAnnouncementVisibility } from './AiFeatureAnnouncement';
 import AiFollowUpChat from './AiFollowUpChat';
 import AiCteBatchPanel from './AiCteBatchPanel';

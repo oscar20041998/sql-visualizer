@@ -17,7 +17,7 @@ import {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useAppStore } from '@/lib/store';
-import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sqlAnalyzer';
+import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sql/sqlAnalyzer';
 import TableNode, { type TableNodeData } from './TableNode';
 import LabeledEdge from './LabeledEdge';
 import { getJoinColor } from '@/app/common/colorConstant';

@@ -4,7 +4,7 @@ import React from 'react';
 import { GitBranch } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import ReferencedTablesTable from './ReferencedTablesTable';
-import type { TableNode } from '@/lib/sqlAnalyzer';
+import type { TableNode } from '@/lib/sql/sqlAnalyzer';
 
 interface ReferencedTablesOverviewProps {
   tables: TableNode[];

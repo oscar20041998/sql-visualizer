@@ -3,8 +3,8 @@
  * Comprehensive scoring based on keywords, window functions, SELECT fields, and linting rules
  */
 
-import { getT, type Locale, type Translations } from './i18n';
-import { COMPLEXITY_SCORER_CONSTANTS } from '../app/common/sqlAnalyzerUtils';
+import { getT, type Locale, type Translations } from '../i18n';
+import { COMPLEXITY_SCORER_CONSTANTS } from '../../app/common/sqlAnalyzerUtils';
 
 const SCORE_LIST_KEY = 'complexityScoreList';
 

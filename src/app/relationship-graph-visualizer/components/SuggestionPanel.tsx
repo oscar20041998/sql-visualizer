@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
 } from 'lucide-react';
-import type { AnalysisResult } from '@/lib/sqlAnalyzer';
+import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { getT } from '@/lib/i18n';
 
 type SuggestionSeverity = 'error' | 'warning' | 'info';

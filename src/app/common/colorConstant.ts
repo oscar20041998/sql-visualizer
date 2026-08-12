@@ -1,4 +1,4 @@
-import type { JoinType } from '@/lib/sqlAnalyzer';
+import type { JoinType } from '@/lib/sql/sqlAnalyzer';
 
 export type GraphTheme = 'dark' | 'light';
 

@@ -4,7 +4,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { Layers, AlertTriangle } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { SqlMetrics, StructuralAnalysisReport } from '@/lib/sqlAnalyzer';
+import type { SqlMetrics, StructuralAnalysisReport } from '@/lib/sql/sqlAnalyzer';
 
 interface NestedSubqueryAnalysisProps {
   metrics: SqlMetrics;

@@ -1,6 +1,6 @@
 // Adapter layer routing AI generation requests to the active provider (Ollama or a cloud API).
-import type { AIModelConfig } from './store';
-import type { Locale } from './i18n';
+import type { AIModelConfig } from '../store';
+import type { Locale } from '../i18n';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,

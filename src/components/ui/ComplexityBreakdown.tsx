@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Code, Zap, AlertCircle, Info } from 'lucide-react';
-import { calculateQueryComplexity, type DetailedComplexityScore } from '@/lib/complexityScorer';
+import { calculateQueryComplexity, type DetailedComplexityScore } from '@/lib/sql/complexityScorer';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 
