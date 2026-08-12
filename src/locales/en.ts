@@ -1140,6 +1140,8 @@ const en = {
   aiExplainerCloudBadgeHint: 'Your query is sent to the cloud provider configured in Settings',
   aiExplainerNoModel: 'No model set',
   aiExplainerOpenSettings: 'Model settings',
+  aiExplainerOpenPanel: 'Open AI SQL Explainer',
+  aiExplainerClosePanel: 'Close AI SQL Explainer',
   aiExplainerRunButton: 'Explain this query',
   aiExplainerRerunButton: 'Explain again',
   aiExplainerRunning: 'Reading your query…',

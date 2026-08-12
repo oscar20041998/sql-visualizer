@@ -1,11 +1,9 @@
-// Server-side proxy for cloud AI providers.
-//
-// The browser never sees a provider key: it posts the prompt here and this route attaches the
-// credential from the server environment. That is why Settings no longer has an API Key field —
-// keys live in .env (OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY) and stay server-side.
-// Ollama is not proxied: it needs no key and runs on the user's own machine.
+// Streaming sibling of /api/ai/generate: same validation and credential handling, but returns
+// the model's answer as a normalised OpenAI-delta SSE stream instead of a single JSON body, so
+// the browser can render tokens as they arrive.
 import { NextResponse } from 'next/server';
-import { AIServiceError, generateWithCloudKey } from '@/lib/aiService';
+import { AIServiceError, generateWithCloudKeyStream } from '@/lib/aiService';
+import { ENV_VAR_BY_PROVIDER } from '@/lib/aiProviders';
 import {
   clampNumber,
   isCloudProvider,
@@ -66,21 +64,27 @@ export async function POST(request: Request) {
   }
 
   try {
-    const content = await generateWithCloudKey(body.provider, apiKey, modelId, baseUrl, {
+    const stream = await generateWithCloudKeyStream(body.provider, apiKey, modelId, baseUrl, {
       messages,
       temperature: clampNumber(body.temperature, 0, 2, 0.1),
       maxTokens: clampNumber(body.maxTokens, 128, 16384, 1200),
       jsonMode: body.jsonMode === true,
       signal: request.signal,
     });
-    return NextResponse.json({ content });
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') {
       // The browser cancelled; nothing to report back.
       return new NextResponse(null, { status: 499 });
     }
     const message = error instanceof AIServiceError ? error.message : 'The AI request failed on the server.';
-    if (!(error instanceof AIServiceError)) console.error('[api/ai/generate]', error);
+    if (!(error instanceof AIServiceError)) console.error('[api/ai/generate/stream]', error);
     return NextResponse.json({ error: redactSecrets(message) }, { status: 502 });
   }
 }

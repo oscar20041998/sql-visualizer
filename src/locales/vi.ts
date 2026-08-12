@@ -1134,6 +1134,8 @@ const vi = {
   aiExplainerCloudBadgeHint: 'Truy vấn được gửi tới nhà cung cấp cloud đã cấu hình trong Cài đặt',
   aiExplainerNoModel: 'Chưa chọn mô hình',
   aiExplainerOpenSettings: 'Cài đặt mô hình',
+  aiExplainerOpenPanel: 'Mở AI Giải Thích SQL',
+  aiExplainerClosePanel: 'Đóng AI Giải Thích SQL',
   aiExplainerRunButton: 'Giải thích truy vấn này',
   aiExplainerRerunButton: 'Giải thích lại',
   aiExplainerRunning: 'Đang đọc truy vấn của bạn…',
