@@ -17,9 +17,13 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ currentSql, inputMod
   const panelTitle = inputMode === 'sql' ?  t.sqlReview :  t.sqlResolved;
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(currentSql);
+    const normalizedSql = currentSql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+    navigator.clipboard.writeText(normalizedSql);
     toast.success(t.copied || 'Copied!');
   }, [currentSql, t]);
+
+  const normalizedSql = currentSql.replace(/\r\n?|\u2028|\u2029/g, '\n');
+  const lines = currentSql ? normalizedSql.split('\n') : [];
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden h-full flex flex-col">
@@ -28,13 +32,20 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ currentSql, inputMod
           <Eye size={14} className="text-primary" />
           <span className="text-sm font-medium text-foreground">{panelTitle}</span>
         </div>
-        <button
-          onClick={handleCopy}
-          disabled={!currentSql}
-          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Copy size={13} />
-        </button>
+        <div className="flex items-center gap-3">
+          {currentSql && (
+            <span className="text-xs font-mono text-muted-foreground">
+              {lines.length} {t.linesCount}
+            </span>
+          )}
+          <button
+            onClick={handleCopy}
+            disabled={!currentSql}
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Copy size={13} />
+          </button>
+        </div>
       </div>
       <div className="p-2 overflow-hidden flex-grow min-h-0">
         {currentSql ? (

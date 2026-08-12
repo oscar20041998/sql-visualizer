@@ -674,6 +674,26 @@ const vi = {
     'Phát hiện mẫu chống: Tránh sử dụng `SELECT *` trong các hệ thống quy mô lớn.',
   lintingSelectAllSuggestion:
     'Vui lòng xác định rõ các cột chiếu của bạn để giảm I/O và độ trễ mạng.',
+  lintingDistinct: 'DISTINCT_OPERATIONS',
+  lintingDistinctMessage:
+    'Sử dụng DISTINCT hoặc COUNT(DISTINCT) thường buộc phải thực hiện các thao tác sort/hash tốn kém.',
+  lintingDistinctSuggestion:
+    'Hãy cân nhắc tiền tổng hợp, nhóm sớm hơn, hoặc loại bỏ trùng lặp ở giai đoạn lọc chọn lọc hơn.',
+  lintingOrPredicate: 'OR_PREDICATE',
+  lintingOrPredicateMessage:
+    'Các điều kiện OR có thể khiến việc dùng chỉ mục hiệu quả trở nên khó khăn và mở rộng tập quét.',
+  lintingOrPredicateSuggestion:
+    'Chia điều kiện thành các nhánh riêng hoặc viết lại bằng UNION ALL / JOIN khi phù hợp.',
+  lintingInSubquery: 'IN_SUBQUERY',
+  lintingInSubqueryMessage:
+    'Các mệnh đề IN (subquery) hoặc NOT IN có thể kém hiệu quả hơn EXISTS hoặc JOIN.',
+  lintingInSubquerySuggestion:
+    'Ưu tiên EXISTS hoặc JOIN cho việc lọc có liên quan khi subquery trả về tập khóa phù hợp.',
+  lintingFunctionOnColumn: 'FUNCTION_ON_COLUMN',
+  lintingFunctionOnColumnMessage:
+    'Áp dụng hàm lên cột trong điều kiện truy vấn có thể chặn việc dùng chỉ mục và tăng chi phí CPU.',
+  lintingFunctionOnColumnSuggestion:
+    'Di chuyển biểu thức sang phía bên kia của phép so sánh hoặc dùng cột chuẩn hóa / tiền tính.',
   lintingDeepNesting: 'DEEP_NESTING',
   lintingDeepNestingMessage: 'Phát hiện lồng sâu. Điều này có thể làm giảm tối ưu hóa truy vấn.',
   lintingDeepNestingSuggestion:
@@ -687,6 +707,26 @@ const vi = {
   lintingMissingWhereMessage:
     'Truy vấn phức tạp không có mệnh đề WHERE. Có thể quét toàn bộ bảng không cần thiết.',
   lintingMissingWhereSuggestion: 'Thêm các vị từ lọc để giảm tập hợp làm việc.',
+  lintingLocationLabel: 'Vị trí',
+  lintingLineLabel: 'dòng',
+  lintingUnionDedup: 'UNION_LOẠI_TRÙNG',
+  lintingUnionDedupMessage: 'UNION loại bỏ dữ liệu trùng bằng một thao tác sắp xếp hoặc băm bổ sung.',
+  lintingUnionDedupSuggestion: 'Dùng UNION ALL khi logic nghiệp vụ không yêu cầu loại bỏ dữ liệu trùng.',
+  lintingNullComparison: 'SO_SÁNH_NULL_KHÔNG_HỢP_LỆ',
+  lintingNullComparisonMessage: 'So sánh NULL bằng =, != hoặc <> là không hợp lệ và không bao giờ cho kết quả đúng.',
+  lintingNullComparisonSuggestion: 'Dùng IS NULL hoặc IS NOT NULL.',
+  lintingLeadingWildcard: 'LIKE_KÝ_TỰ_ĐẠI_DIỆN_ĐẦU',
+  lintingLeadingWildcardMessage: 'Ký tự đại diện ở đầu LIKE thường ngăn việc quét theo khoảng của chỉ mục.',
+  lintingLeadingWildcardSuggestion: 'Dùng tìm kiếm theo tiền tố hoặc full-text search khi yêu cầu nghiệp vụ cho phép.',
+  lintingNonAggregateHaving: 'HAVING_KHÔNG_TỔNG_HỢP',
+  lintingNonAggregateHavingMessage: 'HAVING có vẻ đang lọc giá trị không tổng hợp sau khi hoàn tất bước gom nhóm.',
+  lintingNonAggregateHavingSuggestion: 'Chuyển bộ lọc không tổng hợp sang WHERE để giảm số dòng đi vào bước gom nhóm.',
+  lintingScalarSubquery: 'TRUY_VẤN_CON_TRONG_SELECT',
+  lintingScalarSubqueryMessage: 'Truy vấn con trong danh sách SELECT có thể được thực thi lặp lại cho từng dòng kết quả.',
+  lintingScalarSubquerySuggestion: 'Cân nhắc LEFT JOIN với dữ liệu được tổng hợp trước, đồng thời giữ nguyên số lượng dòng và phép tính.',
+  lintingSubqueryOrderBy: 'ORDER_BY_TRONG_TRUY_VẤN_CON',
+  lintingSubqueryOrderByMessage: 'ORDER BY trong truy vấn con có thể gây sắp xếp không cần thiết khi thứ tự không được sử dụng tại đó.',
+  lintingSubqueryOrderBySuggestion: 'Loại bỏ trừ khi LIMIT, OFFSET, hàm cửa sổ hoặc logic nghiệp vụ yêu cầu.',
 
   // Complexity Scoring - Select Field Reasons
   complexityFieldReasonUnboundedSelection: 'Chọn cột không giới hạn',
