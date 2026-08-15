@@ -1198,6 +1198,13 @@ const en = {
   aiExplainerCopiedShort: 'Copied',
   aiExplainerCopied: 'Explanation copied to clipboard',
   aiExplainerCopyFailed: 'Failed to copy the explanation',
+  aiExplainerSpeak: 'Sound',
+  aiExplainerSpeakHint: 'Read this explanation aloud',
+  aiExplainerSpeakLoading: 'Preparing audio…',
+  aiExplainerSpeakStop: 'Stop',
+  aiExplainerSpeakFailed: 'Could not read the explanation aloud',
+  aiExplainerSpeakCloudNotice:
+    'Read-aloud sends the explanation text to OpenAI to generate the audio, even when the explanation itself came from a local model.',
   aiExplainerGeneratedIn: 'Generated in',
   aiExplainerStaleWarning:
     'The query changed after this explanation was generated. Run the explainer again to refresh it.',

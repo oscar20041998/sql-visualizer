@@ -1192,6 +1192,13 @@ const vi = {
   aiExplainerCopiedShort: 'Đã sao chép',
   aiExplainerCopied: 'Đã sao chép giải thích vào clipboard',
   aiExplainerCopyFailed: 'Không thể sao chép giải thích',
+  aiExplainerSpeak: 'Đọc to',
+  aiExplainerSpeakHint: 'Đọc to phần giải thích này',
+  aiExplainerSpeakLoading: 'Đang tạo âm thanh…',
+  aiExplainerSpeakStop: 'Dừng',
+  aiExplainerSpeakFailed: 'Không thể đọc to phần giải thích',
+  aiExplainerSpeakCloudNotice:
+    'Chức năng đọc to gửi nội dung giải thích tới OpenAI để tạo âm thanh, kể cả khi phần giải thích được tạo bởi mô hình cục bộ.',
   aiExplainerGeneratedIn: 'Hoàn thành trong',
   aiExplainerStaleWarning:
     'Truy vấn đã thay đổi sau khi giải thích này được tạo. Hãy chạy lại để cập nhật.',

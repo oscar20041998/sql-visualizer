@@ -6,6 +6,7 @@
 // Ollama is not proxied: it needs no key and runs on the user's own machine.
 import { NextResponse } from 'next/server';
 import { AIServiceError, generateWithCloudKey } from '@/lib/ai/aiService';
+import { ENV_VAR_BY_PROVIDER } from '@/lib/ai/aiProviders';
 import {
   clampNumber,
   isCloudProvider,

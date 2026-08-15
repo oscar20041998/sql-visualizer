@@ -17,6 +17,8 @@ import {
   Copy,
   Check,
   X,
+  Volume2,
+  Square,
 } from 'lucide-react';
 import { useAppStore, DEFAULT_SETTINGS } from '@/lib/store';
 import { getT, type Translations } from '@/lib/i18n';
@@ -26,6 +28,7 @@ import {
   type SqlExplanation,
   type SqlOptimizationResult,
 } from '@/lib/ai/aiService';
+import { buildSpeechScript, synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import { estimateTokens } from '@/lib/ai/aiTokens';
@@ -227,6 +230,10 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speechAbortRef = useRef<AbortController | null>(null);
+  // Narration is billed per synthesis, so each turn's audio is kept for replay: turn id → blob URL.
+  const speechCacheRef = useRef<Map<string, string>>(new Map());
 
   // Docked as a right-side drawer so the editor keeps the full width until this is needed.
   const [isOpen, setIsOpen] = useState(false);
@@ -237,6 +244,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
   const [contextBrief, setContextBrief] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [speechState, setSpeechState] = useState<'idle' | 'loading' | 'playing'>('idle');
 
   const isLocalProvider = aiConfig.provider === 'ollama';
   const modelLabel = isLocalProvider ? aiConfig.ollamaModel : aiConfig.modelId;
@@ -366,20 +374,122 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
     void runExplain();
   }, [runExplain]);
 
+  /** Newest answer that finished parsing — the one Copy and read-aloud act on. */
+  const lastDoneTurn = useMemo(
+    () => [...turns].reverse().find((turn) => turn.status === 'done' && turn.explanation) ?? null,
+    [turns]
+  );
+
   const handleCopy = useCallback(async () => {
-    const lastDone = [...turns].reverse().find((turn) => turn.status === 'done' && turn.explanation);
-    if (!lastDone?.explanation) return;
+    if (!lastDoneTurn?.explanation) return;
     try {
-      await navigator.clipboard.writeText(toPlainText(lastDone.explanation, t));
+      await navigator.clipboard.writeText(toPlainText(lastDoneTurn.explanation, t));
       setCopied(true);
       toast.success(t.aiExplainerCopied);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error(t.aiExplainerCopyFailed);
     }
-  }, [turns, t]);
+  }, [lastDoneTurn, t]);
 
-  const canCopy = turns.some((turn) => turn.status === 'done' && turn.explanation);
+  const stopSpeech = useCallback(() => {
+    speechAbortRef.current?.abort();
+    speechAbortRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setSpeechState('idle');
+  }, []);
+
+  const playSpeech = useCallback(
+    async (url: string) => {
+      // A fresh element per playback: reassigning src on a reused one leaves the old buffer
+      // playing on some browsers, and this way the ended/error handlers cannot outlive their run.
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.addEventListener('ended', () => {
+        if (audioRef.current === audio) audioRef.current = null;
+        setSpeechState('idle');
+      });
+      audio.addEventListener('error', () => {
+        if (audioRef.current === audio) audioRef.current = null;
+        setSpeechState('idle');
+        toast.error(t.aiExplainerSpeakFailed);
+      });
+
+      setSpeechState('playing');
+      try {
+        await audio.play();
+      } catch {
+        // Autoplay policies only block audio without a user gesture; this always runs from a
+        // click, so a rejection here means the decode failed.
+        if (audioRef.current === audio) audioRef.current = null;
+        setSpeechState('idle');
+        toast.error(t.aiExplainerSpeakFailed);
+      }
+    },
+    [t]
+  );
+
+  /** Reads the latest answer aloud — heading first, then every section — or stops playback. */
+  const handleSpeak = useCallback(async () => {
+    if (speechState !== 'idle') {
+      stopSpeech();
+      return;
+    }
+    if (!lastDoneTurn?.explanation) return;
+
+    const cached = speechCacheRef.current.get(lastDoneTurn.id);
+    if (cached) {
+      await playSpeech(cached);
+      return;
+    }
+
+    const controller = new AbortController();
+    speechAbortRef.current = controller;
+    setSpeechState('loading');
+    try {
+      const { blob, engine } = await synthesizeSpeech({
+        text: buildSpeechScript(lastDoneTurn.explanation, t),
+        locale: settings.locale,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+
+      // The badge promised the explanation stayed on this machine. If the server synthesized in the
+      // cloud anyway, the text did leave — say so, but only then.
+      if (engine === 'openai' && isLocalProvider) toast.info(t.aiExplainerSpeakCloudNotice);
+
+      const url = URL.createObjectURL(blob);
+      speechCacheRef.current.set(lastDoneTurn.id, url);
+      await playSpeech(url);
+    } catch (caught) {
+      if ((caught as Error)?.name === 'AbortError') return;
+      setSpeechState('idle');
+      toast.error(caught instanceof Error ? caught.message : t.aiExplainerSpeakFailed);
+    } finally {
+      if (speechAbortRef.current === controller) speechAbortRef.current = null;
+    }
+  }, [speechState, stopSpeech, lastDoneTurn, isLocalProvider, playSpeech, settings.locale, t]);
+
+  // Closing the drawer must silence it too, otherwise the narration keeps playing out of sight.
+  useEffect(() => {
+    if (!isOpen) stopSpeech();
+  }, [isOpen, stopSpeech]);
+
+  // Release the cached audio on unmount; blob URLs live until the document goes away otherwise.
+  useEffect(() => {
+    const cache = speechCacheRef.current;
+    return () => {
+      speechAbortRef.current?.abort();
+      audioRef.current?.pause();
+      for (const url of cache.values()) URL.revokeObjectURL(url);
+      cache.clear();
+    };
+  }, []);
+
+  const canCopy = Boolean(lastDoneTurn);
 
   return (
     <>
@@ -496,6 +606,33 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             >
               {copied ? <Check size={12} /> : <Copy size={12} />}
               {copied ? t.aiExplainerCopiedShort : t.aiExplainerCopy}
+            </button>
+          )}
+
+          {/* Read-aloud. Stays visible while a new run streams, so playback can still be stopped. */}
+          {canCopy && (!isRunning || speechState !== 'idle') && (
+            <button
+              onClick={handleSpeak}
+              title={t.aiExplainerSpeakHint}
+              aria-label={speechState === 'playing' ? t.aiExplainerSpeakStop : t.aiExplainerSpeakHint}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                speechState === 'idle'
+                  ? 'border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700'
+                  : 'border-indigo-700/50 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-950/70'
+              }`}
+            >
+              {speechState === 'loading' ? (
+                <RefreshCw size={12} className="animate-spin" />
+              ) : speechState === 'playing' ? (
+                <Square size={12} />
+              ) : (
+                <Volume2 size={12} />
+              )}
+              {speechState === 'loading'
+                ? t.aiExplainerSpeakLoading
+                : speechState === 'playing'
+                  ? t.aiExplainerSpeakStop
+                  : t.aiExplainerSpeak}
             </button>
           )}
 
