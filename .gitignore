@@ -25,6 +25,9 @@ Thumbs.db
 # Optional: if using TypeScript
 *.tsbuildinfo
 
+# Local text-to-speech voices, fetched by `npm run setup:piper` (~140 MB)
+models/
+
 # Optional: if using testing tools
 coverage/
 jest-test-results.json

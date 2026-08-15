@@ -46,6 +46,7 @@
     "lint:fix": "next lint --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "test": "vitest run",
+    "setup:piper": "node scripts/setup-piper.mjs",
     "serve": "next start",
     "type-check": "tsc --noEmit"
   },
@@ -64,6 +65,8 @@
     "react-dom": "19.0.3",
     "reactflow": "^11.11.4",
     "recharts": "^2.15.2",
+    "sherpa-onnx-node": "^1.13.4",
+    "sherpa-onnx-win-x64": "^1.13.4",
     "sonner": "^1.7.4",
     "sql-formatter": "^15.8.2",
     "zustand": "4.5.5"

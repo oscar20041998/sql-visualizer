@@ -23,6 +23,9 @@ const nextConfig = {
     buildActivity: false,
     appIsrStatus: false,
   },
+  // sherpa-onnx-node (local read-aloud) is a native addon: webpack cannot bundle a .node binary,
+  // so the speech route has to require it from node_modules at runtime.
+  serverExternalPackages: ['sherpa-onnx-node'],
   webpack(
     config,
     {
