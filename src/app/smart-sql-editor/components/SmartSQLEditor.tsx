@@ -7,7 +7,18 @@ import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
-import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles, X } from 'lucide-react';
+import {
+  FileText,
+  GitCompare,
+  Copy,
+  Check,
+  RotateCcw,
+  Zap,
+  Sparkles,
+  X,
+  Volume2,
+  Square,
+} from 'lucide-react';
 import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
@@ -147,10 +158,68 @@ export const SmartSQLEditor: React.FC<{
     copiedToClipboard: false,
   });
   const optimizeAbortRef = useRef<AbortController | null>(null);
-  const [optimizePhase, setOptimizePhase] = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
+  const [optimizePhase, setOptimizePhase] = useState<'idle' | 'streaming' | 'done' | 'error'>(
+    'idle'
+  );
   const [optimizeStreamRaw, setOptimizeStreamRaw] = useState('');
   const [optimizeResult, setOptimizeResult] = useState<SqlOptimizationResult | null>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [speechPhase, setSpeechPhase] = useState<'idle' | 'playing'>('idle');
+
+  const stopSpeech = useCallback(() => {
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    setSpeechPhase('idle');
+  }, []);
+
+  useEffect(() => () => stopSpeech(), [stopSpeech]);
+  useEffect(() => stopSpeech(), [settings.locale, stopSpeech]);
+
+  const handleSpeech = useCallback(() => {
+    if (!optimizeResult) return;
+    if (speechPhase === 'playing') {
+      stopSpeech();
+      return;
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast.error(t.smartEditorSpeechError);
+      return;
+    }
+
+    const text = [
+      optimizeResult.analysis,
+      optimizeResult.suggestions.length
+        ? `${t.performanceNotesLabel} ${optimizeResult.suggestions.join('. ')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const synthesis = window.speechSynthesis;
+    synthesis.cancel();
+    const language = settings.locale === 'vi' ? 'vi-VN' : 'en-US';
+    const voices = synthesis.getVoices();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const languageCode = language.slice(0, 2).toLowerCase();
+    utterance.voice =
+      voices.find(
+        (voice) =>
+          voice.name.toLowerCase().includes('microsoft') &&
+          voice.lang.toLowerCase().startsWith(languageCode)
+      ) ??
+      voices.find((voice) => voice.lang.toLowerCase().startsWith(languageCode)) ??
+      null;
+    utterance.lang = utterance.voice?.lang || language;
+    utterance.rate = 1;
+    utterance.onend = () => setSpeechPhase('idle');
+    utterance.onerror = (event) => {
+      setSpeechPhase('idle');
+      if (event.error !== 'canceled' && event.error !== 'interrupted') {
+        toast.error(t.smartEditorSpeechError);
+      }
+    };
+    synthesis.speak(utterance);
+    setSpeechPhase('playing');
+  }, [optimizeResult, settings.locale, speechPhase, stopSpeech, t]);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -249,6 +318,7 @@ export const SmartSQLEditor: React.FC<{
     }
 
     optimizeAbortRef.current?.abort();
+    stopSpeech();
     const controller = new AbortController();
     optimizeAbortRef.current = controller;
 
@@ -276,7 +346,8 @@ export const SmartSQLEditor: React.FC<{
       const lintBrief = [
         t.smartEditorLintBriefHeader,
         ...lintIssues.map(
-          (issue) => `- [${issue.severity}] ${issue.rule}: ${issue.message} ${t.smartEditorLintFixLabel} ${issue.suggestion}`
+          (issue) =>
+            `- [${issue.severity}] ${issue.rule}: ${issue.message} ${t.smartEditorLintFixLabel} ${issue.suggestion}`
         ),
       ].join('\n');
       brief = brief ? `${brief}\n\n${lintBrief}` : lintBrief;
@@ -325,7 +396,7 @@ export const SmartSQLEditor: React.FC<{
     } finally {
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
-  }, [state.currentSql, dialect, settings, t, onOptimizationResult]);
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult, stopSpeech]);
 
   // Calculate statistics
   const stats = {
@@ -450,7 +521,10 @@ export const SmartSQLEditor: React.FC<{
           <div className="mb-3 rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
-                <Sparkles size={12} className={optimizePhase === 'streaming' ? 'animate-pulse' : ''} />
+                <Sparkles
+                  size={12}
+                  className={optimizePhase === 'streaming' ? 'animate-pulse' : ''}
+                />
                 {optimizePhase === 'streaming'
                   ? t.smartEditorOptimizeProgressTitle
                   : optimizePhase === 'error'
@@ -458,13 +532,39 @@ export const SmartSQLEditor: React.FC<{
                     : t.optimizationResultsTitle}
               </p>
               {optimizePhase !== 'streaming' && (
-                <button
-                  onClick={() => setOptimizePhase('idle')}
-                  className="text-gray-500 transition-colors hover:text-gray-300"
-                  aria-label={t.smartEditorReset}
-                >
-                  <X size={14} />
-                </button>
+                <div className="flex items-center gap-1">
+                  {optimizePhase === 'done' && optimizeResult && (
+                    <button
+                      onClick={handleSpeech}
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-indigo-300 transition-colors hover:bg-indigo-400/10 hover:text-indigo-200 disabled:cursor-wait disabled:opacity-70"
+                      aria-label={
+                        speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop
+                      }
+                      title={
+                        speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop
+                      }
+                    >
+                      {speechPhase === 'playing' ? (
+                        <Square size={12} fill="currentColor" />
+                      ) : (
+                        <Volume2 size={14} />
+                      )}
+                      <span className="hidden sm:inline">
+                        {speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      stopSpeech();
+                      setOptimizePhase('idle');
+                    }}
+                    className="text-gray-500 transition-colors hover:text-gray-300"
+                    aria-label={t.smartEditorReset}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -491,7 +591,10 @@ export const SmartSQLEditor: React.FC<{
                     </p>
                     <ul className="mt-1 space-y-1 text-sm text-gray-200">
                       {optimizeResult.suggestions.map((suggestion, index) => (
-                        <li key={`smart-optimize-suggestion-${index}`} className="flex items-start gap-2">
+                        <li
+                          key={`smart-optimize-suggestion-${index}`}
+                          className="flex items-start gap-2"
+                        >
                           <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
                           {suggestion}
                         </li>
@@ -544,9 +647,7 @@ export const SmartSQLEditor: React.FC<{
           <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>
         </div>
         <div className="text-muted-foreground">
-          {state.hasChanges && (
-            <span className="text-warning">{t.smartEditorChangesDetected}</span>
-          )}
+          {state.hasChanges && <span className="text-warning">{t.smartEditorChangesDetected}</span>}
           {!state.hasChanges && state.currentSql !== '' && (
             <span className="text-success">{t.smartEditorSyncedWithOriginal}</span>
           )}

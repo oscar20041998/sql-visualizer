@@ -85,7 +85,7 @@ interface AppState {
 export const DEFAULT_AI_CONFIG: AIModelConfig = {
   provider: 'ollama',
   baseUrls: { ...DEFAULT_BASE_URLS },
-  ollamaModel: '',
+  ollamaModel: 'qwen2.5-coder:7b',
   modelId: 'gpt-4o',
   temperature: 0.1,
   systemPrompt:
@@ -149,8 +149,9 @@ export const useAppStore = create<AppState>()(
       name: 'sqlvisualizer-store',
       // v2 backfilled aiConfig; v3 added the context-window / batching fields;
       // v4 moved cloud API keys to the server; v5 replaced ollamaBaseUrl with a per-provider map;
-      // v6 made contextTokens / maxOutputTokens per-provider as well.
-      version: 6,
+      // v6 made contextTokens / maxOutputTokens per-provider; v7 backfilled the installed
+      // local Ollama model so existing browsers do not keep an unusable empty model name.
+      version: 7,
       migrate: (persistedState) => {
         const { analysisResult: _drop, ...rest } = (persistedState as Record<string, unknown>) || {};
         const state = rest as { settings?: Partial<AppSettings> };
@@ -167,12 +168,10 @@ export const useAppStore = create<AppState>()(
             ollamaBaseUrl?: string;
           };
 
-          // Clear stale Ollama default model names that no longer exist on newer local servers.
-          if (
-            persistedAiConfig.ollamaModel === 'qwen2.5-coder:7b' ||
-            persistedAiConfig.ollamaModel === 'qwen2.5-coder'
-          ) {
-            persistedAiConfig.ollamaModel = '';
+          // Preserve an explicitly selected model, but repair the empty value written by v6.
+          // qwen2.5-coder:7b is installed by the local setup documented for this project.
+          if (!persistedAiConfig.ollamaModel?.trim()) {
+            persistedAiConfig.ollamaModel = DEFAULT_AI_CONFIG.ollamaModel;
           }
 
           // A scalar budget belonged to whichever provider was selected at the time; every other
