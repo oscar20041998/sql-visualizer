@@ -926,13 +926,13 @@ export interface SqlOptimizationResult {
 }
 
 const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Optimize the following SQL query for performance without changing its business logic or the rows it returns. Preserve the same filters, joins, grouping, ordering, limits, and output columns.
+  en: (sql) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
 
-Return only a JSON object with exactly these keys:
+Return only a JSON object with exactly these keys, in this order:
 {
-  "optimized_sql": "the full rewritten SQL query",
-  "analysis": "a short summary of the performance improvements made",
-  "suggestions": ["specific performance improvement suggestions"]
+  "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
+  "suggestions": ["one specific improvement per issue actually fixed"],
+  "optimized_sql": "the full SQL query with only the necessary changes applied"
 }
 
 SQL:
@@ -941,17 +941,20 @@ ${sql}
 \`\`\`
 
 Rules:
+- If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
+- If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
 - Do not change business logic or result semantics.
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
-- If the query is already optimal, return it unchanged and explain why.`,
-  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất mà không thay đổi logic nghiệp vụ hoặc các hàng trả về. Giữ nguyên bộ lọc, phép nối, nhóm, sắp xếp, giới hạn và các cột đầu ra.
+- Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
+- If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
+  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
 
-Chỉ trả về một đối tượng JSON với đúng các khóa sau:
+Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
-  "optimized_sql": "toàn bộ truy vấn SQL đã được viết lại",
-  "analysis": "tóm tắt ngắn gọn về các cải tiến hiệu suất đã thực hiện",
-  "suggestions": ["những đề xuất cải tiến hiệu suất cụ thể"]
+  "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
+  "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
+  "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
 }
 
 SQL:
@@ -960,10 +963,13 @@ ${sql}
 \`\`\`
 
 Quy tắc:
+- Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
+- Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
 - Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
-- Nếu truy vấn đã tối ưu, trả lại chính nó và giải thích lý do.`,
+- Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
+- Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
 };
 
 /** Resolves the effective context budget for the active provider from the saved settings. */
@@ -1094,13 +1100,13 @@ export async function explainSqlStructuredStream(
   return parseSqlExplanation(raw, report);
 }
 
-export async function optimizeSqlWithAI({
-  sql,
-  config,
-  locale = 'en',
-  contextBrief = '',
-  signal,
-}: ExplainSqlOptions): Promise<SqlOptimizationResult> {
+/** Builds the prompt + budget report shared by the blocking and streaming optimize calls. */
+function prepareOptimizePrompt(
+  sql: string,
+  config: AIModelConfig,
+  locale: Locale,
+  contextBrief: string
+): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
   if (!sql.trim()) throw new AIServiceError('There is no SQL query to optimize.');
 
   const budget = resolveBudget(config);
@@ -1124,15 +1130,11 @@ export async function optimizeSqlWithAI({
     contextBriefDropped: Boolean(contextBrief) && !brief,
   };
 
-  const raw = (
-    await generateWithAI(config, {
-      prompt,
-      jsonMode: true,
-      maxTokens: budget.maxOutputTokens,
-      signal,
-    })
-  ).trim();
+  return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+}
 
+/** Turns the model's raw answer into a {@link SqlOptimizationResult}, shared by both optimize calls. */
+function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport): SqlOptimizationResult {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
@@ -1159,6 +1161,55 @@ export async function optimizeSqlWithAI({
     structured: true,
     budget: report,
   };
+}
+
+export async function optimizeSqlWithAI({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  signal,
+}: ExplainSqlOptions): Promise<SqlOptimizationResult> {
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  return parseSqlOptimization(sql, raw, report);
+}
+
+/**
+ * Streaming counterpart of {@link optimizeSqlWithAI}: identical prompt and parsing, but
+ * `onDelta` is called with each text fragment as it arrives. The JSON schema puts "analysis"
+ * and "suggestions" ahead of "optimized_sql", so a live view of the raw stream shows the
+ * model's reasoning before the rewritten query itself lands.
+ */
+export async function optimizeSqlWithAIStream(
+  { sql, config, locale = 'en', contextBrief = '', signal }: ExplainSqlOptions,
+  onDelta: (text: string) => void
+): Promise<SqlOptimizationResult> {
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+
+  const raw = (
+    await streamWithAI(
+      config,
+      {
+        prompt,
+        jsonMode: true,
+        maxTokens: maxOutputTokens,
+        signal,
+      },
+      onDelta
+    )
+  ).trim();
+
+  return parseSqlOptimization(sql, raw, report);
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {

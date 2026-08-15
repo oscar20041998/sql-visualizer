@@ -7,11 +7,11 @@ import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
-import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles } from 'lucide-react';
+import { FileText, GitCompare, Copy, Check, RotateCcw, Zap, Sparkles, X } from 'lucide-react';
 import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
+import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
-import { optimizeSqlWithAI, type SqlOptimizationResult } from '@/lib/ai/aiService';
-import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { optimizeSqlWithAIStream, type SqlOptimizationResult } from '@/lib/ai/aiService';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -21,6 +21,73 @@ function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' 
     oracle: 'plsql',
   };
   return dialectMap[dialect] || 'mysql';
+}
+
+/** Best-effort SQL formatting: falls back to the input unchanged if the formatter chokes on it. */
+function safeFormatSql(sql: string, dialect: string): string {
+  try {
+    return format(sql, { language: getFormatterLanguage(dialect) });
+  } catch {
+    return sql;
+  }
+}
+
+/** Reads a JSON string value out of a possibly-incomplete JSON document being streamed in. */
+function extractPartialJsonString(raw: string, key: string): string | null {
+  const idx = raw.indexOf(`"${key}"`);
+  if (idx === -1) return null;
+  let i = raw.indexOf(':', idx + key.length + 2);
+  if (i === -1) return null;
+  i++;
+  while (raw[i] === ' ' || raw[i] === '\n' || raw[i] === '\t' || raw[i] === '\r') i++;
+  if (raw[i] !== '"') return null;
+  i++;
+  let result = '';
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (ch === '\\') {
+      const next = raw[i + 1];
+      if (next === undefined) break; // escape sequence not finished yet, stop here
+      const map: Record<string, string> = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\' };
+      result += map[next] ?? next;
+      i += 2;
+      continue;
+    }
+    if (ch === '"') return result;
+    result += ch;
+    i++;
+  }
+  return result; // string still open — return the partial content streamed so far
+}
+
+/** Reads only the fully-closed string entries of a JSON string array being streamed in. */
+function extractPartialJsonStringArray(raw: string, key: string): string[] {
+  const idx = raw.indexOf(`"${key}"`);
+  if (idx === -1) return [];
+  const arrStart = raw.indexOf('[', idx);
+  if (arrStart === -1) return [];
+  const arrEnd = raw.indexOf(']', arrStart);
+  const segment = arrEnd === -1 ? raw.slice(arrStart + 1) : raw.slice(arrStart + 1, arrEnd);
+  const matches = segment.match(/"(?:[^"\\]|\\.)*"/g) ?? [];
+  return matches.map((m) => {
+    try {
+      return JSON.parse(m) as string;
+    } catch {
+      return m.slice(1, -1);
+    }
+  });
+}
+
+/** Turns the raw JSON being streamed from the optimize call into a plain-language progress message. */
+function buildOptimizeProgressMessage(raw: string, waitingLabel: string): string {
+  const analysis = extractPartialJsonString(raw, 'analysis');
+  const suggestions = extractPartialJsonStringArray(raw, 'suggestions');
+
+  const parts: string[] = [];
+  if (analysis) parts.push(analysis);
+  if (suggestions.length) parts.push(suggestions.map((s) => `• ${s}`).join('\n'));
+
+  return parts.join('\n\n') || waitingLabel;
 }
 
 interface EditorState {
@@ -80,6 +147,10 @@ export const SmartSQLEditor: React.FC<{
     copiedToClipboard: false,
   });
   const optimizeAbortRef = useRef<AbortController | null>(null);
+  const [optimizePhase, setOptimizePhase] = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
+  const [optimizeStreamRaw, setOptimizeStreamRaw] = useState('');
+  const [optimizeResult, setOptimizeResult] = useState<SqlOptimizationResult | null>(null);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -183,6 +254,10 @@ export const SmartSQLEditor: React.FC<{
 
     setState((prev) => ({ ...prev, isOptimizing: true }));
     onOptimizationResult?.(null);
+    setOptimizeResult(null);
+    setOptimizeError(null);
+    setOptimizeStreamRaw('');
+    setOptimizePhase('streaming');
 
     let brief = '';
     try {
@@ -192,30 +267,61 @@ export const SmartSQLEditor: React.FC<{
       brief = '';
     }
 
+    // Feed the same linting alerts shown in the UI to the model so it targets them directly.
+    const lintIssues = [
+      ...checkSelectAll(sql, settings.locale),
+      ...checkOtherLintingRules(sql, settings.locale),
+    ];
+    if (lintIssues.length) {
+      const lintBrief = [
+        t.smartEditorLintBriefHeader,
+        ...lintIssues.map(
+          (issue) => `- [${issue.severity}] ${issue.rule}: ${issue.message} ${t.smartEditorLintFixLabel} ${issue.suggestion}`
+        ),
+      ].join('\n');
+      brief = brief ? `${brief}\n\n${lintBrief}` : lintBrief;
+    }
+
     try {
-      const result = await optimizeSqlWithAI({
-        sql,
-        config: settings.aiConfig,
-        locale: settings.locale,
-        contextBrief: brief,
-        signal: controller.signal,
-      });
+      const result = await optimizeSqlWithAIStream(
+        {
+          sql,
+          config: settings.aiConfig,
+          locale: settings.locale,
+          contextBrief: brief,
+          signal: controller.signal,
+        },
+        (delta) => setOptimizeStreamRaw((prev) => prev + delta)
+      );
       if (controller.signal.aborted) return;
+
+      // Format both sides so the diff highlights the actual logic change, not whitespace noise.
+      const formattedOriginal = safeFormatSql(sql, dialect);
+      const formattedOptimized = safeFormatSql(result.optimizedSql || sql, dialect);
 
       setState((prev) => ({
         ...prev,
-        originalSql: sql,
-        currentSql: result.optimizedSql || sql,
-        isDiffMode: result.optimizedSql.trim() !== sql ? true : prev.isDiffMode,
+        originalSql: formattedOriginal,
+        currentSql: formattedOptimized,
+        isDiffMode: formattedOptimized.trim() !== formattedOriginal.trim() ? true : prev.isDiffMode,
         isOptimizing: false,
       }));
+      setOptimizeResult(result);
+      setOptimizePhase('done');
       onOptimizationResult?.(result);
       toast.success(t.smartEditorOptimizationSuccess);
     } catch (error) {
-      if ((error as Error)?.name === 'AbortError') return;
+      if ((error as Error)?.name === 'AbortError') {
+        setState((prev) => ({ ...prev, isOptimizing: false }));
+        setOptimizePhase('idle');
+        return;
+      }
+      const message = (error as Error)?.message || t.smartEditorOptimizationError;
       setState((prev) => ({ ...prev, isOptimizing: false }));
       onOptimizationResult?.(null);
-      toast.error((error as Error)?.message || t.smartEditorOptimizationError);
+      setOptimizeError(message);
+      setOptimizePhase('error');
+      toast.error(message);
     } finally {
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
@@ -338,6 +444,65 @@ export const SmartSQLEditor: React.FC<{
           </div>
           <div className="text-xs text-muted-foreground">{stats.changeSummary}</div>
         </div>
+
+        {/* AI Optimize progress / results — live stream while running, structured summary once done */}
+        {optimizePhase !== 'idle' && (
+          <div className="mb-3 rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
+                <Sparkles size={12} className={optimizePhase === 'streaming' ? 'animate-pulse' : ''} />
+                {optimizePhase === 'streaming'
+                  ? t.smartEditorOptimizeProgressTitle
+                  : optimizePhase === 'error'
+                    ? t.smartEditorOptimizationError
+                    : t.optimizationResultsTitle}
+              </p>
+              {optimizePhase !== 'streaming' && (
+                <button
+                  onClick={() => setOptimizePhase('idle')}
+                  className="text-gray-500 transition-colors hover:text-gray-300"
+                  aria-label={t.smartEditorReset}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {optimizePhase === 'streaming' && (
+              <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                {buildOptimizeProgressMessage(optimizeStreamRaw, t.smartEditorOptimizeWaitingLabel)}
+                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+              </p>
+            )}
+
+            {optimizePhase === 'error' && optimizeError && (
+              <p className="mt-2 text-xs text-red-300">{optimizeError}</p>
+            )}
+
+            {optimizePhase === 'done' && optimizeResult && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm leading-relaxed text-gray-200">
+                  {optimizeResult.analysis || t.aiExplainerNoContent}
+                </p>
+                {optimizeResult.suggestions.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {t.performanceNotesLabel}
+                    </p>
+                    <ul className="mt-1 space-y-1 text-sm text-gray-200">
+                      {optimizeResult.suggestions.map((suggestion, index) => (
+                        <li key={`smart-optimize-suggestion-${index}`} className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
+                          {suggestion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Editor Container */}
@@ -387,7 +552,6 @@ export const SmartSQLEditor: React.FC<{
           )}
         </div>
       </div>
-      <LoadingOverlay visible={state.isOptimizing} title={t.smartEditorOptimizing} hideDelay={150} />
     </div>
   );
 };
