@@ -42,6 +42,12 @@ yarn dev
 
 3. Open [http://localhost:4028](http://localhost:4028) with your browser to see the result.
 
+### Free text to speech
+
+The Smart SQL Editor reads optimization results using the browser's built-in speech service.
+It requires no API key or usage credits and selects a matching English or Vietnamese voice.
+After **Analyze & Optimize** finishes, use **Read optimization aloud** in the results panel.
+
 ## 📁 Project Structure
 
 ```
