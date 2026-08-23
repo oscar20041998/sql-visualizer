@@ -69,6 +69,7 @@
 
     "sonner": "^1.7.4",
     "sql-formatter": "^15.8.2",
+    "xlsx": "^0.18.5",
     "zustand": "4.5.5"
   },
   "devDependencies": {
