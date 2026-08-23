@@ -177,7 +177,7 @@ export function resolveProviderUrl(provider: AIProvider, baseUrl: string): strin
 /** Provider-agnostic payload, already resolved from config + request. */
 export interface ProviderCall {
   messages: AIMessage[];
-  temperature: number;
+  temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
   signal?: AbortSignal;
