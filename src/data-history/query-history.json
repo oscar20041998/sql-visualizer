@@ -1,0 +1,29 @@
+[
+  {
+    "id": "static-qh-1",
+    "sql": "SELECT \n  o.order_id,\n  c.customer_name,\n  o.order_date,\n  SUM(oi.quantity * oi.unit_price) AS total_amount\nFROM orders o\nJOIN customers c ON o.customer_id = c.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nWHERE o.order_date >= '2026-01-01'\nGROUP BY o.order_id, c.customer_name, o.order_date\nHAVING SUM(oi.quantity * oi.unit_price) > 500\nORDER BY total_amount DESC;",
+    "dialect": "postgresql",
+    "createdAt": 1787414400000,
+    "tableCount": 3,
+    "joinCount": 2,
+    "complexityLevel": "MEDIUM"
+  },
+  {
+    "id": "static-qh-2",
+    "sql": "SELECT \n  department_id, \n  COUNT(employee_id) AS employee_count,\n  AVG(salary) AS average_salary\nFROM employees\nWHERE status = 'Active'\nGROUP BY department_id\nHAVING COUNT(employee_id) > 10\nORDER BY average_salary DESC;",
+    "dialect": "mysql",
+    "createdAt": 1787410800000,
+    "tableCount": 1,
+    "joinCount": 0,
+    "complexityLevel": "LOW"
+  },
+  {
+    "id": "static-qh-3",
+    "sql": "SELECT \n  e.first_name, \n  e.last_name, \n  d.department_name, \n  j.job_title,\n  m.first_name AS manager_first_name,\n  m.last_name AS manager_last_name\nFROM employees e\nLEFT JOIN departments d ON e.department_id = d.department_id\nLEFT JOIN jobs j ON e.job_id = j.job_id\nLEFT JOIN employees m ON e.manager_id = m.employee_id\nWHERE d.location_id = 1700;",
+    "dialect": "oracle",
+    "createdAt": 1787324400000,
+    "tableCount": 4,
+    "joinCount": 3,
+    "complexityLevel": "MEDIUM"
+  }
+]
