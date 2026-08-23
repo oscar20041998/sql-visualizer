@@ -5,7 +5,7 @@
 
 import type { QueryHistoryEntry } from './queryHistory';
 import { MAX_QUERY_HISTORY_ENTRIES } from './queryHistory';
-import staticHistoryRaw from '@/data/query-history.json';
+import staticHistoryRaw from '../data/query-history.json';
 
 const LOCAL_HISTORY_KEY = 'sql_visualizer_local_history';
 const DELETED_STATIC_KEY = 'sql_visualizer_deleted_static_ids';
