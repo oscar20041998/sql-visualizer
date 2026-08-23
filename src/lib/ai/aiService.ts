@@ -347,6 +347,39 @@ async function callOpenAI(
   return data.choices?.[0]?.message?.content ?? '';
 }
 
+/** Embeddings are OpenAI-only here, so this has no per-provider dispatch — just the one endpoint. */
+async function callOpenAIEmbeddings(
+  apiKey: string,
+  baseUrl: string,
+  modelId: string,
+  input: string[],
+  signal?: AbortSignal
+): Promise<number[][]> {
+  const response = await safeFetch(
+    `${normalizeBaseUrl(baseUrl)}/v1/embeddings`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal,
+      body: JSON.stringify({ model: modelId, input }),
+    },
+    'Unable to reach OpenAI API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new AIServiceError(
+      `OpenAI embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  return (data.data ?? []).map((entry: { embedding: number[] }) => entry.embedding);
+}
+
 async function callAnthropic(
   apiKey: string,
   modelId: string,
@@ -907,6 +940,26 @@ export async function generateWithCloudKey(
     default:
       throw new AIServiceError(`Unsupported AI provider: ${provider}`);
   }
+}
+
+/**
+ * Server-side entry point used by /api/ai/docs-context. Embeddings-only, OpenAI-only — the API
+ * key is supplied by the route from the server environment, same as {@link generateWithCloudKey}.
+ */
+export async function generateEmbeddingsWithCloudKey(
+  apiKey: string,
+  baseUrl: string,
+  modelId: string,
+  input: string[],
+  signal?: AbortSignal
+): Promise<number[][]> {
+  if (!apiKey?.trim()) {
+    throw new AIServiceError(
+      'No API key configured on the server for openai. Set OPENAI_API_KEY in .env and restart the dev server.'
+    );
+  }
+  if (!modelId?.trim()) throw new AIServiceError('Embedding model ID is not configured.');
+  return callOpenAIEmbeddings(apiKey, baseUrl, modelId, input, signal);
 }
 
 /** Streaming counterpart of {@link generateWithCloudKey}, used by /api/ai/generate/stream. */
@@ -1473,6 +1526,87 @@ export async function askFollowUp({
       contextBriefDropped: Boolean(contextBrief) && !brief,
     },
   };
+}
+
+const DOCS_CONSULTANT_SYSTEM_PROMPT: Record<Locale, string> = {
+  en: "You are the SQL Visualizer documentation consultant. Answer the user's question about the app's own features and best practices using ONLY the documentation context provided below. If the context does not cover the question, say so plainly instead of guessing.",
+  vi: 'Bạn là trợ lý tư vấn tài liệu của SQL Visualizer. Hãy trả lời câu hỏi của người dùng về các tính năng và thực hành tốt nhất của ứng dụng CHỈ dựa trên phần tài liệu tham khảo được cung cấp dưới đây. Nếu tài liệu không đề cập tới câu hỏi, hãy nói rõ điều đó bằng tiếng Việt thay vì suy đoán.',
+};
+
+export interface DocSource {
+  title: string;
+  file: string;
+}
+
+interface DocsContextResponse {
+  context: string;
+  sources: DocSource[];
+}
+
+export interface DocsConsultantOptions {
+  question: string;
+  config: AIModelConfig;
+  locale?: Locale;
+  signal?: AbortSignal;
+}
+
+export interface DocsConsultantAnswer {
+  answer: string;
+  sources: DocSource[];
+}
+
+/** Retrieval step: embeds the question server-side and returns the closest doc chunks as context. */
+async function fetchDocsContext(question: string, signal?: AbortSignal): Promise<DocsContextResponse> {
+  const response = await safeFetch(
+    '/api/ai/docs-context',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ question }),
+    },
+    'Unable to reach the app server to search the documentation.'
+  );
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AIServiceError(data?.error || `Documentation search failed (${response.status}).`);
+  }
+  return { context: data?.context ?? '', sources: data?.sources ?? [] };
+}
+
+/**
+ * RAG loop for the Docs Consultant chat: embed the question, retrieve the closest feature-doc
+ * chunks, then hand that context to whichever provider the user has configured — mirrors
+ * {@link askFollowUp}'s shape but anchors on retrieved documentation instead of a pasted SQL query.
+ */
+export async function askDocsConsultant({
+  question,
+  config,
+  locale = 'en',
+  signal,
+}: DocsConsultantOptions): Promise<DocsConsultantAnswer> {
+  if (!question.trim()) throw new AIServiceError('There is no question to ask.');
+
+  const { context, sources } = await fetchDocsContext(question, signal);
+  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
+
+  const messages: AIMessage[] = [
+    { role: 'system', content: systemPrompt },
+    {
+      role: 'user',
+      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
+    },
+  ];
+
+  const budget = resolveBudget(config);
+  const answer = (
+    await generateWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal })
+  ).trim();
+
+  if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
+
+  return { answer, sources };
 }
 
 /** Convenience wrapper for a free-form (unstructured) SQL explanation. */

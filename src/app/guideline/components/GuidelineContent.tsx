@@ -25,6 +25,7 @@ import {
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
+import DocsConsultantChat from './DocsConsultantChat';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Section {
@@ -509,6 +510,9 @@ export default function GuidelineContent() {
           </p>
         </div>
       </div>
+
+      {/* Docs Consultant — RAG chat grounded in the feature docs below */}
+      <DocsConsultantChat t={t} config={settings.aiConfig} locale={settings.locale} />
 
       {/* Feature Sections */}
       <div className="space-y-4">

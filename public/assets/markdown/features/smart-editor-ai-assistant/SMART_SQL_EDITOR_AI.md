@@ -31,6 +31,19 @@ After generating an explanation, ask follow-up questions about the same query. C
 
 For queries with Common Table Expressions, run a bounded batch that explains each CTE separately. Batch concurrency is configurable in Settings.
 
+### Read the Explanation Aloud
+
+Any explanation can be read aloud instead of read on screen, via the **Sound** button next to a finished answer. See [Read Explanation Aloud (Text-to-Speech)](../voice-and-docs-support/TEXT_TO_SPEECH.md) for the two available speech engines and their setup requirements.
+
+## Optimize SQL
+
+Run **Analyze & Optimize** to get an AI-suggested rewrite alongside the explanation. It:
+
+- Fixes **only** the specific issues already flagged by the local linting rules (e.g. `SELECT *`, redundant `DISTINCT`) — every other clause, alias, and formatting choice stays character-for-character identical to what you wrote. This is a targeted fix, not a general rewrite.
+- Returns three things: the optimized SQL, a plain-language analysis of what changed and why, and a list of specific suggestions.
+- Streams in as it is generated, so you see progress on longer queries instead of waiting for the full response.
+- Can be read aloud the same way as an explanation, once it finishes.
+
 ## Provider Configuration
 
 Configure the provider at **Settings > AI Model Configuration**.
@@ -50,5 +63,5 @@ For each provider, configure the model, endpoint, temperature, system prompt, co
 - If the context meter shows that the query exceeds the configured prompt budget, shorten the query or increase the matching provider context window before generating an explanation.
 - The AI panel, batch view, chat, and announcement respect the selected light or dark theme.
 
-_Last Updated: 2026-08-09_
+_Last Updated: 2026-08-22_
 _Version: 2.2_
