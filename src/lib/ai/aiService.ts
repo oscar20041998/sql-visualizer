@@ -4,6 +4,7 @@ import type { Locale } from '../i18n';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_EMBEDDING_MODELS,
   type AIProvider,
   type CloudProvider,
 } from './aiProviders';
@@ -483,6 +484,174 @@ async function callGemini(
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
 }
 
+/** Direct call to a local Ollama server's embeddings endpoint (no credential needed). */
+async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
+  if (!normalizeBaseUrl(baseUrlRaw)) throw new AIServiceError('Ollama base URL is not configured.');
+  const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embeddings`;
+
+  const response = await safeFetch(
+    url,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ model, prompt: text }),
+    },
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and that ${model} is pulled.`
+  );
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new AIServiceError(
+      `Ollama embeddings request failed (${response.status}): ${detail || response.statusText}. ` +
+        `Pull the model first with "ollama pull ${model}".`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('Ollama returned no embedding vector.');
+  return embedding;
+}
+
+async function callOpenAIEmbed(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  const response = await safeFetch(
+    `${normalizeBaseUrl(baseUrl)}/v1/embeddings`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal,
+      body: JSON.stringify({ model: modelId, input: text }),
+    },
+    'Unable to reach OpenAI API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new AIServiceError(
+      `OpenAI embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('OpenAI returned no embedding vector.');
+  return embedding;
+}
+
+async function callGeminiEmbed(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  const response = await safeFetch(
+    `${normalizeBaseUrl(baseUrl)}/v1beta/models/${encodeURIComponent(modelId)}:embedContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ content: { parts: [{ text }] } }),
+    },
+    'Unable to reach Google Gemini API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new AIServiceError(
+      `Gemini embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.embedding?.values;
+  if (!Array.isArray(embedding)) throw new AIServiceError('Gemini returned no embedding vector.');
+  return embedding;
+}
+
+/**
+ * Server-side entry point used by /api/ai/embed. The API key is supplied by the route from the
+ * server environment, mirroring {@link generateWithCloudKey}. Anthropic has no embeddings API.
+ */
+export async function embedWithCloudKey(
+  provider: CloudProvider,
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  if (!apiKey?.trim()) {
+    throw new AIServiceError(
+      `No API key configured on the server for ${provider}. Set it in .env and restart the dev server.`
+    );
+  }
+  if (!modelId?.trim()) throw new AIServiceError(`${provider} embedding model is not configured.`);
+
+  switch (provider) {
+    case 'openai':
+      return callOpenAIEmbed(apiKey, modelId, baseUrl, text, signal);
+    case 'gemini':
+      return callGeminiEmbed(apiKey, modelId, baseUrl, text, signal);
+    case 'anthropic':
+      throw new AIServiceError('Anthropic has no embeddings API. Choose Ollama, OpenAI, or Gemini for this feature.');
+    default:
+      throw new AIServiceError(`Unsupported AI provider: ${provider}`);
+  }
+}
+
+/** Route through which the browser reaches cloud embedding providers without holding their keys. */
+export const AI_EMBED_PROXY_ENDPOINT = '/api/ai/embed';
+
+/**
+ * Turns text into an embedding vector using the provider configured in AIModelConfig, routing
+ * exactly like {@link generateWithAI}: Ollama is called directly (local, no key), cloud
+ * providers go through the server proxy so their key never reaches the browser.
+ */
+export async function embedWithAI(config: AIModelConfig, text: string, signal?: AbortSignal): Promise<number[]> {
+  if (config.provider === 'ollama') {
+    return callOllamaEmbed(config.baseUrls?.ollama ?? '', DEFAULT_EMBEDDING_MODELS.ollama, text, signal);
+  }
+  if (config.provider === 'anthropic') {
+    throw new AIServiceError('Anthropic has no embeddings API. Switch to Ollama, OpenAI, or Gemini in Settings to use semantic search.');
+  }
+
+  const modelId = DEFAULT_EMBEDDING_MODELS[config.provider];
+  const response = await safeFetch(
+    AI_EMBED_PROXY_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        provider: config.provider,
+        modelId,
+        baseUrl: config.baseUrls?.[config.provider] ?? '',
+        text,
+      }),
+    },
+    'Unable to reach the app server to run the embedding request.'
+  );
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AIServiceError(data?.error || `Embedding request failed (${response.status}).`);
+  }
+  const embedding = data?.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('The server returned no embedding vector.');
+  return embedding;
+}
+
 /**
  * Reads a `text/event-stream` body and invokes `onFrame(event, data)` for each frame (the
  * `data:` lines of one block, joined; `event` defaults to `message` when the provider omits it).
@@ -926,13 +1095,13 @@ export interface SqlOptimizationResult {
 }
 
 const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Optimize the following SQL query for performance without changing its business logic or the rows it returns. Preserve the same filters, joins, grouping, ordering, limits, and output columns.
+  en: (sql) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
 
-Return only a JSON object with exactly these keys:
+Return only a JSON object with exactly these keys, in this order:
 {
-  "optimized_sql": "the full rewritten SQL query",
-  "analysis": "a short summary of the performance improvements made",
-  "suggestions": ["specific performance improvement suggestions"]
+  "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
+  "suggestions": ["one specific improvement per issue actually fixed"],
+  "optimized_sql": "the full SQL query with only the necessary changes applied"
 }
 
 SQL:
@@ -941,17 +1110,20 @@ ${sql}
 \`\`\`
 
 Rules:
+- If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
+- If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
 - Do not change business logic or result semantics.
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
-- If the query is already optimal, return it unchanged and explain why.`,
-  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất mà không thay đổi logic nghiệp vụ hoặc các hàng trả về. Giữ nguyên bộ lọc, phép nối, nhóm, sắp xếp, giới hạn và các cột đầu ra.
+- Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
+- If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
+  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
 
-Chỉ trả về một đối tượng JSON với đúng các khóa sau:
+Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
-  "optimized_sql": "toàn bộ truy vấn SQL đã được viết lại",
-  "analysis": "tóm tắt ngắn gọn về các cải tiến hiệu suất đã thực hiện",
-  "suggestions": ["những đề xuất cải tiến hiệu suất cụ thể"]
+  "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
+  "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
+  "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
 }
 
 SQL:
@@ -960,10 +1132,13 @@ ${sql}
 \`\`\`
 
 Quy tắc:
+- Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
+- Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
 - Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
-- Nếu truy vấn đã tối ưu, trả lại chính nó và giải thích lý do.`,
+- Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
+- Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
 };
 
 /** Resolves the effective context budget for the active provider from the saved settings. */
@@ -1094,13 +1269,13 @@ export async function explainSqlStructuredStream(
   return parseSqlExplanation(raw, report);
 }
 
-export async function optimizeSqlWithAI({
-  sql,
-  config,
-  locale = 'en',
-  contextBrief = '',
-  signal,
-}: ExplainSqlOptions): Promise<SqlOptimizationResult> {
+/** Builds the prompt + budget report shared by the blocking and streaming optimize calls. */
+function prepareOptimizePrompt(
+  sql: string,
+  config: AIModelConfig,
+  locale: Locale,
+  contextBrief: string
+): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
   if (!sql.trim()) throw new AIServiceError('There is no SQL query to optimize.');
 
   const budget = resolveBudget(config);
@@ -1124,15 +1299,11 @@ export async function optimizeSqlWithAI({
     contextBriefDropped: Boolean(contextBrief) && !brief,
   };
 
-  const raw = (
-    await generateWithAI(config, {
-      prompt,
-      jsonMode: true,
-      maxTokens: budget.maxOutputTokens,
-      signal,
-    })
-  ).trim();
+  return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+}
 
+/** Turns the model's raw answer into a {@link SqlOptimizationResult}, shared by both optimize calls. */
+function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport): SqlOptimizationResult {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
@@ -1159,6 +1330,55 @@ export async function optimizeSqlWithAI({
     structured: true,
     budget: report,
   };
+}
+
+export async function optimizeSqlWithAI({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  signal,
+}: ExplainSqlOptions): Promise<SqlOptimizationResult> {
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  return parseSqlOptimization(sql, raw, report);
+}
+
+/**
+ * Streaming counterpart of {@link optimizeSqlWithAI}: identical prompt and parsing, but
+ * `onDelta` is called with each text fragment as it arrives. The JSON schema puts "analysis"
+ * and "suggestions" ahead of "optimized_sql", so a live view of the raw stream shows the
+ * model's reasoning before the rewritten query itself lands.
+ */
+export async function optimizeSqlWithAIStream(
+  { sql, config, locale = 'en', contextBrief = '', signal }: ExplainSqlOptions,
+  onDelta: (text: string) => void
+): Promise<SqlOptimizationResult> {
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+
+  const raw = (
+    await streamWithAI(
+      config,
+      {
+        prompt,
+        jsonMode: true,
+        maxTokens: maxOutputTokens,
+        signal,
+      },
+      onDelta
+    )
+  ).trim();
+
+  return parseSqlOptimization(sql, raw, report);
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {

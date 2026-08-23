@@ -54,14 +54,3 @@ export const DEFAULT_MAX_OUTPUT_TOKENS: Record<AIProvider, number> = {
 
 export const CONTEXT_TOKENS_RANGE = { min: 512, max: 2000000 } as const;
 export const MAX_OUTPUT_TOKENS_RANGE = { min: 128, max: 32768 } as const;
-
-/**
- * Embedding model per provider, used for semantic search (query history similarity search).
- * Anthropic has no embeddings API, so it is intentionally excluded — callers must fall back to
- * another provider for that feature.
- */
-export const DEFAULT_EMBEDDING_MODELS: Record<Exclude<AIProvider, 'anthropic'>, string> = {
-  ollama: 'nomic-embed-text',
-  openai: 'text-embedding-3-small',
-  gemini: 'text-embedding-004',
-};

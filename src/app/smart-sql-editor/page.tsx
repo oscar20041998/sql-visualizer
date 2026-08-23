@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
+import LintingAlerts from '@/components/ui/LintingAlerts';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import AppLayout from '@/components/AppLayout';
@@ -117,6 +118,9 @@ export default function SmartSQLEditorPage() {
                 onOptimizationResult={setOptimizationResult}
               />
             </div>
+
+            {/* Linting alerts for the live editor content — same rules used to brief AI Optimize */}
+            {currentSql && <LintingAlerts sql={currentSql} compact={false} />}
 
             {/* SQL → natural language */}
             <AiSqlExplainer sql={currentSql} optimizationResult={optimizationResult} />

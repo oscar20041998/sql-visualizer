@@ -17,6 +17,7 @@ The latest update introduces:
 | Tool                   | Purpose                                                         | Link                                                |
 | ---------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
 | **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/1_0_0/QUERY_INPUT.md)         |
+| **Query History**      | Semantic search over previously analyzed queries                | [Read More](features/1_0_3/QUERY_HISTORY_SEARCH.md) |
 | **Smart SQL Editor**   | Format, compare, and edit SQL in a full-height Monaco editor    | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
 | **AI SQL Explainer**   | Explain SQL, ask follow-ups, and batch-explain CTEs             | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
 | **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/1_0_0/RELATIONSHIP_GRAPH.md)  |
