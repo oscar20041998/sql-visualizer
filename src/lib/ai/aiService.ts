@@ -4,6 +4,7 @@ import type { Locale } from '../i18n';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_EMBEDDING_MODELS,
   type AIProvider,
   type CloudProvider,
 } from './aiProviders';
@@ -481,6 +482,174 @@ async function callGemini(
 
   const data = await response.json();
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
+}
+
+/** Direct call to a local Ollama server's embeddings endpoint (no credential needed). */
+async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
+  if (!normalizeBaseUrl(baseUrlRaw)) throw new AIServiceError('Ollama base URL is not configured.');
+  const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embeddings`;
+
+  const response = await safeFetch(
+    url,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ model, prompt: text }),
+    },
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and that ${model} is pulled.`
+  );
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new AIServiceError(
+      `Ollama embeddings request failed (${response.status}): ${detail || response.statusText}. ` +
+        `Pull the model first with "ollama pull ${model}".`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('Ollama returned no embedding vector.');
+  return embedding;
+}
+
+async function callOpenAIEmbed(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  const response = await safeFetch(
+    `${normalizeBaseUrl(baseUrl)}/v1/embeddings`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal,
+      body: JSON.stringify({ model: modelId, input: text }),
+    },
+    'Unable to reach OpenAI API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new AIServiceError(
+      `OpenAI embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('OpenAI returned no embedding vector.');
+  return embedding;
+}
+
+async function callGeminiEmbed(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  const response = await safeFetch(
+    `${normalizeBaseUrl(baseUrl)}/v1beta/models/${encodeURIComponent(modelId)}:embedContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ content: { parts: [{ text }] } }),
+    },
+    'Unable to reach Google Gemini API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new AIServiceError(
+      `Gemini embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  const embedding = data.embedding?.values;
+  if (!Array.isArray(embedding)) throw new AIServiceError('Gemini returned no embedding vector.');
+  return embedding;
+}
+
+/**
+ * Server-side entry point used by /api/ai/embed. The API key is supplied by the route from the
+ * server environment, mirroring {@link generateWithCloudKey}. Anthropic has no embeddings API.
+ */
+export async function embedWithCloudKey(
+  provider: CloudProvider,
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  if (!apiKey?.trim()) {
+    throw new AIServiceError(
+      `No API key configured on the server for ${provider}. Set it in .env and restart the dev server.`
+    );
+  }
+  if (!modelId?.trim()) throw new AIServiceError(`${provider} embedding model is not configured.`);
+
+  switch (provider) {
+    case 'openai':
+      return callOpenAIEmbed(apiKey, modelId, baseUrl, text, signal);
+    case 'gemini':
+      return callGeminiEmbed(apiKey, modelId, baseUrl, text, signal);
+    case 'anthropic':
+      throw new AIServiceError('Anthropic has no embeddings API. Choose Ollama, OpenAI, or Gemini for this feature.');
+    default:
+      throw new AIServiceError(`Unsupported AI provider: ${provider}`);
+  }
+}
+
+/** Route through which the browser reaches cloud embedding providers without holding their keys. */
+export const AI_EMBED_PROXY_ENDPOINT = '/api/ai/embed';
+
+/**
+ * Turns text into an embedding vector using the provider configured in AIModelConfig, routing
+ * exactly like {@link generateWithAI}: Ollama is called directly (local, no key), cloud
+ * providers go through the server proxy so their key never reaches the browser.
+ */
+export async function embedWithAI(config: AIModelConfig, text: string, signal?: AbortSignal): Promise<number[]> {
+  if (config.provider === 'ollama') {
+    return callOllamaEmbed(config.baseUrls?.ollama ?? '', DEFAULT_EMBEDDING_MODELS.ollama, text, signal);
+  }
+  if (config.provider === 'anthropic') {
+    throw new AIServiceError('Anthropic has no embeddings API. Switch to Ollama, OpenAI, or Gemini in Settings to use semantic search.');
+  }
+
+  const modelId = DEFAULT_EMBEDDING_MODELS[config.provider];
+  const response = await safeFetch(
+    AI_EMBED_PROXY_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        provider: config.provider,
+        modelId,
+        baseUrl: config.baseUrls?.[config.provider] ?? '',
+        text,
+      }),
+    },
+    'Unable to reach the app server to run the embedding request.'
+  );
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AIServiceError(data?.error || `Embedding request failed (${response.status}).`);
+  }
+  const embedding = data?.embedding;
+  if (!Array.isArray(embedding)) throw new AIServiceError('The server returned no embedding vector.');
+  return embedding;
 }
 
 /**

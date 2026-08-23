@@ -10,6 +10,9 @@ import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import LintingAlerts from '@/components/ui/LintingAlerts';
+import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
+import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
+import { tryEmbedText } from '@/lib/ai/embeddingService';
 import {
   analyzeSql,
   extractMyBatisParams,
@@ -196,6 +199,21 @@ export default function QueryInputContent() {
           ?.replace('{joins}', result.joins.length.toString()) || 'Analysis complete'
       );
 
+      // Save to history for later semantic search; both the save and the background embedding
+      // are fire-and-forget so a slow/unreachable history server never blocks the redirect below.
+      void saveQueryHistoryEntry({
+        sql: sqlToAnalyze,
+        dialect,
+        tableCount: result.tables.length,
+        joinCount: result.joins.length,
+        complexityLevel: result.complexity?.level,
+      }).then((saved) => {
+        if (!saved) return;
+        void tryEmbedText(sqlToAnalyze, settings.aiConfig).then((embedded) => {
+          if (embedded) void updateQueryHistoryEmbedding(saved.id, embedded.vector, embedded.model);
+        });
+      });
+
       // Keep this await so loading state is finalized after the async flow settles.
       await Promise.resolve(router.push('/sql-metrics-dashboard'));
     };
@@ -210,6 +228,7 @@ export default function QueryInputContent() {
     resolvedSql,
     dialect,
     settings.locale,
+    settings.aiConfig,
     router,
     t,
     setIsAnalyzing,
@@ -262,7 +281,18 @@ export default function QueryInputContent() {
         />
 
         {/* Header */}
-        <Header dialect={dialect} onDialectChange={setDialect} t={t} />
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <Header dialect={dialect} onDialectChange={setDialect} t={t} />
+          </div>
+          <QueryHistoryPanel
+            onLoadQuery={(sql, historyDialect) => {
+              setDialect(historyDialect);
+              setInputMode('sql');
+              setRawSql(sql);
+            }}
+          />
+        </div>
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (

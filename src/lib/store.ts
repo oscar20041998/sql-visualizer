@@ -56,6 +56,10 @@ export interface AppSettings {
   aiConfig: AIModelConfig;
 }
 
+/** One saved query, kept for the history panel's semantic search. Persisted server-side via
+ * /api/history (an Excel workbook on disk), not in this store — see src/lib/queryHistory.ts. */
+export type { QueryHistoryEntry } from './queryHistory';
+
 interface AppState {
   settings: AppSettings;
   dialect: SqlDialect;

@@ -28,6 +28,9 @@ Thumbs.db
 # Local text-to-speech voices, fetched by `npm run setup:piper` (~140 MB)
 models/
 
+# Local query-history workbook, written by /api/history (per-machine data, not source)
+data/
+
 # Optional: if using testing tools
 coverage/
 jest-test-results.json
