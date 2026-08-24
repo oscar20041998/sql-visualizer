@@ -130,6 +130,19 @@ export function redactSecrets(message: string): string {
     .replace(/\bAIza[A-Za-z0-9_*-]{4,}/g, '[redacted key]');
 }
 
+/** Accepts a single string or a non-empty array of non-empty strings; anything else is malformed. */
+export function parseEmbedInput(value: unknown): string[] | null {
+  const candidates = Array.isArray(value) ? value : [value];
+  if (!candidates.length) return null;
+
+  const input: string[] = [];
+  for (const entry of candidates) {
+    if (typeof entry !== 'string' || !entry.trim()) return null;
+    input.push(entry);
+  }
+  return input;
+}
+
 export function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed)) return fallback;

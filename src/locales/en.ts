@@ -1304,6 +1304,20 @@ const en = {
   aiBatchStatus_done: 'Done',
   aiBatchStatus_error: 'Failed',
   aiBatchStatus_cancelled: 'Cancelled',
+
+  // AI - docs consultant (Guideline page)
+  docsConsultantTitle: 'Ask the Docs Consultant',
+  docsConsultantSubtitle: "Questions about this app's own features and best practices, answered from the guides below.",
+  docsConsultantPlaceholder: 'e.g. How do I reduce a HIGH complexity score?',
+  docsConsultantSend: 'Ask',
+  docsConsultantReset: 'Clear',
+  docsConsultantThinking: 'Searching the docs…',
+  docsConsultantRoleYou: 'You',
+  docsConsultantRoleAssistant: 'Consultant',
+  docsConsultantSourcesLabel: 'Sources',
+  docsConsultantSuggestion1: 'How do I reduce a HIGH complexity score?',
+  docsConsultantSuggestion2: 'What does the JOIN Analysis panel show me?',
+  docsConsultantSuggestion3: 'How do I export a Mermaid diagram?',
 } as const;
 
 export default en;

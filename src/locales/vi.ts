@@ -1300,6 +1300,21 @@ const vi = {
   aiBatchStatus_done: 'Xong',
   aiBatchStatus_error: 'Lỗi',
   aiBatchStatus_cancelled: 'Đã hủy',
+
+  // AI - trợ lý tư vấn tài liệu (trang Hướng dẫn)
+  docsConsultantTitle: 'Hỏi trợ lý tư vấn tài liệu',
+  docsConsultantSubtitle:
+    'Câu hỏi về các tính năng và thực hành tốt nhất của ứng dụng, được trả lời dựa trên tài liệu hướng dẫn.',
+  docsConsultantPlaceholder: 'ví dụ: Làm sao để giảm điểm phức tạp HIGH?',
+  docsConsultantSend: 'Hỏi',
+  docsConsultantReset: 'Xóa',
+  docsConsultantThinking: 'Đang tìm trong tài liệu…',
+  docsConsultantRoleYou: 'Bạn',
+  docsConsultantRoleAssistant: 'Trợ lý',
+  docsConsultantSourcesLabel: 'Nguồn tham khảo',
+  docsConsultantSuggestion1: 'Làm sao để giảm điểm phức tạp HIGH?',
+  docsConsultantSuggestion2: 'Bảng JOIN Analysis cho tôi biết điều gì?',
+  docsConsultantSuggestion3: 'Làm sao để xuất biểu đồ Mermaid?',
 } as const;
 
 export default vi;

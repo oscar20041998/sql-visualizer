@@ -5,8 +5,8 @@
 // keys live in .env (OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY) and stay server-side.
 // Ollama is not proxied: it needs no key and runs on the user's own machine.
 import { NextResponse } from 'next/server';
-import { AIServiceError, generateWithCloudKey } from '@/lib/ai/aiService';
 import { ENV_VAR_BY_PROVIDER } from '@/lib/ai/aiProviders';
+import { AIServiceError, generateWithCloudKey } from '@/lib/ai/aiService';
 import {
   clampNumber,
   isCloudProvider,
@@ -67,9 +67,22 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Some provider gateways (eg. LiteLLM/AI portal) enforce model-specific supported params.
+    // The GPT-5 family disallows sending a `temperature` field other than explicitly
+    // allowed values. Omit the `temperature` property entirely for GPT-5 models so
+    // gateways can apply their own defaults or param handling (see litellm.drop_params).
+    const isGpt5 = modelId.toLowerCase().startsWith('gpt-5');
+    const tempValue = clampNumber(body.temperature, 0, 2, 0.1);
+
+    // Debug: log modelId and whether temperature will be included.
+    console.info(
+      `[api/ai/generate] modelId=${modelId} isGpt5=${isGpt5} temperatureProvided=${typeof body.temperature !== 'undefined'
+      } temperatureValue=${tempValue}`
+    );
+
     const content = await generateWithCloudKey(body.provider, apiKey, modelId, baseUrl, {
       messages,
-      temperature: clampNumber(body.temperature, 0, 2, 0.1),
+      temperature: isGpt5 ? undefined : tempValue,
       maxTokens: clampNumber(body.maxTokens, 128, 16384, 1200),
       jsonMode: body.jsonMode === true,
       signal: request.signal,

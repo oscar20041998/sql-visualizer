@@ -64,9 +64,20 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Omit `temperature` for GPT-5 family requests so gateways that disallow that
+    // param can apply their own defaults or drop it without error.
+    const isGpt5 = modelId.toLowerCase().startsWith('gpt-5');
+    const tempValue = clampNumber(body.temperature, 0, 2, 0.1);
+
+    // Debug: log modelId and whether temperature will be included for streaming calls.
+    console.info(
+      `[api/ai/generate/stream] modelId=${modelId} isGpt5=${isGpt5} temperatureProvided=${typeof body.temperature !== 'undefined'
+      } temperatureValue=${tempValue}`
+    );
+
     const stream = await generateWithCloudKeyStream(body.provider, apiKey, modelId, baseUrl, {
       messages,
-      temperature: clampNumber(body.temperature, 0, 2, 0.1),
+      temperature: isGpt5 ? undefined : tempValue,
       maxTokens: clampNumber(body.maxTokens, 128, 16384, 1200),
       jsonMode: body.jsonMode === true,
       signal: request.signal,

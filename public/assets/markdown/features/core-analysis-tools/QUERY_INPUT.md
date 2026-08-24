@@ -22,6 +22,7 @@ The starting point for all analysis. Supports both raw SQL and MyBatis XML impor
 - **Auto-Analysis Option:** Automatically analyze queries as you type
 - **Sample Queries:** Load pre-built example queries for testing
 - **Character/Line Counter:** Track query size metrics
+- **Dialect Mismatch Validation:** Warns before analysis when the SQL you pasted uses syntax specific to a different dialect than the one selected (e.g. `CROSS APPLY` selected under MySQL), so you catch the mismatch before reading a misleading analysis.
 
 ## Use Cases
 

@@ -47,6 +47,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "test": "vitest run",
     "setup:piper": "node scripts/setup-piper.mjs",
+    "build:docs-index": "node scripts/build-docs-index.mjs",
     "serve": "next start",
     "type-check": "tsc --noEmit"
   },

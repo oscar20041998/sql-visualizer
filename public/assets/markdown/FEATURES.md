@@ -2,12 +2,12 @@
 
 A comprehensive SQL analysis and visualization tool built with Next.js, React, and Tailwind CSS. Analyze complex SQL queries, visualize table relationships, measure query complexity, and explore Common Table Expressions (CTEs).
 
-## 🆕 Version 2.2: Smart SQL Editor and AI SQL Explainer
+## 🆕 Latest additions
 
-The latest update introduces:
-
-- **One Shared Smart SQL Editor** - A single Monaco-based editor powers the standalone editor and Query Input Smart Editor tab.
-- **AI SQL Explainer** - Generate structured explanations, ask follow-up questions, and explain CTEs in bounded batches.
+- **Query History & Semantic Search** - Every analyzed query is saved and can be found again by describing what it does in plain language, not just by keyword.
+- **Optimize SQL** - AI-suggested, targeted rewrites that fix only the issues the local linter already flagged, alongside the existing AI SQL Explainer.
+- **Read Explanation Aloud** - Text-to-speech narration of an AI explanation or optimization, via a local (Piper) or cloud (OpenAI) speech engine.
+- **Ask the Docs Consultant** - A chat panel on the Guideline page that answers "how do I use this app" questions grounded in this documentation set.
 - **Theme-Aware Editor Experience** - Monaco, the diff view, and AI panels follow the selected light or dark theme.
 - **Dialect Mismatch Validation** - Query Input warns before analysis when syntax strongly indicates another SQL dialect.
 
@@ -17,15 +17,17 @@ The latest update introduces:
 
 | Tool                   | Purpose                                                         | Link                                                |
 | ---------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
-| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/1_0_0/QUERY_INPUT.md)         |
-| **Query History**      | Semantic search over previously analyzed queries                | [Read More](features/1_0_3/QUERY_HISTORY_SEARCH.md) |
-| **Smart SQL Editor**   | Format, compare, and edit SQL in a full-height Monaco editor    | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
-| **AI SQL Explainer**   | Explain SQL, ask follow-ups, and batch-explain CTEs             | [Read More](features/1_0_1/SMART_SQL_EDITOR_AI.md) |
-| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/1_0_0/RELATIONSHIP_GRAPH.md)  |
-| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/1_0_0/JOIN_ANALYSIS.md)       |
-| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/1_0_0/METRICS_DASHBOARD.md)   |
-| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/1_0_0/CTE_ANALYSIS.md)        |
-| **Settings**           | Customize theme, language, analysis, and AI options             | [Read More](features/1_0_0/SETTINGS.md)            |
+| **Query Input**        | Paste SQL or import MyBatis XML with multi-dialect support      | [Read More](features/core-analysis-tools/QUERY_INPUT.md)         |
+| **Query History**      | Semantic search over previously analyzed queries                | [Read More](features/core-analysis-tools/QUERY_HISTORY_SEARCH.md) |
+| **Smart SQL Editor**   | Format, compare, and edit SQL in a full-height Monaco editor    | [Read More](features/smart-editor-ai-assistant/SMART_SQL_EDITOR_AI.md) |
+| **AI SQL Explainer**   | Explain SQL, ask follow-ups, batch-explain CTEs, and Optimize SQL | [Read More](features/smart-editor-ai-assistant/SMART_SQL_EDITOR_AI.md) |
+| **Read Explanation Aloud** | Text-to-speech narration of an explanation or optimization  | [Read More](features/voice-and-docs-support/TEXT_TO_SPEECH.md) |
+| **Ask the Docs Consultant** | Chat with an AI grounded in this documentation, from the Guideline page | [Read More](features/voice-and-docs-support/DOCS_CONSULTANT.md) |
+| **Relationship Graph** | Interactive visualization of table relationships and JOINs      | [Read More](features/core-analysis-tools/RELATIONSHIP_GRAPH.md)  |
+| **JOIN Analysis**      | Deep-dive analysis of JOIN conditions with complexity breakdown | [Read More](features/core-analysis-tools/JOIN_ANALYSIS.md)       |
+| **Metrics Dashboard**  | Real-time complexity scoring (0-100) with detailed breakdowns   | [Read More](features/core-analysis-tools/METRICS_DASHBOARD.md)   |
+| **CTE Analysis**       | Explore Common Table Expressions and field origins              | [Read More](features/core-analysis-tools/CTE_ANALYSIS.md)        |
+| **Settings**           | Customize theme, language, analysis, and AI options             | [Read More](features/core-analysis-tools/SETTINGS.md)            |
 
 ## 📊 Supported SQL Dialects
 
@@ -46,9 +48,11 @@ Analysis adapts to dialect-specific features:
 
 The shared Smart SQL Editor is available from the sidebar and the Smart Editor tab in Query Input. It provides SQL formatting, copy, original-versus-edited diff comparison, theme-aware Monaco rendering, and a full-height editing body.
 
-The AI SQL Explainer turns the current query into a structured natural-language explanation of its objective, output, filters, and data sources. After an explanation is generated, you can ask follow-up questions and run separate explanations for every CTE.
+The AI SQL Explainer turns the current query into a structured natural-language explanation of its objective, output, filters, and data sources. After an explanation is generated, you can ask follow-up questions, run separate explanations for every CTE, or run **Optimize SQL** for a targeted, linter-driven rewrite suggestion. Any explanation or optimization can be read aloud instead of read on screen.
 
 Configure the AI provider in Settings. Ollama runs locally; OpenAI, Anthropic, and Google Gemini can be configured with server-managed credentials. Treat AI output as an aid to review, not a substitute for an execution plan.
+
+For questions about the app itself rather than a specific query, use **Ask the Docs Consultant** on the Guideline page — it answers from this documentation set directly.
 
 ## 🎨 UI Features
 
@@ -73,21 +77,21 @@ Configure the AI provider in Settings. Ollama runs locally; OpenAI, Anthropic, a
 
 ### For Beginners
 
-- Start with [Learning Path](features/LEARNING_PATH.md) for structured guidance
-- Follow the [Workflow Examples](features/WORKFLOW_EXAMPLES.md) for real scenarios
-- Review [Best Practices](features/BEST_PRACTICES.md) for do's and don'ts
+- Start with [Learning Path](features/core-analysis-tools/LEARNING_PATH.md) for structured guidance
+- Follow the [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md) for real scenarios
+- Review [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md) for do's and don'ts
 
 ### For Active Users
 
-- Use [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md) for query improvement
-- Reference [Best Practices](features/BEST_PRACTICES.md) for guidelines
-- Check [Workflow Examples](features/WORKFLOW_EXAMPLES.md) for different scenarios
+- Use [Optimization Workflow](features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md) for query improvement
+- Reference [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md) for guidelines
+- Check [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md) for different scenarios
 
 ### For Advanced Users
 
-- Deep-dive into [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md) for technical details
-- Explore [Advanced Topics](features/ADVANCED_TOPICS.md) for enterprise patterns
-- Review [Best Practices](features/BEST_PRACTICES.md) for optimization strategies
+- Deep-dive into [Complexity Scoring Engine](features/core-analysis-tools/COMPLEXITY_SCORING.md) for technical details
+- Explore [Advanced Topics](features/core-analysis-tools/ADVANCED_TOPICS.md) for enterprise patterns
+- Review [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md) for optimization strategies
 
 ## 📋 Feature Documentation
 
@@ -95,25 +99,33 @@ All features are documented in separate, easy-to-read markdown files:
 
 ### Core Features
 
-- [Query Input](features/QUERY_INPUT.md) - SQL input and dialect selection
-- [Relationship Graph Visualizer](features/RELATIONSHIP_GRAPH.md) - Table relationship visualization
-- [JOIN Analysis](features/JOIN_ANALYSIS.md) - Deep JOIN condition analysis
-- [Metrics Dashboard](features/METRICS_DASHBOARD.md) - Complexity scoring and breakdown
-- [CTE Analysis](features/CTE_ANALYSIS.md) - Common Table Expression exploration
-- [Settings & Preferences](features/SETTINGS.md) - UI customization
+- [Query Input](features/core-analysis-tools/QUERY_INPUT.md) - SQL input and dialect selection
+- [Query History & Semantic Search](features/core-analysis-tools/QUERY_HISTORY_SEARCH.md) - Find a past query by describing what it does
+- [Relationship Graph Visualizer](features/core-analysis-tools/RELATIONSHIP_GRAPH.md) - Table relationship visualization
+- [JOIN Analysis](features/core-analysis-tools/JOIN_ANALYSIS.md) - Deep JOIN condition analysis
+- [Metrics Dashboard](features/core-analysis-tools/METRICS_DASHBOARD.md) - Complexity scoring and breakdown
+- [CTE Analysis](features/core-analysis-tools/CTE_ANALYSIS.md) - Common Table Expression exploration
+- [Settings & Preferences](features/core-analysis-tools/SETTINGS.md) - UI customization
+
+### AI-Assisted Features
+
+- [Smart SQL Editor & AI SQL Explainer](features/smart-editor-ai-assistant/SMART_SQL_EDITOR_AI.md) - Editing, explaining, follow-up chat, and Optimize SQL
+- [Ollama Setup and Usage](features/smart-editor-ai-assistant/OLLAMA_SETUP_AND_USAGE.md) - Running a local model for a private workflow
+- [Read Explanation Aloud](features/voice-and-docs-support/TEXT_TO_SPEECH.md) - Text-to-speech for AI explanations and optimizations
+- [Ask the Docs Consultant](features/voice-and-docs-support/DOCS_CONSULTANT.md) - RAG chat about the app's own features, on the Guideline page
 
 ### Guides & Workflows
 
-- [Best Practices](features/BEST_PRACTICES.md) - Do's and don'ts for query optimization
-- [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md) - Step-by-step optimization guide
-- [Workflow Examples](features/WORKFLOW_EXAMPLES.md) - Real-world usage scenarios
-- [Learning Path](features/LEARNING_PATH.md) - Structured learning guide
+- [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md) - Do's and don'ts for query optimization
+- [Optimization Workflow](features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md) - Step-by-step optimization guide
+- [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md) - Real-world usage scenarios
+- [Learning Path](features/core-analysis-tools/LEARNING_PATH.md) - Structured learning guide
 
 ### Technical Reference
 
-- [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md) - Weight matrix and scoring details
-- [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md) - Adaptive threshold system explained
-- [Advanced Topics](features/ADVANCED_TOPICS.md) - Enterprise patterns and customization
+- [Complexity Scoring Engine](features/core-analysis-tools/COMPLEXITY_SCORING.md) - Weight matrix and scoring details
+- [Complexity Score Evaluation by Median Numeric](features/core-analysis-tools/COMPLEXITY_SCORE_MEDIAN_EVALUATION.md) - Adaptive threshold system explained
+- [Advanced Topics](features/core-analysis-tools/ADVANCED_TOPICS.md) - Enterprise patterns and customization
 
 ## 🛠️ Tool Overview
 
@@ -122,7 +134,7 @@ All features are documented in separate, easy-to-read markdown files:
 | Tool            | Purpose                                                |
 | --------------- | ------------------------------------------------------ |
 | **Query Input** | Paste SQL or import MyBatis XML, select SQL dialect    |
-| **Settings**    | Configure theme, language, graph layout, auto-analysis |
+| **Settings**    | Configure theme, language, graph layout, auto-analysis, AI provider |
 
 ### Analysis Tools
 
@@ -136,7 +148,7 @@ All features are documented in separate, easy-to-read markdown files:
 ### Export/Integration
 
 | Feature                 | Format            | Use Case                       |
-| ----------------------- | ----------------- | ------------------------------ |
+| ----------------------- | ----------------- | ------------------------------- |
 | Extracted Tables Export | CSV               | Spreadsheet analysis           |
 | Mermaid Diagram Export  | Mermaid.js syntax | Documentation, wikis, diagrams |
 | CTE SQL Copy            | Plain text        | Reuse in other queries         |
@@ -145,23 +157,23 @@ All features are documented in separate, easy-to-read markdown files:
 
 ### Code Review
 
-Verify a complex query before production using Relationship Graph, JOIN Analysis, and Metrics Dashboard. See [Workflow Examples](features/WORKFLOW_EXAMPLES.md) for detailed steps.
+Verify a complex query before production using Relationship Graph, JOIN Analysis, and Metrics Dashboard. See [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md) for detailed steps.
 
 ### Performance Optimization
 
-Identify and fix performance issues using complexity scores and recommendations. See [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md) for the complete process.
+Identify and fix performance issues using complexity scores and recommendations, or let **Optimize SQL** propose a targeted fix. See [Optimization Workflow](features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md) for the complete process.
 
 ### Documentation
 
-Generate visual architecture diagrams and export Mermaid syntax for team documentation. See [Workflow Examples](features/WORKFLOW_EXAMPLES.md) for examples.
+Generate visual architecture diagrams and export Mermaid syntax for team documentation. See [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md) for examples.
 
 ### Learning/Training
 
-Help new team members understand query structure and complexity patterns. See [Learning Path](features/LEARNING_PATH.md) for guidance.
+Help new team members understand query structure and complexity patterns, or point them at **Ask the Docs Consultant** for self-serve Q&A. See [Learning Path](features/core-analysis-tools/LEARNING_PATH.md) for guidance.
 
 ### Database Migration
 
-Assess multi-dialect compatibility and plan migration tasks. See [Advanced Topics](features/ADVANCED_TOPICS.md) for multi-dialect optimization.
+Assess multi-dialect compatibility and plan migration tasks. See [Advanced Topics](features/core-analysis-tools/ADVANCED_TOPICS.md) for multi-dialect optimization.
 
 ## 📊 Complexity Levels
 
@@ -181,7 +193,7 @@ The SQL Visualizer uses an **adaptive, median-based complexity evaluation system
 
 This makes complexity levels meaningful and contextual to *your* specific project.
 
-For a deep technical explanation of the median-based evaluation system, see [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md).
+For a deep technical explanation of the median-based evaluation system, see [Complexity Score Evaluation by Median Numeric](features/core-analysis-tools/COMPLEXITY_SCORE_MEDIAN_EVALUATION.md).
 
 ## 🌐 Language Support
 
@@ -193,27 +205,27 @@ For a deep technical explanation of the median-based evaluation system, see [Com
 
 ### I want to understand how to use this tool
 
-→ Start with [Learning Path](features/LEARNING_PATH.md)
+→ Start with [Learning Path](features/core-analysis-tools/LEARNING_PATH.md), or ask [the Docs Consultant](features/voice-and-docs-support/DOCS_CONSULTANT.md) directly
 
 ### I want to optimize a specific query
 
-→ Go to [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md)
+→ Go to [Optimization Workflow](features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md), or try **Optimize SQL** in the [Smart SQL Editor](features/smart-editor-ai-assistant/SMART_SQL_EDITOR_AI.md)
 
 ### I want to see real-world examples
 
-→ Check [Workflow Examples](features/WORKFLOW_EXAMPLES.md)
+→ Check [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md)
 
 ### I want to understand complexity scoring
 
-→ Read [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md)
+→ Read [Complexity Scoring Engine](features/core-analysis-tools/COMPLEXITY_SCORING.md)
 
 ### I need best practices and guidelines
 
-→ Review [Best Practices](features/BEST_PRACTICES.md)
+→ Review [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md)
 
 ### I want advanced customization
 
-→ Explore [Advanced Topics](features/ADVANCED_TOPICS.md)
+→ Explore [Advanced Topics](features/core-analysis-tools/ADVANCED_TOPICS.md)
 
 ## 📝 Quick Start Checklist
 
@@ -223,20 +235,22 @@ For a deep technical explanation of the median-based evaluation system, see [Com
 - [ ] Check JOIN Analysis for join details
 - [ ] Review CTE Analysis if query has CTEs
 - [ ] Switch theme and language in Settings
+- [ ] Try AI SQL Explainer, then Optimize SQL, on a real query
 - [ ] Export Mermaid diagram
-- [ ] Read [Best Practices](features/BEST_PRACTICES.md) for guidelines
+- [ ] Read [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md) for guidelines
 
 ## 📞 Need Help?
 
-- **Getting started?** → [Learning Path](features/LEARNING_PATH.md)
-- **Understanding complexity scoring?** → [Complexity Score Evaluation by Median Numeric](../../COMPLEXITY_SCORE_MEDIAN_EVALUATION.md)
-- **Optimizing a query?** → [Optimization Workflow](features/OPTIMIZATION_WORKFLOW.md)
-- **Want examples?** → [Workflow Examples](features/WORKFLOW_EXAMPLES.md)
-- **Technical details?** → [Complexity Scoring Engine](features/COMPLEXITY_SCORING.md)
-- **Best practices?** → [Best Practices](features/BEST_PRACTICES.md)
+- **Getting started?** → [Learning Path](features/core-analysis-tools/LEARNING_PATH.md)
+- **Understanding complexity scoring?** → [Complexity Score Evaluation by Median Numeric](features/core-analysis-tools/COMPLEXITY_SCORE_MEDIAN_EVALUATION.md)
+- **Optimizing a query?** → [Optimization Workflow](features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md)
+- **Want examples?** → [Workflow Examples](features/core-analysis-tools/WORKFLOW_EXAMPLES.md)
+- **Technical details?** → [Complexity Scoring Engine](features/core-analysis-tools/COMPLEXITY_SCORING.md)
+- **Best practices?** → [Best Practices](features/core-analysis-tools/BEST_PRACTICES.md)
+- **Anything else about the app?** → [Ask the Docs Consultant](features/voice-and-docs-support/DOCS_CONSULTANT.md) on the Guideline page
 
 ---
 
-_Last Updated: 2026-08-09_
-_Version: 2.2 (Smart SQL Editor and AI SQL Explainer)_
+_Last Updated: 2026-08-22_
+_Version: 2.3 (Optimize SQL, Read-Aloud, and the Docs Consultant chat)_
 _Built with Next.js 15, React 19, TypeScript, and Tailwind CSS_
