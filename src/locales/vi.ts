@@ -1315,6 +1315,9 @@ const vi = {
   docsConsultantSuggestion1: 'Làm sao để giảm điểm phức tạp HIGH?',
   docsConsultantSuggestion2: 'Bảng JOIN Analysis cho tôi biết điều gì?',
   docsConsultantSuggestion3: 'Làm sao để xuất biểu đồ Mermaid?',
+  docsConsultantSuggestion4: 'Cách phân tích SQL?',
+  docsConsultantSuggestion5: 'Giải thích độ phức tạp của các JOIN',
+  aiAssistantTitle: 'Trợ lý AI',
 } as const;
 
 export default vi;

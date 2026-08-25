@@ -1318,6 +1318,9 @@ const en = {
   docsConsultantSuggestion1: 'How do I reduce a HIGH complexity score?',
   docsConsultantSuggestion2: 'What does the JOIN Analysis panel show me?',
   docsConsultantSuggestion3: 'How do I export a Mermaid diagram?',
+  docsConsultantSuggestion4: 'How to analyze SQL?',
+  docsConsultantSuggestion5: 'Explain JOINs complexity',
+  aiAssistantTitle: 'AI Assistant',
 } as const;
 
 export default en;

@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
+import { GlobalChat } from '@/components/GlobalChat';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -41,6 +43,7 @@ const COLOR_PRESETS: Record<string, { dark: string; light: string }> = {
 };
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const pathname = usePathname();
   const theme = useAppStore((s) => s.settings.theme);
   const accentColor = useAppStore((s) => s.settings.accentColor);
 
@@ -72,6 +75,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </main>
         <AppFooter />
       </div>
+      {pathname !== '/' && <GlobalChat />}
     </div>
   );
 }
