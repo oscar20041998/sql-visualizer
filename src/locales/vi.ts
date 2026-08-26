@@ -410,9 +410,9 @@ const vi = {
   aiConfigUpToDate: 'Đã lưu tất cả thay đổi',
   aiModelId: 'Model ID',
   aiModelIdHint: 'Định danh mô hình sử dụng, ví dụ gpt-4o hoặc claude-3-5-sonnet',
-  aiTemperature: 'Temperature',
+  aiTemperature: 'Độ ngẫu nhiên (temperature)',
   aiTemperatureHint: 'Kiểm soát mức độ ngẫu nhiên — giá trị thấp cho kết quả ổn định hơn',
-  aiSystemPrompt: 'System Prompt',
+  aiSystemPrompt: 'Hướng dẫn mặc định cho cách AI diễn giải truy vấn SQL',
   aiSystemPromptHint: 'Hướng dẫn mặc định cho cách AI diễn giải truy vấn SQL',
   aiSystemPromptPlaceholder: 'Ví dụ: Diễn giải truy vấn SQL rõ ràng, súc tích cho lập trình viên junior...',
 
