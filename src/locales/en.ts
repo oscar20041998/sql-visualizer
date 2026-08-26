@@ -417,7 +417,7 @@ const en = {
   aiModelIdHint: 'Identifier of the model to use, e.g. gpt-4o or claude-3-5-sonnet',
   aiTemperature: 'Temperature',
   aiTemperatureHint: 'Controls randomness — lower values are more deterministic',
-  aiSystemPrompt: 'System Prompt',
+  aiSystemPrompt: 'System Prompt Instructions for AI',
   aiSystemPromptHint: 'Default instructions guiding how the AI explains SQL queries',
   aiSystemPromptPlaceholder: 'e.g. Explain SQL queries clearly and concisely for a junior developer...',
 
