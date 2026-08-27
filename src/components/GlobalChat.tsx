@@ -27,7 +27,7 @@ export const GlobalChat: React.FC = () => {
               <X size={16} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 scrollbar-thin overflow-y-auto">
              <DocsConsultantChat config={settings.aiConfig} locale={settings.locale} t={t} className="p-4" />
           </div>
         </div>

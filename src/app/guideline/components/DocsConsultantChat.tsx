@@ -99,7 +99,7 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
 
   return (
     <div className={className + " flex flex-col h-full"}>
-      <div className="flex-1 overflow-y-auto space-y-4">
+      <div className="flex-1 scrollbar-thin overflow-y-auto space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

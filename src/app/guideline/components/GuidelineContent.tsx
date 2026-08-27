@@ -206,6 +206,28 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
       tips: [{ text: t.guidelineAiExplainerTip1 }, { text: t.guidelineAiExplainerTip2 }],
     },
     {
+      id: 'ai-speech',
+      icon: Layers,
+      color: '#f472b6',
+      title: t.guidelineAiSpeechTitle,
+      subtitle: t.guidelineAiSpeechSubtitle,
+      steps: [
+        {
+          label: t.guidelineAiSpeechStep1Label,
+          desc: t.guidelineAiSpeechStep1Desc,
+        },
+        {
+          label: t.guidelineAiSpeechStep2Label,
+          desc: t.guidelineAiSpeechStep2Desc,
+        },
+        {
+          label: t.guidelineAiSpeechStep3Label,
+          desc: t.guidelineAiSpeechStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineAiSpeechTip1 }, { text: t.guidelineAiSpeechTip2 }],
+    },
+    {
       id: 'tools',
       icon: Zap,
       color: '#ef4444',
