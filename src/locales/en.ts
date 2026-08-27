@@ -804,9 +804,9 @@ const en = {
   guidelineComplexityEvalStep2Desc:
     'Different SQL constructs carry different weights:\n\n• Base Clauses (FROM=1, WHERE=2, DISTINCT=3)\n• Joins (INNER=4, LEFT=5, FULL OUTER=10, CROSS=10)\n• Aggregations (GROUP BY=4, HAVING=4)\n• Window Functions (OVER=6, PARTITION BY=3)\n• Advanced (CTEs=8, Nested Subqueries=12)\n\nMore complex constructs contribute more points.',
 
-  guidelineComplexityEvalStep3Label: 'Complexity Levels',
+  guidelineComplexityEvalStep3Label: 'Dynamic Level Classification (Using Median)',
   guidelineComplexityEvalStep3Desc:
-    'Scores map to complexity levels:\n\n• LOW (0-20): Simple queries, few joins, straightforward logic\n• MEDIUM (21-50): Multiple joins or CTEs, moderate complexity\n• HIGH (51-100): Many joins/subqueries, consider refactoring\n• SUPER HIGH (101+): Severe complexity risk, strong refactoring recommended',
+    'Instead of static thresholds, complexity levels are dynamically adapted based on your own workload\'s median score (MEDIAN):\n\n• LOW: Score ≤ 50% of MEDIAN\n• MEDIUM: 50% < Score ≤ 100% of MEDIAN\n• HIGH: 100% < Score ≤ 200% of MEDIAN\n• SUPER HIGH: Score > 200% of MEDIAN\n\nThis relative classification ensures levels remain meaningful as your project evolves.',
 
   guidelineComplexityEvalStep4Label: 'Linting & Anti-Patterns',
   guidelineComplexityEvalStep4Desc:

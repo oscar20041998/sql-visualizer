@@ -802,9 +802,9 @@ const vi = {
   guidelineComplexityEvalStep2Desc:
     'Các cấu trúc SQL khác nhau có trọng số khác nhau:\n\n• Mệnh đề cơ sở (FROM=1, WHERE=2, DISTINCT=3)\n• JOIN (INNER=4, LEFT=5, FULL OUTER=10, CROSS=10)\n• Tổng hợp (GROUP BY=4, HAVING=4)\n• Hàm cửa sổ (OVER=6, PARTITION BY=3)\n• Nâng cao (CTE=8, Truy vấn con lồng nhau=12)\n\nCác cấu trúc phức tạp hơn đóng góp nhiều điểm hơn.',
 
-  guidelineComplexityEvalStep3Label: 'Mức độ phức tạp',
+  guidelineComplexityEvalStep3Label: 'Phân loại mức độ động (Sử dụng trung vị - MEDIAN)',
   guidelineComplexityEvalStep3Desc:
-    'Điểm số ánh xạ tới các mức độ phức tạp:\n\n• THẤP (0-20): Truy vấn đơn giản, ít JOIN, logic rõ ràng\n• TRUNG BÌNH (21-50): Nhiều JOIN hoặc CTE, độ phức tạp vừa phải\n• CAO (51-100): Nhiều JOIN/truy vấn con, xem xét tái cấu trúc\n• RẤT CAO (101+): Rủi ro độ phức tạp nghiêm trọng, khuyến nghị mạnh mẽ tái cấu trúc',
+    'Thay vì các ngưỡng tĩnh, mức độ phức tạp được đánh giá động dựa trên điểm số trung vị (MEDIAN) từ lịch sử của chính bạn:\n\n• THẤP: Điểm ≤ 50% MEDIAN\n• TRUNG BÌNH: 50% < Điểm ≤ 100% MEDIAN\n• CAO: 100% < Điểm ≤ 200% MEDIAN\n• RẤT CAO: Điểm > 200% MEDIAN\n\nPhân loại tương đối này đảm bảo các mức độ luôn có ý nghĩa khi dự án của bạn phát triển.',
 
   guidelineComplexityEvalStep4Label: 'Linting & Mẫu chống',
   guidelineComplexityEvalStep4Desc:

@@ -347,7 +347,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
 function SectionCard({ section }: { section: Section }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const Icon = section.icon;
 
   return (
