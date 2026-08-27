@@ -410,9 +410,9 @@ const vi = {
   aiConfigUpToDate: 'Đã lưu tất cả thay đổi',
   aiModelId: 'Model ID',
   aiModelIdHint: 'Định danh mô hình sử dụng, ví dụ gpt-4o hoặc claude-3-5-sonnet',
-  aiTemperature: 'Temperature',
+  aiTemperature: 'Độ ngẫu nhiên (temperature)',
   aiTemperatureHint: 'Kiểm soát mức độ ngẫu nhiên — giá trị thấp cho kết quả ổn định hơn',
-  aiSystemPrompt: 'System Prompt',
+  aiSystemPrompt: 'Hướng dẫn mặc định cho cách AI',
   aiSystemPromptHint: 'Hướng dẫn mặc định cho cách AI diễn giải truy vấn SQL',
   aiSystemPromptPlaceholder: 'Ví dụ: Diễn giải truy vấn SQL rõ ràng, súc tích cho lập trình viên junior...',
 
@@ -1074,7 +1074,22 @@ const vi = {
   smartEditorNoChangesSummary: 'Không có thay đổi từ gốc',
   copiedToClipboard: 'Đã sao chép vào bộ nhớ tạm',
 
-  // Guideline - Advanced Features Section
+  // Guideline - AI Speech Section
+  guidelineAiSpeechTitle: 'AI Chuyển văn bản thành giọng nói',
+  guidelineAiSpeechSubtitle: 'Đọc to các thông tin tối ưu hóa và diễn giải truy vấn',
+  guidelineAiSpeechStep1Label: 'Tìm các điều khiển âm thanh',
+  guidelineAiSpeechStep1Desc:
+    'Tìm biểu tượng âm thanh hoặc nút "Đọc to" trong kết quả tối ưu hóa của Smart SQL Editor hoặc bảng AI Explainer.',
+  guidelineAiSpeechStep2Label: 'Phát âm thanh',
+  guidelineAiSpeechStep2Desc:
+    'Nhấp vào "Đọc kết quả tối ưu hóa" hoặc biểu tượng âm thanh để nghe các thông tin do AI tạo ra được chuyển đổi thành ngôn ngữ nói.',
+  guidelineAiSpeechStep3Label: 'Dừng âm thanh',
+  guidelineAiSpeechStep3Desc:
+    'Bạn có thể dừng phát âm thanh bất cứ lúc nào bằng cách nhấp "Dừng đọc" hoặc nút dừng.',
+  guidelineAiSpeechTip1:
+    'Tính năng này sử dụng chuyển văn bản thành giọng nói trên trình duyệt cho các diễn giải cục bộ, đảm bảo dữ liệu của bạn được bảo mật.',
+  guidelineAiSpeechTip2:
+    'Đối với các diễn giải dựa trên đám mây, chức năng đọc to có thể sử dụng các API bên ngoài để tạo âm thanh chất lượng cao.',
   guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',
   guidelineAdvancedFeaturesSubtitle: 'Phân trang, tìm kiếm và khả năng tùy chỉnh mới',
   guidelineAdvancedFeaturesStep1Label: 'Bảng trường truy vấn chính với phân trang',
@@ -1315,6 +1330,9 @@ const vi = {
   docsConsultantSuggestion1: 'Làm sao để giảm điểm phức tạp HIGH?',
   docsConsultantSuggestion2: 'Bảng JOIN Analysis cho tôi biết điều gì?',
   docsConsultantSuggestion3: 'Làm sao để xuất biểu đồ Mermaid?',
+  docsConsultantSuggestion4: 'Cách phân tích SQL?',
+  docsConsultantSuggestion5: 'Giải thích độ phức tạp của các JOIN',
+  aiAssistantTitle: 'Trợ lý AI',
 } as const;
 
 export default vi;

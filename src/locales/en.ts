@@ -417,7 +417,7 @@ const en = {
   aiModelIdHint: 'Identifier of the model to use, e.g. gpt-4o or claude-3-5-sonnet',
   aiTemperature: 'Temperature',
   aiTemperatureHint: 'Controls randomness — lower values are more deterministic',
-  aiSystemPrompt: 'System Prompt',
+  aiSystemPrompt: 'System Prompt Instructions for AI',
   aiSystemPromptHint: 'Default instructions guiding how the AI explains SQL queries',
   aiSystemPromptPlaceholder: 'e.g. Explain SQL queries clearly and concisely for a junior developer...',
 
@@ -1078,7 +1078,22 @@ const en = {
   smartEditorNoChangesSummary: 'No changes from original',
   copiedToClipboard: 'Copied to clipboard',
 
-  // Guideline - Advanced Features Section
+  // Guideline - AI Speech Section
+  guidelineAiSpeechTitle: 'AI Text-to-Speech',
+  guidelineAiSpeechSubtitle: 'Read optimization insights and query explanations aloud',
+  guidelineAiSpeechStep1Label: 'Locate the audio controls',
+  guidelineAiSpeechStep1Desc:
+    'Look for the audio icon or "Read aloud" buttons in the Smart SQL Editor optimization results or AI Explainer panel.',
+  guidelineAiSpeechStep2Label: 'Play the audio',
+  guidelineAiSpeechStep2Desc:
+    'Click "Read optimization aloud" or the sound icon to hear the AI-generated insights converted into spoken language.',
+  guidelineAiSpeechStep3Label: 'Stop the audio',
+  guidelineAiSpeechStep3Desc:
+    'You can stop the audio playback at any time by clicking "Stop speech" or the stop button.',
+  guidelineAiSpeechTip1:
+    'This feature uses browser-based text-to-speech for local explanations, ensuring your data stays private.',
+  guidelineAiSpeechTip2:
+    'For cloud-based explanations, read-aloud functionality might use external APIs to generate high-quality audio.',
   guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',
   guidelineAdvancedFeaturesSubtitle: 'New pagination, search, and customization capabilities',
   guidelineAdvancedFeaturesStep1Label: 'Main Query Fields Table with Pagination',
@@ -1318,6 +1333,9 @@ const en = {
   docsConsultantSuggestion1: 'How do I reduce a HIGH complexity score?',
   docsConsultantSuggestion2: 'What does the JOIN Analysis panel show me?',
   docsConsultantSuggestion3: 'How do I export a Mermaid diagram?',
+  docsConsultantSuggestion4: 'How to analyze SQL?',
+  docsConsultantSuggestion5: 'Explain JOINs complexity',
+  aiAssistantTitle: 'AI Assistant',
 } as const;
 
 export default en;
