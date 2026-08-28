@@ -17,18 +17,37 @@ import { toast } from 'sonner';
 import { getT } from '@/lib/i18n';
 import type { NestedSubquery } from '@/lib/sql/sqlAnalyzer';
 
-function DepthBadge({ depth }: { depth: number }) {
-  const colors = [
-    'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    'bg-violet-500/10 text-violet-500 border-violet-500/20',
-    'bg-rose-500/10 text-rose-500 border-rose-500/20',
-    'bg-orange-500/10 text-orange-500 border-orange-500/20',
-    'bg-pink-500/10 text-pink-500 border-pink-500/20',
+function DepthBadge({ depth, t }: { depth: number; t: ReturnType<typeof getT> }) {
+  const levels = [
+    { label: t.metricsLevelLabel, color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+    { label: t.metricsLevelLabel, color: 'bg-violet-500/10 text-violet-500 border-violet-500/20' },
+    { label: t.metricsLevelLabel, color: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
+    { label: t.metricsLevelLabel, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+    { label: t.metricsLevelLabel, color: 'bg-pink-500/10 text-pink-500 border-pink-500/20' },
   ];
-  const cls = colors[Math.min(depth - 1, colors.length - 1)];
+  const level = levels[Math.min(depth - 1, levels.length - 1)];
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${cls} font-mono`}>
-      L{depth}
+    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${level.color} font-mono`}>
+      {level.label} {depth}
+    </span>
+  );
+}
+
+function SubqueryTypeBadge({ type, t }: { type: string | undefined; t: ReturnType<typeof getT> }) {
+  const typeMap: Record<string, string> = {
+    SCALAR: t.subqueryTypeScalar,
+    UNKNOWN: t.subqueryTypeUnknown,
+    DERIVED: t.subqueryTypeDerived,
+    EXISTS: t.subqueryTypeExists,
+    IN: t.subqueryTypeIn,
+    FROM: t.subqueryTypeFrom,
+    WHERE: t.subqueryTypeWhere,
+    JOIN: t.subqueryTypeJoin,
+  };
+  const label = type && typeMap[type] ? typeMap[type] : type || t.subqueryTypeUnknown;
+  return (
+    <span className="px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-600 text-[10px] font-medium border border-slate-500/20">
+      {label}
     </span>
   );
 }
@@ -69,7 +88,7 @@ export default function NestedSubquerySection({
             {subqueries.length}
           </span>
           {maxDepth > 0 && (
-            <span className="text-[10px] text-muted-foreground">· max depth L{maxDepth}</span>
+            <span className="text-[10px] text-muted-foreground">· {t.metricsMaxStatus} {t.metricsLevelLabel} {maxDepth}</span>
           )}
         </div>
       </div>
@@ -100,7 +119,8 @@ export default function NestedSubquerySection({
                 </div>
 
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <DepthBadge depth={sub.depth} />
+                  <DepthBadge depth={sub.depth} t={t} />
+                  <SubqueryTypeBadge type={sub.type} t={t} />
                   <span className="text-xs font-semibold text-foreground font-mono truncate">
                     {t.cteSubqueryPrefix} #{idx + 1}
                   </span>
@@ -139,7 +159,7 @@ export default function NestedSubquerySection({
                     <span className="flex items-center gap-1">
                       <Zap size={10} className="text-violet-500" />
                       <span className="font-semibold text-foreground">{t.cteSubqueryDepth}:</span>
-                      <DepthBadge depth={sub.depth} />
+                      <DepthBadge depth={sub.depth} t={t} />
                     </span>
                     <span className="flex items-center gap-1">
                       <Code2 size={10} />

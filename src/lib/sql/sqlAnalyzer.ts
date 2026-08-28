@@ -221,7 +221,11 @@ export async function analyzeSql(
   const joins = buildGraphJoins(extractedJoins, tables, ctes);
   // Structural metrics must be based on SQL joins only (exclude graph-only RELATES TO edges).
   const structuralReport = buildStructuralAnalysisReport(cleaned, sql, ctes, extractedJoins);
-  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport);
+  
+  // Itemized detail behind the metric-card counts, for the detail modal
+  const metricDetails = buildMetricDetails(cleaned, ctes);
+
+  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport, metricDetails);
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
@@ -237,9 +241,6 @@ export async function analyzeSql(
 
   // Analyze all joins with deep analysis
   const joinAnalysisDetails = analyzeAllJoins(cleaned, tables);
-
-  // Itemized detail behind the metric-card counts, for the detail modal
-  const metricDetails = buildMetricDetails(cleaned, ctes);
 
   return {
     tables,
@@ -1199,17 +1200,17 @@ function computeMetrics(
   sql: string,
   ctes: CTE[],
   tables: TableNode[],
-  report: StructuralAnalysisReport
+  report: StructuralAnalysisReport,
+  metricDetails: MetricDetailsReport
 ): SqlMetrics {
-  const upper = sql.toUpperCase();
   return {
-    windowFunctions: countPattern(upper, /\bOVER\s*\(/g),
-    groupBy: countPattern(upper, /\bGROUP\s+BY\b/g),
-    orderBy: countPattern(upper, /\bORDER\s+BY\b/g),
-    distinct: countPattern(upper, /\bDISTINCT\b/g),
-    having: countPattern(upper, /\bHAVING\b/g),
-    where: countPattern(upper, /\bWHERE\b/g),
-    subqueryDepth: computeSubqueryDepth(sql),
+    windowFunctions: metricDetails.windowFunctions.length,
+    groupBy: metricDetails.groupBy.length,
+    orderBy: metricDetails.orderBy.length,
+    distinct: metricDetails.distinct.length,
+    having: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified: use report's conditionCount if available or logic to split
+    where: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified
+    subqueryDepth: computeSubqueryDepth(report.subqueries || []),
     subqueryCount: report.subqueryCount,
     conditionCount: report.conditionCount,
     operationAndFunctionCount: report.operationAndFunctionCount,
@@ -1843,16 +1844,9 @@ function buildMetricDetails(cleanedSql: string, ctes: CTE[]): MetricDetailsRepor
   };
 }
 
-function computeSubqueryDepth(sql: string): number {
-  let depth = 0;
-  let maxDepth = 0;
-  for (const ch of sql) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    if (depth > maxDepth) maxDepth = depth;
-  }
-  // Rough heuristic: subquery depth ~ max paren depth / 2
-  return Math.max(0, Math.floor(maxDepth / 2) - 1);
+function computeSubqueryDepth(subqueries: NestedSubquery[]): number {
+  if (!subqueries || subqueries.length === 0) return 0;
+  return Math.max(...subqueries.map((sq) => sq.depth));
 }
 
 /**
