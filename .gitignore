@@ -44,3 +44,4 @@ turbo/
 
 # Optional: if using environment variables
 .env
+docs/knowledge/*.pdf
