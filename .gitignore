@@ -41,3 +41,7 @@ jest-test-results.json
 
 # Optional: if using TurboRepo or monorepo
 turbo/
+
+# Optional: if using environment variables
+.env
+docs/knowledge/*.pdf

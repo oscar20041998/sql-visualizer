@@ -25,7 +25,6 @@ import {
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
-import DocsConsultantChat from './DocsConsultantChat';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Section {
@@ -207,6 +206,28 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
       tips: [{ text: t.guidelineAiExplainerTip1 }, { text: t.guidelineAiExplainerTip2 }],
     },
     {
+      id: 'ai-speech',
+      icon: Layers,
+      color: '#f472b6',
+      title: t.guidelineAiSpeechTitle,
+      subtitle: t.guidelineAiSpeechSubtitle,
+      steps: [
+        {
+          label: t.guidelineAiSpeechStep1Label,
+          desc: t.guidelineAiSpeechStep1Desc,
+        },
+        {
+          label: t.guidelineAiSpeechStep2Label,
+          desc: t.guidelineAiSpeechStep2Desc,
+        },
+        {
+          label: t.guidelineAiSpeechStep3Label,
+          desc: t.guidelineAiSpeechStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineAiSpeechTip1 }, { text: t.guidelineAiSpeechTip2 }],
+    },
+    {
       id: 'tools',
       icon: Zap,
       color: '#ef4444',
@@ -326,7 +347,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
 function SectionCard({ section }: { section: Section }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const Icon = section.icon;
 
   return (
@@ -510,9 +531,6 @@ export default function GuidelineContent() {
           </p>
         </div>
       </div>
-
-      {/* Docs Consultant — RAG chat grounded in the feature docs below */}
-      <DocsConsultantChat t={t} config={settings.aiConfig} locale={settings.locale} />
 
       {/* Feature Sections */}
       <div className="space-y-4">
