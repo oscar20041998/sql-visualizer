@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { getT } from '@/lib/i18n';
 import type { NestedSubquery } from '@/lib/sql/sqlAnalyzer';
+import { useGoToSqlLine } from '@/lib/useGoToSqlLine';
 
 function DepthBadge({ depth, t }: { depth: number; t: ReturnType<typeof getT> }) {
   const levels = [
@@ -64,6 +65,7 @@ export default function NestedSubquerySection({
   t,
 }: NestedSubquerySectionProps) {
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
+  const goToSqlLine = useGoToSqlLine();
 
   const toggleSub = (id: string) => {
     setExpandedSubs((prev) => {
@@ -144,6 +146,16 @@ export default function NestedSubquerySection({
                   <span className="text-[10px] text-muted-foreground font-mono">
                     {sub.lineCount}L
                   </span>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      goToSqlLine(sub.line);
+                    }}
+                    title={t.metricsDetailGoToLine}
+                    className="flex items-center gap-1 text-[10px] font-mono text-primary hover:underline"
+                  >
+                    #{sub.line}
+                  </button>
                   {expandedSubs.has(sub.id) ? (
                     <ChevronDown size={13} className="text-muted-foreground" />
                   ) : (
@@ -226,16 +238,25 @@ export default function NestedSubquerySection({
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                         SQL
                       </span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(sub.body);
-                          toast.success(t.copied);
-                        }}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      >
-                        <Copy size={9} />
-                        {t.copySQL}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => goToSqlLine(sub.line)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <ArrowRight size={9} />
+                          {t.metricsDetailGoToLine}
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(sub.body);
+                            toast.success(t.copied);
+                          }}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Copy size={9} />
+                          {t.copySQL}
+                        </button>
+                      </div>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 overflow-auto max-h-36 scrollbar-thin">
                       <pre className="text-xs font-mono text-foreground whitespace-pre-wrap leading-relaxed">

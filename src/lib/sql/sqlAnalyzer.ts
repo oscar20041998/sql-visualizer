@@ -60,6 +60,8 @@ export interface NestedSubquery {
   tables: string[];
   fields: string[];
   lineCount: number;
+  /** 1-based line number (within AnalysisResult.rawSql) where this subquery starts — lets the UI jump to it in the editor. */
+  line: number;
   hasJoins: boolean;
   hasAggregation: boolean;
   context: string; // surrounding keyword context (WHERE, FROM, SELECT, etc.)
@@ -100,6 +102,11 @@ export interface SqlMetrics {
   operationAndFunctionCount: number;
   lineCount: number;
   joinCount: number;
+  /** Canonical relationship count for the Metrics Dashboard and Graph Visualizer: every edge in
+   * `AnalysisResult.joins` (table–table + table–CTE JOINs plus inferred CTE–CTE dependencies),
+   * deduped so the same pair is never counted twice. Keep both UIs on this field so their
+   * displayed counts always match. */
+  totalJoinCount: number;
   cteCount: number;
   tableCount: number;
   selectFields: number;
@@ -152,6 +159,8 @@ export interface MetricDetailItem {
   snippet: string;
   clause: string;
   scope: string;
+  /** 1-based line number (within AnalysisResult.rawSql) where this item starts — lets the UI jump to it in the editor. */
+  line: number;
 }
 
 export interface MetricDetailsReport {
@@ -225,7 +234,7 @@ export async function analyzeSql(
   // Itemized detail behind the metric-card counts, for the detail modal
   const metricDetails = buildMetricDetails(cleaned, ctes);
 
-  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport, metricDetails);
+  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport, metricDetails, joins.length);
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
@@ -321,8 +330,10 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
     return node;
   }
 
-  const existingEdgeKeys = new Set<string>(
-    joins.map((join) => `${join.source}->${join.target}->${join.joinType}`)
+  // Any edge (of any join type, either direction) already represents this pair's relationship —
+  // used to avoid adding a duplicate "RELATES TO" edge when a real JOIN already connects two CTEs.
+  const connectedPairs = new Set<string>(
+    joins.flatMap((join) => [`${join.source}->${join.target}`, `${join.target}->${join.source}`])
   );
 
   ctes.forEach((cte) => {
@@ -334,8 +345,8 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
       if (!cteNames.has(name.toLowerCase())) return;
 
       const target = ensureNode(name);
-      const edgeKey = `${source.id}->${target.id}->RELATES TO`;
-      if (existingEdgeKeys.has(edgeKey)) return;
+      const pairKey = `${source.id}->${target.id}`;
+      if (connectedPairs.has(pairKey)) return;
 
       joins.push({
         id: `rel-${source.id}-${target.id}`,
@@ -344,7 +355,8 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
         joinType: 'RELATES TO',
         condition: '',
       });
-      existingEdgeKeys.add(edgeKey);
+      connectedPairs.add(pairKey);
+      connectedPairs.add(`${target.id}->${source.id}`);
     });
   });
 
@@ -777,7 +789,8 @@ function extractCTEs(sql: string): CTE[] {
     const isUnused = !usedCtes.has(normalizedName);
 
     // Extract nested subqueries within this CTE body
-    const nestedSubqueries = extractNestedSubqueries(body, `cte-${i}`);
+    const cteBodyOffset = Math.max(0, sql.indexOf(body));
+    const nestedSubqueries = extractNestedSubqueries(body, `cte-${i}`, sql, cteBodyOffset);
 
     ctes.push({
       id: `cte-${i}`,
@@ -882,59 +895,38 @@ export function extractMainQuery(sql: string): string {
   return sql.slice(pos).trim();
 }
 
-function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
+/**
+ * Finds every SELECT nested inside parentheses in `sql` (a CTE body or the main query), computing
+ * a standard "subquery nesting depth" \u2014 the number of SELECT-boundary parens crossed, not the raw
+ * paren depth. A subquery can be wrapped in ordinary grouping/function-call parens (e.g.
+ * `COALESCE((SELECT x FROM t), 0)` or a redundant double-parenthesised `((SELECT ...))`); those
+ * outer parens are still scanned for nested SELECTs, they just do not themselves add a depth
+ * level, matching how query analyzers (e.g. EXPLAIN plan nesting, SQLFluff) count only actual
+ * derived-table/subquery boundaries.
+ *
+ * `cleanedSql` + `baseOffset` (the offset of `sql` within `cleanedSql`) let every discovered
+ * subquery report a real `line` number the UI can jump to in the editor.
+ */
+function extractNestedSubqueries(
+  sql: string,
+  cteId: string,
+  cleanedSql: string,
+  baseOffset: number
+): NestedSubquery[] {
   const results: NestedSubquery[] = [];
 
-  // We walk through the SQL character by character, tracking paren depth.
-  // When we encounter a SELECT inside parentheses, we capture it as a subquery.
-  // We skip string literals and the outermost level (depth 0).
-
-  const len = sql.length;
-  let i = 0;
-  let globalDepth = 0; // paren depth relative to the whole body
-
-  // Helper: skip a quoted string starting at position i, return end position
-  function skipString(pos: number, quote: string): number {
-    let j = pos + 1;
-    while (j < len) {
-      if (sql[j] === quote && sql[j + 1] === quote) {
-        j += 2; // escaped quote ''
-      } else if (sql[j] === quote) {
-        return j + 1;
-      } else {
-        j++;
-      }
-    }
-    return j;
-  }
-
-  // Helper: extract the body of a parenthesised block starting just after '('
-  function extractParenBlock(startPos: number): { body: string; endPos: number } {
-    let depth = 1;
-    let j = startPos;
-    while (j < len && depth > 0) {
-      const ch = sql[j];
-      if (ch === "'" || ch === '"' || ch === '`') {
-        j = skipString(j, ch);
-        continue;
-      }
-      if (ch === '(') depth++;
-      else if (ch === ')') depth--;
-      if (depth > 0) j++;
-      else break;
-    }
-    return { body: sql.slice(startPos, j).trim(), endPos: j };
-  }
-
-  // Determine context keyword before a '(' that contains SELECT
-  function getContext(pos: number): string {
-    const before = sql.slice(Math.max(0, pos - 60), pos).trimEnd();
+  // Determine context keyword before a '(' that contains SELECT. `absolutePos` is relative to
+  // the top-level `sql` param (not whichever nested `text` substring is currently being scanned).
+  function getContext(absolutePos: number): string {
+    const before = sql.slice(Math.max(0, absolutePos - 60), absolutePos).trimEnd();
     const kw = before.match(SQL_REGEX_PATTERNS.CONTEXT_KEYWORD);
     return kw ? kw[1].replace(/\s+/g, ' ').toUpperCase() : 'UNKNOWN';
   }
 
-  // Recursive scanner: scan `text` for subqueries, treating them as being at `baseDepth`
-  function scan(text: string, baseDepth: number) {
+  // Recursive scanner: scan `text` for subqueries, treating them as being at `baseDepth`.
+  // `textOffset` is `text`'s start position relative to the top-level `sql` param, so absolute
+  // positions (for context lookup and line numbers) can be recovered at any recursion depth.
+  function scan(text: string, baseDepth: number, textOffset: number) {
     const tLen = text.length;
     let pos = 0;
 
@@ -960,9 +952,8 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
       }
 
       if (ch === '(') {
-        // Peek inside: is there a SELECT keyword at the start of this block?
-        const innerStart = pos + 1;
         // Find the matching close paren
+        const innerStart = pos + 1;
         let depth = 1;
         let j = innerStart;
         while (j < tLen && depth > 0) {
@@ -988,18 +979,28 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
           if (depth > 0) j++;
           else break;
         }
-        const innerBody = text.slice(innerStart, j).trim();
 
-        // Check if this parenthesised block is a subquery (starts with SELECT)
-        if (/^\s*SELECT\b/i.test(innerBody)) {
+        const rawInner = text.slice(innerStart, j);
+        const innerBody = rawInner.trim();
+        // Offset of innerBody's first real character, relative to `text` (accounts for the
+        // whitespace `.trim()` drops so line numbers keep pointing at the actual content).
+        const innerBodyOffset = innerStart + (rawInner.length - rawInner.trimStart().length);
+        const nextTextOffset = textOffset + innerBodyOffset;
+
+        // Check if this parenthesised block is itself a subquery (starts with SELECT).
+        const isSubquery = /^SELECT\b/i.test(innerBody);
+
+        if (isSubquery) {
           const currentDepth = baseDepth + 1;
-          const context = getContext(pos);
+          const absolutePos = textOffset + pos;
+          const context = getContext(absolutePos);
           const subTables = extractTables(innerBody).map((t) => t.name);
           const subFieldsWithAlias = extractSelectFields(innerBody);
           const subFields = subFieldsWithAlias.map((f) => f.field); // Convert objects to strings for NestedSubquery
           const subLines = innerBody.split('\n').length;
           const hasJoins = /\bJOIN\b/i.test(innerBody);
           const hasAggregation = /\b(COUNT|SUM|AVG|MIN|MAX|GROUP\s+BY)\b/i.test(innerBody);
+          const line = lineNumberAt(cleanedSql, baseOffset + nextTextOffset);
 
           results.push({
             id: `${cteId}-sub-${results.length}`,
@@ -1008,13 +1009,19 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
             tables: subTables,
             fields: subFields,
             lineCount: subLines,
+            line,
             hasJoins,
             hasAggregation,
             context,
           });
 
-          // Recurse into this subquery to find deeper nesting
-          scan(innerBody, currentDepth);
+          // Recurse into this subquery to find deeper nesting.
+          scan(innerBody, currentDepth, nextTextOffset);
+        } else {
+          // Not itself a subquery (e.g. a function call or grouping parens), but it may still
+          // contain one, e.g. COALESCE((SELECT x FROM t), 0) or a redundant ((SELECT ...)).
+          // Recurse without incrementing depth so it is not counted as an extra nesting level.
+          scan(innerBody, baseDepth, nextTextOffset);
         }
 
         pos = j + 1; // skip past the closing ')'
@@ -1025,7 +1032,7 @@ function extractNestedSubqueries(sql: string, cteId: string): NestedSubquery[] {
     }
   }
 
-  scan(sql, 0);
+  scan(sql, 0, 0);
 
   return results;
 }
@@ -1201,7 +1208,8 @@ function computeMetrics(
   ctes: CTE[],
   tables: TableNode[],
   report: StructuralAnalysisReport,
-  metricDetails: MetricDetailsReport
+  metricDetails: MetricDetailsReport,
+  totalJoinCount: number
 ): SqlMetrics {
   return {
     windowFunctions: metricDetails.windowFunctions.length,
@@ -1216,6 +1224,7 @@ function computeMetrics(
     operationAndFunctionCount: report.operationAndFunctionCount,
     lineCount: report.lineCount,
     joinCount: report.joinCount,
+    totalJoinCount,
     cteCount: ctes.length,
     tableCount: tables.length,
     selectFields: report.allFieldsCount,
@@ -1445,11 +1454,14 @@ function buildStructuralAnalysisReport(
     (field) => field.expression.length > 0
   );
 
-  // Extract all nested subqueries from main query and CTEs
-  const mainQuerySubqueries = extractNestedSubqueries(mainQuery, 'main');
+  // Extract all nested subqueries from main query and CTEs. Offsets are resolved against
+  // `cleanedSql` so every subquery can report a real line number the UI can jump to.
+  const mainQueryOffset = Math.max(0, cleanedSql.lastIndexOf(mainQuery));
+  const mainQuerySubqueries = extractNestedSubqueries(mainQuery, 'main', cleanedSql, mainQueryOffset);
   const cteSubqueries: NestedSubquery[] = [];
   ctes.forEach((cte) => {
-    cteSubqueries.push(...extractNestedSubqueries(cte.body, cte.id));
+    const cteBodyOffset = Math.max(0, cleanedSql.indexOf(cte.body));
+    cteSubqueries.push(...extractNestedSubqueries(cte.body, cte.id, cleanedSql, cteBodyOffset));
   });
 
   const allSubqueries = [...mainQuerySubqueries, ...cteSubqueries];
@@ -1503,6 +1515,27 @@ function resolveScope(sql: string, ctes: CTE[], index: number): string {
     }
   }
   return 'Main Query';
+}
+
+/** 1-based line number of `index` within `text` \u2014 used to power "jump to line in editor" links. */
+function lineNumberAt(text: string, index: number): number {
+  const clamped = Math.max(0, Math.min(index, text.length));
+  let line = 1;
+  for (let i = 0; i < clamped; i++) {
+    if (text.charCodeAt(i) === 10 /* \n */) line++;
+  }
+  return line;
+}
+
+/** Locates the offset of each (already-trimmed) part within `body`, in order, for per-item line numbers. */
+function locatePartOffsets(body: string, parts: string[]): number[] {
+  let cursor = 0;
+  return parts.map((part) => {
+    const idx = part ? body.indexOf(part, cursor) : -1;
+    const offset = idx === -1 ? cursor : idx;
+    cursor = offset + part.length;
+    return offset;
+  });
 }
 
 function skipQuotedLiteral(sql: string, j: number): number {
@@ -1584,16 +1617,17 @@ function extractGroupOrOrderItems(
   let idx = 0;
 
   bodies.forEach((occurrence) => {
-    splitTopLevelComma(occurrence.body)
-      .filter((expr) => expr.length > 0)
-      .forEach((expr) => {
-        items.push({
-          id: `${idPrefix}-${idx++}`,
-          snippet: expr,
-          clause: clauseLabel,
-          scope: resolveScope(sql, ctes, occurrence.start),
-        });
+    const parts = splitTopLevelComma(occurrence.body).filter((expr) => expr.length > 0);
+    const offsets = locatePartOffsets(occurrence.body, parts);
+    parts.forEach((expr, partIdx) => {
+      items.push({
+        id: `${idPrefix}-${idx++}`,
+        snippet: expr,
+        clause: clauseLabel,
+        scope: resolveScope(sql, ctes, occurrence.start),
+        line: lineNumberAt(sql, occurrence.start + offsets[partIdx]),
       });
+    });
   });
 
   return items;
@@ -1614,6 +1648,7 @@ function extractSingleBodyItems(
       snippet: occurrence.body,
       clause: clauseLabel,
       scope: resolveScope(sql, ctes, occurrence.start),
+      line: lineNumberAt(sql, occurrence.start),
     }));
 }
 
@@ -1685,6 +1720,7 @@ function extractWindowFunctionItems(sql: string, ctes: CTE[]): MetricDetailItem[
       snippet: sql.slice(funcStart, j).trim(),
       clause: 'Window Function',
       scope: resolveScope(sql, ctes, overStart),
+      line: lineNumberAt(sql, funcStart),
     });
   }
 
@@ -1730,6 +1766,7 @@ function extractDistinctItems(sql: string, ctes: CTE[]): MetricDetailItem[] {
       snippet: trailing ? `DISTINCT ${trailing}` : 'DISTINCT',
       clause: 'DISTINCT',
       scope: resolveScope(sql, ctes, start),
+      line: lineNumberAt(sql, start),
     });
   }
 
@@ -1783,6 +1820,7 @@ function extractFunctionCallItems(sql: string, ctes: CTE[]): MetricDetailItem[] 
       snippet: sql.slice(match.index, j).trim(),
       clause: 'Function Call',
       scope: resolveScope(sql, ctes, match.index),
+      line: lineNumberAt(sql, match.index),
     });
   }
 
@@ -1832,6 +1870,7 @@ function buildMetricDetails(cleanedSql: string, ctes: CTE[]): MetricDetailsRepor
     snippet: item.snippet,
     clause: 'CASE WHEN',
     scope: resolveScope(cleanedSql, ctes, item.start),
+    line: lineNumberAt(cleanedSql, item.start),
   }));
 
   return {

@@ -211,6 +211,8 @@ const en = {
   metricsDetailSnippetHeader: 'Snippet',
   metricsDetailClauseHeader: 'Clause',
   metricsDetailScopeHeader: 'Scope',
+  metricsDetailLineHeader: 'Line',
+  metricsDetailGoToLine: 'Go to line',
   metricsDetailSearchPlaceholder: 'Search snippet, clause, scope...',
   metricsDetailNoResults: 'No items match your search.',
   metricsDetailItemsLabel: 'items',
@@ -315,6 +317,14 @@ const en = {
   cteSubqueryHasJoins: 'Has JOINs',
   cteSubqueryHasAggregation: 'Has Aggregation',
   cteSubqueryCount: 'Subqueries',
+  subqueryTypeScalar: 'Scalar',
+  subqueryTypeUnknown: 'Unknown',
+  subqueryTypeDerived: 'Derived',
+  subqueryTypeExists: 'Exists',
+  subqueryTypeIn: 'In',
+  subqueryTypeFrom: 'From',
+  subqueryTypeWhere: 'Where',
+  subqueryTypeJoin: 'Join',
 
   // CTE Analysis - Additional missing translations
   cteOriginBadgeCTE: 'CTE',

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import type { MetricDetailItem } from '@/lib/sql/sqlAnalyzer';
+import { useGoToSqlLine } from '@/lib/useGoToSqlLine';
 
 interface MetricDetailDrawerProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export default function MetricDetailDrawer({
 }: MetricDetailDrawerProps) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const goToSqlLine = useGoToSqlLine();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -165,8 +167,11 @@ export default function MetricDetailDrawer({
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-24 border-r border-border/30">
                     {t.metricsDetailClauseHeader}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-24">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-24 border-r border-border/30">
                     {t.metricsDetailScopeHeader}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-16">
+                    {t.metricsDetailLineHeader}
                   </th>
                 </tr>
               </thead>
@@ -189,11 +194,24 @@ export default function MetricDetailDrawer({
                     <td className="px-4 py-3">
                       <span className="text-xs text-muted-foreground">{item.scope}</span>
                     </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => {
+                          onClose();
+                          goToSqlLine(item.line);
+                        }}
+                        title={t.metricsDetailGoToLine}
+                        className="flex items-center gap-1 text-xs font-mono text-primary hover:underline"
+                      >
+                        #{item.line}
+                        <ArrowRight size={10} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {paginatedItems.length === 0 && (
                   <tr>
-                    <td className="px-4 py-4 text-center text-muted-foreground" colSpan={4}>
+                    <td className="px-4 py-4 text-center text-muted-foreground" colSpan={5}>
                       {t.metricsDetailNoResults}
                     </td>
                   </tr>

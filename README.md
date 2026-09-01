@@ -9,9 +9,22 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **Query Input** - Paste SQL or import MyBatis XML with multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle)
 - **Relationship Graph Visualizer** - Interactive visualization of table relationships and JOIN connections with color-coded edges and multiple layout options
 - **JOIN Analysis** - Deep-dive analysis of JOIN conditions with complexity breakdown, column/operator detection, and multi-dialect support
-- **Metrics Dashboard** - Real-time complexity scoring (0-100) with detailed breakdowns of keywords, SELECT fields, JOINs, CTEs, subqueries, and window functions
-- **CTE Analysgit is** - Explore Common Table Expressions and field origins with visual tree structure
-- **Smart SQL Editor** - Multi-dialect query editor with syntax awareness and real-time analysis
+- **Metrics Dashboard** - Real-time complexity scoring (0-100) with detailed breakdowns of keywords, SELECT fields, JOINs, CTEs, subqueries, and window functions. Every metric card and subquery entry shows the source line number and can jump straight to that line in the Smart SQL Editor
+- **CTE Analysis** - Explore Common Table Expressions and field origins with visual tree structure, including per-CTE nested subquery detection with accurate nesting depth
+- **Smart SQL Editor** - Multi-dialect Monaco-based query editor with formatting, original-vs-edited diff view, and real-time analysis
+
+### AI-Powered Features
+
+- **AI SQL Explainer** - Turns a query into a structured, plain-language explanation (objective, filters, output, referenced tables)
+- **AI Optimize** - Streams optimization suggestions and a rewritten query, grounded in the local parser's verified facts (tables, joins, CTE graph)
+- **Docs Consultant Chat** - RAG-style chat over the app's own feature docs (embeds the question, retrieves the closest doc chunks, answers with citations)
+- **Query History with Semantic Search** - Every analyzed query is saved (server-side Excel-backed store) and searchable by meaning, not just substring, via embeddings
+- **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini) proxied through the app server so credentials never reach the browser
+- **Text-to-Speech** - Reads AI explanations/optimization notes aloud (browser speech synthesis, with optional Piper local voices)
+
+### Authentication
+
+- **Login / Register** - Demo credential gate (`admin` / `1234@`) plus Google/Microsoft sign-in buttons on the landing page before the query workspace is accessible
 
 ### Technical Stack
 
@@ -21,6 +34,10 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **Tailwind CSS** - Utility-first CSS framework with custom theme variables
 - **Zustand** - Lightweight state management for global application state
 - **Lucide React** - Icon library for consistent UI elements
+- **Monaco Editor** (`@monaco-editor/react`) - The Smart SQL Editor's code editor, diff view, and minimap
+- **ReactFlow** - Interactive node/edge canvas powering the Relationship Graph Visualizer
+- **dt-sql-parser** - AST-based SQL parsing used to cross-check the regex-based analyzer for dialect validation
+- **Vitest** - Unit test runner (`npm run test`)
 
 ## 🛠️ Installation
 
@@ -46,20 +63,36 @@ yarn dev
 
 ```
 sql-visualizer/
+├── docs/
+│   └── spring-backend-calcite/     # Backend design docs for a future Spring/Calcite analyzer service
+├── models/
+│   └── piper/                     # Local Piper TTS voices (downloaded via `npm run setup:piper`)
 ├── public/
-│   └── assets/                      # Static assets and images
+│   └── assets/
+│       ├── images/                 # Static images
+│       └── markdown/               # Feature documentation, indexed for the Docs Consultant chat
+│           ├── FEATURES.md
+│           ├── FEATURES_INDEX.md
+│           └── features/           # Modular per-feature guides
+├── scripts/
+│   ├── setup-piper.mjs             # Downloads/configures local Piper TTS voices
+│   └── build-docs-index.mjs        # Rebuilds src/lib/ai/docsIndex.json for the Docs Consultant
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx              # Root layout with theme provider
-│   │   ├── page.tsx                # Dashboard page
+│   │   ├── page.tsx                # Dashboard / landing page (login gate)
+│   │   ├── api/ai/                 # Server routes proxying AI generate/embed/speech/docs-context
 │   │   ├── query-input/            # SQL input and parameter configuration
 │   │   ├── relationship-graph-visualizer/  # Graph visualization and JOIN analysis
 │   │   ├── cte-analysis/           # CTE exploration and analysis
-│   │   ├── sql-metrics-dashboard/  # Complexity metrics and scoring
-│   │   └── settings-preferences/   # User preferences and theme
+│   │   ├── sql-metrics-dashboard/  # Complexity metrics, scoring, and line-jump detail views
+│   │   ├── smart-sql-editor/       # Monaco-based editor, AI explain/optimize panels
+│   │   ├── guideline/              # Feature docs + AI Docs Consultant chat
+│   │   └── settings-preferences/   # User preferences, theme, and AI provider config
 │   ├── components/
 │   │   ├── AppLayout.tsx          # Main layout component
 │   │   ├── Sidebar.tsx            # Navigation sidebar
+│   │   ├── GlobalChat.tsx         # Floating AI chat entry point
 │   │   ├── ThemeProvider.tsx      # Theme context provider
 │   │   └── ui/                    # Reusable UI components (ComplexityDashboard, LintingAlerts, etc.)
 │   ├── lib/
@@ -67,11 +100,15 @@ sql-visualizer/
 │   │   │   ├── aiProviders.ts     # Cloud/local provider configs and defaults
 │   │   │   ├── aiQueue.ts         # Batched AI request queue
 │   │   │   ├── aiRouteValidation.ts # Shared validation for AI proxy API routes
-│   │   │   ├── aiService.ts       # AI generation adapter (Ollama/cloud)
+│   │   │   ├── aiService.ts       # AI generation/embedding/streaming adapter (Ollama/cloud)
 │   │   │   ├── aiSqlContext.ts    # SQL context brief builder for AI prompts
-│   │   │   └── aiTokens.ts        # Token estimation helpers
+│   │   │   ├── aiSpeech.ts / aiSpeechEngine.ts # Text-to-speech playback
+│   │   │   ├── aiTokens.ts        # Token estimation helpers
+│   │   │   ├── embeddingService.ts # Client helpers for semantic search embeddings
+│   │   │   ├── vectorStore.ts     # Cosine-similarity search over docsIndex.json
+│   │   │   └── docsIndex.json     # Embedded feature docs for the Docs Consultant chat
 │   │   ├── sql/                   # SQL parsing and scoring
-│   │   │   ├── sqlAnalyzer.ts     # SQL parsing and analysis engine
+│   │   │   ├── sqlAnalyzer.ts     # SQL parsing and analysis engine (tables, joins, CTEs, subqueries, line numbers)
 │   │   │   ├── complexityScorer.ts # Complexity calculation logic
 │   │   │   ├── dialectValidator.ts # Multi-dialect SQL validation
 │   │   │   └── dialectValidator.test.ts
@@ -79,7 +116,9 @@ sql-visualizer/
 │   │   │   ├── logger.ts
 │   │   │   ├── logger-setup.ts
 │   │   │   └── CONSOLE_DEBUG_GUIDE.ts
-│   │   ├── store.ts               # Zustand state management
+│   │   ├── store.ts               # Zustand state management (incl. pending editor line-jump)
+│   │   ├── useGoToSqlLine.ts      # Hook: navigate to Smart SQL Editor and reveal a line
+│   │   ├── queryHistory.ts / queryHistoryClient.ts # Query history (server-backed) + client fetch wrappers
 │   │   └── i18n.ts                # Internationalization setup
 │   ├── app/common/
 │   │   └── sqlAnalyzerUtils.ts    # **Centralized constants file** containing:
@@ -95,35 +134,17 @@ sql-visualizer/
 │   ├── locales/
 │   │   ├── en.ts                  # English translations
 │   │   └── vi.ts                  # Vietnamese translations
-│   ├── styles/
-│   │   ├── index.css              # Global styles
-│   │   └── tailwind.css           # Tailwind CSS configuration
-│   ├── markdown/                  # Documentation and guides
-│   │   ├── FEATURES.md            # Feature overview and landing page
-│   │   ├── FEATURES_INDEX.md      # Comprehensive feature index with navigation
-│   │   ├── features/              # Modular feature documentation (12 files)
-│   │   │   ├── QUERY_INPUT.md     # SQL input functionality guide
-│   │   │   ├── RELATIONSHIP_GRAPH.md  # Graph visualization guide
-│   │   │   ├── JOIN_ANALYSIS.md   # Deep JOIN condition analysis guide
-│   │   │   ├── METRICS_DASHBOARD.md  # Complexity scoring guide
-│   │   │   ├── COMPLEXITY_SCORING.md # Technical scoring details
-│   │   │   ├── CTE_ANALYSIS.md    # CTE exploration guide
-│   │   │   ├── SETTINGS.md        # UI customization guide
-│   │   │   ├── BEST_PRACTICES.md  # Query optimization best practices
-│   │   │   ├── OPTIMIZATION_WORKFLOW.md # Step-by-step optimization
-│   │   │   ├── WORKFLOW_EXAMPLES.md # Real-world use case examples
-│   │   │   ├── LEARNING_PATH.md   # Structured learning guide
-│   │   │   └── ADVANCED_TOPICS.md # Enterprise patterns
-│   │   ├── AST_*.md               # Architecture and AST documentation
-│   │   ├── SMART_SQL_EDITOR_*.md  # Smart editor implementation docs
-│   │   ├── ENTITY_EXTRACTION_*.md # Entity extraction documentation
-│   │   └── sample/                # Sample SQL queries
+│   └── styles/
+│       ├── index.css              # Global styles
+│       └── tailwind.css           # Tailwind CSS configuration
 ├── next.config.mjs                # Next.js configuration
 ├── package.json                   # Project dependencies and scripts
 ├── postcss.config.js              # PostCSS configuration
 ├── tailwind.config.js             # Tailwind CSS theme customization
+├── vitest.config.ts               # Vitest test runner configuration
 └── tsconfig.json                  # TypeScript configuration
 ```
+
 
 ## 🎯 Key Pages
 
@@ -131,8 +152,10 @@ sql-visualizer/
 - **Query Input** (`/query-input`) - Paste SQL, configure parameters, select dialect
 - **Relationship Graph** (`/relationship-graph-visualizer`) - Visualize tables, JOINs, and deep-dive JOIN analysis
 - **CTE Analysis** (`/cte-analysis`) - Explore CTEs and field data flow
-- **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores and breakdowns
-- **Settings** (`/settings-preferences`) - Configure theme, language, and analysis options
+- **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores, breakdowns, and jump from any metric/subquery to its line in the editor
+- **Smart SQL Editor** (`/smart-sql-editor`) - Format, diff, and AI-explain/optimize SQL in a full Monaco editor
+- **Guideline** (`/guideline`) - Feature documentation plus the AI Docs Consultant chat
+- **Settings** (`/settings-preferences`) - Configure theme, language, AI provider, and analysis options
 
 ## 🎨 Styling & Theming
 
@@ -214,6 +237,9 @@ const level = getComplexityLevelFromScore(6); // 'HIGH'
 - `npm run lint:fix` - Fix ESLint issues automatically
 - `npm run format` - Format code with Prettier
 - `npm run type-check` - Run TypeScript type checking
+- `npm run test` - Run the Vitest test suite
+- `npm run setup:piper` - Download/configure local Piper TTS voices
+- `npm run build:docs-index` - Rebuild the embeddings index used by the Docs Consultant chat
 
 ## 🌍 Supported SQL Dialects
 
@@ -252,7 +278,8 @@ Users can switch language in Settings → Preferences
 - Visual tree structure for CTEs
 - Field origin tracking
 - Unused CTE detection
-- Subquery depth analysis
+- Subquery nesting depth computed by counting actual SELECT-boundary parens (not raw paren depth), so subqueries wrapped in function calls (e.g. `COALESCE((SELECT ...), 0)`) or redundant double parens are still detected and depth stays accurate
+- Every detected subquery and metric-detail item reports its source line number, clickable to jump straight to it in the Smart SQL Editor
 
 ### Export Capabilities
 
@@ -262,39 +289,48 @@ Users can switch language in Settings → Preferences
 
 ## 📖 Documentation Structure
 
-The project includes comprehensive, modularized documentation to keep guides focused and digestible:
+The project includes comprehensive, modularized documentation to keep guides focused and digestible. All feature docs live under `public/assets/markdown/` and are indexed for the AI Docs Consultant chat (rebuild the index with `npm run build:docs-index` after editing them).
 
 ### Feature Documentation
 
 **Core Features** - Start here to understand each analysis tool:
 
-- [Query Input](src/markdown/features/QUERY_INPUT.md) - How to input SQL and configure dialects
-- [Relationship Graph](src/markdown/features/RELATIONSHIP_GRAPH.md) - Visualizing table relationships
-- [JOIN Analysis](src/markdown/features/JOIN_ANALYSIS.md) - Deep-dive into JOIN conditions
-- [Metrics Dashboard](src/markdown/features/METRICS_DASHBOARD.md) - Understanding complexity scores
-- [CTE Analysis](src/markdown/features/CTE_ANALYSIS.md) - Exploring Common Table Expressions
-- [Settings &amp; Preferences](src/markdown/features/SETTINGS.md) - UI customization
+- [Query Input](public/assets/markdown/features/core-analysis-tools/QUERY_INPUT.md) - How to input SQL and configure dialects
+- [Relationship Graph](public/assets/markdown/features/core-analysis-tools/RELATIONSHIP_GRAPH.md) - Visualizing table relationships
+- [JOIN Analysis](public/assets/markdown/features/core-analysis-tools/JOIN_ANALYSIS.md) - Deep-dive into JOIN conditions
+- [Metrics Dashboard](public/assets/markdown/features/core-analysis-tools/METRICS_DASHBOARD.md) - Understanding complexity scores
+- [CTE Analysis](public/assets/markdown/features/core-analysis-tools/CTE_ANALYSIS.md) - Exploring Common Table Expressions
+- [Settings &amp; Preferences](public/assets/markdown/features/core-analysis-tools/SETTINGS.md) - UI customization
+- [Query History Search](public/assets/markdown/features/core-analysis-tools/QUERY_HISTORY_SEARCH.md) - Semantic search over past analyzed queries
+
+### AI & Voice
+
+- [Smart SQL Editor AI](public/assets/markdown/features/smart-editor-ai-assistant/SMART_SQL_EDITOR_AI.md) - Editor, AI explain/optimize
+- [Ollama Setup &amp; Usage](public/assets/markdown/features/smart-editor-ai-assistant/OLLAMA_SETUP_AND_USAGE.md) - Running AI features locally
+- [Docs Consultant](public/assets/markdown/features/voice-and-docs-support/DOCS_CONSULTANT.md) - RAG chat over the app's own docs
+- [Text to Speech](public/assets/markdown/features/voice-and-docs-support/TEXT_TO_SPEECH.md) - Reading AI answers aloud
 
 ### Guides & Workflows
 
 **Practical Guides** - Achieve specific goals:
 
-- [Best Practices](src/markdown/features/BEST_PRACTICES.md) - Query optimization guidelines
-- [Optimization Workflow](src/markdown/features/OPTIMIZATION_WORKFLOW.md) - Step-by-step query improvement
-- [Workflow Examples](src/markdown/features/WORKFLOW_EXAMPLES.md) - Real-world scenarios and use cases
-- [Learning Path](src/markdown/features/LEARNING_PATH.md) - Structured learning for all skill levels
+- [Best Practices](public/assets/markdown/features/core-analysis-tools/BEST_PRACTICES.md) - Query optimization guidelines
+- [Optimization Workflow](public/assets/markdown/features/core-analysis-tools/OPTIMIZATION_WORKFLOW.md) - Step-by-step query improvement
+- [Workflow Examples](public/assets/markdown/features/core-analysis-tools/WORKFLOW_EXAMPLES.md) - Real-world scenarios and use cases
+- [Learning Path](public/assets/markdown/features/core-analysis-tools/LEARNING_PATH.md) - Structured learning for all skill levels
 
 ### Technical Reference
 
 **For Deep Dives** - Technical details and customization:
 
-- [Complexity Scoring Engine](src/markdown/features/COMPLEXITY_SCORING.md) - How scoring works with weight matrix
-- [Advanced Topics](src/markdown/features/ADVANCED_TOPICS.md) - Enterprise patterns and customization
+- [Complexity Scoring Engine](public/assets/markdown/features/core-analysis-tools/COMPLEXITY_SCORING.md) - How scoring works with weight matrix
+- [Complexity Score Median Evaluation](public/assets/markdown/features/core-analysis-tools/COMPLEXITY_SCORE_MEDIAN_EVALUATION.md) - How the dynamic complexity baseline is derived
+- [Advanced Topics](public/assets/markdown/features/core-analysis-tools/ADVANCED_TOPICS.md) - Enterprise patterns and customization
 
 ### Quick Navigation
 
-- [FEATURES_INDEX.md](src/markdown/FEATURES_INDEX.md) - Complete index with all documentation links
-- [FEATURES.md](src/markdown/FEATURES.md) - Quick feature overview and getting started
+- [FEATURES_INDEX.md](public/assets/markdown/FEATURES_INDEX.md) - Complete index with all documentation links
+- [FEATURES.md](public/assets/markdown/FEATURES.md) - Quick feature overview and getting started
 
 ## � Getting Started
 
@@ -342,7 +378,7 @@ You can check out the [Next.js GitHub repository](https://github.com/vercel/next
 
 ## � Documentation
 
-For comprehensive feature documentation, see [FEATURES.md](./src/markdown/FEATURES.md) which includes:
+For comprehensive feature documentation, see [FEATURES.md](./public/assets/markdown/FEATURES.md) which includes:
 
 - Detailed feature descriptions
 - Use case scenarios

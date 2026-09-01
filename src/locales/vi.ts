@@ -208,6 +208,8 @@ const vi = {
   metricsDetailSnippetHeader: 'Đoạn mã',
   metricsDetailClauseHeader: 'Mệnh đề',
   metricsDetailScopeHeader: 'Phạm vi',
+  metricsDetailLineHeader: 'Dòng',
+  metricsDetailGoToLine: 'Đi đến dòng',
   metricsDetailSearchPlaceholder: 'Tìm đoạn mã, mệnh đề, phạm vi...',
   metricsDetailNoResults: 'Không có mục nào khớp với từ khóa tìm kiếm.',
   metricsDetailItemsLabel: 'mục',
@@ -310,6 +312,14 @@ const vi = {
   cteSubqueryHasJoins: 'Có JOIN',
   cteSubqueryHasAggregation: 'Có tổng hợp',
   cteSubqueryCount: 'Truy vấn con',
+  subqueryTypeScalar: 'Vô hướng',
+  subqueryTypeUnknown: 'Không xác định',
+  subqueryTypeDerived: 'Dẫn xuất',
+  subqueryTypeExists: 'Exists',
+  subqueryTypeIn: 'In',
+  subqueryTypeFrom: 'From',
+  subqueryTypeWhere: 'Where',
+  subqueryTypeJoin: 'Join',
 
   // CTE Analysis - Additional missing translations
   cteOriginBadgeCTE: 'CTE',

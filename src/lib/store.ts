@@ -71,6 +71,9 @@ interface AppState {
   isAnalyzing: boolean;
   inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
   selectedNodeId: string | null;
+  /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
+   *  page to load the analyzed SQL and reveal/highlight the target line, then cleared. */
+  pendingEditorJump: { sql: string; line: number } | null;
 
   // Actions
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -83,6 +86,7 @@ interface AppState {
   setIsAnalyzing: (v: boolean) => void;
   setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
   setSelectedNodeId: (id: string | null) => void;
+  setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
   resetAll: () => void;
 }
 
@@ -127,6 +131,7 @@ export const useAppStore = create<AppState>()(
       isAnalyzing: false,
       inputMode: 'sql',
       selectedNodeId: null,
+      pendingEditorJump: null,
 
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       setDialect: (d) => set({ dialect: d }),
@@ -138,6 +143,7 @@ export const useAppStore = create<AppState>()(
       setIsAnalyzing: (v) => set({ isAnalyzing: v }),
       setInputMode: (m) => set({ inputMode: m }),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+      setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),
       resetAll: () =>
         set({
           rawSql: '',
