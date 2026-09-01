@@ -228,6 +228,12 @@
     color: var(--primary);
   }
 
+  /* Monaco decoration applied to a line targeted by a "go to line" jump from the Metrics Dashboard. */
+  .smart-editor-jump-highlight {
+    background: rgba(110, 231, 247, 0.18);
+    animation: jumpHighlightFade 2.5s ease-out forwards;
+  }
+
   .complexity-badge-low {
     background: rgba(63, 185, 80, 0.15);
     color: var(--complexity-low);
@@ -398,6 +404,17 @@
 
   50% {
     box-shadow: 0 0 25px rgba(110, 231, 247, 0.5);
+  }
+}
+
+@keyframes jumpHighlightFade {
+  0%,
+  40% {
+    background: rgba(110, 231, 247, 0.35);
+  }
+
+  100% {
+    background: transparent;
   }
 }
 

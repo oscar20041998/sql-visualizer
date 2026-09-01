@@ -2,7 +2,8 @@
 
 import React, { useTransition, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Code2,
   Home,
@@ -17,20 +18,21 @@ import {
   BookOpen,
   Loader,
   ChevronLeft,
+  LogOut,
   Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
+import { clearDemoAuthenticated } from '@/lib/demoAuth';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 const navItems = [
-  { key: 'navHome', href: '/', icon: Home, badge: null },
   { key: 'navQueryInput', href: '/query-input', icon: Code2, badge: null },
-  { key: 'navSmartEditor', href: '/smart-sql-editor', icon: Sparkles, badge: null },
-  { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
+  // { key: 'navSmartEditor', href: '/smart-sql-editor', icon: Sparkles, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
+  { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
   { key: 'navSettings', href: '/settings-preferences', icon: Settings, badge: null },
 ] as const;
@@ -51,11 +53,18 @@ export default function Sidebar() {
   const [isPending, startTransition] = useTransition();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { settings, updateSettings, analysisResult } = useAppStore();
   const t = getT(settings.locale);
 
   const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
   const toggleLocale = () => updateSettings({ locale: settings.locale === 'en' ? 'vi' : 'en' });
+
+  const handleSignOut = () => {
+    clearDemoAuthenticated();
+    toast.success(t.signOutSuccess);
+    router.push('/');
+  };
 
   return (
     <aside
@@ -144,7 +153,6 @@ export default function Sidebar() {
               )}
               {/* Analysis indicator */}
               {!isCollapsed &&
-                item.key !== 'navHome' &&
                 item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 item.key !== 'navGuideline' &&
@@ -189,6 +197,16 @@ export default function Sidebar() {
               {settings.locale === 'en' ? 'EN → VI' : 'VI → EN'}
             </span>
           )}
+        </button>
+
+        {/* Sign Out */}
+        <button
+          onClick={handleSignOut}
+          title={t.signOut}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-danger/10 hover:text-danger transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
+        >
+          <LogOut size={18} />
+          {!isCollapsed && <span className="truncate">{t.signOut}</span>}
         </button>
       </div>
 

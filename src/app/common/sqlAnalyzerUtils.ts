@@ -86,8 +86,12 @@ export const SQL_REGEX_PATTERNS = {
   // Extract CTEs from WITH clause
   CTE_EXTRACTION: /WITH\s+([\w\s,()]+?)\s+AS\s*\(/gi,
 
-  // Extract FROM and JOIN tables
-  TABLE_PATTERN: /(?:FROM|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?([`"\[]?\w+[`"\]]?))?/gi,
+  // Extract FROM and JOIN tables. The negative lookahead stops the optional alias group from
+  // swallowing the next clause keyword (e.g. `FROM t1 JOIN t2 ...` with no alias on t1 — without
+  // it, "JOIN" gets captured as t1's alias and the scanner's position skips past it, so the next
+  // `JOIN t2` is never found at all).
+  TABLE_PATTERN:
+    /(?:FROM|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(?!(?:ON|USING|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT_JOIN|LATERAL|SET|VALUES)\b)([`"\[]?\w+[`"\]]?))?/gi,
 
   // Column references with table prefix
   COLUMN_WITH_TABLE: /(\w+)\.(\w+)/g,
@@ -118,13 +122,13 @@ export const SQL_REGEX_PATTERNS = {
 
   // Join patterns (comprehensive)
   STANDARD_JOIN:
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|STRAIGHT_JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\s+APPLY|OUTER\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|;|$))/gi,
+    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|STRAIGHT_JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s*(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\s+APPLY|OUTER\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|;|$))/gi,
 
   USING_JOIN:
     /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+USING\s*\(\s*([\w\s,]+)\s*\)/gi,
 
   LATERAL_JOIN:
-    /LATERAL\s+(?:LEFT\s+(?:OUTER\s+)?)?JOIN\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+([\s\S]+?)(?=\s+(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|$))/gi,
+    /LATERAL\s+(?:LEFT\s+(?:OUTER\s+)?)?JOIN\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+([\s\S]+?)(?=\s*(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|$))/gi,
 
   APPLY_JOIN: /(CROSS\s+APPLY|OUTER\s+APPLY)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/gi,
 

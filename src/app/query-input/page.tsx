@@ -22,6 +22,7 @@ import {
   type SqlDialect,
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
+import { isDemoAuthenticated } from '@/lib/demoAuth';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -95,6 +96,7 @@ const SAMPLE_MYBATIS = `<select id="findOrdersByCustomer" resultType="Order">
 
 export default function QueryInputContent() {
   const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const {
     settings,
     dialect,
@@ -104,6 +106,7 @@ export default function QueryInputContent() {
     myBatisParams,
     inputMode,
     isAnalyzing,
+    pendingEditorJump,
     setDialect,
     setRawSql,
     setMyBatisXml,
@@ -112,7 +115,17 @@ export default function QueryInputContent() {
     setAnalysisResult,
     setIsAnalyzing,
     setInputMode,
+    setPendingEditorJump,
   } = useAppStore();
+
+  useEffect(() => {
+    if (!isDemoAuthenticated()) {
+      router.replace('/');
+      return;
+    }
+
+    setIsAuthorized(true);
+  }, [router]);
 
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
@@ -257,16 +270,36 @@ export default function QueryInputContent() {
 
   const handleTabChange = (newMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => {
     setInputMode(newMode as any);
+    // Switching tabs manually means the pending jump no longer applies to what's shown.
+    setJumpSql(null);
   };
 
   const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
 
+  // A "go to line" link from the Metrics Dashboard/Graph Visualizer lands here: captured once on
+  // mount, it switches to the Smart Editor tab, loads the analyzed SQL instead of the current
+  // draft, and reveals/highlights the target line once the editor mounts.
+  const [jumpSql, setJumpSql] = useState<string | null>(() => pendingEditorJump?.sql ?? null);
+  const [jumpLine, setJumpLine] = useState<number | null>(() => pendingEditorJump?.line ?? null);
+
+  useEffect(() => {
+    if (pendingEditorJump) setInputMode('smart-editor');
+    // Only ever consume the pending jump once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Live content of the Smart Editor, fed to the AI explainer panel below it.
-  const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
-  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/ai/aiService').SqlOptimizationResult>(null);
+  const [smartEditorSql, setSmartEditorSql] = useState(
+    jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'
+  );
+  const [optimizationResult, setOptimizationResult] = useState<
+    null | import('@/lib/ai/aiService').SqlOptimizationResult
+  >(null);
 
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
+  if (!isAuthorized) return null;
+
   return (
     <AppLayout>
       <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
@@ -301,7 +334,12 @@ export default function QueryInputContent() {
             <div className="mt-4 flex flex-col gap-4">
               <div className="min-h-[620px] flex flex-col">
                 <SmartSQLEditor
-                  initialSql={rawSql || 'SELECT * FROM table LIMIT 10;'}
+                  initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
+                  jumpToLine={jumpLine}
+                  onJumpHandled={() => {
+                    setJumpLine(null);
+                    setPendingEditorJump(null);
+                  }}
                   onSqlChange={(sql) => {
                     setSmartEditorSql(sql);
                     setOptimizationResult(null);

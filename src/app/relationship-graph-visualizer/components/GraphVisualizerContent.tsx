@@ -75,18 +75,18 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
   const { metrics, joins, tables, ctes, complexity } = result;
 
   // ── Excessive joins ──
-  if (metrics.joinCount >= 5) {
+  if (metrics.totalJoinCount >= 5) {
     suggestions.push({
       id: 'excessive-joins',
       severity: 'error',
-      title: `${t.suggExcessiveJoinsTitle} (${metrics.joinCount})`,
-      detail: `${metrics.joinCount} ${t.suggExcessiveJoinsDetail}`,
+      title: `${t.suggExcessiveJoinsTitle} (${metrics.totalJoinCount})`,
+      detail: `${metrics.totalJoinCount} ${t.suggExcessiveJoinsDetail}`,
     });
-  } else if (metrics.joinCount >= 3) {
+  } else if (metrics.totalJoinCount >= 3) {
     suggestions.push({
       id: 'many-joins',
       severity: 'warning',
-      title: `${t.suggManyJoinsTitle} (${metrics.joinCount})`,
+      title: `${t.suggManyJoinsTitle} (${metrics.totalJoinCount})`,
       detail: t.suggManyJoinsDetail,
     });
   }
@@ -544,7 +544,7 @@ export default function GraphVisualizerContent() {
               </span>
               <span className="flex items-center gap-1 whitespace-nowrap">
                 <Link2 size={11} />
-                {relationshipFilter === 'all' ? analysisResult.metrics.joinCount : filteredJoins.length}{' '}
+                {relationshipFilter === 'all' ? analysisResult.metrics.totalJoinCount : filteredJoins.length}{' '}
                 {t.joinCount}
               </span>
               <div className="flex items-center gap-1.5">
