@@ -22,6 +22,7 @@ import {
   type SqlDialect,
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
+import { isDemoAuthenticated } from '@/lib/demoAuth';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -95,6 +96,7 @@ const SAMPLE_MYBATIS = `<select id="findOrdersByCustomer" resultType="Order">
 
 export default function QueryInputContent() {
   const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const {
     settings,
     dialect,
@@ -113,6 +115,15 @@ export default function QueryInputContent() {
     setIsAnalyzing,
     setInputMode,
   } = useAppStore();
+
+  useEffect(() => {
+    if (!isDemoAuthenticated()) {
+      router.replace('/');
+      return;
+    }
+
+    setIsAuthorized(true);
+  }, [router]);
 
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
@@ -263,10 +274,14 @@ export default function QueryInputContent() {
 
   // Live content of the Smart Editor, fed to the AI explainer panel below it.
   const [smartEditorSql, setSmartEditorSql] = useState(rawSql || 'SELECT * FROM table LIMIT 10;');
-  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/ai/aiService').SqlOptimizationResult>(null);
+  const [optimizationResult, setOptimizationResult] = useState<
+    null | import('@/lib/ai/aiService').SqlOptimizationResult
+  >(null);
 
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
+  if (!isAuthorized) return null;
+
   return (
     <AppLayout>
       <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">

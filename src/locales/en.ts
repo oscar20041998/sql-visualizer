@@ -218,7 +218,8 @@ const en = {
   metricsCardDetailsHint: 'View details',
   metricsCardOpenGraphHint: 'Open relationship graph',
   metricsCardFieldSummaryHint: 'Jump to field summary',
-  metricsDetailOpsFooterNote: '+ {count} arithmetic operator(s) counted in the total but not itemized here.',
+  metricsDetailOpsFooterNote:
+    '+ {count} arithmetic operator(s) counted in the total but not itemized here.',
   metricsFieldPaginationPrev: 'Previous',
   metricsFieldPaginationNext: 'Next',
   metricsFieldPaginationPage: 'Page',
@@ -356,6 +357,8 @@ const en = {
   darkMode: 'Dark Mode',
   darkModeHint: 'Use dark theme across the application',
   lightMode: 'Light Mode',
+  signOut: 'Sign out',
+  signOutSuccess: 'Signed out.',
   language: 'Language',
   languageHint: 'Select UI display language',
   defaultDialect: 'Default SQL Dialect',
@@ -419,7 +422,8 @@ const en = {
   aiTemperatureHint: 'Controls randomness — lower values are more deterministic',
   aiSystemPrompt: 'System Prompt Instructions for AI',
   aiSystemPromptHint: 'Default instructions guiding how the AI explains SQL queries',
-  aiSystemPromptPlaceholder: 'e.g. Explain SQL queries clearly and concisely for a junior developer...',
+  aiSystemPromptPlaceholder:
+    'e.g. Explain SQL queries clearly and concisely for a junior developer...',
 
   // Guideline
   guidelineTitle: 'User Guide',
@@ -713,22 +717,32 @@ const en = {
   lintingLineLabel: 'line',
   lintingUnionDedup: 'UNION_DEDUPLICATION',
   lintingUnionDedupMessage: 'UNION removes duplicates with an additional sort or hash operation.',
-  lintingUnionDedupSuggestion: 'Use UNION ALL when duplicate removal is not required by the business logic.',
+  lintingUnionDedupSuggestion:
+    'Use UNION ALL when duplicate removal is not required by the business logic.',
   lintingNullComparison: 'INVALID_NULL_COMPARISON',
-  lintingNullComparisonMessage: 'Comparing NULL with =, !=, or <> is invalid and never evaluates to true.',
+  lintingNullComparisonMessage:
+    'Comparing NULL with =, !=, or <> is invalid and never evaluates to true.',
   lintingNullComparisonSuggestion: 'Use IS NULL or IS NOT NULL.',
   lintingLeadingWildcard: 'LEADING_WILDCARD_LIKE',
-  lintingLeadingWildcardMessage: 'A leading wildcard in LIKE commonly prevents an index range scan.',
-  lintingLeadingWildcardSuggestion: 'Use a prefix search or a dedicated full-text search when business requirements allow it.',
+  lintingLeadingWildcardMessage:
+    'A leading wildcard in LIKE commonly prevents an index range scan.',
+  lintingLeadingWildcardSuggestion:
+    'Use a prefix search or a dedicated full-text search when business requirements allow it.',
   lintingNonAggregateHaving: 'NON_AGGREGATE_HAVING',
-  lintingNonAggregateHavingMessage: 'HAVING appears to filter non-aggregated values after grouping has completed.',
-  lintingNonAggregateHavingSuggestion: 'Move non-aggregate filters to WHERE so fewer rows enter the grouping stage.',
+  lintingNonAggregateHavingMessage:
+    'HAVING appears to filter non-aggregated values after grouping has completed.',
+  lintingNonAggregateHavingSuggestion:
+    'Move non-aggregate filters to WHERE so fewer rows enter the grouping stage.',
   lintingScalarSubquery: 'SCALAR_SUBQUERY_IN_SELECT',
-  lintingScalarSubqueryMessage: 'A subquery in the SELECT list may be evaluated repeatedly for result rows.',
-  lintingScalarSubquerySuggestion: 'Consider a pre-aggregated LEFT JOIN while preserving the original cardinality and calculations.',
+  lintingScalarSubqueryMessage:
+    'A subquery in the SELECT list may be evaluated repeatedly for result rows.',
+  lintingScalarSubquerySuggestion:
+    'Consider a pre-aggregated LEFT JOIN while preserving the original cardinality and calculations.',
   lintingSubqueryOrderBy: 'SUBQUERY_ORDER_BY',
-  lintingSubqueryOrderByMessage: 'ORDER BY inside a subquery can cause an unnecessary sort when row order is not consumed there.',
-  lintingSubqueryOrderBySuggestion: 'Remove it unless it is required by LIMIT, OFFSET, a window function, or business logic.',
+  lintingSubqueryOrderByMessage:
+    'ORDER BY inside a subquery can cause an unnecessary sort when row order is not consumed there.',
+  lintingSubqueryOrderBySuggestion:
+    'Remove it unless it is required by LIMIT, OFFSET, a window function, or business logic.',
 
   // Complexity Scoring - Select Field Reasons
   complexityFieldReasonUnboundedSelection: 'Unbounded column selection',
@@ -806,7 +820,7 @@ const en = {
 
   guidelineComplexityEvalStep3Label: 'Dynamic Level Classification (Using Median)',
   guidelineComplexityEvalStep3Desc:
-    'Instead of static thresholds, complexity levels are dynamically adapted based on your own workload\'s median score (MEDIAN):\n\n• LOW: Score ≤ 50% of MEDIAN\n• MEDIUM: 50% < Score ≤ 100% of MEDIAN\n• HIGH: 100% < Score ≤ 200% of MEDIAN\n• SUPER HIGH: Score > 200% of MEDIAN\n\nThis relative classification ensures levels remain meaningful as your project evolves.',
+    "Instead of static thresholds, complexity levels are dynamically adapted based on your own workload's median score (MEDIAN):\n\n• LOW: Score ≤ 50% of MEDIAN\n• MEDIUM: 50% < Score ≤ 100% of MEDIAN\n• HIGH: 100% < Score ≤ 200% of MEDIAN\n• SUPER HIGH: Score > 200% of MEDIAN\n\nThis relative classification ensures levels remain meaningful as your project evolves.",
 
   guidelineComplexityEvalStep4Label: 'Linting & Anti-Patterns',
   guidelineComplexityEvalStep4Desc:
@@ -944,7 +958,8 @@ const en = {
   editorPageProTipsTitle: '💡 Pro Tips:',
   editorPageProTip1: 'Type or paste SQL and watch real-time validation (500ms debounce)',
   editorPageProTip2: 'Click "Format SQL" to beautify with uppercase keywords',
-  editorPageProTip3: 'Click "Analyze & Optimize" to get AI suggestions (requires local Ollama running)',
+  editorPageProTip3:
+    'Click "Analyze & Optimize" to get AI suggestions (requires local Ollama running)',
   editorPageProTip4: 'Click "Compare" to see side-by-side diff of original vs optimized',
   editorPageProTip5: 'Open DevTools (F12) Console to see detailed debug logs',
   editorPageProTip6: 'Click "Explain this query" to translate the SQL into plain natural language',
@@ -976,7 +991,8 @@ const en = {
   smartEditorOptimizing: 'Optimizing…',
   smartEditorOptimizationSuccess: 'SQL optimization complete',
   smartEditorOptimizationError: 'SQL optimization failed',
-  smartEditorLintBriefHeader: 'Linting alerts detected in this query — address these during optimization:',
+  smartEditorLintBriefHeader:
+    'Linting alerts detected in this query — address these during optimization:',
   smartEditorLintFixLabel: 'Fix:',
   smartEditorOptimizeProgressTitle: 'AI is optimizing your query…',
   smartEditorOptimizeWaitingLabel: 'Waiting for the model to respond…',
@@ -986,7 +1002,8 @@ const en = {
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Query History',
-  queryHistorySubtitle: 'Every analyzed query is saved on this device. Search by meaning to find one again.',
+  queryHistorySubtitle:
+    'Every analyzed query is saved on this device. Search by meaning to find one again.',
   queryHistoryOpenPanel: 'Open query history',
   queryHistoryClosePanel: 'Close query history',
   queryHistorySearchPlaceholder: 'Search by meaning, e.g. "monthly revenue by region"',
@@ -1168,15 +1185,50 @@ const en = {
   homePreviewTables: 'tables mapped',
   homePreviewRecommendation: 'Recommendation',
   homePreviewRecommendationText: 'Review the final sort operation and confirm supporting indexes.',
+
+  // Authentication Panel
+  authWorkspaceAccessTitle: 'Workspace access',
+  authWorkspaceAccessSubtitle: 'Sign in to open the query workspace',
+  authModeTabsLabel: 'Authentication mode',
+  authTabLogin: 'Login',
+  authTabRegister: 'Register',
+  authUsernameLabel: 'Username',
+  authUsernamePlaceholder: 'Enter your username',
+  authPasswordLabel: 'Password',
+  authPasswordPlaceholder: 'Enter your password',
+  authShowPassword: 'Show password',
+  authHidePassword: 'Hide password',
+  authLoginButton: 'Login',
+  authEmailLabel: 'Email address',
+  authEmailPlaceholder: 'name@company.com',
+  authCreatePasswordLabel: 'Create password',
+  authCreatePasswordPlaceholder: 'At least 12 characters',
+  authRegisterButton: 'Register account',
+  authOrContinueWith: 'or continue with',
+  authGoogleButton: 'Google',
+  authMicrosoftButton: 'Microsoft',
+  authTemporaryAccessNotice: 'Temporary access: username {username} and password {password}.',
+  authLoginInvalidCredentials: 'Use the temporary administrator account to continue.',
+  authLoginSuccess: 'Signed in as admin.',
+  authRegisterUnavailable:
+    'Account registration will be available when the authentication API is connected.',
+  authSocialUnavailable:
+    '{provider} sign-in will be available when the authentication API is connected.',
+  authSignInPrompt: 'Please sign in to open the query workspace.',
+
   homeWorkflowEyebrow: 'Workflow',
   homeWorkflowTitle: 'From SQL text to a clear next step',
-  homeWorkflowDescription: 'Inspect query structure, identify cost drivers, and improve the final statement with evidence.',
+  homeWorkflowDescription:
+    'Inspect query structure, identify cost drivers, and improve the final statement with evidence.',
   homeWorkflowInputTitle: 'Bring your query',
-  homeWorkflowInputDescription: 'Paste SQL directly or resolve MyBatis XML parameters before analysis.',
+  homeWorkflowInputDescription:
+    'Paste SQL directly or resolve MyBatis XML parameters before analysis.',
   homeWorkflowInspectTitle: 'Inspect the structure',
-  homeWorkflowInspectDescription: 'Trace CTEs, field origins, joins, nested queries, and table relationships.',
+  homeWorkflowInspectDescription:
+    'Trace CTEs, field origins, joins, nested queries, and table relationships.',
   homeWorkflowImproveTitle: 'Improve with evidence',
-  homeWorkflowImproveDescription: 'Use exact scoring factors and linting findings to focus your next change.',
+  homeWorkflowImproveDescription:
+    'Use exact scoring factors and linting findings to focus your next change.',
   homeDialectsLabel: 'SQL dialects',
   homeDialectsTitle: 'Analyze the syntax your team already writes',
 
@@ -1210,7 +1262,8 @@ const en = {
   aiAnnounceBody:
     'No more wasting time deciphering hundreds of lines of complex code. The new AI SQL Explainer automatically helps you:',
   aiAnnounceBullet1: 'Summarize the core objective of the query.',
-  aiAnnounceBullet2: 'Clarify complex filters and constraints (timeframes, statuses, regions, etc.).',
+  aiAnnounceBullet2:
+    'Clarify complex filters and constraints (timeframes, statuses, regions, etc.).',
   aiAnnounceBullet3: 'Translate technical dataset outputs into clear, natural language.',
   aiAnnounceSecurity: '🔒 Powered by a secure local AI model, ensuring 100% data privacy.',
   aiAnnounceSettingsHint: 'Choose your model and parameters in Settings → AI Model Configuration',
@@ -1273,7 +1326,8 @@ const en = {
   aiContextTokensHint:
     "Saved per provider. Must match the selected model's real context size — Ollama silently drops anything over the limit, so raise it with OLLAMA_CONTEXT_LENGTH or a Modelfile before raising it here.",
   aiMaxOutputTokens: 'Max Answer Length (tokens)',
-  aiMaxOutputTokensHint: 'Saved per provider. Reserved out of the context window for the answer itself.',
+  aiMaxOutputTokensHint:
+    'Saved per provider. Reserved out of the context window for the answer itself.',
   aiBatchConcurrency: 'Batch Concurrency',
   aiBatchConcurrencyHint:
     'How many AI requests run at once during a batch explain. Ollama serialises per model unless OLLAMA_NUM_PARALLEL is raised.',
@@ -1291,7 +1345,8 @@ const en = {
 
   // AI - follow-up conversation
   aiChatTitle: 'Ask a follow-up',
-  aiChatSubtitle: 'Multi-turn questions about this query. Older turns drop out as context fills up.',
+  aiChatSubtitle:
+    'Multi-turn questions about this query. Older turns drop out as context fills up.',
   aiChatPlaceholder: 'e.g. What does status = 3 mean here?',
   aiChatSend: 'Ask',
   aiChatReset: 'Clear',
@@ -1322,7 +1377,8 @@ const en = {
 
   // AI - docs consultant (Guideline page)
   docsConsultantTitle: 'Ask the Docs Consultant',
-  docsConsultantSubtitle: "Questions about this app's own features and best practices, answered from the guides below.",
+  docsConsultantSubtitle:
+    "Questions about this app's own features and best practices, answered from the guides below.",
   docsConsultantPlaceholder: 'e.g. How do I reduce a HIGH complexity score?',
   docsConsultantSend: 'Ask',
   docsConsultantReset: 'Clear',

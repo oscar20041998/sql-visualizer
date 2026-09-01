@@ -215,7 +215,8 @@ const vi = {
   metricsCardDetailsHint: 'Xem chi tiết',
   metricsCardOpenGraphHint: 'Mở biểu đồ quan hệ',
   metricsCardFieldSummaryHint: 'Nhảy tới tổng quan trường',
-  metricsDetailOpsFooterNote: '+ {count} toán tử số học được tính trong tổng nhưng không liệt kê ở đây.',
+  metricsDetailOpsFooterNote:
+    '+ {count} toán tử số học được tính trong tổng nhưng không liệt kê ở đây.',
   metricsFieldPaginationPrev: 'Trước',
   metricsFieldPaginationNext: 'Sau',
   metricsFieldPaginationPage: 'Trang',
@@ -351,6 +352,8 @@ const vi = {
   darkMode: 'Chế độ tối',
   darkModeHint: 'Sử dụng giao diện tối trong toàn bộ ứng dụng',
   lightMode: 'Chế độ sáng',
+  signOut: 'Đăng xuất',
+  signOutSuccess: 'Đã đăng xuất.',
   language: 'Ngôn ngữ',
   languageHint: 'Chọn ngôn ngữ hiển thị giao diện',
   defaultDialect: 'Phương ngữ SQL mặc định',
@@ -414,7 +417,8 @@ const vi = {
   aiTemperatureHint: 'Kiểm soát mức độ ngẫu nhiên — giá trị thấp cho kết quả ổn định hơn',
   aiSystemPrompt: 'Hướng dẫn mặc định cho cách AI',
   aiSystemPromptHint: 'Hướng dẫn mặc định cho cách AI diễn giải truy vấn SQL',
-  aiSystemPromptPlaceholder: 'Ví dụ: Diễn giải truy vấn SQL rõ ràng, súc tích cho lập trình viên junior...',
+  aiSystemPromptPlaceholder:
+    'Ví dụ: Diễn giải truy vấn SQL rõ ràng, súc tích cho lập trình viên junior...',
 
   // Guideline
   guidelineTitle: 'Hướng Dẫn Sử Dụng',
@@ -522,7 +526,8 @@ const vi = {
 
   // Guideline - AI SQL Explainer Section
   guidelineAiExplainerTitle: 'AI Diễn Giải SQL',
-  guidelineAiExplainerSubtitle: 'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên',
+  guidelineAiExplainerSubtitle:
+    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên',
   guidelineAiExplainerStep1Label: 'Mở Smart SQL Editor',
   guidelineAiExplainerStep1Desc:
     'Mở Smart SQL Editor từ thanh bên hoặc chuyển sang tab Smart Editor trên trang Nhập truy vấn.',
@@ -710,23 +715,34 @@ const vi = {
   lintingLocationLabel: 'Vị trí',
   lintingLineLabel: 'dòng',
   lintingUnionDedup: 'UNION_LOẠI_TRÙNG',
-  lintingUnionDedupMessage: 'UNION loại bỏ dữ liệu trùng bằng một thao tác sắp xếp hoặc băm bổ sung.',
-  lintingUnionDedupSuggestion: 'Dùng UNION ALL khi logic nghiệp vụ không yêu cầu loại bỏ dữ liệu trùng.',
+  lintingUnionDedupMessage:
+    'UNION loại bỏ dữ liệu trùng bằng một thao tác sắp xếp hoặc băm bổ sung.',
+  lintingUnionDedupSuggestion:
+    'Dùng UNION ALL khi logic nghiệp vụ không yêu cầu loại bỏ dữ liệu trùng.',
   lintingNullComparison: 'SO_SÁNH_NULL_KHÔNG_HỢP_LỆ',
-  lintingNullComparisonMessage: 'So sánh NULL bằng =, != hoặc <> là không hợp lệ và không bao giờ cho kết quả đúng.',
+  lintingNullComparisonMessage:
+    'So sánh NULL bằng =, != hoặc <> là không hợp lệ và không bao giờ cho kết quả đúng.',
   lintingNullComparisonSuggestion: 'Dùng IS NULL hoặc IS NOT NULL.',
   lintingLeadingWildcard: 'LIKE_KÝ_TỰ_ĐẠI_DIỆN_ĐẦU',
-  lintingLeadingWildcardMessage: 'Ký tự đại diện ở đầu LIKE thường ngăn việc quét theo khoảng của chỉ mục.',
-  lintingLeadingWildcardSuggestion: 'Dùng tìm kiếm theo tiền tố hoặc full-text search khi yêu cầu nghiệp vụ cho phép.',
+  lintingLeadingWildcardMessage:
+    'Ký tự đại diện ở đầu LIKE thường ngăn việc quét theo khoảng của chỉ mục.',
+  lintingLeadingWildcardSuggestion:
+    'Dùng tìm kiếm theo tiền tố hoặc full-text search khi yêu cầu nghiệp vụ cho phép.',
   lintingNonAggregateHaving: 'HAVING_KHÔNG_TỔNG_HỢP',
-  lintingNonAggregateHavingMessage: 'HAVING có vẻ đang lọc giá trị không tổng hợp sau khi hoàn tất bước gom nhóm.',
-  lintingNonAggregateHavingSuggestion: 'Chuyển bộ lọc không tổng hợp sang WHERE để giảm số dòng đi vào bước gom nhóm.',
+  lintingNonAggregateHavingMessage:
+    'HAVING có vẻ đang lọc giá trị không tổng hợp sau khi hoàn tất bước gom nhóm.',
+  lintingNonAggregateHavingSuggestion:
+    'Chuyển bộ lọc không tổng hợp sang WHERE để giảm số dòng đi vào bước gom nhóm.',
   lintingScalarSubquery: 'TRUY_VẤN_CON_TRONG_SELECT',
-  lintingScalarSubqueryMessage: 'Truy vấn con trong danh sách SELECT có thể được thực thi lặp lại cho từng dòng kết quả.',
-  lintingScalarSubquerySuggestion: 'Cân nhắc LEFT JOIN với dữ liệu được tổng hợp trước, đồng thời giữ nguyên số lượng dòng và phép tính.',
+  lintingScalarSubqueryMessage:
+    'Truy vấn con trong danh sách SELECT có thể được thực thi lặp lại cho từng dòng kết quả.',
+  lintingScalarSubquerySuggestion:
+    'Cân nhắc LEFT JOIN với dữ liệu được tổng hợp trước, đồng thời giữ nguyên số lượng dòng và phép tính.',
   lintingSubqueryOrderBy: 'ORDER_BY_TRONG_TRUY_VẤN_CON',
-  lintingSubqueryOrderByMessage: 'ORDER BY trong truy vấn con có thể gây sắp xếp không cần thiết khi thứ tự không được sử dụng tại đó.',
-  lintingSubqueryOrderBySuggestion: 'Loại bỏ trừ khi LIMIT, OFFSET, hàm cửa sổ hoặc logic nghiệp vụ yêu cầu.',
+  lintingSubqueryOrderByMessage:
+    'ORDER BY trong truy vấn con có thể gây sắp xếp không cần thiết khi thứ tự không được sử dụng tại đó.',
+  lintingSubqueryOrderBySuggestion:
+    'Loại bỏ trừ khi LIMIT, OFFSET, hàm cửa sổ hoặc logic nghiệp vụ yêu cầu.',
 
   // Complexity Scoring - Select Field Reasons
   complexityFieldReasonUnboundedSelection: 'Chọn cột không giới hạn',
@@ -931,7 +947,8 @@ const vi = {
 
   // Smart SQL Editor - page
   editorPageTitle: '🚀 Trình soạn thảo SQL thông minh',
-  editorPageSubtitle: 'Soạn thảo SQL mạnh mẽ với xác thực thời gian thực, định dạng và tối ưu hóa AI',
+  editorPageSubtitle:
+    'Soạn thảo SQL mạnh mẽ với xác thực thời gian thực, định dạng và tối ưu hóa AI',
   editorPageLoadSampleQueryLabel: '📋 Tải truy vấn mẫu:',
   editorPageQuerySimple: '✨ Đơn giản',
   editorPageQueryWithJoin: '🔗 Với JOIN',
@@ -940,7 +957,8 @@ const vi = {
   editorPageProTipsTitle: '💡 Mẹo hữu ích:',
   editorPageProTip1: 'Nhập hoặc dán SQL và xem xác thực thời gian thực (debounce 500ms)',
   editorPageProTip2: 'Nhấp "Định dạng SQL" để làm đẹp với từ khóa viết hoa',
-  editorPageProTip3: 'Nhấp "Phân tích & Tối ưu hóa" để nhận các gợi ý AI (yêu cầu Ollama chạy cục bộ)',
+  editorPageProTip3:
+    'Nhấp "Phân tích & Tối ưu hóa" để nhận các gợi ý AI (yêu cầu Ollama chạy cục bộ)',
   editorPageProTip4: 'Nhấp "So sánh" để xem diff của bản gốc so với đã tối ưu hóa',
   editorPageProTip5: 'Mở DevTools (F12) Console để xem các bản ghi gỡ lỗi chi tiết',
   editorPageProTip6: 'Nhấn "Giải thích truy vấn này" để chuyển SQL thành ngôn ngữ tự nhiên dễ hiểu',
@@ -972,7 +990,8 @@ const vi = {
   smartEditorOptimizing: 'Đang tối ưu hóa…',
   smartEditorOptimizationSuccess: 'Tối ưu hóa SQL hoàn tất',
   smartEditorOptimizationError: 'Tối ưu hóa SQL thất bại',
-  smartEditorLintBriefHeader: 'Đã phát hiện cảnh báo linting trong truy vấn này — hãy khắc phục trong khi tối ưu hóa:',
+  smartEditorLintBriefHeader:
+    'Đã phát hiện cảnh báo linting trong truy vấn này — hãy khắc phục trong khi tối ưu hóa:',
   smartEditorLintFixLabel: 'Khắc phục:',
   smartEditorOptimizeProgressTitle: 'AI đang tối ưu hóa truy vấn của bạn…',
   smartEditorOptimizeWaitingLabel: 'Đang chờ phản hồi từ mô hình…',
@@ -982,7 +1001,8 @@ const vi = {
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Lịch sử truy vấn',
-  queryHistorySubtitle: 'Mọi truy vấn đã phân tích được lưu trên thiết bị này. Tìm theo ý nghĩa để tìm lại.',
+  queryHistorySubtitle:
+    'Mọi truy vấn đã phân tích được lưu trên thiết bị này. Tìm theo ý nghĩa để tìm lại.',
   queryHistoryOpenPanel: 'Mở lịch sử truy vấn',
   queryHistoryClosePanel: 'Đóng lịch sử truy vấn',
   queryHistorySearchPlaceholder: 'Tìm theo ý nghĩa, ví dụ "doanh thu hàng tháng theo khu vực"',
@@ -1162,15 +1182,48 @@ const vi = {
   homePreviewTables: 'bảng được ánh xạ',
   homePreviewRecommendation: 'Khuyến nghị',
   homePreviewRecommendationText: 'Xem lại thao tác sắp xếp cuối và xác nhận các chỉ mục hỗ trợ.',
+
+  // Authentication Panel
+  authWorkspaceAccessTitle: 'Truy cập không gian làm việc',
+  authWorkspaceAccessSubtitle: 'Đăng nhập để mở không gian truy vấn',
+  authModeTabsLabel: 'Chế độ xác thực',
+  authTabLogin: 'Đăng nhập',
+  authTabRegister: 'Đăng ký',
+  authUsernameLabel: 'Tên đăng nhập',
+  authUsernamePlaceholder: 'Nhập tên đăng nhập của bạn',
+  authPasswordLabel: 'Mật khẩu',
+  authPasswordPlaceholder: 'Nhập mật khẩu của bạn',
+  authShowPassword: 'Hiện mật khẩu',
+  authHidePassword: 'Ẩn mật khẩu',
+  authLoginButton: 'Đăng nhập',
+  authEmailLabel: 'Địa chỉ email',
+  authEmailPlaceholder: 'name@company.com',
+  authCreatePasswordLabel: 'Tạo mật khẩu',
+  authCreatePasswordPlaceholder: 'Tối thiểu 12 ký tự',
+  authRegisterButton: 'Đăng ký tài khoản',
+  authOrContinueWith: 'hoặc tiếp tục với',
+  authGoogleButton: 'Google',
+  authMicrosoftButton: 'Microsoft',
+  authTemporaryAccessNotice: 'Truy cập tạm thời: tên đăng nhập {username} và mật khẩu {password}.',
+  authLoginInvalidCredentials: 'Hãy dùng tài khoản quản trị tạm thời để tiếp tục.',
+  authLoginSuccess: 'Đã đăng nhập với tài khoản admin.',
+  authRegisterUnavailable: 'Đăng ký tài khoản sẽ khả dụng khi API xác thực được kết nối.',
+  authSocialUnavailable: 'Đăng nhập bằng {provider} sẽ khả dụng khi API xác thực được kết nối.',
+  authSignInPrompt: 'Vui lòng đăng nhập để mở không gian truy vấn.',
+
   homeWorkflowEyebrow: 'Quy trình',
   homeWorkflowTitle: 'Từ SQL đến bước tiếp theo rõ ràng',
-  homeWorkflowDescription: 'Kiểm tra cấu trúc truy vấn, xác định yếu tố chi phí và cải thiện câu lệnh cuối bằng dữ liệu cụ thể.',
+  homeWorkflowDescription:
+    'Kiểm tra cấu trúc truy vấn, xác định yếu tố chi phí và cải thiện câu lệnh cuối bằng dữ liệu cụ thể.',
   homeWorkflowInputTitle: 'Đưa truy vấn vào',
-  homeWorkflowInputDescription: 'Dán SQL trực tiếp hoặc giải quyết tham số MyBatis XML trước khi phân tích.',
+  homeWorkflowInputDescription:
+    'Dán SQL trực tiếp hoặc giải quyết tham số MyBatis XML trước khi phân tích.',
   homeWorkflowInspectTitle: 'Kiểm tra cấu trúc',
-  homeWorkflowInspectDescription: 'Theo dõi CTE, nguồn gốc trường, JOIN, truy vấn lồng nhau và quan hệ bảng.',
+  homeWorkflowInspectDescription:
+    'Theo dõi CTE, nguồn gốc trường, JOIN, truy vấn lồng nhau và quan hệ bảng.',
   homeWorkflowImproveTitle: 'Cải thiện dựa trên dữ liệu',
-  homeWorkflowImproveDescription: 'Dùng yếu tố chấm điểm chính xác và kết quả linting cho thay đổi tiếp theo.',
+  homeWorkflowImproveDescription:
+    'Dùng yếu tố chấm điểm chính xác và kết quả linting cho thay đổi tiếp theo.',
   homeDialectsLabel: 'Phương ngữ SQL',
   homeDialectsTitle: 'Phân tích cú pháp mà nhóm của bạn đang sử dụng',
   // JOIN Analysis - Deep Analysis
