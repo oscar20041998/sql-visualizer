@@ -1169,7 +1169,12 @@ export function calculateQueryComplexity(
 
   // Store the score in localStorage for future median calculations
   const updatedScoreList = normalizeUniqueScores([...scoreList, totalScore]);
-  localStorage.setItem(SCORE_LIST_KEY, JSON.stringify(updatedScoreList));
+  try {
+    localStorage.setItem(SCORE_LIST_KEY, JSON.stringify(updatedScoreList));
+  } catch (error) {
+    // Storage may be unavailable (private mode, quota exceeded, disabled) — analysis must not fail because of this.
+    console.error('Error saving scores to localStorage:', error);
+  }
 
   return {
     totalScore,

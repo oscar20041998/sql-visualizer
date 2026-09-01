@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { toast } from 'sonner';
-import { Layers, AlertTriangle } from 'lucide-react';
+import { Layers, AlertTriangle, ArrowRight } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import type { SqlMetrics, StructuralAnalysisReport } from '@/lib/sql/sqlAnalyzer';
+import { useGoToSqlLine } from '@/lib/useGoToSqlLine';
 
 interface NestedSubqueryAnalysisProps {
   metrics: SqlMetrics;
@@ -70,6 +71,7 @@ export default function NestedSubqueryAnalysis({
   structuralReport,
   t,
 }: NestedSubqueryAnalysisProps) {
+  const goToSqlLine = useGoToSqlLine();
   const risk =
     SUBQUERY_RISK_LIMITS.find(
       (limit) =>
@@ -231,6 +233,17 @@ export default function NestedSubqueryAnalysis({
                         <span className="text-[10px] font-semibold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                           {subquery.type}
                         </span>
+                      )}
+                      {typeof subquery.line === 'number' && (
+                        <button
+                          type="button"
+                          onClick={() => goToSqlLine(subquery.line)}
+                          title={t.metricsDetailGoToLine}
+                          className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
+                        >
+                          #{subquery.line}
+                          <ArrowRight size={9} />
+                        </button>
                       )}
                     </div>
                     <code className="text-xs font-mono text-foreground bg-background p-2 rounded block border border-border/30 overflow-x-auto whitespace-pre-wrap break-words max-w-full">

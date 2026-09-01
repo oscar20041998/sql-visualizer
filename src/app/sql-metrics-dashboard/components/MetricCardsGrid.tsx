@@ -225,11 +225,11 @@ export default function MetricCardsGrid({ metrics, metricDetails, t }: MetricCar
         />
         <MetricCard
           label={t.joinCount}
-          value={metrics.joinCount}
+          value={metrics.totalJoinCount}
           icon={GitBranch}
           accentColor="var(--join-left)"
           subtitle={t.metricsSubtitleJoinOperations}
-          alert={metrics.joinCount > 5}
+          alert={metrics.totalJoinCount > 5}
           onClick={() => router.push('/relationship-graph-visualizer')}
           tooltip={t.metricsCardOpenGraphHint}
         />

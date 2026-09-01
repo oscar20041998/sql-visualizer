@@ -140,8 +140,20 @@ export const SmartSQLEditor: React.FC<{
   /** Lets the page observe the live editor content (used by the AI SQL Explainer). */
   onSqlChange?: (sql: string) => void;
   onOptimizationResult?: (result: SqlOptimizationResult | null) => void;
-}> = ({ initialSql = 'SELECT * FROM table_name LIMIT 10;', onSqlChange, onOptimizationResult }) => {
+  /** Line to reveal + briefly highlight once the editor is ready — fed by "go to line" links on the Metrics Dashboard. */
+  jumpToLine?: number | null;
+  /** Called once the jump has been applied, so the caller can clear its pending-jump state. */
+  onJumpHandled?: () => void;
+}> = ({
+  initialSql = 'SELECT * FROM table_name LIMIT 10;',
+  onSqlChange,
+  onOptimizationResult,
+  jumpToLine,
+  onJumpHandled,
+}) => {
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  const jumpDecorationsRef = useRef<string[]>([]);
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
@@ -246,12 +258,48 @@ export const SmartSQLEditor: React.FC<{
     onSqlChange?.(state.currentSql);
   }, [state.currentSql, onSqlChange]);
 
+  const revealAndHighlightLine = useCallback((line: number) => {
+    const editor = editorRef.current;
+    const monacoInstance = monacoRef.current;
+    if (!editor || !monacoInstance) return;
+    const lineCount = editor.getModel()?.getLineCount() ?? 1;
+    const safeLine = Math.min(Math.max(1, line), lineCount);
+    editor.revealLineInCenter(safeLine);
+    editor.setPosition({ lineNumber: safeLine, column: 1 });
+    editor.focus();
+    jumpDecorationsRef.current = editor.deltaDecorations(jumpDecorationsRef.current, [
+      {
+        range: new monacoInstance.Range(safeLine, 1, safeLine, 1),
+        options: { isWholeLine: true, className: 'smart-editor-jump-highlight' },
+      },
+    ]);
+    setTimeout(() => {
+      if (editorRef.current) {
+        jumpDecorationsRef.current = editorRef.current.deltaDecorations(
+          jumpDecorationsRef.current,
+          []
+        );
+      }
+    }, 2500);
+  }, []);
+
   const handleEditorMount = useCallback(
-    (editor: MonacoEditorNS.IStandaloneCodeEditor) => {
+    (
+      editor: MonacoEditorNS.IStandaloneCodeEditor,
+      monacoInstance: typeof import('monaco-editor')
+    ) => {
       editorRef.current = editor;
+      monacoRef.current = monacoInstance;
       editor.setValue(state.currentSql);
+      if (jumpToLine) {
+        // Defer one tick so the model/layout is settled before revealing the line.
+        setTimeout(() => {
+          revealAndHighlightLine(jumpToLine);
+          onJumpHandled?.();
+        }, 0);
+      }
     },
-    [state.currentSql]
+    [state.currentSql, jumpToLine, onJumpHandled, revealAndHighlightLine]
   );
 
   const handleFormatSQL = useCallback(async () => {

@@ -48,7 +48,7 @@ export default function MetricsBarChart({ metrics, t }: Props) {
     { name: t.metricsBarOrderBy, value: metrics.orderBy },
     { name: t.metricsBarConditions, value: metrics.conditionCount },
     { name: t.metricsBarOpsFuncs, value: metrics.operationAndFunctionCount },
-    { name: t.metricsBarJoins, value: metrics.joinCount },
+    { name: t.metricsBarJoins, value: metrics.totalJoinCount },
     { name: t.metricsBarFinalSelect, value: metrics.finalSelectFieldCount },
   ];
 
