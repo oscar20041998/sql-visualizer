@@ -4,7 +4,7 @@
 // request (tables, aliases, join graph, CTE dependencies, subquery depth) are already computed
 // by sqlAnalyzer, so we hand them over up front. One round-trip instead of several, and the
 // model stops guessing at aliases — the most common source of wrong explanations.
-import type { AnalysisResult } from '../sqlAnalyzer';
+import type { AnalysisResult } from '../sql/sqlAnalyzer';
 import { estimateTokens } from './aiTokens';
 
 /** Hard cap so the brief can never crowd out the query itself. */
