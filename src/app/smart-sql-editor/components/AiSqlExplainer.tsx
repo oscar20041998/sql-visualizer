@@ -515,13 +515,13 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm animate-fade-in"
           onClick={() => setIsOpen(false)}
         >
           <div
             ref={containerRef}
             onClick={(event) => event.stopPropagation()}
-            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-40 flex h-full w-full flex-col overflow-hidden border-l border-gray-800 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
+            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-gray-800 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
           >
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-800 px-4 py-3">
@@ -771,7 +771,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
           {/* Multi-turn follow-up about the query that was just explained. */}
           {!isRunning && lastTurn?.status === 'done' && (
-            <div className="mt-3">
+            <div className="mt-3 mr-6">
               <AiFollowUpChat
                 sql={explainedSql}
                 config={aiConfig}
