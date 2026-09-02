@@ -45,3 +45,7 @@ turbo/
 # Optional: if using environment variables
 .env
 docs/knowledge/*.pdf
+
+# Optional: if using Specify or GitHub Skills
+.specify
+.github/skills
