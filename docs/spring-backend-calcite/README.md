@@ -434,7 +434,7 @@ Persists a single completed analyzer result.
     "tableCount": 2,
     "joinCount": 1,
     "complexityLevel": "LOW",
-    "embeddingModel": "text-embedding-3-small"
+    "embeddingModel": "text-embedding-3-large"
   }
   ```
 

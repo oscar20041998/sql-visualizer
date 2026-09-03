@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   LogOut,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -33,6 +34,7 @@ const navItems = [
   // { key: 'navSmartEditor', href: '/smart-sql-editor', icon: Sparkles, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
   { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
+  { key: 'navDatabaseAssistant', href: '/database-ai-assistant', icon: Database, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
   { key: 'navSettings', href: '/settings-preferences', icon: Settings, badge: null },
 ] as const;
@@ -45,6 +47,7 @@ const NAV_WITHOUT_ANALYSIS = new Set<string>([
   'navHome',
   'navQueryInput',
   'navSmartEditor',
+  'navDatabaseAssistant',
   'navGuideline',
   'navSettings',
 ]);
@@ -156,6 +159,7 @@ export default function Sidebar() {
                 item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 item.key !== 'navGuideline' &&
+                item.key !== 'navDatabaseAssistant' &&
                 analysisResult &&
                 !isPending && (
                   <span className="ml-auto flex-shrink-0">
