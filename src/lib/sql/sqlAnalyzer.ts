@@ -225,9 +225,13 @@ export async function analyzeSql(
   const cleaned = stripped.trim();
   const extractedTables = extractTables(cleaned);
   const extractedJoins = extractJoins(cleaned, extractedTables);
+  // Comma-style FROM joins (e.g. `FROM a, b`) have no JOIN keyword, so they were previously
+  // invisible to the graph/totalJoinCount even though countImplicitJoins() already counted them
+  // for the structural score. Represented separately so the two counts never double up.
+  const implicitJoins = extractImplicitJoinEdges(cleaned, extractedTables);
   const ctes = extractCTEs(cleaned);
   const tables = buildGraphTables(extractedTables, ctes);
-  const joins = buildGraphJoins(extractedJoins, tables, ctes);
+  const joins = buildGraphJoins([...extractedJoins, ...implicitJoins], tables, ctes);
   // Structural metrics must be based on SQL joins only (exclude graph-only RELATES TO edges).
   const structuralReport = buildStructuralAnalysisReport(cleaned, sql, ctes, extractedJoins);
   
@@ -248,8 +252,8 @@ export async function analyzeSql(
     mainQuery
   );
 
-  // Analyze all joins with deep analysis
-  const joinAnalysisDetails = analyzeAllJoins(cleaned, tables);
+  // Detail records must use the same canonical edge list as the graph and relationship metric.
+  const joinAnalysisDetails = analyzeAllJoins(joins);
 
   return {
     tables,
@@ -462,6 +466,25 @@ function analyzeJoinCondition(condition: string): JoinConditionAnalysis {
 
 function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   const joins: JoinEdge[] = [];
+  const ensureTable = (name: string, alias?: string): TableNode => {
+    const normalizedName = name.toLowerCase();
+    const normalizedAlias = alias?.toLowerCase();
+    const existing = tables.find(
+      (table) =>
+        table.name.toLowerCase() === normalizedName ||
+        Boolean(normalizedAlias && table.alias?.toLowerCase() === normalizedAlias)
+    );
+    if (existing) return existing;
+
+    const table: TableNode = {
+      id: toNodeId(name),
+      name,
+      alias: alias || undefined,
+      columns: extractColumnsForTable(sql, alias || name),
+    };
+    tables.push(table);
+    return table;
+  };
 
   // Enhanced pattern to support all SQL dialects:
   // MySQL: STRAIGHT_JOIN, USING
@@ -478,6 +501,7 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   let idx = 0;
   const fromMatch = SQL_REGEX_PATTERNS.FROM_CLAUSE.exec(sql);
   const fromTable = fromMatch ? fromMatch[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '') : '';
+  let previousTable = fromTable;
 
   // Track all matched joins to avoid duplicates
   const processedPositions = new Set<number>();
@@ -526,8 +550,12 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
       // Normalize join type using helper
       const joinType = normalizeJoinType(rawJoinType);
 
-      // Find source table from condition or use previous table
-      let sourceTable = fromTable;
+      // Find source table from condition or use previous table. The ON condition can name
+      // either side first (e.g. "o.customer_id = c.customer_id" names the *joined* table
+      // first) — always taking the first-named table as source turned that case into a
+      // self-loop (source === target === "orders"), which then got silently dropped as a
+      // no-op edge. Resolve which side is the joined table and use the other as the source.
+      let sourceTable = previousTable;
       if (
         condition &&
         !condition.toUpperCase().includes('USING') &&
@@ -537,6 +565,9 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
         if (condParts) {
           const t1 = condParts[1];
           const t2 = condParts[4];
+          const isJoinedTableRef = (ref: string) =>
+            ref.toLowerCase() === joinedTable.toLowerCase() ||
+            Boolean(tableAlias && ref.toLowerCase() === tableAlias.toLowerCase());
           const t1Node = tables.find(
             (t) =>
               t.alias?.toLowerCase() === t1.toLowerCase() ||
@@ -547,16 +578,17 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
               t.alias?.toLowerCase() === t2.toLowerCase() ||
               t.name.toLowerCase() === t2.toLowerCase()
           );
-          if (t1Node && t2Node) {
-            sourceTable = t1Node.name;
+          if (t1Node && t2Node && t1Node.id !== t2Node.id) {
+            if (isJoinedTableRef(t2)) sourceTable = t1Node.name;
+            else if (isJoinedTableRef(t1)) sourceTable = t2Node.name;
           }
         }
       }
 
-      const sourceNode = tables.find((t) => t.name.toLowerCase() === sourceTable.toLowerCase());
-      const targetNode = tables.find((t) => t.name.toLowerCase() === joinedTable.toLowerCase());
+      const sourceNode = sourceTable ? ensureTable(sourceTable) : null;
+      const targetNode = ensureTable(joinedTable, tableAlias);
 
-      if (sourceNode && targetNode && sourceNode.id !== targetNode.id) {
+      if (sourceNode && sourceNode.id !== targetNode.id) {
         joins.push({
           id: `join-${idx++}`,
           source: sourceNode.id,
@@ -565,6 +597,7 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
           condition,
         });
       }
+      previousTable = targetNode.name;
     }
   }
 
@@ -572,16 +605,12 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
 }
 
 export function analyzeAllJoins(
-  sql: string,
-  tables: TableNode[]
+  joins: JoinEdge[]
 ): Array<{
   id: string;
   joinEdge: JoinEdge;
   analysis: JoinConditionAnalysis;
 }> {
-  // Extract all joins and provide deep analysis for each
-  const joins = extractJoins(sql, tables);
-
   return joins.map((join) => ({
     id: join.id,
     joinEdge: join,
@@ -1238,10 +1267,18 @@ function countLines(rawSql: string): number {
   return normalized.split('\n').length;
 }
 
-function countImplicitJoins(sql: string): number {
+/**
+ * Finds every top-level FROM clause's comma-separated table list (old-style implicit joins,
+ * e.g. `FROM a, b`), returning each clause's parts already trimmed. Shared by
+ * countImplicitJoins() and extractImplicitJoinEdges() so they can never drift apart. The
+ * terminator check requires a word boundary (e.g. `ORDER\s+BY`, not just `ORDER`) so a table
+ * literally named `orders`, `groups`, `limits`, etc. is not mistaken for a clause keyword.
+ */
+function findImplicitJoinClauses(sql: string): string[][] {
   const upper = sql.toUpperCase();
-  let count = 0;
+  const clauses: string[][] = [];
   let depth = 0;
+  const stopPattern = /^\s+(?:WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION)\b/;
 
   for (let i = 0; i < sql.length; i++) {
     const ch = sql[i];
@@ -1309,24 +1346,76 @@ function countImplicitJoins(sql: string): number {
         continue;
       }
 
-      const stopKeywords = [' WHERE', ' GROUP', ' ORDER', ' HAVING', ' LIMIT', ' UNION'];
-      const rest = upper.slice(j);
-      if (depth === fromDepth && stopKeywords.some((k) => rest.startsWith(k))) break;
+      if (depth === fromDepth && stopPattern.test(upper.slice(j))) break;
 
       fromBody += c;
       j++;
     }
 
     const commaParts = splitTopLevelComma(fromBody);
-    if (commaParts.length > 1) {
-      count += commaParts.length - 1;
-    }
+    if (commaParts.length > 1) clauses.push(commaParts.map((part) => part.trim()));
 
     i = j;
   }
 
-  return count;
+  return clauses;
 }
+
+function countImplicitJoins(sql: string): number {
+  return findImplicitJoinClauses(sql).reduce((sum, parts) => sum + parts.length - 1, 0);
+}
+
+/**
+ * Turns comma-separated FROM tables (e.g. `FROM a, b, c`) into graph edges, chained N-1 per
+ * clause so the count always matches countImplicitJoins() — keeps totalJoinCount and the
+ * Relationship Graph in sync with metrics.joinCount for this join style too.
+ */
+function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] {
+  const edges: JoinEdge[] = [];
+  let idx = 0;
+
+  findImplicitJoinClauses(sql).forEach((parts) => {
+    const partRefs = parts.map((part) => {
+      const parsed = /^[`"[]?([\w.]+)[`"\]]?(?:\s+(?:AS\s+)?(\w+))?/i.exec(part);
+      return { name: parsed?.[1] ?? '', alias: parsed?.[2] };
+    });
+
+    // extractTables() only captures the table right after FROM/JOIN — comma-separated
+    // siblings here have no such keyword, so they must be created on demand.
+    const ensureImplicitTable = (name: string, alias?: string): TableNode | null => {
+      if (!name) return null;
+      const normalizedName = name.toLowerCase();
+      const normalizedAlias = alias?.toLowerCase();
+      const existing = tables.find(
+        (t) =>
+          t.name.toLowerCase() === normalizedName ||
+          Boolean(normalizedAlias && t.alias?.toLowerCase() === normalizedAlias)
+      );
+      if (existing) return existing;
+
+      const node: TableNode = { id: toNodeId(name), name, alias, columns: [] };
+      tables.push(node);
+      return node;
+    };
+
+    for (let k = 0; k < partRefs.length - 1; k++) {
+      const sourceNode = ensureImplicitTable(partRefs[k].name, partRefs[k].alias);
+      const targetNode = ensureImplicitTable(partRefs[k + 1].name, partRefs[k + 1].alias);
+      if (!sourceNode || !targetNode || sourceNode.id === targetNode.id) continue;
+
+      edges.push({
+        id: `implicit-${idx++}`,
+        source: sourceNode.id,
+        target: targetNode.id,
+        joinType: 'RELATES TO',
+        condition: '',
+      });
+    }
+  });
+
+  return edges;
+}
+
 
 function countCaseWhen(sql: string): number {
   const upper = sql.toUpperCase();

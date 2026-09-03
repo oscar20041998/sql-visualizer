@@ -16,7 +16,7 @@ const ROOT = path.resolve(__dirname, '..');
 const MARKDOWN_ROOT = path.join(ROOT, 'public', 'assets', 'markdown');
 const DOCS_DIR = path.join(MARKDOWN_ROOT, 'features');
 const OUTPUT_PATH = path.join(ROOT, 'src', 'lib', 'ai', 'docsIndex.json');
-const EMBEDDING_MODEL = 'text-embedding-3-small';
+const EMBEDDING_MODEL = 'text-embedding-3-large';
 const BATCH_SIZE = 20;
 
 /** No dotenv dependency: this script runs outside the Next.js server, which loads .env itself. */

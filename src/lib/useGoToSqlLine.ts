@@ -8,10 +8,12 @@ export function useGoToSqlLine() {
   const router = useRouter();
   const analysisResult = useAppStore((s) => s.analysisResult);
   const setPendingEditorJump = useAppStore((s) => s.setPendingEditorJump);
+  const beginNavigation = useAppStore((s) => s.beginNavigation);
 
   return (line: number) => {
     if (!analysisResult) return;
     setPendingEditorJump({ sql: analysisResult.rawSql, line });
+    beginNavigation('/query-input');
     router.push('/query-input');
   };
 }

@@ -10,7 +10,7 @@ import MainQueryFieldsTable from './MainQueryFieldsTable';
 
 export default function CTEAnalysisContent() {
   const router = useRouter();
-  const { settings, analysisResult } = useAppStore();
+  const { settings, analysisResult, beginNavigation } = useAppStore();
   const t = getT(settings.locale);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -80,7 +80,10 @@ export default function CTEAnalysisContent() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => router.push('/sql-metrics-dashboard')}
+            onClick={() => {
+              beginNavigation('/sql-metrics-dashboard');
+              router.push('/sql-metrics-dashboard');
+            }}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground hover:bg-muted transition-colors"
           >
             <BarChart3 size={14} className="text-primary" />

@@ -56,7 +56,7 @@ const FeatureCard = ({
 
 function AuthenticationPanel() {
   const router = useRouter();
-  const { settings } = useAppStore();
+  const { settings, beginNavigation } = useAppStore();
   const t = getT(settings.locale as 'en' | 'vi');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
@@ -75,6 +75,7 @@ function AuthenticationPanel() {
 
     setDemoAuthenticated();
     toast.success(t.authLoginSuccess);
+    beginNavigation('/query-input');
     router.push('/query-input');
   };
 
@@ -285,11 +286,12 @@ function AuthenticationPanel() {
 export default function HomePage() {
   const router = useRouter();
   const [isHovering, setIsHovering] = useState(false);
-  const { settings } = useAppStore();
+  const { settings, beginNavigation } = useAppStore();
   const t = getT(settings.locale as 'en' | 'vi');
 
   const handleGetStarted = () => {
     if (isDemoAuthenticated()) {
+      beginNavigation('/query-input');
       router.push('/query-input');
       return;
     }
@@ -453,7 +455,10 @@ export default function HomePage() {
                 </span>
               </button>
               <button
-                onClick={() => router.push('/guideline')}
+                onClick={() => {
+                  beginNavigation('/guideline');
+                  router.push('/guideline');
+                }}
                 className="px-6 py-4 rounded-lg font-semibold text-foreground bg-card border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200"
               >
                 {t.homeGuidelinesButton}

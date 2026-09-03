@@ -138,7 +138,7 @@ function resolveMessages(config: AIModelConfig, request: AIGenerateRequest): AIM
 }
 
 /** Wraps fetch so network failures become AIServiceError while aborts stay recognizable to callers. */
-async function safeFetch(url: string, init: RequestInit, unreachableMessage: string): Promise<Response> {
+export async function safeFetch(url: string, init: RequestInit, unreachableMessage: string): Promise<Response> {
   try {
     return await fetch(url, init);
   } catch (error) {
@@ -517,8 +517,13 @@ async function callGemini(
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
 }
 
-/** Direct call to a local Ollama server's embeddings endpoint (no credential needed). */
-async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
+/**
+ * Direct call to a local Ollama server's embeddings endpoint (no credential needed). Exported
+ * (not just used via {@link embedWithAI}) so server-only routes can embed with a specific model
+ * that isn't the user's configured chat/embedding provider — e.g. the Database AI Assistant's
+ * RAG index, which was built with a fixed local model regardless of AIModelConfig.
+ */
+export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
   if (!normalizeBaseUrl(baseUrlRaw)) throw new AIServiceError('Ollama base URL is not configured.');
   const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embeddings`;
 
