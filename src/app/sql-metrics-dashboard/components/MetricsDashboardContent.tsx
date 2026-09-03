@@ -14,7 +14,7 @@ import ReferencedTablesOverview from './ReferencedTablesOverview';
 
 export default function MetricsDashboardContent() {
   const router = useRouter();
-  const { settings, analysisResult } = useAppStore();
+  const { settings, analysisResult, beginNavigation } = useAppStore();
   const t = getT(settings.locale);
 
   if (!analysisResult) {
@@ -59,7 +59,10 @@ export default function MetricsDashboardContent() {
         <div className="flex items-center gap-2">
           {ctes && ctes.length > 0 && (
             <button
-              onClick={() => router.push('/cte-analysis')}
+              onClick={() => {
+                beginNavigation('/cte-analysis');
+                router.push('/cte-analysis');
+              }}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-accent bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
             >
               <Layers size={14} />

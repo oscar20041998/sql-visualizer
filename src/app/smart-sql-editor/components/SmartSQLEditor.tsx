@@ -157,6 +157,7 @@ export const SmartSQLEditor: React.FC<{
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
+  const setAnalysisResult = useAppStore((store) => store.setAnalysisResult);
   const t = getT(settings.locale);
   const monacoTheme = settings.theme === 'dark' ? 'vs-dark' : 'vs';
 
@@ -381,8 +382,10 @@ export const SmartSQLEditor: React.FC<{
     try {
       const parsed = await analyzeSql(sql, dialect, settings.locale);
       brief = buildSqlContextBrief(parsed);
+      setAnalysisResult(parsed);
     } catch {
       brief = '';
+      setAnalysisResult(null);
     }
 
     // Feed the same linting alerts shown in the UI to the model so it targets them directly.
@@ -444,7 +447,7 @@ export const SmartSQLEditor: React.FC<{
     } finally {
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
-  }, [state.currentSql, dialect, settings, t, onOptimizationResult, stopSpeech]);
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, stopSpeech]);
 
   // Calculate statistics
   const stats = {

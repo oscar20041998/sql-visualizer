@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
@@ -114,6 +114,7 @@ export default function QueryInputContent() {
     setMyBatisParams,
     setAnalysisResult,
     setIsAnalyzing,
+    beginNavigation,
     setInputMode,
     setPendingEditorJump,
   } = useAppStore();
@@ -130,6 +131,7 @@ export default function QueryInputContent() {
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
+  const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
 
   // Detect params when MyBatis XML changes
   useEffect(() => {
@@ -180,7 +182,12 @@ export default function QueryInputContent() {
   );
 
   const handleAnalyze = useCallback(async () => {
-    const sqlToAnalyze = inputMode === 'sql' ? rawSql : resolvedSql;
+    const sqlToAnalyze =
+      inputMode === 'smart-editor'
+        ? smartEditorSqlRef.current
+        : inputMode === 'sql'
+          ? rawSql
+          : resolvedSql;
     if (!sqlToAnalyze.trim()) {
       toast.error(t.emptyQueryError);
       return;
@@ -227,8 +234,8 @@ export default function QueryInputContent() {
         });
       });
 
-      // Keep this await so loading state is finalized after the async flow settles.
-      await Promise.resolve(router.push('/sql-metrics-dashboard'));
+      beginNavigation('/sql-metrics-dashboard');
+      router.push('/sql-metrics-dashboard');
     };
 
     await runAnalyze().catch(() => {
@@ -246,6 +253,7 @@ export default function QueryInputContent() {
     t,
     setIsAnalyzing,
     setAnalysisResult,
+    beginNavigation,
   ]);
 
   const handleClear = useCallback(() => {
@@ -341,6 +349,7 @@ export default function QueryInputContent() {
                     setPendingEditorJump(null);
                   }}
                   onSqlChange={(sql) => {
+                    smartEditorSqlRef.current = sql;
                     setSmartEditorSql(sql);
                     setOptimizationResult(null);
                   }}

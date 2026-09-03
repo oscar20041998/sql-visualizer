@@ -165,7 +165,7 @@ Response `200 OK`: `{ "items": [/* QueryHistoryDto */], "page": 1, "size": 50, "
 
 ### `PATCH /history/{id}/embedding` and deletion
 
-Embedding update request: `{ "embedding": [0.012, -0.034], "embeddingModel": "text-embedding-3-small" }`. Vectors must have the configured dimension and belong to the caller's entry. Response is the updated history entry. `DELETE /history/{id}` returns `204`; `DELETE /history` clears the caller's history and returns `204`.
+Embedding update request: `{ "embedding": [0.012, -0.034], "embeddingModel": "text-embedding-3-large" }`. Vectors must have the configured dimension and belong to the caller's entry. Response is the updated history entry. `DELETE /history/{id}` returns `204`; `DELETE /history` clears the caller's history and returns `204`.
 
 ## AI and Speech Proxies
 
@@ -175,7 +175,7 @@ Request fields: `provider` (`openai|anthropic|gemini`), `modelId` (non-empty str
 
 ### `POST /ai/embed`
 
-Request: `{ "provider": "openai", "modelId": "text-embedding-3-small", "text": "non-empty text", "baseUrl": "optional allowed URL" }`. Response: `{ "embedding": [number] }`. The backend validates provider URLs against an allow-list before attaching a credential.
+Request: `{ "provider": "openai", "modelId": "text-embedding-3-large", "text": "non-empty text", "baseUrl": "optional allowed URL" }`. Response: `{ "embedding": [number] }`. The backend validates provider URLs against an allow-list before attaching a credential.
 
 ### `POST /ai/docs-context`
 

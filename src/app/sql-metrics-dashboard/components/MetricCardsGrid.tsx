@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n';
+import { useAppStore } from '@/lib/store';
 import type { SqlMetrics, MetricDetailsReport, MetricDetailItem } from '@/lib/sql/sqlAnalyzer';
 import MetricDetailDrawer from './MetricDetailDrawer';
 
@@ -107,6 +108,7 @@ function MetricCard({
 
 export default function MetricCardsGrid({ metrics, metricDetails, t }: MetricCardsGridProps) {
   const router = useRouter();
+  const beginNavigation = useAppStore((state) => state.beginNavigation);
   const [activeMetric, setActiveMetric] = useState<DetailMetricKey | null>(null);
 
   const detailModalConfig: Record<
@@ -230,7 +232,10 @@ export default function MetricCardsGrid({ metrics, metricDetails, t }: MetricCar
           accentColor="var(--join-left)"
           subtitle={t.metricsSubtitleJoinOperations}
           alert={metrics.totalJoinCount > 5}
-          onClick={() => router.push('/relationship-graph-visualizer')}
+          onClick={() => {
+            beginNavigation('/relationship-graph-visualizer');
+            router.push('/relationship-graph-visualizer');
+          }}
           tooltip={t.metricsCardOpenGraphHint}
         />
         <MetricCard

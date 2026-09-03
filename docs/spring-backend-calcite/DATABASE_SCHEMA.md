@@ -12,7 +12,7 @@ This is the target persistent schema for the Spring backend. It replaces the cur
 | Timestamps           | `timestamptz`          | Stores an absolute instant; Java maps to `Instant`                                        |
 | SQL and prompts      | `text`                 | Avoids arbitrary practical limits                                                         |
 | Enum-like values     | `varchar` plus `check` | Readable, forward-compatible, and validated in the database                               |
-| Embeddings           | `vector(1536)`         | Matches `text-embedding-3-small`; use a separate migration if the model dimension changes |
+| Embeddings           | `vector(1536)`         | Matches `text-embedding-3-large`; use a separate migration if the model dimension changes |
 | JSON preference maps | `jsonb`                | Preserves the frontend's provider-keyed token/base URL maps                               |
 
 ## Initial Flyway Migration

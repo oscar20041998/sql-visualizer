@@ -34,7 +34,7 @@ Semantic search reuses the AI provider configured at **Settings > AI Model Confi
 | Provider | Embedding model | Notes |
 | --- | --- | --- |
 | Ollama | `nomic-embed-text` | Runs locally; pull it once with `ollama pull nomic-embed-text`. |
-| OpenAI | `text-embedding-3-small` | Server-managed credential, same as SQL explanations. |
+| OpenAI | `text-embedding-3-large` | Server-managed credential, same as SQL explanations. |
 | Google Gemini | `text-embedding-004` | Server-managed credential. |
 | Anthropic | Not supported | Anthropic has no embeddings API. Switch provider in Settings to use semantic search; plain text search still works. |
 

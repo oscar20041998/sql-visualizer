@@ -11,6 +11,7 @@ const vi = {
   navMetricsDashboard: 'Bảng chỉ số',
   navCTEAnalysis: 'Phân tích CTE',
   navGuideline: 'Hướng dẫn',
+  navDatabaseAssistant: 'Trợ lý AI Cơ sở dữ liệu',
   navSettings: 'Cài đặt',
 
   // Query Input
@@ -618,6 +619,7 @@ const vi = {
   guidelineQuickRefCTE: 'Phân tích CTE',
   guidelineQuickRefSettings: 'Cài đặt',
   guidelineQuickRefAiExplainer: 'AI Diễn Giải SQL',
+  guidelineQuickRefDbAssistant: 'Trợ lý AI Cơ sở dữ liệu',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Chuyển tối / sáng',
@@ -1120,6 +1122,23 @@ const vi = {
     'Tính năng này sử dụng chuyển văn bản thành giọng nói trên trình duyệt cho các diễn giải cục bộ, đảm bảo dữ liệu của bạn được bảo mật.',
   guidelineAiSpeechTip2:
     'Đối với các diễn giải dựa trên đám mây, chức năng đọc to có thể sử dụng các API bên ngoài để tạo âm thanh chất lượng cao.',
+
+  // Guideline - Database AI Assistant Section
+  guidelineDbAssistantTitle: 'Trợ lý AI Cơ sở dữ liệu',
+  guidelineDbAssistantSubtitle: 'Hỏi các câu hỏi cơ sở dữ liệu chung, có thể được minh chứng bằng tài liệu chính thức',
+  guidelineDbAssistantStep1Label: 'Mở trợ lý',
+  guidelineDbAssistantStep1Desc:
+    'Chọn Trợ lý AI Cơ sở dữ liệu trên thanh bên. Không cần truy vấn đã phân tích — hỏi bất cứ điều gì liên quan đến cơ sở dữ liệu bất kỳ lúc nào.',
+  guidelineDbAssistantStep2Label: 'Đặt câu hỏi',
+  guidelineDbAssistantStep2Desc:
+    'Nhập câu hỏi hoặc chọn một gợi ý có sẵn. Câu trả lời được tạo bởi nhà cung cấp đã cấu hình trong Cài đặt, và các câu hỏi tiếp theo được gợi ý sau mỗi câu trả lời.',
+  guidelineDbAssistantStep3Label: 'Kiểm tra Nguồn tham khảo',
+  guidelineDbAssistantStep3Desc:
+    'Khi câu hỏi khớp với một đoạn trích từ tài liệu chính thức của SQL Server, MySQL, PostgreSQL hoặc Oracle, một dòng Nguồn tham khảo sẽ xuất hiện bên dưới câu trả lời cho biết nó lấy từ tài liệu nào.',
+  guidelineDbAssistantTip1:
+    'Việc minh chứng yêu cầu Ollama đang chạy cục bộ với mô hình embedding "all-minilm" đã được tải về, không phụ thuộc vào nhà cung cấp nào bạn dùng để tạo câu trả lời.',
+  guidelineDbAssistantTip2:
+    'Nếu không có minh chứng, trợ lý vẫn trả lời bằng kiến thức chung của mô hình — không có gì bị lỗi, chỉ là dòng Nguồn tham khảo sẽ không xuất hiện.',
   guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',
   guidelineAdvancedFeaturesSubtitle: 'Phân trang, tìm kiếm và khả năng tùy chỉnh mới',
   guidelineAdvancedFeaturesStep1Label: 'Bảng trường truy vấn chính với phân trang',
@@ -1396,6 +1415,42 @@ const vi = {
   docsConsultantSuggestion4: 'Cách phân tích SQL?',
   docsConsultantSuggestion5: 'Giải thích độ phức tạp của các JOIN',
   aiAssistantTitle: 'Trợ lý AI',
+
+  // Database AI Assistant page
+  dbAssistantHeroBadge: 'Chạy trên AI cục bộ của bạn',
+  dbAssistantHeroTitle: 'Trợ lý AI',
+  dbAssistantHeroTitleGradient: 'Cơ sở dữ liệu',
+  dbAssistantHeroSubtitle:
+    'Hỏi bất cứ điều gì về SQL, thiết kế schema, đánh chỉ mục hay tối ưu hiệu năng — được trả lời ngay lập tức bởi mô hình AI bạn đã cấu hình.',
+  dbAssistantFeatureSql: 'SQL & Phương ngữ',
+  dbAssistantFeatureSchema: 'Thiết kế Schema',
+  dbAssistantFeaturePerf: 'Tối ưu hiệu năng',
+  dbAssistantFeatureSecurity: 'Bảo mật & Sao lưu',
+  dbAssistantProviderLabel: 'Nhà cung cấp',
+  dbAssistantModelLabel: 'Mô hình',
+  dbAssistantNewChat: 'Cuộc trò chuyện mới',
+  dbAssistantPlaceholder: 'Hỏi về SQL, schema, chỉ mục, hiệu năng…',
+  dbAssistantSend: 'Gửi',
+  dbAssistantStop: 'Dừng',
+  dbAssistantThinking: 'Đang suy nghĩ…',
+  dbAssistantRoleYou: 'Bạn',
+  dbAssistantRoleAssistant: 'Trợ lý',
+  dbAssistantEmptyTitle: 'Bạn muốn biết điều gì về cơ sở dữ liệu?',
+  dbAssistantEmptySubtitle: 'Chọn một gợi ý bên dưới hoặc tự đặt câu hỏi để bắt đầu.',
+  dbAssistantSuggestionsLabel: 'Thử hỏi',
+  dbAssistantFollowUpsLabel: 'Bạn có thể hỏi thêm',
+  dbAssistantSourcesLabel: 'Nguồn tham khảo',
+  dbAssistantSuggestion1: 'Làm sao để thiết kế schema chuẩn hóa cho ứng dụng thương mại điện tử?',
+  dbAssistantSuggestion2: 'Sự khác biệt giữa clustered index và non-clustered index là gì?',
+  dbAssistantSuggestion3: 'Làm sao để tối ưu một truy vấn JOIN chậm?',
+  dbAssistantSuggestion4: 'Khi nào nên dùng NoSQL thay vì SQL?',
+  dbAssistantSuggestion5: 'Giải thích transaction ACID một cách đơn giản',
+  dbAssistantSuggestion6: 'Cách tốt nhất để phân trang tập kết quả lớn là gì?',
+  dbAssistantCopy: 'Sao chép',
+  dbAssistantCopied: 'Đã sao chép!',
+  dbAssistantErrorGeneric: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
+  dbAssistantDisclaimer:
+    'Câu trả lời do AI tạo ra và có thể không chính xác — hãy kiểm tra lại trước khi áp dụng vào việc quan trọng.',
 } as const;
 
 export default vi;

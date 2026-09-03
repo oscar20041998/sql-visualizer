@@ -31,6 +31,12 @@ models/
 # Local query-history workbook, written by /api/history (per-machine data, not source)
 data/
 
+# Raw 4-database-manual embeddings dump (~500 MB, user-provided) and the derived RAG index built
+# from it by `npm run build:database-knowledge-index` (meta JSON + binary embeddings, still large).
+# Regenerate locally; never commit these.
+src/lib/ai/document_chunks.json
+src/lib/ai/data/
+
 # Optional: if using testing tools
 coverage/
 jest-test-results.json

@@ -18,6 +18,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **AI SQL Explainer** - Turns a query into a structured, plain-language explanation (objective, filters, output, referenced tables)
 - **AI Optimize** - Streams optimization suggestions and a rewritten query, grounded in the local parser's verified facts (tables, joins, CTE graph)
 - **Docs Consultant Chat** - RAG-style chat over the app's own feature docs (embeds the question, retrieves the closest doc chunks, answers with citations)
+- **Database AI Assistant** - General database chat for SQL, schema design, indexes, transactions, and performance. When its local RAG index is available, answers are grounded in relevant excerpts from official SQL Server, MySQL, PostgreSQL, and Oracle manuals, with source labels shown below the answer
 - **Query History with Semantic Search** - Every analyzed query is saved (server-side Excel-backed store) and searchable by meaning, not just substring, via embeddings
 - **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini) proxied through the app server so credentials never reach the browser
 - **Text-to-Speech** - Reads AI explanations/optimization notes aloud (browser speech synthesis, with optional Piper local voices)
@@ -59,6 +60,17 @@ yarn dev
 
 3. Open [http://localhost:4028](http://localhost:4028) with your browser to see the result.
 
+### Optional: Build the Database Knowledge RAG Index
+
+The Database AI Assistant works without a local knowledge index, using the configured chat model's general knowledge. To ground answers in the bundled official database-manual excerpts and show sources:
+
+```bash
+ollama pull all-minilm
+npm run build:database-knowledge-index
+```
+
+This command requires Ollama to be running and the local `src/lib/ai/document_chunks.json` source dump to be available. It re-embeds about 82,000 manual excerpts with `all-minilm`, then writes a local binary index under `src/lib/ai/data/`. The index is intentionally git-ignored and takes roughly 20-30 minutes to build; rerun it only when the source dump or embedding model changes.
+
 ## 📁 Project Structure
 
 ```
@@ -74,14 +86,22 @@ sql-visualizer/
 │           ├── FEATURES.md
 │           ├── FEATURES_INDEX.md
 │           └── features/           # Modular per-feature guides
+│               ├── core-analysis-tools/
+│               ├── database-ai-assistant/ # Database AI Assistant and RAG setup guide
+│               ├── smart-editor-ai-assistant/
+│               └── voice-and-docs-support/
 ├── scripts/
 │   ├── setup-piper.mjs             # Downloads/configures local Piper TTS voices
-│   └── build-docs-index.mjs        # Rebuilds src/lib/ai/docsIndex.json for the Docs Consultant
+│   ├── build-docs-index.mjs        # Rebuilds src/lib/ai/docsIndex.json for the Docs Consultant
+│   └── build-database-knowledge-index.mjs # Re-embeds official manuals for the Database AI Assistant RAG index
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx              # Root layout with theme provider
 │   │   ├── page.tsx                # Dashboard / landing page (login gate)
-│   │   ├── api/ai/                 # Server routes proxying AI generate/embed/speech/docs-context
+│   │   ├── api/ai/                 # Server routes proxying AI generate/embed/speech/retrieval
+│   │   │   ├── database-knowledge-context/ # RAG retrieval over the official database manuals
+│   │   │   └── docs-context/        # RAG retrieval over SQL Visualizer feature docs
+│   │   ├── database-ai-assistant/  # General database Q&A chat with RAG source citations
 │   │   ├── query-input/            # SQL input and parameter configuration
 │   │   ├── relationship-graph-visualizer/  # Graph visualization and JOIN analysis
 │   │   ├── cte-analysis/           # CTE exploration and analysis
@@ -104,6 +124,9 @@ sql-visualizer/
 │   │   │   ├── aiSqlContext.ts    # SQL context brief builder for AI prompts
 │   │   │   ├── aiSpeech.ts / aiSpeechEngine.ts # Text-to-speech playback
 │   │   │   ├── aiTokens.ts        # Token estimation helpers
+│   │   │   ├── databaseAssistant.ts # Database AI Assistant chat and RAG orchestration
+│   │   │   ├── databaseKnowledgeStore.ts # Server-only nearest-neighbor search over the manual corpus
+│   │   │   ├── data/               # Local git-ignored RAG index generated from the official manuals
 │   │   │   ├── embeddingService.ts # Client helpers for semantic search embeddings
 │   │   │   ├── vectorStore.ts     # Cosine-similarity search over docsIndex.json
 │   │   │   └── docsIndex.json     # Embedded feature docs for the Docs Consultant chat
@@ -155,6 +178,7 @@ sql-visualizer/
 - **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores, breakdowns, and jump from any metric/subquery to its line in the editor
 - **Smart SQL Editor** (`/smart-sql-editor`) - Format, diff, and AI-explain/optimize SQL in a full Monaco editor
 - **Guideline** (`/guideline`) - Feature documentation plus the AI Docs Consultant chat
+- **Database AI Assistant** (`/database-ai-assistant`) - Ask general database questions, with optional grounding in official SQL Server, MySQL, PostgreSQL, and Oracle manuals
 - **Settings** (`/settings-preferences`) - Configure theme, language, AI provider, and analysis options
 
 ## 🎨 Styling & Theming

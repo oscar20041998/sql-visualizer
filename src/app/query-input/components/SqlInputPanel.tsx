@@ -17,18 +17,14 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const normalizedValue = value.replace(/\r\n?|\u2028|\u2029/g, '\n');
   const lineCount = value.length === 0 ? 0 : normalizedValue.split('\n').length;
-  const charCount = normalizedValue.length;
+  const charCount = value.length;
   const lineNumbers = Array.from({ length: lineCount }, (_, index) => index + 1);
 
   const handleScroll = () => {
     if (textareaRef.current && gutterRef.current) {
       const textarea = textareaRef.current;
       const gutter = gutterRef.current;
-      const textareaScrollRange = textarea.scrollHeight - textarea.clientHeight;
-      const gutterScrollRange = gutter.scrollHeight - gutter.clientHeight;
-      const scrollRatio = textareaScrollRange > 0 ? textarea.scrollTop / textareaScrollRange : 0;
-
-      gutter.scrollTop = scrollRatio * Math.max(0, gutterScrollRange);
+      gutter.scrollTop = textarea.scrollTop;
     }
   };
 
@@ -36,7 +32,7 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
     <div className="relative animate-fade-in">
       <div
         ref={gutterRef}
-        className="absolute inset-y-0 left-0 w-14 overflow-hidden border-r border-border bg-card/80 pr-2 pt-3 text-right text-xs font-mono text-muted-foreground select-none"
+        className="absolute inset-y-px left-0 w-14 overflow-hidden border-r border-border bg-card/80 pr-2 pt-3 text-right text-sm font-mono leading-6 text-muted-foreground select-none"
       >
         <div className="space-y-0 leading-6">
           {lineNumbers.map((line) => (
