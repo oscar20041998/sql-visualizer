@@ -114,6 +114,7 @@ export default function QueryInputContent() {
     setMyBatisParams,
     setAnalysisResult,
     setIsAnalyzing,
+    beginNavigation,
     setInputMode,
     setPendingEditorJump,
   } = useAppStore();
@@ -233,8 +234,8 @@ export default function QueryInputContent() {
         });
       });
 
-      // Keep this await so loading state is finalized after the async flow settles.
-      await Promise.resolve(router.push('/sql-metrics-dashboard'));
+      beginNavigation('/sql-metrics-dashboard');
+      router.push('/sql-metrics-dashboard');
     };
 
     await runAnalyze().catch(() => {
@@ -252,6 +253,7 @@ export default function QueryInputContent() {
     t,
     setIsAnalyzing,
     setAnalysisResult,
+    beginNavigation,
   ]);
 
   const handleClear = useCallback(() => {

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -46,6 +47,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const theme = useAppStore((s) => s.settings.theme);
   const accentColor = useAppStore((s) => s.settings.accentColor);
+  const navigationTarget = useAppStore((s) => s.navigationTarget);
+  const completeNavigation = useAppStore((s) => s.completeNavigation);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -66,9 +69,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
     root.style.setProperty('--primary-foreground', theme === 'dark' ? '#0d1117' : '#ffffff');
   }, [theme, accentColor]);
 
+  useEffect(() => {
+    if (navigationTarget !== pathname) return;
+    const frame = requestAnimationFrame(() => completeNavigation(pathname));
+    return () => cancelAnimationFrame(frame);
+  }, [completeNavigation, navigationTarget, pathname]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
+      <LoadingOverlay
+        visible={navigationTarget !== null}
+        title="Loading..."
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">
           <div className="min-h-full grid-bg">{children}</div>

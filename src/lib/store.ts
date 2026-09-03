@@ -69,6 +69,8 @@ interface AppState {
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
   isAnalyzing: boolean;
+  /** Target path for an in-progress client-side route change. Never persisted. */
+  navigationTarget: string | null;
   inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
   selectedNodeId: string | null;
   /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
@@ -84,6 +86,8 @@ interface AppState {
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
   setIsAnalyzing: (v: boolean) => void;
+  beginNavigation: (target: string) => void;
+  completeNavigation: (pathname: string) => void;
   setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
@@ -129,6 +133,7 @@ export const useAppStore = create<AppState>()(
       myBatisParams: {},
       analysisResult: null,
       isAnalyzing: false,
+      navigationTarget: null,
       inputMode: 'sql',
       selectedNodeId: null,
       pendingEditorJump: null,
@@ -141,6 +146,9 @@ export const useAppStore = create<AppState>()(
       setMyBatisParams: (p) => set({ myBatisParams: p }),
       setAnalysisResult: (r) => set({ analysisResult: r }),
       setIsAnalyzing: (v) => set({ isAnalyzing: v }),
+      beginNavigation: (target) => set({ navigationTarget: target }),
+      completeNavigation: (pathname) =>
+        set((state) => (state.navigationTarget === pathname ? { navigationTarget: null } : {})),
       setInputMode: (m) => set({ inputMode: m }),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
       setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),
