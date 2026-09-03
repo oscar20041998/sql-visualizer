@@ -63,7 +63,7 @@ export const MAX_OUTPUT_TOKENS_RANGE = { min: 128, max: 32768 } as const;
  */
 export const DEFAULT_EMBEDDING_MODELS: Record<Exclude<AIProvider, 'anthropic'>, string> = {
   ollama: 'nomic-embed-text',
-  openai: 'text-embedding-3-small',
+  openai: 'text-embedding-3-large',
   gemini: 'text-embedding-004',
 };
 
@@ -72,4 +72,12 @@ export const DEFAULT_EMBEDDING_MODELS: Record<Exclude<AIProvider, 'anthropic'>, 
  * the user's configured chat provider (see docs-context/route.ts) — a single constant, not a
  * per-provider map, since only OpenAI is used here.
  */
-export const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+export const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
+
+/**
+ * Embedding model for the Database AI Assistant's RAG retrieval step (see
+ * database-knowledge-context/route.ts). Always this specific local Ollama model, regardless of
+ * the user's configured chat provider — the corpus (databaseKnowledge.*) was pre-embedded with
+ * it, and any other model would produce vectors of the wrong dimension/space.
+ */
+export const DATABASE_KNOWLEDGE_EMBEDDING_MODEL = 'all-minilm';

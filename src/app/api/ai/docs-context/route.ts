@@ -4,7 +4,7 @@
 // Embeddings use their own credential (OPENAI_EMBEDDING_API_KEY, falling back to OPENAI_API_KEY),
 // separate from the chat-completion key the answer-generation step uses via /api/ai/generate.
 // This mirrors gateways that scope a key to specific models: a key issued for
-// text-embedding-3-small has no access to chat models and vice versa.
+// text-embedding-3-large has no access to chat models and vice versa.
 import { NextResponse } from 'next/server';
 import { DEFAULT_BASE_URLS, DEFAULT_EMBEDDING_MODEL } from '@/lib/ai/aiProviders';
 import { AIServiceError, generateEmbeddingsWithCloudKey } from '@/lib/ai/aiService';

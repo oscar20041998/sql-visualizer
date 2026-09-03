@@ -157,6 +157,7 @@ export const SmartSQLEditor: React.FC<{
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
+  const setAnalysisResult = useAppStore((store) => store.setAnalysisResult);
   const t = getT(settings.locale);
   const monacoTheme = settings.theme === 'dark' ? 'vs-dark' : 'vs';
 
@@ -381,8 +382,10 @@ export const SmartSQLEditor: React.FC<{
     try {
       const parsed = await analyzeSql(sql, dialect, settings.locale);
       brief = buildSqlContextBrief(parsed);
+      setAnalysisResult(parsed);
     } catch {
       brief = '';
+      setAnalysisResult(null);
     }
 
     // Feed the same linting alerts shown in the UI to the model so it targets them directly.
@@ -444,7 +447,7 @@ export const SmartSQLEditor: React.FC<{
     } finally {
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
-  }, [state.currentSql, dialect, settings, t, onOptimizationResult, stopSpeech]);
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, stopSpeech]);
 
   // Calculate statistics
   const stats = {
@@ -493,7 +496,7 @@ export const SmartSQLEditor: React.FC<{
           <button
             onClick={handleOptimizeSQL}
             disabled={state.isOptimizing || !state.currentSql.trim()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-slate-800 text-gray-200 text-xs font-medium hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             title={t.analyzeOptimizeTitle}
           >
             <Sparkles size={12} />
@@ -503,12 +506,11 @@ export const SmartSQLEditor: React.FC<{
           <button
             onClick={handleToggleDiffMode}
             disabled={!state.hasChanges}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: state.isDiffMode ? 'rgba(99, 102, 241, 0.2)' : 'rgb(31, 41, 55)',
-              borderColor: state.isDiffMode ? '#6366f1' : '#374151',
-              color: state.isDiffMode ? '#818cf8' : '#d1d5db',
-            }}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              state.isDiffMode
+                ? 'border-primary bg-primary/15 text-primary hover:bg-primary/20'
+                : 'border-border bg-muted text-foreground hover:bg-secondary'
+            }`}
             title={state.hasChanges ? 'Compare with original' : t.smartEditorNoChangesToCompare}
           >
             <GitCompare size={12} />

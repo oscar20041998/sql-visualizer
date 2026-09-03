@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useTransition, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -20,19 +20,20 @@ import {
   ChevronLeft,
   LogOut,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { clearDemoAuthenticated } from '@/lib/demoAuth';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
-import LoadingOverlay from '@/components/ui/LoadingOverlay';
 
 const navItems = [
   { key: 'navQueryInput', href: '/query-input', icon: Code2, badge: null },
   // { key: 'navSmartEditor', href: '/smart-sql-editor', icon: Sparkles, badge: null },
   { key: 'navMetricsDashboard', href: '/sql-metrics-dashboard', icon: BarChart3, badge: null },
   { key: 'navGraphVisualizer', href: '/relationship-graph-visualizer', icon: GitFork, badge: null },
+  { key: 'navDatabaseAssistant', href: '/database-ai-assistant', icon: Database, badge: null },
   { key: 'navGuideline', href: '/guideline', icon: BookOpen, badge: null },
   { key: 'navSettings', href: '/settings-preferences', icon: Settings, badge: null },
 ] as const;
@@ -45,16 +46,16 @@ const NAV_WITHOUT_ANALYSIS = new Set<string>([
   'navHome',
   'navQueryInput',
   'navSmartEditor',
+  'navDatabaseAssistant',
   'navGuideline',
   'navSettings',
 ]);
 
 export default function Sidebar() {
-  const [isPending, startTransition] = useTransition();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { settings, updateSettings, analysisResult } = useAppStore();
+  const { settings, updateSettings, analysisResult, navigationTarget, beginNavigation } = useAppStore();
   const t = getT(settings.locale);
 
   const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
@@ -63,6 +64,7 @@ export default function Sidebar() {
   const handleSignOut = () => {
     clearDemoAuthenticated();
     toast.success(t.signOutSuccess);
+    beginNavigation('/');
     router.push('/');
   };
 
@@ -121,11 +123,15 @@ export default function Sidebar() {
               onClick={(e) => {
                 if (isLocked) {
                   e.preventDefault();
-                } else {
-                  startTransition(() => {
-                    // Navigation will happen automatically
-                  });
+                  return;
                 }
+                if (isActive) {
+                  e.preventDefault();
+                  return;
+                }
+                e.preventDefault();
+                beginNavigation(item.href);
+                router.push(item.href);
               }}
               title={isCollapsed ? label : isLocked ? 'Analyze query first' : undefined}
               className={`
@@ -146,7 +152,7 @@ export default function Sidebar() {
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
               )}
               {/* Loading indicator during navigation */}
-              {!isCollapsed && isPending && !isActive && (
+              {!isCollapsed && navigationTarget === item.href && (
                 <span className="ml-auto flex-shrink-0">
                   <Loader size={14} className="text-primary animate-spin" />
                 </span>
@@ -156,8 +162,9 @@ export default function Sidebar() {
                 item.key !== 'navQueryInput' &&
                 item.key !== 'navSettings' &&
                 item.key !== 'navGuideline' &&
+                item.key !== 'navDatabaseAssistant' &&
                 analysisResult &&
-                !isPending && (
+                !navigationTarget && (
                   <span className="ml-auto flex-shrink-0">
                     <Zap size={10} className="text-primary opacity-60" />
                   </span>
@@ -210,12 +217,6 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Global Loading Overlay */}
-      <LoadingOverlay
-        visible={isPending}
-        title={t.loading || 'Loading...'}
-        description={t.navigatingToPage}
-      />
     </aside>
   );
 }

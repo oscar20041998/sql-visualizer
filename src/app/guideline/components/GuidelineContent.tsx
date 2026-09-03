@@ -21,6 +21,7 @@ import {
   Lightbulb,
   TrendingUp,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -226,6 +227,28 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         },
       ],
       tips: [{ text: t.guidelineAiSpeechTip1 }, { text: t.guidelineAiSpeechTip2 }],
+    },
+    {
+      id: 'database-ai-assistant',
+      icon: Database,
+      color: '#0ea5e9',
+      title: t.guidelineDbAssistantTitle,
+      subtitle: t.guidelineDbAssistantSubtitle,
+      steps: [
+        {
+          label: t.guidelineDbAssistantStep1Label,
+          desc: t.guidelineDbAssistantStep1Desc,
+        },
+        {
+          label: t.guidelineDbAssistantStep2Label,
+          desc: t.guidelineDbAssistantStep2Desc,
+        },
+        {
+          label: t.guidelineDbAssistantStep3Label,
+          desc: t.guidelineDbAssistantStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineDbAssistantTip1 }, { text: t.guidelineDbAssistantTip2 }],
     },
     {
       id: 'tools',
@@ -467,6 +490,12 @@ function createQuickRef(t: ReturnType<typeof getT>) {
       color: '#818cf8',
       label: t.guidelineQuickRefAiExplainer,
       href: '/smart-sql-editor',
+    },
+    {
+      icon: Database,
+      color: '#0ea5e9',
+      label: t.guidelineQuickRefDbAssistant,
+      href: '/database-ai-assistant',
     },
   ];
 }
