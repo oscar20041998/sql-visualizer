@@ -23,6 +23,7 @@ import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import { optimizeSqlWithAIStream, type SqlOptimizationResult } from '@/lib/ai/aiService';
+import LintingAlerts from '@/components/ui/LintingAlerts';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -656,6 +657,10 @@ export const SmartSQLEditor: React.FC<{
             )}
           </div>
         )}
+      </div>
+
+      <div className="px-4">
+        <LintingAlerts sql={state.currentSql} collapsible />
       </div>
 
       {/* Editor Container */}

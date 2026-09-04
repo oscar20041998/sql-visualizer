@@ -9,7 +9,6 @@ import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
-import LintingAlerts from '@/components/ui/LintingAlerts';
 import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
 import { tryEmbedText } from '@/lib/ai/embeddingService';
@@ -356,8 +355,6 @@ export default function QueryInputContent() {
                   onOptimizationResult={setOptimizationResult}
                 />
               </div>
-              {/* Linting alerts for the live editor content — same rules used to brief AI Optimize */}
-              {smartEditorSql && <LintingAlerts sql={smartEditorSql} compact={false} />}
 
               {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}
               <AiSqlExplainer sql={smartEditorSql} optimizationResult={optimizationResult} />
