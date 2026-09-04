@@ -5,7 +5,7 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
-import { getT } from '@/lib/i18n';
+import { getT, type Translations } from '@/lib/i18n';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -20,8 +20,9 @@ import {
   Square,
   ChevronDown,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
-import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
+import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import { optimizeSqlWithAIStream, type SqlOptimizationResult } from '@/lib/ai/aiService';
@@ -46,6 +47,61 @@ function safeFormatSql(sql: string, dialect: string): string {
   } catch {
     return sql;
   }
+}
+
+/**
+ * A local, non-AI safety net: the model is told to touch only what a linting alert requires, but
+ * it can still ignore that instruction. This compares structural facts the parser already
+ * verified on both queries (tables, joins, filter conditions, output columns, DISTINCT/GROUP BY)
+ * and flags anything the "optimized" query dropped, so an over-eager rewrite is visible before
+ * the user decides whether to keep it — instead of silently trusting the model's own summary.
+ */
+function buildStructuralRegressionWarnings(
+  original: AnalysisResult,
+  optimized: AnalysisResult,
+  t: Translations
+): string[] {
+  const warnings: string[] = [];
+
+  if (optimized.tables.length < original.tables.length) {
+    warnings.push(
+      t.smartEditorOptimizeRegressionTables.replace(
+        '{count}',
+        String(original.tables.length - optimized.tables.length)
+      )
+    );
+  }
+  if (optimized.metrics.totalJoinCount < original.metrics.totalJoinCount) {
+    warnings.push(
+      t.smartEditorOptimizeRegressionJoins.replace(
+        '{count}',
+        String(original.metrics.totalJoinCount - optimized.metrics.totalJoinCount)
+      )
+    );
+  }
+  if (optimized.metrics.conditionCount < original.metrics.conditionCount) {
+    warnings.push(
+      t.smartEditorOptimizeRegressionConditions.replace(
+        '{count}',
+        String(original.metrics.conditionCount - optimized.metrics.conditionCount)
+      )
+    );
+  }
+  if (optimized.mainQueryFields.length < original.mainQueryFields.length) {
+    warnings.push(
+      t.smartEditorOptimizeRegressionColumns
+        .replace('{optimized}', String(optimized.mainQueryFields.length))
+        .replace('{original}', String(original.mainQueryFields.length))
+    );
+  }
+  if (original.metrics.distinct > 0 && optimized.metrics.distinct === 0) {
+    warnings.push(t.smartEditorOptimizeRegressionDistinct);
+  }
+  if (original.metrics.groupBy > 0 && optimized.metrics.groupBy === 0) {
+    warnings.push(t.smartEditorOptimizeRegressionGroupBy);
+  }
+
+  return warnings;
 }
 
 /** Reads a JSON string value out of a possibly-incomplete JSON document being streamed in. */
@@ -183,6 +239,8 @@ export const SmartSQLEditor: React.FC<{
   const [optimizeResult, setOptimizeResult] = useState<SqlOptimizationResult | null>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [knowledgeSources, setKnowledgeSources] = useState<DatabaseKnowledgeSource[]>([]);
+  // Local structural check, independent of what the model claims in analysis/semantic_impact.
+  const [structuralWarnings, setStructuralWarnings] = useState<string[]>([]);
   const [speechPhase, setSpeechPhase] = useState<'idle' | 'loading' | 'playing'>('idle');
   const [showOptimizeRaw, setShowOptimizeRaw] = useState(false);
   const isLocalProvider = settings.aiConfig.provider === 'ollama';
@@ -216,7 +274,12 @@ export const SmartSQLEditor: React.FC<{
   // Fired from an effect (after commit + paint) rather than inline in the async handler, so the
   // success toast can never appear a frame before the loading overlay has actually disappeared.
   useEffect(() => {
-    if (optimizePhase === 'done') toast.success(t.smartEditorOptimizationSuccess);
+    if (optimizePhase !== 'done') return;
+    if (structuralWarnings.length > 0) {
+      toast.warning(t.smartEditorOptimizeRegressionToast);
+    } else {
+      toast.success(t.smartEditorOptimizationSuccess);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optimizePhase]);
 
@@ -442,11 +505,14 @@ export const SmartSQLEditor: React.FC<{
     setOptimizeError(null);
     setOptimizeStreamRaw('');
     setShowOptimizeRaw(false);
+    setStructuralWarnings([]);
     setOptimizePhase('streaming');
 
     let brief = '';
+    let originalAnalysis: AnalysisResult | null = null;
     try {
       const parsed = await analyzeSql(sql, dialect, settings.locale);
+      originalAnalysis = parsed;
       brief = buildSqlContextBrief(parsed);
       setAnalysisResult(parsed);
     } catch {
@@ -507,6 +573,19 @@ export const SmartSQLEditor: React.FC<{
       // Format both sides so the diff highlights the actual logic change, not whitespace noise.
       const formattedOriginal = safeFormatSql(sql, dialect);
       const formattedOptimized = safeFormatSql(result.optimizedSql || sql, dialect);
+
+      // Local safety net: re-parse the rewrite and compare structural facts to the original,
+      // regardless of what the model itself claims changed.
+      let regressionWarnings: string[] = [];
+      if (result.structured && originalAnalysis) {
+        try {
+          const optimizedAnalysis = await analyzeSql(formattedOptimized, dialect, settings.locale);
+          regressionWarnings = buildStructuralRegressionWarnings(originalAnalysis, optimizedAnalysis, t);
+        } catch {
+          // Re-parse failure isn't itself evidence of a problem — skip the check rather than block.
+        }
+      }
+      setStructuralWarnings(regressionWarnings);
 
       setState((prev) => ({
         ...prev,
@@ -743,9 +822,38 @@ export const SmartSQLEditor: React.FC<{
 
             {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
               <div className="mt-2 space-y-2">
+                {structuralWarnings.length > 0 && (
+                  <div className="rounded-lg border border-red-800/60 bg-red-950/30 p-3">
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-red-300">
+                      <AlertTriangle size={13} />
+                      {t.smartEditorOptimizeRegressionTitle}
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {structuralWarnings.map((warning, index) => (
+                        <li
+                          key={`smart-optimize-regression-${index}`}
+                          className="flex items-start gap-2 text-sm leading-relaxed text-red-200"
+                        >
+                          <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                          {warning}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <p className="text-sm leading-relaxed text-gray-200">
                   {optimizeResult.analysis || t.aiExplainerNoContent}
                 </p>
+                {optimizeResult.semanticImpact && (
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {t.smartEditorOptimizeSemanticImpactLabel}
+                    </p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-gray-200">
+                      {optimizeResult.semanticImpact}
+                    </p>
+                  </div>
+                )}
                 {optimizeResult.suggestions.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">

@@ -1202,6 +1202,9 @@ export interface SqlOptimizationResult {
   optimizedSql: string;
   analysis: string;
   suggestions: string[];
+  /** Plain-language statement of whether/how the result set changed, so the user can judge the
+   * rewrite before applying it — not folded into `analysis` so the UI can show it up front. */
+  semanticImpact: string;
   raw: string;
   structured: boolean;
   budget: AIBudgetReport;
@@ -1214,6 +1217,7 @@ Return only a JSON object with exactly these keys, in this order:
 {
   "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
   "suggestions": ["one specific improvement per issue actually fixed"],
+  "semantic_impact": "plain-language statement of whether the result set (rows, columns, aggregates) changed at all; if unchanged, say so explicitly; if it had to change, name exactly what changed and why that was unavoidable",
   "optimized_sql": "the full SQL query with only the necessary changes applied"
 }
 
@@ -1226,9 +1230,11 @@ Rules:
 - If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
 - If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
 - Do not change business logic or result semantics.
+- Never delete, merge, or rewrite a table, JOIN, WHERE/HAVING condition, CASE branch, subquery, or CTE that is not the specific target of a listed issue — this holds even when a bigger rewrite would look "cleaner". A correct fix for one flagged issue is almost always a small, local edit, not a rewrite of large parts of the query.
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
 - Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
+- Before finalizing "optimized_sql", verify it still contains every table, join, filter condition, and output column the original had, unless the fixed issue specifically required removing one (e.g. a duplicate SELECT *). If you cannot make the fix without touching unrelated logic, leave the query unchanged and explain why in "analysis" and "semantic_impact".
 - If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
   vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
 
@@ -1236,6 +1242,7 @@ Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đ
 {
   "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
   "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
+  "semantic_impact": "phát biểu rõ ràng bằng ngôn ngữ dễ hiểu liệu tập kết quả (số dòng, cột, giá trị tổng hợp) có thay đổi hay không; nếu không đổi, hãy nói rõ; nếu buộc phải đổi, nêu chính xác điều gì đã đổi và vì sao không thể tránh được",
   "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
 }
 
@@ -1248,9 +1255,11 @@ Quy tắc:
 - Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
 - Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
 - Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
+- Tuyệt đối không xóa, gộp hay viết lại bất kỳ bảng, JOIN, điều kiện WHERE/HAVING, nhánh CASE, subquery hay CTE nào không phải là mục tiêu cụ thể của một vấn đề đã liệt kê — kể cả khi một bản viết lại lớn hơn trông "gọn gàng" hơn. Cách sửa đúng cho một vấn đề được gắn cờ gần như luôn là một chỉnh sửa nhỏ, cục bộ, không phải viết lại phần lớn truy vấn.
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
 - Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
+- Trước khi hoàn tất "optimized_sql", hãy kiểm tra lại nó vẫn còn đầy đủ mọi bảng, phép nối, điều kiện lọc và cột đầu ra của bản gốc, trừ khi vấn đề đã sửa thực sự yêu cầu loại bỏ một trong số đó (ví dụ SELECT * trùng lặp). Nếu không thể sửa mà không đụng vào phần không liên quan, hãy giữ nguyên truy vấn và giải thích lý do trong "analysis" và "semantic_impact".
 - Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
 };
 
@@ -1425,12 +1434,14 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
   const optimizedSql = asText(parsed?.optimized_sql);
   const analysis = asText(parsed?.analysis);
   const suggestions = asList(parsed?.suggestions);
+  const semanticImpact = asText(parsed?.semantic_impact);
 
   if (!parsed || !optimizedSql) {
     return {
       optimizedSql: sql,
       analysis: raw,
       suggestions: [],
+      semanticImpact: '',
       raw,
       structured: false,
       budget: report,
@@ -1441,6 +1452,7 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
     optimizedSql: optimizedSql || sql,
     analysis,
     suggestions,
+    semanticImpact,
     raw,
     structured: true,
     budget: report,

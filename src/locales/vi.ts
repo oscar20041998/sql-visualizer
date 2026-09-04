@@ -1010,6 +1010,18 @@ const vi = {
     'Mô hình không trả về kết quả có cấu trúc, nên không có thay đổi nào được áp dụng vào trình soạn thảo. Dưới đây là toàn bộ câu trả lời của mô hình.',
   smartEditorEditorLockedNotice: 'AI đang viết lại truy vấn này — trình soạn thảo tạm khóa cho đến khi hoàn tất.',
   smartEditorOptimizeGroundedIn: 'Đối chiếu với tài liệu chính thức: {sources}',
+  smartEditorOptimizeSemanticImpactLabel: 'Tác động về ngữ nghĩa',
+  smartEditorOptimizeRegressionTitle:
+    '⚠ Có khả năng đã mất logic truy vấn — hãy xem kỹ trước khi giữ bản viết lại này',
+  smartEditorOptimizeRegressionToast:
+    'Tối ưu hóa hoàn tất, nhưng có thể đã loại bỏ logic của truy vấn — hãy xem cảnh báo trước khi giữ lại',
+  smartEditorOptimizeRegressionTables: 'Đã loại bỏ {count} bảng khỏi truy vấn',
+  smartEditorOptimizeRegressionJoins: 'Đã loại bỏ {count} phép nối/quan hệ',
+  smartEditorOptimizeRegressionConditions: 'Đã loại bỏ {count} điều kiện lọc',
+  smartEditorOptimizeRegressionColumns:
+    'Trả về ít cột hơn ({optimized} so với {original} ban đầu)',
+  smartEditorOptimizeRegressionDistinct: 'DISTINCT đã bị loại bỏ',
+  smartEditorOptimizeRegressionGroupBy: 'GROUP BY đã bị loại bỏ',
   smartEditorOptimizeWaitingLabel: 'Đang trong quá trình tối ưu hóa…',
   smartEditorSpeechPlay: 'Đọc kết quả tối ưu hóa',
   smartEditorSpeechStop: 'Dừng đọc',

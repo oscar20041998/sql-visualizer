@@ -1012,6 +1012,18 @@ const en = {
     'The model did not return a structured result, so no changes were applied to the editor. Here is its full answer.',
   smartEditorEditorLockedNotice: 'AI is rewriting this query — editing is locked until it finishes.',
   smartEditorOptimizeGroundedIn: 'Grounded in official documentation: {sources}',
+  smartEditorOptimizeSemanticImpactLabel: 'Semantic impact',
+  smartEditorOptimizeRegressionTitle:
+    '⚠ Possible logic loss detected — review carefully before keeping this rewrite',
+  smartEditorOptimizeRegressionToast:
+    'Optimization complete, but it may have removed query logic — review the warning before keeping it',
+  smartEditorOptimizeRegressionTables: 'Removed {count} table(s) from the query',
+  smartEditorOptimizeRegressionJoins: 'Removed {count} join(s)/relationship(s)',
+  smartEditorOptimizeRegressionConditions: 'Removed {count} filter condition(s)',
+  smartEditorOptimizeRegressionColumns:
+    'Returns fewer output columns ({optimized} vs {original} originally)',
+  smartEditorOptimizeRegressionDistinct: 'DISTINCT was removed',
+  smartEditorOptimizeRegressionGroupBy: 'GROUP BY was removed',
   smartEditorSpeechPlay: 'Read optimization aloud',
   smartEditorSpeechStop: 'Stop speech',
   smartEditorSpeechError: 'Text to speech is not available in this browser',
