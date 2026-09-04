@@ -33,6 +33,17 @@ export const SPEECH_VOICES = [
 /** Neutral, unhurried voice — this is a technical read-out, not a performance. */
 export const DEFAULT_SPEECH_VOICE = 'alloy';
 
+/** User-facing voice preference; maps to a concrete provider voice/directory downstream. */
+export type SpeechGender = 'male' | 'female';
+export const SPEECH_GENDERS: SpeechGender[] = ['female', 'male'];
+export const DEFAULT_SPEECH_GENDER: SpeechGender = 'female';
+
+/** Concrete OpenAI voice used when the caller only specifies a gender preference, not a voice id. */
+const OPENAI_VOICE_BY_GENDER: Record<SpeechGender, string> = {
+  female: 'nova',
+  male: 'onyx',
+};
+
 /** `/v1/audio/speech` rejects longer input outright, so both sides clamp to this. */
 export const MAX_SPEECH_CHARS = 4096;
 
@@ -93,6 +104,8 @@ export interface SynthesizeSpeechRequest {
   text: string;
   /** Language the text is in — it picks the local voice, and is not inferred from the text. */
   locale: Locale;
+  /** Male/female preference saved in Settings. Ignored when `voice` is given explicitly. */
+  gender?: SpeechGender;
   voice?: string;
   model?: string;
   signal?: AbortSignal;
@@ -118,17 +131,22 @@ export interface SynthesizedSpeech {
 export async function synthesizeSpeech({
   text,
   locale,
-  voice = DEFAULT_SPEECH_VOICE,
+  gender = DEFAULT_SPEECH_GENDER,
+  voice,
   model = DEFAULT_SPEECH_MODEL,
   signal,
 }: SynthesizeSpeechRequest): Promise<SynthesizedSpeech> {
   const input = clampSpeechText(text);
   if (!input) throw new Error('There is nothing to read out.');
 
+  // The local (Piper) engine picks its own voice per locale+gender server-side; `voice` only
+  // matters for the OpenAI engine, where it defaults to whichever concrete voice the gender maps to.
+  const resolvedVoice = voice ?? OPENAI_VOICE_BY_GENDER[gender];
+
   const response = await fetch('/api/ai/speech', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: input, model, voice, locale }),
+    body: JSON.stringify({ text: input, model, voice: resolvedVoice, locale, gender }),
     signal,
   });
 

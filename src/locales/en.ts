@@ -1007,7 +1007,11 @@ const en = {
     'Linting alerts detected in this query — address these during optimization:',
   smartEditorLintFixLabel: 'Fix:',
   smartEditorOptimizeProgressTitle: 'AI is optimizing your query…',
-  smartEditorOptimizeWaitingLabel: 'Waiting for the model to respond…',
+  smartEditorOptimizeWaitingLabel: 'In the process of optimizing…',
+  smartEditorOptimizeUnstructuredNotice:
+    'The model did not return a structured result, so no changes were applied to the editor. Here is its full answer.',
+  smartEditorEditorLockedNotice: 'AI is rewriting this query — editing is locked until it finishes.',
+  smartEditorOptimizeGroundedIn: 'Grounded in official documentation: {sources}',
   smartEditorSpeechPlay: 'Read optimization aloud',
   smartEditorSpeechStop: 'Stop speech',
   smartEditorSpeechError: 'Text to speech is not available in this browser',
@@ -1344,11 +1348,13 @@ const en = {
   aiExplainerNoFilters: 'This query has no filters or constraints.',
   aiExplainerOutput: 'What you get back',
   aiExplainerTables: 'Data sources',
+  aiExplainerFieldMeanings: 'Field & expression meanings',
   aiExplainerNoContent: 'The model did not describe this section.',
   aiExplainerShowRaw: 'Show raw model response',
   aiExplainerHideRaw: 'Hide raw model response',
   aiExplainerUnstructuredNotice:
     'The model did not return structured sections, so here is its full answer.',
+  aiExplainerDrafting: 'Drafting the explanation…',
 
   // AI - context window management
   aiContextTokens: 'Context Window (tokens)',
@@ -1360,6 +1366,11 @@ const en = {
   aiBatchConcurrency: 'Batch Concurrency',
   aiBatchConcurrencyHint:
     'How many AI requests run at once during a batch explain. Ollama serialises per model unless OLLAMA_NUM_PARALLEL is raised.',
+  aiVoiceGenderLabel: 'Read-aloud voice',
+  aiVoiceGenderHint:
+    'Applies to both the AI Explainer and Optimize read-aloud buttons. The local (Piper) engine currently ships one Vietnamese voice, so this only changes English narration there; the cloud (OpenAI) engine supports both languages.',
+  aiVoiceGenderFemale: 'Female',
+  aiVoiceGenderMale: 'Male',
   aiContextMeterHint: 'Estimated prompt tokens vs the budget available for the prompt',
   aiContextOverflowTitle: 'This query is larger than the model context window',
   aiContextOverflowBody:
@@ -1375,8 +1386,8 @@ const en = {
   // AI - follow-up conversation
   aiChatTitle: 'Ask a follow-up',
   aiChatSubtitle:
-    'Multi-turn questions about this query. Older turns drop out as context fills up.',
-  aiChatPlaceholder: 'e.g. What does status = 3 mean here?',
+    'Ask anything about this query, its data, fields, or conditions. Older turns drop out as context fills up.',
+  aiChatPlaceholder: 'e.g. What does status = 3 mean for the business?',
   aiChatSend: 'Ask',
   aiChatReset: 'Clear',
   aiChatThinking: 'Thinking…',

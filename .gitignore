@@ -55,3 +55,4 @@ docs/knowledge/*.pdf
 # Optional: if using Specify or GitHub Skills
 .specify
 .github/skills
+.specs

@@ -3,21 +3,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BookMarked, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
-import type { AIModelConfig } from '@/lib/store';
+import { useAppStore, type AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
-import { askDocsConsultant, type DocSource } from '@/lib/ai/aiService';
+import { askDocsConsultant } from '@/lib/ai/aiService';
 
 interface DocsConsultantChatProps {
   config: AIModelConfig;
   locale: Locale;
   t: Translations;
   className?: string;
-}
-
-interface ChatTurn {
-  role: 'user' | 'assistant';
-  content: string;
-  sources?: DocSource[];
 }
 
 /**
@@ -31,8 +25,13 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
   t, 
   className = "rounded-2xl border border-border bg-card p-4 mb-6" 
 }) => {
-  const [history, setHistory] = useState<ChatTurn[]>([]);
-  const [question, setQuestion] = useState('');
+  // History and the in-progress draft live in the store, not local useState: this component is
+  // remounted on every page navigation (GlobalChat is re-instantiated by each page's own
+  // <AppLayout>), which would otherwise wipe the conversation and any half-typed question.
+  const history = useAppStore((s) => s.chatHistory);
+  const setHistory = useAppStore((s) => s.setChatHistory);
+  const question = useAppStore((s) => s.chatQuestionDraft);
+  const setQuestion = useAppStore((s) => s.setChatQuestionDraft);
   const [isAsking, setIsAsking] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);

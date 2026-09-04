@@ -18,11 +18,15 @@ import {
   X,
   Volume2,
   Square,
+  ChevronDown,
+  RefreshCw,
 } from 'lucide-react';
 import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import { optimizeSqlWithAIStream, type SqlOptimizationResult } from '@/lib/ai/aiService';
+import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
+import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
@@ -178,24 +182,81 @@ export const SmartSQLEditor: React.FC<{
   const [optimizeStreamRaw, setOptimizeStreamRaw] = useState('');
   const [optimizeResult, setOptimizeResult] = useState<SqlOptimizationResult | null>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
-  const [speechPhase, setSpeechPhase] = useState<'idle' | 'playing'>('idle');
+  const [knowledgeSources, setKnowledgeSources] = useState<DatabaseKnowledgeSource[]>([]);
+  const [speechPhase, setSpeechPhase] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const [showOptimizeRaw, setShowOptimizeRaw] = useState(false);
+  const isLocalProvider = settings.aiConfig.provider === 'ollama';
+  const speechAbortRef = useRef<AbortController | null>(null);
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
+  // One synthesized clip per optimize result — replayable without re-billing a fresh request.
+  const speechUrlRef = useRef<string | null>(null);
 
   const stopSpeech = useCallback(() => {
-    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    speechAbortRef.current?.abort();
+    speechAbortRef.current = null;
+    if (speechAudioRef.current) {
+      speechAudioRef.current.pause();
+      speechAudioRef.current = null;
+    }
     setSpeechPhase('idle');
   }, []);
 
-  useEffect(() => () => stopSpeech(), [stopSpeech]);
-  useEffect(() => stopSpeech(), [settings.locale, stopSpeech]);
+  // A fresh clip is required for a locale switch — the cached URL was narrated in the old language.
+  const resetSpeechCache = useCallback(() => {
+    stopSpeech();
+    if (speechUrlRef.current) {
+      URL.revokeObjectURL(speechUrlRef.current);
+      speechUrlRef.current = null;
+    }
+  }, [stopSpeech]);
 
-  const handleSpeech = useCallback(() => {
+  useEffect(() => () => resetSpeechCache(), [resetSpeechCache]);
+  useEffect(() => resetSpeechCache(), [settings.locale, resetSpeechCache]);
+
+  // Fired from an effect (after commit + paint) rather than inline in the async handler, so the
+  // success toast can never appear a frame before the loading overlay has actually disappeared.
+  useEffect(() => {
+    if (optimizePhase === 'done') toast.success(t.smartEditorOptimizationSuccess);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optimizePhase]);
+
+  const playSpeech = useCallback(
+    async (url: string) => {
+      // A fresh element per playback, same as the Explainer panel: reusing one leaves the old
+      // buffer playing on some browsers once `src` is reassigned.
+      const audio = new Audio(url);
+      speechAudioRef.current = audio;
+      audio.addEventListener('ended', () => {
+        if (speechAudioRef.current === audio) speechAudioRef.current = null;
+        setSpeechPhase('idle');
+      });
+      audio.addEventListener('error', () => {
+        if (speechAudioRef.current === audio) speechAudioRef.current = null;
+        setSpeechPhase('idle');
+        toast.error(t.aiExplainerSpeakFailed);
+      });
+
+      setSpeechPhase('playing');
+      try {
+        await audio.play();
+      } catch {
+        if (speechAudioRef.current === audio) speechAudioRef.current = null;
+        setSpeechPhase('idle');
+        toast.error(t.aiExplainerSpeakFailed);
+      }
+    },
+    [t]
+  );
+
+  const handleSpeech = useCallback(async () => {
     if (!optimizeResult) return;
-    if (speechPhase === 'playing') {
+    if (speechPhase !== 'idle') {
       stopSpeech();
       return;
     }
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      toast.error(t.smartEditorSpeechError);
+
+    if (speechUrlRef.current) {
+      await playSpeech(speechUrlRef.current);
       return;
     }
 
@@ -207,33 +268,36 @@ export const SmartSQLEditor: React.FC<{
     ]
       .filter(Boolean)
       .join('\n\n');
+    if (!text.trim()) return;
 
-    const synthesis = window.speechSynthesis;
-    synthesis.cancel();
-    const language = settings.locale === 'vi' ? 'vi-VN' : 'en-US';
-    const voices = synthesis.getVoices();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const languageCode = language.slice(0, 2).toLowerCase();
-    utterance.voice =
-      voices.find(
-        (voice) =>
-          voice.name.toLowerCase().includes('microsoft') &&
-          voice.lang.toLowerCase().startsWith(languageCode)
-      ) ??
-      voices.find((voice) => voice.lang.toLowerCase().startsWith(languageCode)) ??
-      null;
-    utterance.lang = utterance.voice?.lang || language;
-    utterance.rate = 1;
-    utterance.onend = () => setSpeechPhase('idle');
-    utterance.onerror = (event) => {
+    const controller = new AbortController();
+    speechAbortRef.current = controller;
+    setSpeechPhase('loading');
+    try {
+      // Locale drives the voice server-side (Piper voice pack or OpenAI TTS instructions), so the
+      // narration always matches the app's selected language instead of guessing from installed
+      // browser voices, which silently falls back to an English voice when Vietnamese is missing.
+      const { blob, engine } = await synthesizeSpeech({
+        text,
+        locale: settings.locale,
+        gender: settings.aiConfig.speechVoiceGender,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+
+      if (engine === 'openai' && isLocalProvider) toast.info(t.aiExplainerSpeakCloudNotice);
+
+      const url = URL.createObjectURL(blob);
+      speechUrlRef.current = url;
+      await playSpeech(url);
+    } catch (caught) {
+      if ((caught as Error)?.name === 'AbortError') return;
       setSpeechPhase('idle');
-      if (event.error !== 'canceled' && event.error !== 'interrupted') {
-        toast.error(t.smartEditorSpeechError);
-      }
-    };
-    synthesis.speak(utterance);
-    setSpeechPhase('playing');
-  }, [optimizeResult, settings.locale, speechPhase, stopSpeech, t]);
+      toast.error(caught instanceof Error ? caught.message : t.aiExplainerSpeakFailed);
+    } finally {
+      if (speechAbortRef.current === controller) speechAbortRef.current = null;
+    }
+  }, [optimizeResult, speechPhase, stopSpeech, playSpeech, isLocalProvider, settings.locale, settings.aiConfig.speechVoiceGender, t]);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -368,7 +432,7 @@ export const SmartSQLEditor: React.FC<{
     }
 
     optimizeAbortRef.current?.abort();
-    stopSpeech();
+    resetSpeechCache();
     const controller = new AbortController();
     optimizeAbortRef.current = controller;
 
@@ -377,6 +441,7 @@ export const SmartSQLEditor: React.FC<{
     setOptimizeResult(null);
     setOptimizeError(null);
     setOptimizeStreamRaw('');
+    setShowOptimizeRaw(false);
     setOptimizePhase('streaming');
 
     let brief = '';
@@ -403,6 +468,27 @@ export const SmartSQLEditor: React.FC<{
         ),
       ].join('\n');
       brief = brief ? `${brief}\n\n${lintBrief}` : lintBrief;
+    }
+
+    // Best-effort: ground the rewrite in the official manual for the active dialect. Requires a
+    // local Ollama embedding model (independent of the chat provider); any failure — no Ollama, no
+    // index built, no relevant match — just means this section is silently omitted.
+    setKnowledgeSources([]);
+    try {
+      const knowledge = await buildOptimizeKnowledgeBrief({
+        sql,
+        dialect,
+        lintIssues,
+        locale: settings.locale,
+        ollamaBaseUrl: settings.aiConfig.baseUrls?.ollama ?? '',
+        signal: controller.signal,
+      });
+      if (knowledge) {
+        brief = brief ? `${brief}\n\n${knowledge.brief}` : knowledge.brief;
+        setKnowledgeSources(knowledge.sources);
+      }
+    } catch {
+      // Same non-fatal contract as the parser brief above.
     }
 
     try {
@@ -432,7 +518,6 @@ export const SmartSQLEditor: React.FC<{
       setOptimizeResult(result);
       setOptimizePhase('done');
       onOptimizationResult?.(result);
-      toast.success(t.smartEditorOptimizationSuccess);
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
         setState((prev) => ({ ...prev, isOptimizing: false }));
@@ -448,7 +533,7 @@ export const SmartSQLEditor: React.FC<{
     } finally {
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
-  }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, stopSpeech]);
+  }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, resetSpeechCache]);
 
   // Calculate statistics
   const stats = {
@@ -484,7 +569,7 @@ export const SmartSQLEditor: React.FC<{
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleFormatSQL}
-            disabled={state.isFormatting || !state.currentSql.trim()}
+            disabled={state.isFormatting || state.isOptimizing || !state.currentSql.trim()}
             className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             title="Format SQL (Ctrl+Shift+F)"
           >
@@ -538,7 +623,8 @@ export const SmartSQLEditor: React.FC<{
           {state.hasChanges && (
             <button
               onClick={handleResetToOriginal}
-              className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20"
+              disabled={state.isOptimizing}
+              className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-50"
               title={t.smartEditorResetTitle}
             >
               <RotateCcw size={12} />
@@ -584,7 +670,7 @@ export const SmartSQLEditor: React.FC<{
               </p>
               {optimizePhase !== 'streaming' && (
                 <div className="flex items-center gap-1">
-                  {optimizePhase === 'done' && optimizeResult && (
+                  {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
                     <button
                       onClick={handleSpeech}
                       className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-indigo-300 transition-colors hover:bg-indigo-400/10 hover:text-indigo-200 disabled:cursor-wait disabled:opacity-70"
@@ -595,7 +681,9 @@ export const SmartSQLEditor: React.FC<{
                         speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop
                       }
                     >
-                      {speechPhase === 'playing' ? (
+                      {speechPhase === 'loading' ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : speechPhase === 'playing' ? (
                         <Square size={12} fill="currentColor" />
                       ) : (
                         <Volume2 size={14} />
@@ -630,7 +718,30 @@ export const SmartSQLEditor: React.FC<{
               <p className="mt-2 text-xs text-red-300">{optimizeError}</p>
             )}
 
-            {optimizePhase === 'done' && optimizeResult && (
+            {optimizePhase === 'done' && optimizeResult && !optimizeResult.structured && (
+              <div className="mt-2 space-y-2">
+                <p className="text-xs leading-relaxed text-yellow-300/90">
+                  {t.smartEditorOptimizeUnstructuredNotice}
+                </p>
+                <button
+                  onClick={() => setShowOptimizeRaw((prev) => !prev)}
+                  className="flex items-center gap-1.5 text-[11px] text-gray-500 transition-colors hover:text-gray-300"
+                >
+                  <ChevronDown
+                    size={11}
+                    className={`transition-transform ${showOptimizeRaw ? 'rotate-180' : ''}`}
+                  />
+                  {showOptimizeRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
+                </button>
+                {showOptimizeRaw && (
+                  <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-400">
+                    {optimizeResult.raw}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
               <div className="mt-2 space-y-2">
                 <p className="text-sm leading-relaxed text-gray-200">
                   {optimizeResult.analysis || t.aiExplainerNoContent}
@@ -653,6 +764,14 @@ export const SmartSQLEditor: React.FC<{
                     </ul>
                   </div>
                 )}
+                {knowledgeSources.length > 0 && (
+                  <p className="text-[11px] text-gray-500">
+                    {t.smartEditorOptimizeGroundedIn.replace(
+                      '{sources}',
+                      Array.from(new Set(knowledgeSources.map((source) => source.sourceFile))).join(', ')
+                    )}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -664,14 +783,14 @@ export const SmartSQLEditor: React.FC<{
       </div>
 
       {/* Editor Container */}
-      <div className="flex-1 min-h-0 w-full">
+      <div className="relative flex-1 min-h-0 w-full">
         {state.isDiffMode ? (
           <DiffEditor
             original={state.originalSql}
             modified={state.currentSql}
             language="sql"
             theme={monacoTheme}
-            options={diffEditorOptions}
+            options={{ ...diffEditorOptions, readOnly: state.isOptimizing }}
             className="min-h-0 w-full"
             height="100vh"
           />
@@ -680,7 +799,7 @@ export const SmartSQLEditor: React.FC<{
             value={state.currentSql}
             language="sql"
             theme={monacoTheme}
-            options={editorOptions}
+            options={{ ...editorOptions, readOnly: state.isOptimizing }}
             saveViewState={true}
             onMount={handleEditorMount}
             onChange={(value) => {
@@ -692,6 +811,19 @@ export const SmartSQLEditor: React.FC<{
             className="min-h-0 w-full"
             height="100vh"
           />
+        )}
+
+        {/* Blocks editing while the AI rewrites this query in place, so the user cannot type
+         * into content that is about to be replaced by the streamed result. */}
+        {state.isOptimizing && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-[2px]">
+            <div className="flex items-center gap-3 rounded-lg border border-indigo-800/40 bg-indigo-950/80 px-4 py-3 shadow-lg">
+              <RefreshCw size={16} className="animate-spin text-indigo-300" />
+              <span className="text-sm font-medium text-indigo-200">
+                {t.smartEditorEditorLockedNotice}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 

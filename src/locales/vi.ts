@@ -1006,7 +1006,11 @@ const vi = {
     'Đã phát hiện cảnh báo linting trong truy vấn này — hãy khắc phục trong khi tối ưu hóa:',
   smartEditorLintFixLabel: 'Khắc phục:',
   smartEditorOptimizeProgressTitle: 'AI đang tối ưu hóa truy vấn của bạn…',
-  smartEditorOptimizeWaitingLabel: 'Đang chờ phản hồi từ mô hình…',
+  smartEditorOptimizeUnstructuredNotice:
+    'Mô hình không trả về kết quả có cấu trúc, nên không có thay đổi nào được áp dụng vào trình soạn thảo. Dưới đây là toàn bộ câu trả lời của mô hình.',
+  smartEditorEditorLockedNotice: 'AI đang viết lại truy vấn này — trình soạn thảo tạm khóa cho đến khi hoàn tất.',
+  smartEditorOptimizeGroundedIn: 'Đối chiếu với tài liệu chính thức: {sources}',
+  smartEditorOptimizeWaitingLabel: 'Đang trong quá trình tối ưu hóa…',
   smartEditorSpeechPlay: 'Đọc kết quả tối ưu hóa',
   smartEditorSpeechStop: 'Dừng đọc',
   smartEditorSpeechError: 'Trình duyệt này không hỗ trợ chuyển văn bản thành giọng nói',
@@ -1338,11 +1342,13 @@ const vi = {
   aiExplainerNoFilters: 'Truy vấn này không có điều kiện lọc hay ràng buộc nào.',
   aiExplainerOutput: 'Dữ liệu bạn nhận được',
   aiExplainerTables: 'Nguồn dữ liệu',
+  aiExplainerFieldMeanings: 'Ý nghĩa field & biểu thức',
   aiExplainerNoContent: 'Mô hình không mô tả phần này.',
   aiExplainerShowRaw: 'Xem phản hồi gốc của mô hình',
   aiExplainerHideRaw: 'Ẩn phản hồi gốc của mô hình',
   aiExplainerUnstructuredNotice:
     'Mô hình không trả về các mục có cấu trúc, dưới đây là toàn bộ câu trả lời của mô hình.',
+  aiExplainerDrafting: 'Đang soạn phần giải thích…',
 
   // AI - quản lý cửa sổ ngữ cảnh
   aiContextTokens: 'Cửa sổ ngữ cảnh (token)',
@@ -1355,6 +1361,11 @@ const vi = {
   aiBatchConcurrencyHint:
     'Số request AI chạy đồng thời khi giải thích theo lô. Ollama xử lý tuần tự trên mỗi mô hình trừ khi tăng OLLAMA_NUM_PARALLEL.',
   aiContextMeterHint: 'Số token prompt ước tính so với hạn mức dành cho prompt',
+  aiVoiceGenderLabel: 'Giọng đọc',
+  aiVoiceGenderHint:
+    'Áp dụng cho cả nút đọc của AI Explainer và Optimize. Engine cục bộ (Piper) hiện chỉ có một giọng tiếng Việt, nên lựa chọn này chỉ thay đổi giọng đọc tiếng Anh ở đó; engine đám mây (OpenAI) hỗ trợ cả hai ngôn ngữ.',
+  aiVoiceGenderFemale: 'Nữ',
+  aiVoiceGenderMale: 'Nam',
   aiContextOverflowTitle: 'Truy vấn này lớn hơn cửa sổ ngữ cảnh của mô hình',
   aiContextOverflowBody:
     'Prompt cần khoảng {needed} token nhưng chỉ còn {budget} token khả dụng trong cửa sổ {context} token. Truy vấn sẽ bị cắt bớt phần giữa trước khi gửi, nên phần giải thích có thể bỏ sót một số đoạn.',
@@ -1369,8 +1380,8 @@ const vi = {
   // AI - hội thoại nhiều lượt
   aiChatTitle: 'Hỏi thêm',
   aiChatSubtitle:
-    'Hỏi đáp nhiều lượt về truy vấn này. Các lượt cũ sẽ bị lược bỏ khi ngữ cảnh gần đầy.',
-  aiChatPlaceholder: 'ví dụ: status = 3 ở đây nghĩa là gì?',
+    'Hỏi bất cứ điều gì về truy vấn, dữ liệu, field hoặc điều kiện. Các lượt cũ sẽ bị lược bỏ khi ngữ cảnh gần đầy.',
+  aiChatPlaceholder: 'ví dụ: status = 3 có ý nghĩa nghiệp vụ gì?',
   aiChatSend: 'Hỏi',
   aiChatReset: 'Xóa',
   aiChatThinking: 'Đang suy nghĩ…',

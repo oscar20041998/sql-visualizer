@@ -8,6 +8,8 @@
 // request/response shape.
 import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
+import type { SqlDialect } from '../sql/sqlAnalyzer';
+import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '../sql/complexityScorer';
 import { callOllamaEmbed, generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
 import { DATABASE_KNOWLEDGE_EMBEDDING_MODEL } from './aiProviders';
 import { estimateTokens, trimMessagesForBudget } from './aiTokens';
@@ -84,7 +86,7 @@ export interface DatabaseAssistantAnswer {
   sources: DatabaseKnowledgeSource[];
 }
 
-interface DatabaseKnowledgeContext {
+export interface DatabaseKnowledgeContext {
   context: string;
   sources: DatabaseKnowledgeSource[];
 }
@@ -102,11 +104,15 @@ interface PreparedDatabaseAssistantRequest {
  * provider), then asks the server to find the closest excerpts. Never throws — a missing/unpulled
  * Ollama model, an unbuilt index, or any network failure just means the assistant answers from
  * general knowledge only, exactly like before this feature existed.
+ *
+ * `dialect`, when given, asks the server to prefer excerpts from that vendor's manual (still
+ * falling back to the overall best matches if that vendor has few close ones for this question).
  */
-async function fetchDatabaseKnowledgeContext(
+export async function fetchDatabaseKnowledgeContext(
   question: string,
   ollamaBaseUrl: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  dialect?: SqlDialect
 ): Promise<DatabaseKnowledgeContext | null> {
   try {
     const embedding = await callOllamaEmbed(ollamaBaseUrl, DATABASE_KNOWLEDGE_EMBEDDING_MODEL, question, signal);
@@ -117,7 +123,7 @@ async function fetchDatabaseKnowledgeContext(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
-        body: JSON.stringify({ embedding, topN: RAG_TOP_N }),
+        body: JSON.stringify({ embedding, topN: RAG_TOP_N, dialect }),
       },
       'Unable to reach the app server to search the database knowledge base.'
     );
@@ -129,6 +135,49 @@ async function fetchDatabaseKnowledgeContext(
   } catch {
     return null;
   }
+}
+
+const OPTIMIZE_KNOWLEDGE_HEADER: Record<Locale, string> = {
+  en: 'Relevant official documentation excerpts for this dialect — ground index, rewrite, and configuration suggestions in these when they apply:',
+  vi: 'Các đoạn trích tài liệu chính thức liên quan đến dialect này — hãy dựa vào đây khi đề xuất chỉ mục, viết lại truy vấn hoặc cấu hình, nếu phù hợp:',
+};
+
+/**
+ * Builds a labeled knowledge-brief section for the Optimize flow: embeds a short description of
+ * the query's dialect and its flagged linting issues, retrieves the closest official-manual
+ * excerpts (biased toward the active dialect), and formats them as a prompt-ready block. Returns
+ * `null` when retrieval finds nothing usable (missing Ollama/model/index, or no relevant match) —
+ * callers should simply omit the section rather than treat this as an error.
+ */
+export async function buildOptimizeKnowledgeBrief({
+  sql,
+  dialect,
+  lintIssues,
+  locale = 'en',
+  ollamaBaseUrl,
+  signal,
+}: {
+  sql: string;
+  dialect: SqlDialect;
+  lintIssues: LintingIssue[];
+  locale?: Locale;
+  ollamaBaseUrl: string;
+  signal?: AbortSignal;
+}): Promise<{ brief: string; sources: DatabaseKnowledgeSource[] } | null> {
+  const issueSummary = lintIssues.map((issue) => `${issue.rule}: ${issue.message}`).join('; ');
+  const question = [
+    `${dialect} SQL query performance optimization.`,
+    issueSummary ? `Issues to fix: ${issueSummary}.` : '',
+    `Query: ${sql.slice(0, 800)}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const knowledge = await fetchDatabaseKnowledgeContext(question, ollamaBaseUrl, signal, dialect);
+  if (!knowledge?.context) return null;
+
+  const header = OPTIMIZE_KNOWLEDGE_HEADER[locale] ?? OPTIMIZE_KNOWLEDGE_HEADER.en;
+  return { brief: `${header}\n${knowledge.context}`, sources: knowledge.sources };
 }
 
 /**

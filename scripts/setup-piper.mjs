@@ -25,7 +25,10 @@ const HF = 'https://huggingface.co';
 
 /**
  * Voice per UI locale, both at "medium" quality: the x_low variants are a third of the size but
- * noticeably choppy over the long sentences an explanation produces.
+ * noticeably choppy over the long sentences an explanation produces. English ships one female
+ * (lessac) and one male (ryan) voice so the read-aloud gender preference in Settings has a real
+ * local option on both sides; Vietnamese currently has only the vais1000 voice available at this
+ * quality, so both genders fall back to it there (see aiSpeechEngine.ts DEFAULT_VOICE_DIRS).
  *
  * These repos are the sherpa-onnx packaging of the rhasspy/piper voices — same VITS weights, plus
  * the tokens.txt and espeak-ng-data that the phonemizer needs.
@@ -37,6 +40,7 @@ const VOICES = [
     repo: 'csukuangfj/vits-piper-vi_VN-vais1000-medium',
   },
   { locale: 'en', name: 'en_US-lessac-medium', repo: 'csukuangfj/vits-piper-en_US-lessac-medium' },
+  { locale: 'en', name: 'en_US-ryan-medium', repo: 'csukuangfj/vits-piper-en_US-ryan-medium' },
 ];
 
 /** espeak data is identical in every voice repo, so it is fetched once from the first of them. */

@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { SqlDialect, AnalysisResult } from './sql/sqlAnalyzer';
 import type { Locale } from './i18n';
+import type { DocSource } from './ai/aiService';
 
 // Provider constants live in aiProviders (no 'use client') so the server API route can read
 // their real values; re-exported here for the client code that already imports from the store.
@@ -41,6 +42,8 @@ export interface AIModelConfig {
   maxOutputTokens: Record<AIProvider, number>;
   /** How many AI requests may run at once during a batch explain. */
   batchConcurrency: number;
+  /** Male/female preference for the read-aloud voice (Explainer + Optimize panels). */
+  speechVoiceGender?: 'male' | 'female';
 }
 
 export interface AppSettings {
@@ -60,6 +63,13 @@ export interface AppSettings {
  * /api/history (an Excel workbook on disk), not in this store — see src/lib/queryHistory.ts. */
 export type { QueryHistoryEntry } from './queryHistory';
 
+/** One exchange in the floating AI Assistant's (GlobalChat/DocsConsultantChat) conversation. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: DocSource[];
+}
+
 interface AppState {
   settings: AppSettings;
   dialect: SqlDialect;
@@ -76,6 +86,15 @@ interface AppState {
   /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
    *  page to load the analyzed SQL and reveal/highlight the target line, then cleared. */
   pendingEditorJump: { sql: string; line: number } | null;
+  /**
+   * GlobalChat is instantiated fresh by every page's own <AppLayout> wrapper (no shared layout
+   * instance across routes), so its state must live here instead of component-local useState —
+   * otherwise navigating to another page remounts it and silently drops the open panel and the
+   * whole conversation.
+   */
+  chatIsOpen: boolean;
+  chatHistory: ChatTurn[];
+  chatQuestionDraft: string;
 
   // Actions
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -91,6 +110,10 @@ interface AppState {
   setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
+  setChatIsOpen: (open: boolean) => void;
+  setChatHistory: (updater: ChatTurn[] | ((prev: ChatTurn[]) => ChatTurn[])) => void;
+  setChatQuestionDraft: (value: string) => void;
+  resetChat: () => void;
   resetAll: () => void;
 }
 
@@ -105,6 +128,7 @@ export const DEFAULT_AI_CONFIG: AIModelConfig = {
   contextTokens: { ...DEFAULT_CONTEXT_TOKENS },
   maxOutputTokens: { ...DEFAULT_MAX_OUTPUT_TOKENS },
   batchConcurrency: 2,
+  speechVoiceGender: 'female',
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -137,6 +161,9 @@ export const useAppStore = create<AppState>()(
       inputMode: 'sql',
       selectedNodeId: null,
       pendingEditorJump: null,
+      chatIsOpen: false,
+      chatHistory: [],
+      chatQuestionDraft: '',
 
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       setDialect: (d) => set({ dialect: d }),
@@ -152,6 +179,13 @@ export const useAppStore = create<AppState>()(
       setInputMode: (m) => set({ inputMode: m }),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
       setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),
+      setChatIsOpen: (open) => set({ chatIsOpen: open }),
+      setChatHistory: (updater) =>
+        set((state) => ({
+          chatHistory: typeof updater === 'function' ? updater(state.chatHistory) : updater,
+        })),
+      setChatQuestionDraft: (value) => set({ chatQuestionDraft: value }),
+      resetChat: () => set({ chatIsOpen: false, chatHistory: [], chatQuestionDraft: '' }),
       resetAll: () =>
         set({
           rawSql: '',

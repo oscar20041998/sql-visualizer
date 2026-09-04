@@ -49,6 +49,9 @@ function toPlainText(explanation: SqlExplanation, t: Translations): string {
     blocks.push(`${t.aiExplainerFilters}\n${explanation.filters.map((f) => `- ${f}`).join('\n')}`);
   }
   if (explanation.output) blocks.push(`${t.aiExplainerOutput}\n${explanation.output}`);
+  if (explanation.fieldMeanings.length) {
+    blocks.push(`${t.aiExplainerFieldMeanings}\n${explanation.fieldMeanings.map((field) => `- ${field}`).join('\n')}`);
+  }
   if (explanation.tables.length) {
     blocks.push(`${t.aiExplainerTables}\n${explanation.tables.join(', ')}`);
   }
@@ -86,6 +89,53 @@ function buildSections(explanation: SqlExplanation, t: Translations) {
   ];
 }
 
+/** Undoes the small set of JSON escapes that can appear inside a still-streaming string value. */
+function unescapeJsonFragment(value: string): string {
+  return value
+    .replace(/\\r\\n|\\n/g, ' ')
+    .replace(/\\t/g, ' ')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
+    .trim();
+}
+
+/** Reads the value of a still-streaming JSON string field, even before its closing quote arrives. */
+function extractPartialString(buffer: string, key: string): string {
+  const match = buffer.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)`));
+  return match ? unescapeJsonFragment(match[1]) : '';
+}
+
+/** Reads every fully-arrived string item of a still-streaming JSON array field (the in-flight
+ * last item is left out until its closing quote arrives, avoiding a half-written flash). */
+function extractPartialArray(buffer: string, key: string): string[] {
+  const closed = buffer.match(new RegExp(`"${key}"\\s*:\\s*\\[([\\s\\S]*?)\\]`));
+  const open = closed ? null : buffer.match(new RegExp(`"${key}"\\s*:\\s*\\[([\\s\\S]*)`));
+  const body = closed?.[1] ?? open?.[1];
+  if (body === undefined) return [];
+
+  const items: string[] = [];
+  const itemPattern = /"((?:\\.|[^"\\])*)"/g;
+  let match: RegExpExecArray | null;
+  while ((match = itemPattern.exec(body))) {
+    const item = unescapeJsonFragment(match[1]);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+/** Best-effort structured read of an in-flight JSON answer, so the panel can render growing
+ * sections instead of a raw JSON blob while the model is still streaming its response. */
+function parsePartialExplanation(raw: string) {
+  const withoutFence = raw.replace(/```(?:json)?/gi, '');
+  return {
+    objective: extractPartialString(withoutFence, 'objective'),
+    output: extractPartialString(withoutFence, 'output'),
+    filters: extractPartialArray(withoutFence, 'filters'),
+    fieldMeanings: extractPartialArray(withoutFence, 'field_meanings'),
+    tables: extractPartialArray(withoutFence, 'tables'),
+  };
+}
+
 /** Renders the assistant's half of one turn: a live-growing bubble while streaming, the
  * structured breakdown once the stream finishes parsing, or an error. */
 const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ turn, t }) => {
@@ -104,11 +154,107 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
   }
 
   if (turn.status === 'streaming') {
+    const partial = parsePartialExplanation(turn.streamingRaw);
+    const hasContent =
+      partial.objective || partial.output || partial.filters.length || partial.fieldMeanings.length || partial.tables.length;
+
+    if (!hasContent) {
+      return (
+        <p className="flex items-center gap-2 text-sm leading-relaxed text-gray-400">
+          <RefreshCw size={13} className="animate-spin text-indigo-400" />
+          {t.aiExplainerDrafting}
+        </p>
+      );
+    }
+
     return (
-      <p className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-300">
-        {turn.streamingRaw}
-        <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
-      </p>
+      <div className="space-y-3">
+        {partial.objective && (
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/15 text-indigo-300">
+                <Target size={11} />
+              </span>
+              {t.aiExplainerObjective}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-200">
+              {partial.objective}
+              <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+            </p>
+          </div>
+        )}
+
+        {partial.filters.length > 0 && (
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
+                <Filter size={11} />
+              </span>
+              {t.aiExplainerFilters}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {partial.filters.map((filter, index) => (
+                <li key={`streaming-filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
+                  {filter}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {partial.output && (
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-300">
+                <MessageSquareText size={11} />
+              </span>
+              {t.aiExplainerOutput}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-200">{partial.output}</p>
+          </div>
+        )}
+
+        {partial.fieldMeanings.length > 0 && (
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
+                <MessageSquareText size={11} />
+              </span>
+              {t.aiExplainerFieldMeanings}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {partial.fieldMeanings.map((field, index) => (
+                <li key={`streaming-field-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
+                  {field}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {partial.tables.length > 0 && (
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
+                <Database size={11} />
+              </span>
+              {t.aiExplainerTables}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {partial.tables.map((table, index) => (
+                <span
+                  key={`streaming-table-${index}`}
+                  className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
+                >
+                  {table}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -169,6 +315,25 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
           <p className="mt-2 text-sm text-gray-400">{t.aiExplainerNoFilters}</p>
         )}
       </div>
+
+      {explanation.fieldMeanings.length > 0 && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
+              <MessageSquareText size={11} />
+            </span>
+            {t.aiExplainerFieldMeanings}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {explanation.fieldMeanings.map((field, index) => (
+              <li key={`field-meaning-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
+                {field}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {explanation.tables.length > 0 && (
         <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
@@ -453,6 +618,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
       const { blob, engine } = await synthesizeSpeech({
         text: buildSpeechScript(lastDoneTurn.explanation, t),
         locale: settings.locale,
+        gender: aiConfig.speechVoiceGender,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -471,7 +637,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
     } finally {
       if (speechAbortRef.current === controller) speechAbortRef.current = null;
     }
-  }, [speechState, stopSpeech, lastDoneTurn, isLocalProvider, playSpeech, settings.locale, t]);
+  }, [speechState, stopSpeech, lastDoneTurn, isLocalProvider, playSpeech, settings.locale, aiConfig.speechVoiceGender, t]);
 
   // Closing the drawer must silence it too, otherwise the narration keeps playing out of sight.
   useEffect(() => {

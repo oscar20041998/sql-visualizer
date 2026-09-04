@@ -16,13 +16,15 @@ interface LauncherPosition {
 }
 
 export const GlobalChat: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  // Open/closed state lives in the store, not local useState: every page's own <AppLayout>
+  // wrapper remounts GlobalChat on navigation, which would otherwise reset it (and the
+  // conversation inside DocsConsultantChat) back to its initial closed/empty state.
+  const { settings, chatIsOpen: isOpen, setChatIsOpen: setIsOpen } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [launcherPosition, setLauncherPosition] = useState<LauncherPosition | null>(null);
   const dragStartRef = useRef<{ pointerX: number; pointerY: number; left: number; top: number } | null>(null);
   const draggedRef = useRef(false);
   const latestLauncherPositionRef = useRef<LauncherPosition | null>(null);
-  const { settings } = useAppStore();
   const t = getT(settings.locale);
 
   useEffect(() => {

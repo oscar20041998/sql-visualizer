@@ -525,9 +525,9 @@ export default function GraphVisualizerContent() {
       {/* Main area: canvas + sidebar */}
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1 relative flex flex-col overflow-hidden">
+        <div className="flex-1 relative flex flex-col overflow-hidden min-h-[220px]">
           {/* ── Top Bar Menu — all graph controls grouped in one flexible row ── */}
-          <div className="relative z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2.5">
+          <div className="relative z-20 flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2.5">
             {/* Title */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <GitFork size={16} className="text-primary" />
@@ -973,29 +973,35 @@ export default function GraphVisualizerContent() {
         </div>
       </div>
 
-      {/* ─── Collapsible Panels ─────────────────────────────────────────── */}
-      {showSuggestions && visibleSuggestions.length > 0 && (
-        <div className="border-t border-border bg-card animate-slide-up">
-          <SuggestionPanel
-            suggestions={visibleSuggestions}
-            dismissedIds={dismissedIds}
-            onDismiss={dismissSuggestion}
-          />
-        </div>
-      )}
+      {/* ─── Collapsible Panels ─── shared height budget so opening all three at once can never
+       * squeeze the toolbar/canvas above out of view — each panel keeps its own internal sizing,
+       * but the stack as a whole is capped and scrolls instead of growing past this. */}
+      {(showSuggestions || showJoinAnalysis || showExtracted) && (
+        <div className="flex-shrink-0 flex flex-col overflow-y-auto scrollbar-thin" style={{ maxHeight: '45vh' }}>
+          {showSuggestions && visibleSuggestions.length > 0 && (
+            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+              <SuggestionPanel
+                suggestions={visibleSuggestions}
+                dismissedIds={dismissedIds}
+                onDismiss={dismissSuggestion}
+              />
+            </div>
+          )}
 
-      {showJoinAnalysis && (
-        <div className="border-t border-border bg-card animate-slide-up">
-          <JoinAnalysisPanel
-            joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
-            locale={settings.locale}
-          />
-        </div>
-      )}
+          {showJoinAnalysis && (
+            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+              <JoinAnalysisPanel
+                joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
+                locale={settings.locale}
+              />
+            </div>
+          )}
 
-      {showExtracted && extractedRows.length > 0 && (
-        <div className="border-t border-border bg-card animate-slide-up">
-          <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
+          {showExtracted && extractedRows.length > 0 && (
+            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+              <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
+            </div>
+          )}
         </div>
       )}
     </div>

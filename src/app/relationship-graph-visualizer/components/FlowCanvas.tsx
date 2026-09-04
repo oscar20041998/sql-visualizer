@@ -112,6 +112,14 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   const graphTables = tables ?? analysisResult?.tables ?? [];
   const graphJoins = joins ?? analysisResult?.joins ?? [];
 
+  // Manual toggle OR automatic threshold; both must be reactive so the switch takes effect
+  // immediately instead of waiting for some unrelated dependency (e.g. a node click) to force
+  // the nodes/edges effect below to re-run.
+  const isPerformanceMode = useMemo(
+    () => settings.performanceMode || graphTables.length >= PERF_THRESHOLD,
+    [settings.performanceMode, graphTables.length]
+  );
+
   useImperativeHandle(ref, () => ({
     getNodes: () => nodes,
     getEdges: () => edges,
@@ -125,9 +133,6 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     }
 
     const positions = computeLayout(graphTables, graphJoins);
-
-    // Enable simplified mode based on manual setting or automatic threshold
-    const isPerformanceMode = settings.performanceMode || graphTables.length >= PERF_THRESHOLD;
 
     // Build nodes
     const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
@@ -150,7 +155,10 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
           theme: graphTheme,
           isHighlighted,
           isSelected: selectedNodeId === table.id,
-          isSimplified: isPerformanceMode,
+          // While performance mode is active, only the clicked node is rendered in full detail —
+          // every other node stays simplified exactly as it was, instead of the whole graph
+          // flipping between simplified/detailed together.
+          isSimplified: isPerformanceMode && selectedNodeId !== table.id,
         },
       };
     });
@@ -208,6 +216,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     selectedNodeId,
     graphTheme,
     settings.edgeStyle,
+    isPerformanceMode,
     setNodes,
     setEdges,
   ]);
@@ -222,11 +231,6 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
   }, [setSelectedNodeId]);
-
-  // Memoize performance-related settings
-  const isPerformanceMode = useMemo(() => {
-    return graphTables.length >= PERF_THRESHOLD;
-  }, [graphTables.length]);
 
   return (
     <div className="w-full h-full" style={{ background: chartBg }}>
