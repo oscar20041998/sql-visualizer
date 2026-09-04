@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Offline indexing job for the Docs Consultant RAG chat: chunks the app's own feature docs
-// (public/assets/markdown/features/**), embeds each chunk via OpenAI, and writes
+// Offline indexing job for the Docs Consultant RAG chat: chunks the app's public Markdown docs
+// plus the English and Vietnamese Guideline page content, embeds each chunk via OpenAI, and writes
 // src/lib/ai/docsIndex.json.
 //
 // Deliberately not part of `npm run build` — embedding is a paid, occasional step. Rerun manually
-// whenever docs under public/assets/markdown/features/ change:
+// whenever public product docs or the Guideline translations change:
 //   npm run build:docs-index
 
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
@@ -14,10 +14,26 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const MARKDOWN_ROOT = path.join(ROOT, 'public', 'assets', 'markdown');
-const DOCS_DIR = path.join(MARKDOWN_ROOT, 'features');
 const OUTPUT_PATH = path.join(ROOT, 'src', 'lib', 'ai', 'docsIndex.json');
 const EMBEDDING_MODEL = 'text-embedding-3-large';
 const BATCH_SIZE = 20;
+const GUIDELINE_LOCALES = [
+  { locale: 'en', path: path.join(ROOT, 'src', 'locales', 'en.ts'), label: 'English' },
+  { locale: 'vi', path: path.join(ROOT, 'src', 'locales', 'vi.ts'), label: 'Tieng Viet' },
+];
+const GUIDELINE_SECTIONS = [
+  'QueryInput',
+  'Graph',
+  'Metrics',
+  'CTE',
+  'Settings',
+  'AiExplainer',
+  'AiSpeech',
+  'DbAssistant',
+  'Tools',
+  'ComplexityEval',
+  'AdvancedFeatures',
+];
 
 /** No dotenv dependency: this script runs outside the Next.js server, which loads .env itself. */
 function loadEnvFile() {
@@ -49,6 +65,11 @@ function walkMarkdownFiles(dir) {
     else if (entry.endsWith('.md')) files.push(full);
   }
   return files;
+}
+
+function isProductDocumentation(file) {
+  const relative = path.relative(MARKDOWN_ROOT, file).replace(/\\/g, '/');
+  return !relative.startsWith('internal-ai-prompt-specs/');
 }
 
 /** Splits `content` at lines starting with `marker` (e.g. "## "). Text before the first match
@@ -99,6 +120,39 @@ function chunkMarkdown(content, relativeFile) {
     .filter((chunk) => chunk.text.length > 0);
 }
 
+function extractGuidelineValue(source, key) {
+  const match = source.match(
+    new RegExp(`^\\s*${key}:\\s*(?:'([^']*)'|"([^"]*)"|` + '`([^`]*)`)', 'm')
+  );
+  const value = match?.[1] ?? match?.[2] ?? match?.[3];
+  return value?.replace(/\\n/g, '\n').trim() ?? '';
+}
+
+function chunkGuideline(locale) {
+  const source = readFileSync(locale.path, 'utf8');
+  const chunks = [];
+
+  for (const section of GUIDELINE_SECTIONS) {
+    const keys = [...source.matchAll(new RegExp(`^\\s*(guideline${section}\\w+):`, 'gm'))].map(
+      (match) => match[1]
+    );
+    const text = keys
+      .map((key) => `${key.replace(/^guideline/, '')}: ${extractGuidelineValue(source, key)}`)
+      .filter((line) => !line.endsWith(': '))
+      .join('\n');
+
+    if (text) {
+      chunks.push({
+        file: `guideline/${locale.locale}.ts`,
+        title: `Guideline - ${section} (${locale.label})`,
+        text,
+      });
+    }
+  }
+
+  return chunks;
+}
+
 async function embedBatch(apiKey, baseUrl, input) {
   const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/v1/embeddings`, {
     method: 'POST',
@@ -116,8 +170,24 @@ async function embedBatch(apiKey, baseUrl, input) {
 }
 
 async function main() {
+  const dryRun = process.argv.includes('--dry-run');
   loadEnvFile();
   const apiKey = (process.env.OPENAI_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY)?.trim();
+  const baseUrl = process.env.OPENAI_EMBEDDING_BASE_URL?.trim() || 'https://api.openai.com';
+
+  const files = walkMarkdownFiles(MARKDOWN_ROOT).filter(isProductDocumentation);
+  const chunks = files.flatMap((file) => {
+    const relativeFile = path.relative(MARKDOWN_ROOT, file).replace(/\\/g, '/');
+    return chunkMarkdown(readFileSync(file, 'utf8'), relativeFile);
+  });
+  const guidelineChunks = GUIDELINE_LOCALES.flatMap(chunkGuideline);
+  chunks.push(...guidelineChunks);
+  console.log(
+    `Chunked ${files.length} public Markdown files and ${guidelineChunks.length} bilingual Guideline sections into ${chunks.length} chunks.`
+  );
+
+  if (dryRun) return;
+
   if (!apiKey) {
     console.error(
       'OPENAI_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set. Add a real key to .env before running this script.'
@@ -125,14 +195,6 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const baseUrl = process.env.OPENAI_EMBEDDING_BASE_URL?.trim() || 'https://api.openai.com';
-
-  const files = walkMarkdownFiles(DOCS_DIR);
-  const chunks = files.flatMap((file) => {
-    const relativeFile = path.relative(MARKDOWN_ROOT, file).replace(/\\/g, '/');
-    return chunkMarkdown(readFileSync(file, 'utf8'), relativeFile);
-  });
-  console.log(`Chunked ${files.length} files into ${chunks.length} chunks.`);
 
   const indexed = [];
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
