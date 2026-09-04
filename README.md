@@ -60,6 +60,46 @@ yarn dev
 
 3. Open [http://localhost:4028](http://localhost:4028) with your browser to see the result.
 
+### Ollama Models and Performance Configuration
+
+SQL Visualizer uses Ollama locally at `http://localhost:11434` by default. The application currently uses these models:
+
+| Purpose | Model | Used by |
+| --- | --- | --- |
+| Chat, SQL explanation, SQL optimization, and Database AI Assistant answers | `qwen2.5-coder:7b` | Default Ollama chat model, configurable in **Settings > AI Model Configuration** |
+| Database-manual RAG retrieval | `all-minilm` | Required for Database AI Assistant grounding; must match the local index embedding space |
+| Query History semantic search | `nomic-embed-text` | Finds previously analyzed SQL with similar meaning |
+
+Install the complete local setup:
+
+```bash
+ollama pull qwen2.5-coder:7b
+ollama pull all-minilm
+ollama pull nomic-embed-text
+```
+
+For a responsive single-user development workflow, use these settings in **Settings > AI Model Configuration**:
+
+| Setting | Recommended value | Why |
+| --- | --- | --- |
+| Provider | `Ollama` | Keeps SQL prompts and RAG embeddings on the local machine |
+| Base URL | `http://localhost:11434` | Default local Ollama service address |
+| Chat model | `qwen2.5-coder:7b` | Balanced SQL quality, streaming speed, and memory use |
+| Temperature | `0.1` | Produces more deterministic SQL explanations and optimization suggestions |
+| Context window | `8192` | Supports a SQL query, parser context, conversation history, and retrieved manual excerpts |
+| Maximum output tokens | `1200` | Keeps streamed answers concise and reduces generation latency |
+| Batch explain concurrency | `1` on CPU, `2` on a capable GPU | Prevents multiple local inference jobs from competing for the same RAM/VRAM |
+
+The configured context window must match the Ollama server. Before setting the application context to `8192`, run Ollama with the same limit (or configure an equivalent `num_ctx` value in a Modelfile):
+
+```bash
+# PowerShell, for the current terminal session
+$env:OLLAMA_CONTEXT_LENGTH = "8192"
+ollama serve
+```
+
+For best throughput, keep the models warm while the application is in use, avoid running multiple large chat models concurrently, and use GPU acceleration when available. `qwen2.5-coder:7b` needs roughly 5 GB of model storage and typically benefits from at least 8 GB available RAM/VRAM; reduce the context window back to `4096` on memory-constrained machines. Do not change the RAG model from `all-minilm` unless you rebuild the Database Knowledge index with the replacement model.
+
 ### Optional: Build the Database Knowledge RAG Index
 
 The Database AI Assistant works without a local knowledge index, using the configured chat model's general knowledge. To ground answers in the bundled official database-manual excerpts and show sources:
