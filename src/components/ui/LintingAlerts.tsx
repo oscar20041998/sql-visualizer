@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, AlertCircle, Lightbulb, X } from 'lucide-react';
+import { AlertTriangle, AlertCircle, ChevronDown, ChevronUp, Lightbulb, X } from 'lucide-react';
 import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '@/lib/sql/complexityScorer';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
@@ -9,15 +9,18 @@ import { useAppStore } from '@/lib/store';
 interface LintingAlertsProps {
   sql: string;
   compact?: boolean;
+  collapsible?: boolean;
 }
 
-export default function LintingAlerts({ sql, compact = false }: LintingAlertsProps) {
+export default function LintingAlerts({ sql, compact = false, collapsible = false }: LintingAlertsProps) {
   const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const { settings } = useAppStore();
   const t = getT(settings.locale);
 
   React.useEffect(() => {
     setDismissed(new Set());
+    setIsExpanded(false);
   }, [sql]);
 
   if (!sql.trim()) {
@@ -75,14 +78,29 @@ export default function LintingAlerts({ sql, compact = false }: LintingAlertsPro
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle size={16} className="text-orange-500" />
-        <h3 className="text-sm font-semibold text-foreground">
-          {t.lintingAlertsTitle} ({visibleIssues.length})
-        </h3>
-      </div>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          aria-expanded={isExpanded}
+          className="flex w-full items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-left transition-colors hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/30 dark:hover:bg-orange-950/50"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-orange-700 dark:text-orange-300">
+            <AlertTriangle size={16} />
+            {t.lintingAlertsTitle} ({visibleIssues.length})
+          </span>
+          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle size={16} className="text-orange-500" />
+          <h3 className="text-sm font-semibold text-foreground">
+            {t.lintingAlertsTitle} ({visibleIssues.length})
+          </h3>
+        </div>
+      )}
 
-      {visibleIssues.map((issue, idx) => (
+      {(!collapsible || isExpanded) && visibleIssues.map((issue, idx) => (
         <div
           key={`lint-${idx}`}
           className={`border rounded-lg p-4 ${
