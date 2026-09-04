@@ -375,6 +375,7 @@ function extractTables(sql: string): TableNode[] {
   // Extract CTEs first to mark them
   const cteNames = new Set<string>();
   const cteRegex = SQL_REGEX_PATTERNS.CTE_EXTRACTION;
+  cteRegex.lastIndex = 0; // Reset regex — shared global instance; a prior aborted scan could leave this mid-string
   let cteMatch;
   while ((cteMatch = cteRegex.exec(sql)) !== null) {
     const names = cteMatch[1].split(',').map((n) => n.trim().split(/\s+/)[0]);
@@ -383,6 +384,7 @@ function extractTables(sql: string): TableNode[] {
 
   // FROM and JOIN table extraction
   const tablePattern = SQL_REGEX_PATTERNS.TABLE_PATTERN;
+  tablePattern.lastIndex = 0; // Reset regex — same reason as above
   let match;
   while ((match = tablePattern.exec(sql)) !== null) {
     const rawName = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
@@ -409,7 +411,12 @@ function extractTables(sql: string): TableNode[] {
 
 function extractColumnsForTable(sql: string, tableRef: string): string[] {
   const cols: string[] = [];
-  const pattern = new RegExp(`\\b${tableRef}\\.(\\w+)`, 'gi');
+  // tableRef comes straight from parsed SQL text (an alias or table name) and may contain regex
+  // metacharacters (e.g. a stray '.', '(', '[') — unescaped, `new RegExp` throws mid-scan and
+  // aborts extractTables()'s while loop, leaving the shared TABLE_PATTERN's lastIndex stuck
+  // partway through the string for every later call, silently dropping all tables/edges next run.
+  const escapedTableRef = tableRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\b${escapedTableRef}\\.(\\w+)`, 'gi');
   let m;
   while ((m = pattern.exec(sql)) !== null) {
     if (!cols.includes(m[1])) cols.push(m[1]);

@@ -40,7 +40,97 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **dt-sql-parser** - AST-based SQL parsing used to cross-check the regex-based analyzer for dialect validation
 - **Vitest** - Unit test runner (`npm run test`)
 
-## 🛠️ Installation
+## 🔀 AI Feature Flowcharts
+
+How each AI-powered feature actually moves data through the app — from the local SQL parser through prompt building, retrieval grounding, and the active provider (local Ollama or a cloud API proxied server-side).
+
+### AI SQL Explainer & Follow-up Chat
+
+```mermaid
+flowchart TD
+    A[SQL in Smart SQL Editor] --> B["analyzeSql() local parser"]
+    B --> C["buildSqlContextBrief() — verified tables/joins/CTEs"]
+    C --> D["fitContextBrief() + truncateSqlForBudget()<br/>fit prompt into the provider's context window"]
+    D --> E["explainSqlStructuredStream()"]
+    E --> F{Provider}
+    F -->|Ollama| G["Direct call to local Ollama"]
+    F -->|OpenAI / Anthropic / Gemini| H["/api/ai/generate proxy<br/>(server holds the credential)"]
+    G --> I["Streamed JSON answer"]
+    H --> I
+    I --> J["Partial-JSON parser<br/>renders growing sections live, not raw JSON"]
+    J --> K{"Valid JSON once complete?"}
+    K -->|Yes| L["Structured panel:<br/>objective / filters / output / field meanings / tables"]
+    K -->|No, even after repair pass| M["Unstructured fallback:<br/>notice + collapsible raw answer"]
+    L --> N["Ask a follow-up"]
+    N --> O["askFollowUp() — SQL pinned as first turn<br/>+ trimmed history to fit budget"]
+    O --> E
+```
+
+### AI Optimize (Smart SQL Editor)
+
+```mermaid
+flowchart TD
+    A[Click Optimize] --> B["Editor locked read-only + loading overlay"]
+    B --> C["checkSelectAll() + checkOtherLintingRules()<br/>local linting alerts"]
+    C --> D["buildOptimizeKnowledgeBrief()<br/>embed dialect + issues via local Ollama (all-minilm)"]
+    D --> E["/api/ai/database-knowledge-context<br/>biased toward the active SQL dialect"]
+    E --> F["Grounded knowledge brief<br/>+ parser brief + lint alerts as one prompt"]
+    F --> G["optimizeSqlWithAIStream()"]
+    G --> H["Streamed JSON: analysis / suggestions / optimized_sql"]
+    H --> I["Partial-JSON progress message<br/>(never shows raw JSON while streaming)"]
+    I --> J{"Structured result?"}
+    J -->|Yes| K["Editor updates + auto-enables Diff view<br/>if the query actually changed"]
+    K --> L["Re-run linting on the new SQL<br/>show count of alerts auto-resolved"]
+    J -->|No| M["Unstructured fallback: notice + collapsible raw answer<br/>editor left unchanged"]
+    L --> N["Read result aloud (optional)"]
+    N --> O["/api/ai/speech — gender + locale picks the voice"]
+```
+
+### Docs Consultant Chat & Database AI Assistant (RAG)
+
+```mermaid
+flowchart TD
+    A[User question] --> B{Which chat?}
+    B -->|Guideline page / floating chat| C["Embed question"]
+    B -->|Database AI Assistant page| D["Embed question via local Ollama (all-minilm)"]
+    C --> E["/api/ai/docs-context<br/>cosine similarity over docsIndex.json<br/>(this app's own feature docs)"]
+    D --> F["/api/ai/database-knowledge-context<br/>nearest-neighbor over ~82k official manual chunks<br/>(SQL Server / MySQL / PostgreSQL / Oracle)"]
+    E --> G["Answer grounded in the closest doc chunks<br/>+ citations shown below the reply"]
+    F --> H["Answer grounded in the closest manual excerpts<br/>+ source labels, only when a real match is found"]
+    G --> I["generateWithAI() — Ollama direct or /api/ai/generate proxy"]
+    H --> I
+    I --> J["Answer streamed into the conversation"]
+    J --> K["Conversation state lives in the Zustand store<br/>survives navigating to another page"]
+```
+
+### Query History Semantic Search
+
+```mermaid
+flowchart TD
+    A[Query analyzed] --> B["Saved to the server-side query history (Excel-backed)"]
+    B --> C["embeddingService embeds the query text"]
+    C --> D["Embedding stored alongside the history entry"]
+    E[User searches history by meaning] --> F["Search phrase embedded the same way"]
+    F --> G["Cosine similarity against every stored entry"]
+    G --> H["Ranked matches returned, not just substring hits"]
+    D -.-> G
+```
+
+### Text-to-Speech (Read Aloud)
+
+```mermaid
+flowchart TD
+    A["Read aloud clicked<br/>(AI Explainer or Optimize panel)"] --> B["Script built from the answer's sections"]
+    B --> C["synthesizeSpeech() — locale + saved male/female preference"]
+    C --> D["/api/ai/speech"]
+    D --> E{"AI_SPEECH_PROVIDER"}
+    E -->|piper — default| F["Local Piper voice (sherpa-onnx)<br/>picked by locale + gender"]
+    E -->|openai| G["OpenAI TTS — concrete voice resolved from gender"]
+    F --> H["Audio played in the browser"]
+    G --> H
+```
+
+## �🛠️ Installation
 
 1. Install dependencies:
 
