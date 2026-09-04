@@ -23,7 +23,7 @@ const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
   vi: (sql) => `Hãy giải thích truy vấn SQL sau đây bằng ngôn ngữ đơn giản, dễ hiểu:\n\n${sql}`,
 };
 
-/** Asks for a JSON payload so the UI can render objective / constraints / output as separate sections. */
+/** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
 const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
   en: (sql) => `You translate SQL into plain business language for a reader who does not write SQL.
 
@@ -37,13 +37,17 @@ Reply with ONLY a JSON object — no prose, no markdown fence — using exactly 
   "objective": "one or two sentences describing the core goal of the query",
   "filters": ["every filter, timeframe, status, region or other constraint, one plain-language sentence each"],
   "output": "describe the columns and rows returned, plus sorting and row limits, in plain language",
-  "tables": ["names of the tables or CTEs the query reads"]
+  "tables": ["names of the tables or CTEs the query reads, with their apparent business role when it is supported by the query"],
+  "field_meanings": ["field or output label: its likely business meaning and how the query uses it, in plain language"]
 }
 
 Rules:
 - Avoid SQL keywords in "objective" and "output"; describe the meaning instead.
 - Expand technical expressions: DATE_SUB(NOW(), INTERVAL 30 DAY) becomes "the last 30 days", active = 1 becomes "only active accounts".
-- Use an empty array when the query has no filters and no tables.`,
+- Explain every selected field, derived value, aggregate, grouping key, join key, and field used in a condition. Combine repeated uses of the same field into one clear item.
+- Explain every condition, including JOIN, WHERE, HAVING, CASE, and null-handling conditions: name the field, translate operators and literal values, and state how the condition affects which data is included.
+- Do not invent business definitions that cannot be supported by the SQL or verified facts. State that a name or code's exact meaning is unknown when necessary.
+- Use an empty array only when the query has no filters, no tables, or no fields for that respective array.`,
   vi: (sql) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt.
 
 Truy vấn SQL:
@@ -56,13 +60,17 @@ Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời d�
   "objective": "một đến hai câu mô tả mục tiêu chính của truy vấn",
   "filters": ["từng điều kiện lọc, khoảng thời gian, trạng thái, khu vực hoặc ràng buộc khác, mỗi phần tử là một câu dễ hiểu"],
   "output": "mô tả các cột và dòng dữ liệu trả về, kèm cách sắp xếp và giới hạn số dòng, bằng ngôn ngữ đơn giản",
-  "tables": ["tên các bảng hoặc CTE mà truy vấn đọc dữ liệu"]
+  "tables": ["tên các bảng hoặc CTE mà truy vấn đọc dữ liệu, kèm vai trò nghiệp vụ có thể suy ra từ truy vấn"],
+  "field_meanings": ["tên field hoặc nhãn đầu ra: ý nghĩa nghiệp vụ có thể suy ra và cách truy vấn sử dụng field đó, bằng ngôn ngữ dễ hiểu"]
 }
 
 Quy tắc:
 - Tránh dùng từ khóa SQL trong "objective" và "output"; hãy diễn giải ý nghĩa.
 - Diễn giải biểu thức kỹ thuật: DATE_SUB(NOW(), INTERVAL 30 DAY) thành "30 ngày gần nhất", active = 1 thành "chỉ các tài khoản đang hoạt động".
-- Dùng mảng rỗng khi truy vấn không có điều kiện lọc hoặc không đọc bảng nào.`,
+- Giải thích mọi field được chọn, giá trị tính toán, phép tổng hợp, field dùng để nhóm, khóa nối và field dùng trong điều kiện. Gộp các lần dùng lặp lại của cùng một field thành một mục rõ ràng.
+- Giải thích mọi điều kiện, gồm điều kiện JOIN, WHERE, HAVING, CASE và xử lý NULL: nêu field, diễn giải toán tử và giá trị cố định, rồi cho biết điều kiện làm dữ liệu nào được chọn hoặc loại ra.
+- Không tự đặt nghĩa nghiệp vụ nếu SQL hoặc dữ kiện đã xác thực không chứng minh được. Khi cần, nói rõ không xác định được ý nghĩa chính xác của tên hoặc mã.
+- Chỉ dùng mảng rỗng khi truy vấn không có điều kiện, không đọc bảng hoặc không có field tương ứng.`,
 };
 
 export class AIServiceError extends Error {
@@ -97,6 +105,8 @@ export interface SqlExplanation {
   filters: string[];
   output: string;
   tables: string[];
+  /** Business-friendly meanings for fields, expressions, and their use in the query. */
+  fieldMeanings: string[];
   /** Untouched model answer, kept so the UI can always show something. */
   raw: string;
   /** False when the model ignored the JSON contract and `raw` is the only usable content. */
@@ -1095,14 +1105,59 @@ export async function streamWithAI(
   return callCloudViaProxyStream(config, request, onDelta);
 }
 
-/** Pulls the JSON object out of an answer that may be fenced or padded with prose. */
+/**
+ * Escapes raw control characters that are only ever valid JSON when escaped, but that models
+ * frequently stream unescaped inside long string values (most often literal newlines inside a
+ * multi-line "optimized_sql" value). Left alone, a single raw newline inside a string is enough
+ * to make `JSON.parse` throw and force the ugly "show the raw JSON" fallback.
+ */
+function escapeRawControlCharsInStrings(text: string): string {
+  let result = '';
+  let inString = false;
+  let escapeNext = false;
+  for (const ch of text) {
+    if (escapeNext) {
+      result += ch;
+      escapeNext = false;
+      continue;
+    }
+    if (ch === '\\') {
+      result += ch;
+      escapeNext = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      result += ch;
+      continue;
+    }
+    if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+      result += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
+/** Pulls the JSON object out of an answer that may be fenced or padded with prose. Falls back to
+ * a light repair pass (unescaped control chars, trailing commas) before giving up, since those
+ * are the most common reasons a model's otherwise-good JSON answer fails to parse. */
 function extractJsonObject(text: string): unknown {
   const withoutFence = text.replace(/```(?:json)?/gi, '').trim();
   const start = withoutFence.indexOf('{');
   const end = withoutFence.lastIndexOf('}');
   if (start === -1 || end <= start) return null;
+
+  const candidate = withoutFence.slice(start, end + 1);
   try {
-    return JSON.parse(withoutFence.slice(start, end + 1));
+    return JSON.parse(candidate);
+  } catch {
+    // fall through to the repair pass below
+  }
+  try {
+    const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
+    return JSON.parse(repaired);
   } catch {
     return null;
   }
@@ -1254,6 +1309,7 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
       filters: [],
       output: '',
       tables: [],
+      fieldMeanings: [],
       raw,
       structured: false,
       budget: report,
@@ -1265,6 +1321,7 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
     filters: asList(parsed.filters),
     output,
     tables: asList(parsed.tables),
+    fieldMeanings: asList(parsed.field_meanings),
     raw,
     structured: true,
     budget: report,
@@ -1440,8 +1497,8 @@ export async function optimizeSqlWithAIStream(
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: 'You are a SQL expert answering follow-up questions about one specific query. Answer in plain language, stay grounded in the query and the verified parser facts, and say plainly when the query does not contain the answer. Be concise: a few sentences unless asked for detail.',
-  vi: 'Bạn là chuyên gia SQL đang trả lời các câu hỏi tiếp theo về một truy vấn cụ thể. Hãy trả lời bằng tiếng Việt, ngôn ngữ đơn giản, chỉ dựa trên truy vấn và các dữ kiện đã được parser xác thực, và nói rõ khi truy vấn không chứa câu trả lời. Ngắn gọn: vài câu, trừ khi được yêu cầu chi tiết.',
+  en: 'You are a SQL expert answering any question about one specific query. Explain the query’s intent, fields, expressions, filters, joins, returned data, and likely business impact in plain language suitable for non-technical staff. Stay grounded in the SQL and verified parser facts. Clearly distinguish what the query proves from a reasonable inference, and say when an exact business definition or answer is not present. Give detail when the question calls for it; otherwise be concise.',
+  vi: 'Bạn là chuyên gia SQL đang trả lời mọi câu hỏi về một truy vấn cụ thể. Hãy giải thích mục đích, field, biểu thức, điều kiện, phép nối, dữ liệu trả về và tác động nghiệp vụ có thể suy ra từ truy vấn bằng tiếng Việt dễ hiểu cho cả người không chuyên. Chỉ dựa trên SQL và các dữ kiện đã được parser xác thực. Phân biệt rõ điều truy vấn chứng minh được với suy luận hợp lý, và nói rõ khi truy vấn không có định nghĩa nghiệp vụ hoặc câu trả lời chính xác. Trả lời chi tiết khi câu hỏi cần; các trường hợp khác giữ ngắn gọn.',
 };
 
 export interface FollowUpOptions {

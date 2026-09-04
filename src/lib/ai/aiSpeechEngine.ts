@@ -13,7 +13,7 @@ import { access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { DEFAULT_BASE_URLS } from './aiProviders';
 import { normalizeBaseUrl } from './aiService';
-import { SPEECH_INSTRUCTIONS } from './aiSpeech';
+import { SPEECH_INSTRUCTIONS, type SpeechGender } from './aiSpeech';
 import type { Locale } from '@/lib/i18n';
 // Type-only: erased at compile time, so declaring these costs no load of the native addon.
 import type { OfflineTts, OfflineTtsGeneratedAudio } from 'sherpa-onnx-node';
@@ -25,6 +25,8 @@ export interface SpeechSynthesisRequest {
   locale: Locale;
   model: string;
   voice: string;
+  /** Which locally-installed Piper voice folder to use; the OpenAI engine ignores this. */
+  gender: SpeechGender;
   signal: AbortSignal;
 }
 
@@ -60,19 +62,21 @@ export function resolveSpeechProvider(): SpeechProvider {
 
 const PIPER_ROOT = resolve(process.cwd(), 'models', 'piper');
 
-/** Voice per locale, matching the layout `npm run setup:piper` writes. */
-const DEFAULT_VOICE_DIRS: Record<Locale, string> = {
-  vi: 'vi_VN-vais1000-medium',
-  en: 'en_US-lessac-medium',
+/** Voice per locale and gender, matching the layout `npm run setup:piper` writes. English ships
+ * both a female (lessac) and male (ryan) voice; Vietnamese currently ships only one local voice,
+ * so both genders read with it until a second voice is added to scripts/setup-piper.mjs. */
+const DEFAULT_VOICE_DIRS: Record<Locale, Record<SpeechGender, string>> = {
+  vi: { female: 'vi_VN-vais1000-medium', male: 'vi_VN-vais1000-medium' },
+  en: { female: 'en_US-lessac-medium', male: 'en_US-ryan-medium' },
 };
 
-function piperVoiceDir(locale: Locale): string {
-  const configured = (
-    locale === 'vi' ? process.env.PIPER_VOICE_VI : process.env.PIPER_VOICE_EN
-  )?.trim();
+function piperVoiceDir(locale: Locale, gender: SpeechGender): string {
+  const genderEnvKey = `PIPER_VOICE_${locale.toUpperCase()}_${gender.toUpperCase()}`;
+  const legacyEnvKey = locale === 'vi' ? 'PIPER_VOICE_VI' : 'PIPER_VOICE_EN';
+  const configured = (process.env[genderEnvKey] ?? process.env[legacyEnvKey])?.trim();
   return configured
     ? resolve(process.cwd(), configured)
-    : join(PIPER_ROOT, 'voices', DEFAULT_VOICE_DIRS[locale]);
+    : join(PIPER_ROOT, 'voices', DEFAULT_VOICE_DIRS[locale][gender]);
 }
 
 function piperEspeakDir(): string {
@@ -98,8 +102,8 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function loadVoice(locale: Locale): Promise<OfflineTts> {
-  const directory = piperVoiceDir(locale);
+async function loadVoice(locale: Locale, gender: SpeechGender): Promise<OfflineTts> {
+  const directory = piperVoiceDir(locale, gender);
   const model = join(directory, 'model.onnx');
   const tokens = join(directory, 'tokens.txt');
   const dataDir = piperEspeakDir();
@@ -136,14 +140,14 @@ async function loadVoice(locale: Locale): Promise<OfflineTts> {
   });
 }
 
-function getVoice(locale: Locale): Promise<OfflineTts> {
-  const key = `${piperVoiceDir(locale)}|${piperEspeakDir()}`;
+function getVoice(locale: Locale, gender: SpeechGender): Promise<OfflineTts> {
+  const key = `${piperVoiceDir(locale, gender)}|${piperEspeakDir()}`;
   const cached = voiceCache.get(key);
   if (cached) return cached;
 
   // Cached as the promise, so two clicks arriving together load the model once. A failed load is
   // evicted, otherwise a missing file would keep failing after it had been downloaded.
-  const loading = loadVoice(locale).catch((error) => {
+  const loading = loadVoice(locale, gender).catch((error) => {
     voiceCache.delete(key);
     throw error;
   });
@@ -193,9 +197,10 @@ function toWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
 async function synthesizeWithPiper({
   text,
   locale,
+  gender,
   signal,
 }: SpeechSynthesisRequest): Promise<SpeechAudio> {
-  const tts = await getVoice(locale);
+  const tts = await getVoice(locale, gender);
   if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
 
   // Newlines are section breaks in the script; the phonemizer wants one flat utterance stream.

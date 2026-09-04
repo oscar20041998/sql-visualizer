@@ -7,11 +7,14 @@
 import { NextResponse } from 'next/server';
 import { redactSecrets } from '@/lib/ai/aiRouteValidation';
 import {
+  DEFAULT_SPEECH_GENDER,
   DEFAULT_SPEECH_MODEL,
   DEFAULT_SPEECH_VOICE,
   MAX_SPEECH_CHARS,
+  SPEECH_GENDERS,
   SPEECH_MODELS,
   SPEECH_VOICES,
+  type SpeechGender,
 } from '@/lib/ai/aiSpeech';
 import { resolveSpeechProvider, synthesize, SpeechEngineError } from '@/lib/ai/aiSpeechEngine';
 import type { Locale } from '@/lib/i18n';
@@ -24,10 +27,12 @@ interface SpeechRequestBody {
   model?: unknown;
   voice?: unknown;
   locale?: unknown;
+  gender?: unknown;
 }
 
 const ALLOWED_MODELS = new Set<string>(SPEECH_MODELS);
 const ALLOWED_VOICES = new Set<string>(SPEECH_VOICES);
+const ALLOWED_GENDERS = new Set<string>(SPEECH_GENDERS);
 
 export async function POST(request: Request) {
   let body: SpeechRequestBody;
@@ -71,6 +76,13 @@ export async function POST(request: Request) {
     );
   }
 
+  // Selects which locally-installed Piper voice folder is used; the OpenAI engine ignores it
+  // (its concrete voice id already encodes the gender via `voice` above).
+  const gender: SpeechGender =
+    typeof body.gender === 'string' && ALLOWED_GENDERS.has(body.gender)
+      ? (body.gender as SpeechGender)
+      : DEFAULT_SPEECH_GENDER;
+
   try {
     const provider = resolveSpeechProvider();
     const audio = await synthesize(provider, {
@@ -78,6 +90,7 @@ export async function POST(request: Request) {
       locale,
       model,
       voice,
+      gender,
       signal: request.signal,
     });
     return new NextResponse(audio.body, {

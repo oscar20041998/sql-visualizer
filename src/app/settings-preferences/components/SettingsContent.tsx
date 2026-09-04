@@ -26,6 +26,7 @@ import {
   MAX_OUTPUT_TOKENS_RANGE,
   type AIProvider,
 } from '@/lib/ai/aiProviders';
+import { DEFAULT_SPEECH_GENDER } from '@/lib/ai/aiSpeech';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -650,6 +651,17 @@ export default function SettingsContent() {
                         {aiDraft.batchConcurrency}
                       </span>
                     </div>
+                  </SettingRow>
+
+                  <SettingRow label={t.aiVoiceGenderLabel} hint={t.aiVoiceGenderHint}>
+                    <SelectDropdown
+                      value={aiDraft.speechVoiceGender ?? DEFAULT_SPEECH_GENDER}
+                      options={[
+                        { value: 'female' as const, label: t.aiVoiceGenderFemale },
+                        { value: 'male' as const, label: t.aiVoiceGenderMale },
+                      ]}
+                      onChange={(value) => updateAI('speechVoiceGender', value)}
+                    />
                   </SettingRow>
 
                   <div className="py-4">
