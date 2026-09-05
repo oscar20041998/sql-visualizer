@@ -18,7 +18,6 @@ import {
   X,
   Volume2,
   Square,
-  ChevronDown,
   RefreshCw,
   AlertTriangle,
 } from 'lucide-react';
@@ -263,7 +262,6 @@ export const SmartSQLEditor: React.FC<{
   // Local structural check, independent of what the model claims in analysis/semantic_impact.
   const [structuralWarnings, setStructuralWarnings] = useState<string[]>([]);
   const [speechPhase, setSpeechPhase] = useState<'idle' | 'loading' | 'playing'>('idle');
-  const [showOptimizeRaw, setShowOptimizeRaw] = useState(false);
   const isLocalProvider = settings.aiConfig.provider === 'ollama';
   const speechAbortRef = useRef<AbortController | null>(null);
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -526,7 +524,6 @@ export const SmartSQLEditor: React.FC<{
     setOptimizeError(null);
     setAppliedProposalIds([]);
     setOptimizeStreamRaw('');
-    setShowOptimizeRaw(false);
     setStructuralWarnings([]);
     setOptimizePhase('streaming');
 
@@ -853,7 +850,7 @@ export const SmartSQLEditor: React.FC<{
             </div>
 
             {optimizePhase === 'streaming' && (
-              <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+              <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
                 {buildOptimizeProgressMessage(optimizeStreamRaw, t.smartEditorOptimizeWaitingLabel)}
                 <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
               </p>
@@ -868,21 +865,9 @@ export const SmartSQLEditor: React.FC<{
                 <p className="text-xs leading-relaxed text-yellow-300/90">
                   {t.smartEditorOptimizeUnstructuredNotice}
                 </p>
-                <button
-                  onClick={() => setShowOptimizeRaw((prev) => !prev)}
-                  className="flex items-center gap-1.5 text-[11px] text-gray-500 transition-colors hover:text-gray-300"
-                >
-                  <ChevronDown
-                    size={11}
-                    className={`transition-transform ${showOptimizeRaw ? 'rotate-180' : ''}`}
-                  />
-                  {showOptimizeRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
-                </button>
-                {showOptimizeRaw && (
-                  <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-400">
-                    {optimizeResult.raw}
-                  </pre>
-                )}
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                  {optimizeResult.raw}
+                </pre>
               </div>
             )}
 

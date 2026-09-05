@@ -1140,27 +1140,51 @@ function escapeRawControlCharsInStrings(text: string): string {
   return result;
 }
 
+/** Extracts balanced JSON-object candidates without being confused by prose or braces inside
+ * quoted SQL snippets. Local models often wrap an otherwise-valid object in Markdown. */
+function jsonObjectCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index += 1) {
+      const character = text[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') inString = true;
+      else if (character === '{') depth += 1;
+      else if (character === '}' && --depth === 0) {
+        candidates.push(text.slice(start, index + 1));
+        break;
+      }
+    }
+  }
+  return candidates;
+}
+
 /** Pulls the JSON object out of an answer that may be fenced or padded with prose. Falls back to
  * a light repair pass (unescaped control chars, trailing commas) before giving up, since those
  * are the most common reasons a model's otherwise-good JSON answer fails to parse. */
 function extractJsonObject(text: string): unknown {
   const withoutFence = text.replace(/```(?:json)?/gi, '').trim();
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-  if (start === -1 || end <= start) return null;
-
-  const candidate = withoutFence.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    // fall through to the repair pass below
+  for (const candidate of jsonObjectCandidates(withoutFence)) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
+        return JSON.parse(repaired);
+      } catch {
+        // Try the next balanced object, if model prose contained one before its actual payload.
+      }
+    }
   }
-  try {
-    const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
-    return JSON.parse(repaired);
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function asText(value: unknown): string {
