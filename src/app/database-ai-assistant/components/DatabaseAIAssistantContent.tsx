@@ -18,17 +18,8 @@ import { getT } from '@/lib/i18n';
 import {
   streamDatabaseAssistant,
   suggestFollowUpQuestions,
-  type DatabaseKnowledgeSource,
 } from '@/lib/ai/databaseAssistant';
 import type { AIMessage } from '@/lib/ai/aiService';
-
-interface ChatTurn {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sources?: DatabaseKnowledgeSource[];
-  isStreaming?: boolean;
-}
 
 const CODE_FENCE_RE = /```(\w+)?\n?([\s\S]*?)```/g;
 
@@ -128,17 +119,20 @@ function CopyButton({ text, label, labelCopied }: { text: string; label: string;
 
 export default function DatabaseAIAssistantContent() {
   const { settings } = useAppStore();
+  const turns = useAppStore((state) => state.databaseAssistantHistory);
+  const setTurns = useAppStore((state) => state.setDatabaseAssistantHistory);
+  const question = useAppStore((state) => state.databaseAssistantQuestionDraft);
+  const setQuestion = useAppStore((state) => state.setDatabaseAssistantQuestionDraft);
+  const resetDatabaseAssistantChat = useAppStore((state) => state.resetDatabaseAssistantChat);
   const t = getT(settings.locale);
   const aiConfig = settings.aiConfig;
 
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
-  const idRef = useRef(0);
+  const idRef = useRef(Date.now());
 
   const isLocalProvider = aiConfig.provider === 'ollama';
   const modelLabel = isLocalProvider ? aiConfig.ollamaModel : aiConfig.modelId;
@@ -147,8 +141,9 @@ export default function DatabaseAIAssistantContent() {
     () => () => {
       abortRef.current?.abort();
       followUpAbortRef.current?.abort();
+      setTurns((previous) => previous.map((turn) => ({ ...turn, isStreaming: false })));
     },
-    []
+    [setTurns]
   );
 
   useEffect(() => {
@@ -246,10 +241,9 @@ export default function DatabaseAIAssistantContent() {
     followUpAbortRef.current?.abort();
     followUpAbortRef.current = null;
     setIsAsking(false);
-    setTurns([]);
-    setQuestion('');
+    resetDatabaseAssistantChat();
     setFollowUps([]);
-  }, []);
+  }, [resetDatabaseAssistantChat]);
 
   const suggestions = [
     t.dbAssistantSuggestion1,
