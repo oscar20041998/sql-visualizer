@@ -21,6 +21,7 @@ import {
   type SqlDialect,
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
+import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
 import { isDemoAuthenticated } from '@/lib/demoAuth';
 
 // Import sub-components
@@ -189,6 +190,20 @@ export default function QueryInputContent() {
           : resolvedSql;
     if (!sqlToAnalyze.trim()) {
       toast.error(t.emptyQueryError);
+      return;
+    }
+
+    // Catches copy-paste artifacts (whole query wrapped in quotes, curly quotes, invisible
+    // characters) that the regex-based analyzer below would otherwise silently "succeed" on.
+    const formatCheck = validateSqlFormat(sqlToAnalyze);
+    if (!formatCheck.valid && formatCheck.issue) {
+      const reasonText = (t as Record<string, string>)[formatCheck.issue.reasonKey] || formatCheck.issue.reason;
+      toast.warning(
+        (t.sqlFormatIssueWarning || '')
+          .replace('{reason}', reasonText)
+          .replace('{sample}', formatCheck.issue.sample),
+        { duration: 6000 }
+      );
       return;
     }
 

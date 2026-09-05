@@ -44,6 +44,12 @@ const vi = {
   dialectMismatchError:
     'Không khớp dialect: truy vấn có cú pháp giống {detected} ({reason}), nhưng dialect đang chọn là {selected}. Vui lòng chỉnh lại dialect hoặc truy vấn trước khi phân tích.',
   dialectReasonAstParse: 'cú pháp không hợp lệ cho dialect đã chọn',
+  sqlFormatIssueWarning: 'Đây không phải là SQL hợp lệ ({reason}): "{sample}". Vui lòng xóa định dạng/ký tự thừa trước khi phân tích.',
+  sqlFormatWrappedInQuotes: 'toàn bộ câu truy vấn bị bọc trong dấu ngoặc kép/nháy',
+  sqlFormatCurlyDoubleQuote: 'chứa dấu ngoặc kép cong \u201C \u201D thay vì dấu " thẳng',
+  sqlFormatCurlySingleQuote: 'chứa dấu nháy đơn cong \u2018 \u2019 thay vì dấu \' thẳng',
+  sqlFormatNonBreakingSpace: 'chứa khoảng trắng không ngắt dòng (non-breaking space)',
+  sqlFormatZeroWidthChar: 'chứa ký tự vô hình (zero-width character)',
   clearButton: 'Xóa',
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',
