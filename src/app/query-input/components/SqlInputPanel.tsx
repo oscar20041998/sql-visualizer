@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 
@@ -27,6 +27,16 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
       gutter.scrollTop = textarea.scrollTop;
     }
   };
+
+  // Pasting jumps the textarea's native scroll to the caret before React
+  // re-renders the gutter with the new line count, so the gutter's own
+  // "scroll" event fires too early and gets clamped to its old (shorter)
+  // scroll range. Re-sync once the gutter has re-rendered with all lines.
+  useEffect(() => {
+    if (textareaRef.current && gutterRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, [value]);
 
   return (
     <div className="relative animate-fade-in">
