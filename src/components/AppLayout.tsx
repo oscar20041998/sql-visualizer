@@ -88,7 +88,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </main>
         <AppFooter />
       </div>
-      {pathname !== '/' && <GlobalChat />}
+      <GlobalChat />
     </div>
   );
 }

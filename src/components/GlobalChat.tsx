@@ -34,8 +34,19 @@ export const GlobalChat: React.FC = () => {
     try {
       const position = JSON.parse(savedPosition) as LauncherPosition;
       if (Number.isFinite(position.left) && Number.isFinite(position.top)) {
-        latestLauncherPositionRef.current = position;
-        setLauncherPosition(position);
+        const clampedPosition = {
+          left: Math.min(
+            Math.max(CHAT_LAUNCHER_MARGIN, position.left),
+            Math.max(CHAT_LAUNCHER_MARGIN, window.innerWidth - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN)
+          ),
+          top: Math.min(
+            Math.max(CHAT_LAUNCHER_MARGIN, position.top),
+            Math.max(CHAT_LAUNCHER_MARGIN, window.innerHeight - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN)
+          ),
+        };
+        latestLauncherPositionRef.current = clampedPosition;
+        setLauncherPosition(clampedPosition);
+        window.localStorage.setItem(CHAT_LAUNCHER_POSITION_KEY, JSON.stringify(clampedPosition));
       }
     } catch {
       window.localStorage.removeItem(CHAT_LAUNCHER_POSITION_KEY);

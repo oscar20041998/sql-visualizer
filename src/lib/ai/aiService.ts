@@ -1603,8 +1603,13 @@ export async function askFollowUp({
 }
 
 const DOCS_CONSULTANT_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: "You are the SQL Visualizer documentation consultant. Answer the user's question about the app's own features and best practices using ONLY the documentation context provided below. If the context does not cover the question, say so plainly instead of guessing.",
-  vi: 'Bạn là trợ lý tư vấn tài liệu của SQL Visualizer. Hãy trả lời câu hỏi của người dùng về các tính năng và thực hành tốt nhất của ứng dụng CHỈ dựa trên phần tài liệu tham khảo được cung cấp dưới đây. Nếu tài liệu không đề cập tới câu hỏi, hãy nói rõ điều đó bằng tiếng Việt thay vì suy đoán.',
+  en: "You are the SQL Visualizer documentation assistant. Answer only about the app's existing features using the retrieved documentation below. Treat the retrieved documentation as relevant and synthesize its direct answer. Answer in English, with at most three short sentences. Do not add unrelated features, generic database advice, alternatives, or follow-up questions.",
+  vi: 'Bạn là trợ lý tài liệu của SQL Visualizer. Chỉ trả lời về các tính năng hiện có của ứng dụng dựa vào tài liệu được truy xuất bên dưới. Hãy coi tài liệu được truy xuất là liên quan và diễn giải câu trả lời trực tiếp. Trả lời bằng tiếng Việt, tối đa ba câu ngắn. Không thêm tính năng không liên quan, lời khuyên cơ sở dữ liệu chung, phương án thay thế hoặc câu hỏi tiếp theo.',
+};
+
+const DOCS_CONSULTANT_NO_CONTEXT_PROMPT: Record<Locale, string> = {
+  en: 'The current SQL Visualizer documentation does not cover this.',
+  vi: 'Tài liệu SQL Visualizer hiện tại chưa đề cập nội dung này.',
 };
 
 export interface DocSource {
@@ -1649,6 +1654,24 @@ async function fetchDocsContext(question: string, signal?: AbortSignal): Promise
   return { context: data?.context ?? '', sources: data?.sources ?? [] };
 }
 
+function buildDocsConsultantMessages(
+  question: string,
+  context: string,
+  locale: Locale
+): AIMessage[] {
+  const basePrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
+  const noContextPrompt =
+    DOCS_CONSULTANT_NO_CONTEXT_PROMPT[locale] ?? DOCS_CONSULTANT_NO_CONTEXT_PROMPT.en;
+  return [
+    {
+      role: 'system',
+      content: context ? `${basePrompt}\n\nRetrieved documentation:\n${context}` : noContextPrompt,
+    },
+    // Keep the user message free of retrieved content: Ollama receives exactly the typed question.
+    { role: 'user', content: question },
+  ];
+}
+
 /**
  * RAG loop for the Docs Consultant chat: embed the question, retrieve the closest feature-doc
  * chunks, then hand that context to whichever provider the user has configured — mirrors
@@ -1663,15 +1686,7 @@ export async function askDocsConsultant({
   if (!question.trim()) throw new AIServiceError('There is no question to ask.');
 
   const { context, sources } = await fetchDocsContext(question, signal);
-  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
-
-  const messages: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
-    },
-  ];
+  const messages = buildDocsConsultantMessages(question, context, locale);
 
   const budget = resolveBudget(config);
   const answer = (
@@ -1692,15 +1707,7 @@ export async function streamDocsConsultant(
   if (!question.trim()) throw new AIServiceError('There is no question to ask.');
 
   const { context, sources } = await fetchDocsContext(question, signal);
-  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
-
-  const messages: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
-    },
-  ];
+  const messages = buildDocsConsultantMessages(question, context, locale);
 
   const budget = resolveBudget(config);
   const answer = (
