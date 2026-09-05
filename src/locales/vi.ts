@@ -1017,12 +1017,23 @@ const vi = {
   smartEditorEditorLockedNotice: 'AI đang viết lại truy vấn này — trình soạn thảo tạm khóa cho đến khi hoàn tất.',
   smartEditorOptimizeGroundedIn: 'Đối chiếu với tài liệu chính thức: {sources}',
   smartEditorOptimizeSemanticImpactLabel: 'Tác động về ngữ nghĩa',
+  smartEditorOptimizeProposalsLabel: 'Xem xét và áp dụng đề xuất',
+  smartEditorOptimizeProposalLocation: 'Vị trí',
+  smartEditorOptimizeProposalReason: 'Lý do cần tối ưu',
+  smartEditorOptimizeProposalRecommendation: 'Thay đổi được đề xuất',
+  smartEditorOptimizeProposalApply: 'Áp dụng',
+  smartEditorOptimizeProposalAppliedLabel: 'Đã áp dụng',
+  smartEditorOptimizeProposalApplied: 'Đã áp dụng tối ưu hóa được phê duyệt',
+  smartEditorOptimizeProposalNoLongerMatches: 'Đề xuất này không còn khớp với SQL hiện tại.',
+  smartEditorOptimizeProposalBlocked: 'Đã chặn: thay đổi này có thể làm thay đổi quan hệ hoặc ngữ nghĩa truy vấn.',
   smartEditorOptimizeRegressionTitle:
     '⚠ Có khả năng đã mất logic truy vấn — hãy xem kỹ trước khi giữ bản viết lại này',
   smartEditorOptimizeRegressionToast:
     'Tối ưu hóa hoàn tất, nhưng có thể đã loại bỏ logic của truy vấn — hãy xem cảnh báo trước khi giữ lại',
   smartEditorOptimizeRegressionTables: 'Đã loại bỏ {count} bảng khỏi truy vấn',
+  smartEditorOptimizeRegressionTableIdentity: 'Đã loại bỏ hoặc thay đổi một bảng được tham chiếu',
   smartEditorOptimizeRegressionJoins: 'Đã loại bỏ {count} phép nối/quan hệ',
+  smartEditorOptimizeRegressionJoinIdentity: 'Đã loại bỏ hoặc thay đổi một quan hệ JOIN',
   smartEditorOptimizeRegressionConditions: 'Đã loại bỏ {count} điều kiện lọc',
   smartEditorOptimizeRegressionColumns:
     'Trả về ít cột hơn ({optimized} so với {original} ban đầu)',
@@ -1410,6 +1421,7 @@ const vi = {
   aiChatSuggestion1: 'Phần nào có khả năng chạy chậm nhất?',
   aiChatSuggestion2: 'Giải thích chi tiết hơn các điều kiện JOIN.',
   aiChatSuggestion3: 'Nếu bỏ điều kiện lọc theo ngày thì kết quả thay đổi thế nào?',
+  aiChatSuggestionAggregation: 'Việc nhóm và các giá trị tổng hợp ảnh hưởng kết quả thế nào?',
 
   // AI - giải thích theo lô từng CTE
   aiBatchTitle: 'Giải thích từng CTE',

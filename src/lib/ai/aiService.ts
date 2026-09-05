@@ -1169,6 +1169,10 @@ function asText(value: unknown): string {
   return '';
 }
 
+function asExactText(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
 function asList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(asText).filter(Boolean);
   const text = asText(value);
@@ -1202,12 +1206,25 @@ export interface SqlOptimizationResult {
   optimizedSql: string;
   analysis: string;
   suggestions: string[];
+  /** A narrowly scoped edit which must be explicitly approved in the editor before applying. */
+  proposals: SqlOptimizationProposal[];
   /** Plain-language statement of whether/how the result set changed, so the user can judge the
    * rewrite before applying it — not folded into `analysis` so the UI can show it up front. */
   semanticImpact: string;
   raw: string;
   structured: boolean;
   budget: AIBudgetReport;
+}
+
+export interface SqlOptimizationProposal {
+  id: string;
+  location: string;
+  issue: string;
+  reason: string;
+  recommendation: string;
+  find: string;
+  replace: string;
+  semanticImpact: string;
 }
 
 const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
@@ -1217,8 +1234,8 @@ Return only a JSON object with exactly these keys, in this order:
 {
   "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
   "suggestions": ["one specific improvement per issue actually fixed"],
-  "semantic_impact": "plain-language statement of whether the result set (rows, columns, aggregates) changed at all; if unchanged, say so explicitly; if it had to change, name exactly what changed and why that was unavoidable",
-  "optimized_sql": "the full SQL query with only the necessary changes applied"
+  "proposals": [{"id": "unique-short-id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original to replace", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}],
+  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"
 }
 
 SQL:
@@ -1234,16 +1251,17 @@ Rules:
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
 - Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
-- Before finalizing "optimized_sql", verify it still contains every table, join, filter condition, and output column the original had, unless the fixed issue specifically required removing one (e.g. a duplicate SELECT *). If you cannot make the fix without touching unrelated logic, leave the query unchanged and explain why in "analysis" and "semantic_impact".
-- If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
+- Each proposal must contain one exact, unique \`find\` snippet from the original and one narrow \`replace\` snippet. Never propose a full-query replacement.
+- Before returning a proposal, verify it preserves every table, join relationship, filter condition, output column, NULL rule and DISTINCT/GROUP BY behavior. If this cannot be proven from the query, do not propose the change; explain the uncertainty in "analysis".
+- If the query has no fixable issues, return an empty "proposals" array and explain why in "analysis".`,
   vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
 
 Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
   "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
   "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
-  "semantic_impact": "phát biểu rõ ràng bằng ngôn ngữ dễ hiểu liệu tập kết quả (số dòng, cột, giá trị tổng hợp) có thay đổi hay không; nếu không đổi, hãy nói rõ; nếu buộc phải đổi, nêu chính xác điều gì đã đổi và vì sao không thể tránh được",
-  "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
+  "proposals": [{"id": "ma-dinh-danh-ngan", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL duy nhất, chính xác trong bản gốc cần thay", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, JOIN và aggregate không thay đổi"}],
+  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"
 }
 
 SQL:
@@ -1259,8 +1277,9 @@ Quy tắc:
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
 - Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
-- Trước khi hoàn tất "optimized_sql", hãy kiểm tra lại nó vẫn còn đầy đủ mọi bảng, phép nối, điều kiện lọc và cột đầu ra của bản gốc, trừ khi vấn đề đã sửa thực sự yêu cầu loại bỏ một trong số đó (ví dụ SELECT * trùng lặp). Nếu không thể sửa mà không đụng vào phần không liên quan, hãy giữ nguyên truy vấn và giải thích lý do trong "analysis" và "semantic_impact".
-- Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
+- Mỗi proposal phải có đúng một đoạn \`find\` duy nhất, chính xác từ SQL gốc và một đoạn \`replace\` cục bộ. Tuyệt đối không đề xuất thay toàn bộ truy vấn.
+- Trước khi trả proposal, hãy xác minh nó giữ nguyên mọi bảng, quan hệ JOIN, điều kiện lọc, cột đầu ra, quy tắc NULL và DISTINCT/GROUP BY. Nếu không thể chứng minh từ truy vấn, không đề xuất thay đổi đó; hãy nêu sự không chắc chắn trong "analysis".
+- Nếu truy vấn không có vấn đề nào cần sửa, trả về mảng "proposals" rỗng và giải thích lý do trong "analysis".`,
 };
 
 /** Resolves the effective context budget for the active provider from the saved settings. */
@@ -1435,12 +1454,32 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
   const analysis = asText(parsed?.analysis);
   const suggestions = asList(parsed?.suggestions);
   const semanticImpact = asText(parsed?.semantic_impact);
+  const proposals = Array.isArray(parsed?.proposals)
+    ? parsed.proposals.flatMap((proposal, index) => {
+        if (!proposal || typeof proposal !== 'object') return [];
+        const entry = proposal as Record<string, unknown>;
+        const find = asExactText(entry.find);
+        const replace = asExactText(entry.replace);
+        if (!find || !replace || find === replace) return [];
+        return [{
+          id: asText(entry.id) || `proposal-${index + 1}`,
+          location: asText(entry.location),
+          issue: asText(entry.issue),
+          reason: asText(entry.reason),
+          recommendation: asText(entry.recommendation),
+          find,
+          replace,
+          semanticImpact: asText(entry.semantic_impact),
+        }];
+      })
+    : [];
 
-  if (!parsed || !optimizedSql) {
+  if (!parsed) {
     return {
       optimizedSql: sql,
       analysis: raw,
       suggestions: [],
+      proposals: [],
       semanticImpact: '',
       raw,
       structured: false,
@@ -1452,6 +1491,7 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
     optimizedSql: optimizedSql || sql,
     analysis,
     suggestions,
+    proposals,
     semanticImpact,
     raw,
     structured: true,

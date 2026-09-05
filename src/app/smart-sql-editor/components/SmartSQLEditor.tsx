@@ -25,7 +25,11 @@ import {
 import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
-import { optimizeSqlWithAIStream, type SqlOptimizationResult } from '@/lib/ai/aiService';
+import {
+  optimizeSqlWithAIStream,
+  type SqlOptimizationProposal,
+  type SqlOptimizationResult,
+} from '@/lib/ai/aiService';
 import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
@@ -62,6 +66,22 @@ function buildStructuralRegressionWarnings(
   t: Translations
 ): string[] {
   const warnings: string[] = [];
+
+  const tableKey = (table: AnalysisResult['tables'][number]) =>
+    `${table.name.toLowerCase()}::${(table.alias ?? '').toLowerCase()}`;
+  const originalTables = new Set(original.tables.map(tableKey));
+  const optimizedTables = new Set(optimized.tables.map(tableKey));
+  if ([...originalTables].some((table) => !optimizedTables.has(table))) {
+    warnings.push(t.smartEditorOptimizeRegressionTableIdentity);
+  }
+
+  const joinKey = (join: AnalysisResult['joins'][number]) =>
+    [join.source, join.target].sort().join('::').toLowerCase();
+  const originalRelationships = new Set(original.joins.map(joinKey));
+  const optimizedRelationships = new Set(optimized.joins.map(joinKey));
+  if ([...originalRelationships].some((relationship) => !optimizedRelationships.has(relationship))) {
+    warnings.push(t.smartEditorOptimizeRegressionJoinIdentity);
+  }
 
   if (optimized.tables.length < original.tables.length) {
     warnings.push(
@@ -238,6 +258,7 @@ export const SmartSQLEditor: React.FC<{
   const [optimizeStreamRaw, setOptimizeStreamRaw] = useState('');
   const [optimizeResult, setOptimizeResult] = useState<SqlOptimizationResult | null>(null);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [appliedProposalIds, setAppliedProposalIds] = useState<string[]>([]);
   const [knowledgeSources, setKnowledgeSources] = useState<DatabaseKnowledgeSource[]>([]);
   // Local structural check, independent of what the model claims in analysis/semantic_impact.
   const [structuralWarnings, setStructuralWarnings] = useState<string[]>([]);
@@ -503,6 +524,7 @@ export const SmartSQLEditor: React.FC<{
     onOptimizationResult?.(null);
     setOptimizeResult(null);
     setOptimizeError(null);
+    setAppliedProposalIds([]);
     setOptimizeStreamRaw('');
     setShowOptimizeRaw(false);
     setStructuralWarnings([]);
@@ -570,16 +592,12 @@ export const SmartSQLEditor: React.FC<{
       );
       if (controller.signal.aborted) return;
 
-      // Format both sides so the diff highlights the actual logic change, not whitespace noise.
-      const formattedOriginal = safeFormatSql(sql, dialect);
-      const formattedOptimized = safeFormatSql(result.optimizedSql || sql, dialect);
-
-      // Local safety net: re-parse the rewrite and compare structural facts to the original,
-      // regardless of what the model itself claims changed.
+      // Assess the full candidate as a warning only. The editor deliberately remains unchanged:
+      // each narrow proposal must be approved individually below.
       let regressionWarnings: string[] = [];
       if (result.structured && originalAnalysis) {
         try {
-          const optimizedAnalysis = await analyzeSql(formattedOptimized, dialect, settings.locale);
+          const optimizedAnalysis = await analyzeSql(result.optimizedSql || sql, dialect, settings.locale);
           regressionWarnings = buildStructuralRegressionWarnings(originalAnalysis, optimizedAnalysis, t);
         } catch {
           // Re-parse failure isn't itself evidence of a problem — skip the check rather than block.
@@ -587,13 +605,7 @@ export const SmartSQLEditor: React.FC<{
       }
       setStructuralWarnings(regressionWarnings);
 
-      setState((prev) => ({
-        ...prev,
-        originalSql: formattedOriginal,
-        currentSql: formattedOptimized,
-        isDiffMode: formattedOptimized.trim() !== formattedOriginal.trim() ? true : prev.isDiffMode,
-        isOptimizing: false,
-      }));
+      setState((prev) => ({ ...prev, isOptimizing: false }));
       setOptimizeResult(result);
       setOptimizePhase('done');
       onOptimizationResult?.(result);
@@ -613,6 +625,39 @@ export const SmartSQLEditor: React.FC<{
       if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
     }
   }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, resetSpeechCache]);
+
+  const handleApplyProposal = useCallback(
+    async (proposal: SqlOptimizationProposal) => {
+      const currentSql = state.currentSql;
+      const matches = currentSql.split(proposal.find).length - 1;
+      if (matches !== 1) {
+        toast.error(t.smartEditorOptimizeProposalNoLongerMatches);
+        return;
+      }
+
+      const candidateSql = currentSql.replace(proposal.find, proposal.replace);
+      try {
+        const [originalAnalysis, candidateAnalysis] = await Promise.all([
+          analyzeSql(currentSql, dialect, settings.locale),
+          analyzeSql(candidateSql, dialect, settings.locale),
+        ]);
+        const regressions = buildStructuralRegressionWarnings(originalAnalysis, candidateAnalysis, t);
+        if (regressions.length > 0) {
+          setStructuralWarnings(regressions);
+          toast.error(t.smartEditorOptimizeProposalBlocked);
+          return;
+        }
+      } catch {
+        toast.error(t.smartEditorOptimizeProposalBlocked);
+        return;
+      }
+
+      setState((prev) => ({ ...prev, currentSql: candidateSql }));
+      setAppliedProposalIds((previous) => [...previous, proposal.id]);
+      toast.success(t.smartEditorOptimizeProposalApplied);
+    },
+    [state.currentSql, dialect, settings.locale, t]
+  );
 
   // Calculate statistics. originalLines/originalChars reflect state.originalSql (the "before"
   // state) so the stats bar can show before → after counts once the SQL has been modified.
@@ -873,6 +918,42 @@ export const SmartSQLEditor: React.FC<{
                     <p className="mt-1.5 text-sm leading-relaxed text-gray-200">
                       {optimizeResult.semanticImpact}
                     </p>
+                  </div>
+                )}
+                {optimizeResult.proposals.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {t.smartEditorOptimizeProposalsLabel}
+                    </p>
+                    {optimizeResult.proposals.map((proposal) => {
+                      const isApplied = appliedProposalIds.includes(proposal.id);
+                      return (
+                        <div key={proposal.id} className="rounded-lg border border-indigo-800/50 bg-gray-900/60 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 space-y-1 text-sm leading-relaxed text-gray-200">
+                              {proposal.issue && <p className="font-semibold text-indigo-200">{proposal.issue}</p>}
+                              {proposal.location && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalLocation}: </span>{proposal.location}</p>}
+                              {proposal.reason && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalReason}: </span>{proposal.reason}</p>}
+                              {proposal.recommendation && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalRecommendation}: </span>{proposal.recommendation}</p>}
+                              {proposal.semanticImpact && <p><span className="text-gray-400">{t.smartEditorOptimizeSemanticImpactLabel}: </span>{proposal.semanticImpact}</p>}
+                            </div>
+                            <button
+                              onClick={() => void handleApplyProposal(proposal)}
+                              disabled={isApplied}
+                              className="flex-shrink-0 rounded-md border border-indigo-500/50 px-2 py-1 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/15 disabled:cursor-default disabled:border-success/40 disabled:text-success"
+                            >
+                              {isApplied ? t.smartEditorOptimizeProposalAppliedLabel : t.smartEditorOptimizeProposalApply}
+                            </button>
+                          </div>
+                          <pre className="mt-2 max-h-28 overflow-auto rounded border border-gray-800 bg-gray-950 p-2 text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                            <code>{proposal.find}</code>
+                          </pre>
+                          <pre className="mt-1 max-h-28 overflow-auto rounded border border-indigo-900/50 bg-indigo-950/20 p-2 text-[11px] leading-relaxed text-indigo-100 scrollbar-thin">
+                            <code>{proposal.replace}</code>
+                          </pre>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {optimizeResult.suggestions.length > 0 && (

@@ -1019,12 +1019,23 @@ const en = {
   smartEditorEditorLockedNotice: 'AI is rewriting this query — editing is locked until it finishes.',
   smartEditorOptimizeGroundedIn: 'Grounded in official documentation: {sources}',
   smartEditorOptimizeSemanticImpactLabel: 'Semantic impact',
+  smartEditorOptimizeProposalsLabel: 'Review and apply suggestions',
+  smartEditorOptimizeProposalLocation: 'Location',
+  smartEditorOptimizeProposalReason: 'Why optimize',
+  smartEditorOptimizeProposalRecommendation: 'Recommended change',
+  smartEditorOptimizeProposalApply: 'Apply',
+  smartEditorOptimizeProposalAppliedLabel: 'Applied',
+  smartEditorOptimizeProposalApplied: 'Approved optimization applied',
+  smartEditorOptimizeProposalNoLongerMatches: 'This suggestion no longer matches the current SQL.',
+  smartEditorOptimizeProposalBlocked: 'Blocked: this change could alter query relationships or semantics.',
   smartEditorOptimizeRegressionTitle:
     '⚠ Possible logic loss detected — review carefully before keeping this rewrite',
   smartEditorOptimizeRegressionToast:
     'Optimization complete, but it may have removed query logic — review the warning before keeping it',
   smartEditorOptimizeRegressionTables: 'Removed {count} table(s) from the query',
+  smartEditorOptimizeRegressionTableIdentity: 'Removed or changed a referenced table',
   smartEditorOptimizeRegressionJoins: 'Removed {count} join(s)/relationship(s)',
+  smartEditorOptimizeRegressionJoinIdentity: 'Removed or changed a JOIN relationship',
   smartEditorOptimizeRegressionConditions: 'Removed {count} filter condition(s)',
   smartEditorOptimizeRegressionColumns:
     'Returns fewer output columns ({optimized} vs {original} originally)',
@@ -1416,6 +1427,7 @@ const en = {
   aiChatSuggestion1: 'Which part is most likely to be slow?',
   aiChatSuggestion2: 'Explain the JOIN conditions in more detail.',
   aiChatSuggestion3: 'What would change if I removed the date filter?',
+  aiChatSuggestionAggregation: 'How do the grouping and aggregate values affect the result?',
 
   // AI - batch explain per CTE
   aiBatchTitle: 'Explain each CTE',
