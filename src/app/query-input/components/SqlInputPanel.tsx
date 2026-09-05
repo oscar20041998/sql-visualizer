@@ -59,7 +59,7 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
         onScroll={handleScroll}
         wrap="off"
         placeholder={placeholder}
-        className="w-full h-[420px] pl-16 pr-4 py-3 bg-card border border-border rounded-lg font-mono text-sm leading-6 text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin code-block overflow-x-auto"
+        className="w-full h-[420px] pl-16 pr-4 py-3 bg-card border border-border rounded-lg font-mono text-sm leading-6 text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin overflow-x-auto"
         spellCheck={false}
       />
       <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs text-muted-foreground font-mono">
