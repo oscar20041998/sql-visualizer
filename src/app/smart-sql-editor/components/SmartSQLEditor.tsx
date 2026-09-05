@@ -614,13 +614,16 @@ export const SmartSQLEditor: React.FC<{
     }
   }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, resetSpeechCache]);
 
-  // Calculate statistics
+  // Calculate statistics. originalLines/originalChars reflect state.originalSql (the "before"
+  // state) so the stats bar can show before → after counts once the SQL has been modified.
   const stats = {
     lines: state.currentSql.split('\n').length,
     chars: state.currentSql.length,
     words: state.currentSql.trim().split(/\s+/).length,
+    originalLines: state.originalSql.split('\n').length,
+    originalChars: state.originalSql.length,
     changeSummary: state.hasChanges
-      ? `${t.smartEditorModifiedSummary} (${state.currentSql.length} ${t.smartEditorChars})`
+      ? `${t.smartEditorModifiedSummary} (${state.originalSql.length} → ${state.currentSql.length} ${t.smartEditorChars})`
       : t.smartEditorNoChangesSummary,
   };
 
@@ -716,10 +719,28 @@ export const SmartSQLEditor: React.FC<{
         <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono">
-              <span className="text-primary">{stats.lines}</span> {t.smartEditorLines}
+              {state.hasChanges ? (
+                <>
+                  <span>{stats.originalLines}</span>
+                  <span className="mx-1">→</span>
+                  <span className="text-primary">{stats.lines}</span>
+                </>
+              ) : (
+                <span className="text-primary">{stats.lines}</span>
+              )}{' '}
+              {t.smartEditorLines}
             </span>
             <span className="font-mono">
-              <span className="text-primary">{stats.chars}</span> {t.smartEditorChars}
+              {state.hasChanges ? (
+                <>
+                  <span>{stats.originalChars}</span>
+                  <span className="mx-1">→</span>
+                  <span className="text-primary">{stats.chars}</span>
+                </>
+              ) : (
+                <span className="text-primary">{stats.chars}</span>
+              )}{' '}
+              {t.smartEditorChars}
             </span>
             <span className="font-mono">
               <span className="text-primary">{stats.words}</span> {t.smartEditorWords}
