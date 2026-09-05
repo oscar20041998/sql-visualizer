@@ -1,9 +1,9 @@
-// Retrieval step for the Database AI Assistant's RAG grounding: given an already-computed
-// question embedding (browser embeds via local Ollama — see databaseAssistant.ts), finds the
-// closest excerpts in the official SQL Server/MySQL/PostgreSQL/Oracle manual corpus and returns
-// them as a context block. No network call happens in this route; the ~200 MB index is loaded
-// once (in-process cache) and searched in memory. Embedding stays local to the browser+Ollama,
-// same trust boundary as every other Ollama call in this app (no credential involved).
+// Retrieval step for the Database AI Assistant's RAG grounding: given a question, embeds it
+// server-side with the same cloud model the corpus was indexed with (OPENAI_EMBEDDING_*, see
+// serverKnowledgeEmbedding.ts), finds the closest excerpts in the official SQL Server/MySQL/
+// PostgreSQL/Oracle manual corpus, and returns them as a context block. The ~1 GB index is loaded
+// once (in-process cache) and searched in memory. Embedding happens here (not in the browser) so
+// the embedding API key never reaches the client.
 import { NextResponse } from 'next/server';
 import {
   findClosestDatabaseKnowledge,
@@ -11,6 +11,7 @@ import {
   isDatabaseKnowledgeIndexAvailable,
   type DatabaseKnowledgeMatch,
 } from '@/lib/ai/databaseKnowledgeStore';
+import { embedKnowledgeQuery, isKnowledgeEmbeddingConfigured } from '@/lib/ai/serverKnowledgeEmbedding';
 
 const DEFAULT_TOP_N = 5;
 const MAX_TOP_N = 10;
@@ -29,7 +30,7 @@ const DIALECT_LABELS: Record<string, string> = {
 };
 
 interface DatabaseKnowledgeContextRequestBody {
-  embedding?: unknown;
+  question?: unknown;
   topN?: unknown;
   /** Optional SQL dialect key (mysql/postgresql/sqlserver/oracle) to prioritize in ranking. */
   dialect?: unknown;
@@ -65,12 +66,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  if (!isValidEmbedding(body.embedding)) {
-    return NextResponse.json({ error: 'embedding must be a non-empty array of finite numbers.' }, { status: 400 });
+  const question = typeof body.question === 'string' ? body.question.trim() : '';
+  if (!question) {
+    return NextResponse.json({ error: 'question must be a non-empty string.' }, { status: 400 });
   }
   const topN = Math.min(MAX_TOP_N, Math.max(1, Number(body.topN) || DEFAULT_TOP_N));
   const dialectLabel =
     typeof body.dialect === 'string' ? DIALECT_LABELS[body.dialect.trim().toLowerCase()] : undefined;
+
+  if (!isKnowledgeEmbeddingConfigured()) {
+    return NextResponse.json(
+      { error: 'Knowledge embedding is not configured. Set OPENAI_EMBEDDING_BASE_URL, OPENAI_EMBEDDING_API_KEY and OPENAI_EMBEDDING_MODEL on the server.' },
+      { status: 503 }
+    );
+  }
 
   if (!isDatabaseKnowledgeIndexAvailable()) {
     // 503, not 500/404: the deployment is missing a build step, the caller did nothing wrong.
@@ -80,19 +89,31 @@ export async function POST(request: Request) {
     );
   }
 
+  let embedding: number[];
+  try {
+    embedding = await embedKnowledgeQuery(question, request.signal);
+  } catch (error) {
+    console.error('[api/ai/database-knowledge-context] embed', error);
+    const message = error instanceof Error ? error.message : 'Failed to embed the question on the server.';
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+  if (!isValidEmbedding(embedding)) {
+    return NextResponse.json({ error: 'Server produced an invalid embedding.' }, { status: 502 });
+  }
+
   try {
     // Without a dialect hint, only fetch what is needed. With one, cast a wider net so vendor-
     // matching chunks can be preferred without losing the overall best matches as a fallback.
     const candidateN = dialectLabel
       ? Math.min(MAX_DIALECT_CANDIDATES, topN * DIALECT_CANDIDATE_MULTIPLIER)
       : topN;
-    const candidates = findClosestDatabaseKnowledge(body.embedding, candidateN);
+    const candidates = findClosestDatabaseKnowledge(embedding, candidateN);
 
     const ranked = dialectLabel
       ? [
-          ...candidates.filter((match) => friendlyDatabaseName(match.sourceFile) === dialectLabel),
-          ...candidates.filter((match) => friendlyDatabaseName(match.sourceFile) !== dialectLabel),
-        ]
+        ...candidates.filter((match) => friendlyDatabaseName(match.sourceFile) === dialectLabel),
+        ...candidates.filter((match) => friendlyDatabaseName(match.sourceFile) !== dialectLabel),
+      ]
       : candidates;
 
     const allMatches = ranked.slice(0, topN);

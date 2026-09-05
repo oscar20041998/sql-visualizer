@@ -527,6 +527,23 @@ async function callGemini(
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
 }
 
+// Context window (in tokens) of the embedding models we call locally. Exceeding it makes Ollama
+// reject the request with "the input length exceeds the context length", so the input is trimmed
+// to fit before sending. all-minilm's window is tiny (256), which a long SQL query blows past.
+const OLLAMA_EMBEDDING_CONTEXT_TOKENS: Record<string, number> = {
+  'all-minilm': 256,
+  'nomic-embed-text': 2048,
+};
+const DEFAULT_OLLAMA_EMBEDDING_CONTEXT_TOKENS = 512;
+
+/** Trims text to the model's embedding context, using ~3 chars/token with headroom for safety. */
+function truncateForOllamaEmbedding(text: string, model: string): string {
+  const baseModel = model.split(':')[0];
+  const contextTokens = OLLAMA_EMBEDDING_CONTEXT_TOKENS[baseModel] ?? DEFAULT_OLLAMA_EMBEDDING_CONTEXT_TOKENS;
+  const maxChars = Math.max(0, contextTokens * 3 - 32);
+  return text.length > maxChars ? text.slice(0, maxChars) : text;
+}
+
 /**
  * Direct call to a local Ollama server's embeddings endpoint (no credential needed). Exported
  * (not just used via {@link embedWithAI}) so server-only routes can embed with a specific model
@@ -543,7 +560,9 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal,
-      body: JSON.stringify({ model, prompt: text }),
+      // `truncate` lets Ollama clip anything still over the window instead of erroring; the manual
+      // slice above keeps the request small even on servers that ignore the flag.
+      body: JSON.stringify({ model, prompt: truncateForOllamaEmbedding(text, model), truncate: true }),
     },
     `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and that ${model} is pulled.`
   );
@@ -552,7 +571,7 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
     const detail = await response.text().catch(() => '');
     throw new AIServiceError(
       `Ollama embeddings request failed (${response.status}): ${detail || response.statusText}. ` +
-        `Pull the model first with "ollama pull ${model}".`
+      `Pull the model first with "ollama pull ${model}".`
     );
   }
 
@@ -1480,22 +1499,22 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
   const semanticImpact = asText(parsed?.semantic_impact);
   const proposals = Array.isArray(parsed?.proposals)
     ? parsed.proposals.flatMap((proposal, index) => {
-        if (!proposal || typeof proposal !== 'object') return [];
-        const entry = proposal as Record<string, unknown>;
-        const find = asExactText(entry.find);
-        const replace = asExactText(entry.replace);
-        if (!find || !replace || find === replace) return [];
-        return [{
-          id: asText(entry.id) || `proposal-${index + 1}`,
-          location: asText(entry.location),
-          issue: asText(entry.issue),
-          reason: asText(entry.reason),
-          recommendation: asText(entry.recommendation),
-          find,
-          replace,
-          semanticImpact: asText(entry.semantic_impact),
-        }];
-      })
+      if (!proposal || typeof proposal !== 'object') return [];
+      const entry = proposal as Record<string, unknown>;
+      const find = asExactText(entry.find);
+      const replace = asExactText(entry.replace);
+      if (!find || !replace || find === replace) return [];
+      return [{
+        id: asText(entry.id) || `proposal-${index + 1}`,
+        location: asText(entry.location),
+        issue: asText(entry.issue),
+        reason: asText(entry.reason),
+        recommendation: asText(entry.recommendation),
+        find,
+        replace,
+        semanticImpact: asText(entry.semantic_impact),
+      }];
+    })
     : [];
 
   if (!parsed) {
