@@ -1,6 +1,7 @@
 // Adapter layer routing AI generation requests to the active provider (Ollama or a cloud API).
 import type { AIModelConfig } from '../store';
-import type { Locale } from '../i18n';
+import { getT, type Locale } from '../i18n';
+import { checkOtherLintingRules, checkSelectAll, type LintingIssue } from '../sql/complexityScorer';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
@@ -23,7 +24,7 @@ const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
   vi: (sql) => `Hãy giải thích truy vấn SQL sau đây bằng ngôn ngữ đơn giản, dễ hiểu:\n\n${sql}`,
 };
 
-/** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
+/** Asks for a JSON payload so the UI can render objective / constraints / output as separate sections. */
 const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
   en: (sql) => `You translate SQL into plain business language for a reader who does not write SQL.
 
@@ -37,17 +38,14 @@ Reply with ONLY a JSON object — no prose, no markdown fence — using exactly 
   "objective": "one or two sentences describing the core goal of the query",
   "filters": ["every filter, timeframe, status, region or other constraint, one plain-language sentence each"],
   "output": "describe the columns and rows returned, plus sorting and row limits, in plain language",
-  "tables": ["names of the tables or CTEs the query reads, with their apparent business role when it is supported by the query"],
-  "field_meanings": ["field or output label: its likely business meaning and how the query uses it, in plain language"]
+  "field_meanings": ["plain-language meaning of important output fields or expressions"],
+  "tables": ["names of the tables or CTEs the query reads"]
 }
 
 Rules:
 - Avoid SQL keywords in "objective" and "output"; describe the meaning instead.
 - Expand technical expressions: DATE_SUB(NOW(), INTERVAL 30 DAY) becomes "the last 30 days", active = 1 becomes "only active accounts".
-- Explain every selected field, derived value, aggregate, grouping key, join key, and field used in a condition. Combine repeated uses of the same field into one clear item.
-- Explain every condition, including JOIN, WHERE, HAVING, CASE, and null-handling conditions: name the field, translate operators and literal values, and state how the condition affects which data is included.
-- Do not invent business definitions that cannot be supported by the SQL or verified facts. State that a name or code's exact meaning is unknown when necessary.
-- Use an empty array only when the query has no filters, no tables, or no fields for that respective array.`,
+- Use an empty array when the query has no filters and no tables.`,
   vi: (sql) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt.
 
 Truy vấn SQL:
@@ -60,17 +58,14 @@ Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời d�
   "objective": "một đến hai câu mô tả mục tiêu chính của truy vấn",
   "filters": ["từng điều kiện lọc, khoảng thời gian, trạng thái, khu vực hoặc ràng buộc khác, mỗi phần tử là một câu dễ hiểu"],
   "output": "mô tả các cột và dòng dữ liệu trả về, kèm cách sắp xếp và giới hạn số dòng, bằng ngôn ngữ đơn giản",
-  "tables": ["tên các bảng hoặc CTE mà truy vấn đọc dữ liệu, kèm vai trò nghiệp vụ có thể suy ra từ truy vấn"],
-  "field_meanings": ["tên field hoặc nhãn đầu ra: ý nghĩa nghiệp vụ có thể suy ra và cách truy vấn sử dụng field đó, bằng ngôn ngữ dễ hiểu"]
+  "field_meanings": ["ý nghĩa nghiệp vụ của các cột hoặc biểu thức kết quả quan trọng"],
+  "tables": ["tên các bảng hoặc CTE mà truy vấn đọc dữ liệu"]
 }
 
 Quy tắc:
 - Tránh dùng từ khóa SQL trong "objective" và "output"; hãy diễn giải ý nghĩa.
 - Diễn giải biểu thức kỹ thuật: DATE_SUB(NOW(), INTERVAL 30 DAY) thành "30 ngày gần nhất", active = 1 thành "chỉ các tài khoản đang hoạt động".
-- Giải thích mọi field được chọn, giá trị tính toán, phép tổng hợp, field dùng để nhóm, khóa nối và field dùng trong điều kiện. Gộp các lần dùng lặp lại của cùng một field thành một mục rõ ràng.
-- Giải thích mọi điều kiện, gồm điều kiện JOIN, WHERE, HAVING, CASE và xử lý NULL: nêu field, diễn giải toán tử và giá trị cố định, rồi cho biết điều kiện làm dữ liệu nào được chọn hoặc loại ra.
-- Không tự đặt nghĩa nghiệp vụ nếu SQL hoặc dữ kiện đã xác thực không chứng minh được. Khi cần, nói rõ không xác định được ý nghĩa chính xác của tên hoặc mã.
-- Chỉ dùng mảng rỗng khi truy vấn không có điều kiện, không đọc bảng hoặc không có field tương ứng.`,
+- Dùng mảng rỗng khi truy vấn không có điều kiện lọc hoặc không đọc bảng nào.`,
 };
 
 export class AIServiceError extends Error {
@@ -104,9 +99,8 @@ export interface SqlExplanation {
   objective: string;
   filters: string[];
   output: string;
-  tables: string[];
-  /** Business-friendly meanings for fields, expressions, and their use in the query. */
   fieldMeanings: string[];
+  tables: string[];
   /** Untouched model answer, kept so the UI can always show something. */
   raw: string;
   /** False when the model ignored the JSON contract and `raw` is the only usable content. */
@@ -126,6 +120,16 @@ export interface AIBudgetReport {
   droppedMessages: number;
   /** True when the local parser brief was too large to include. */
   contextBriefDropped: boolean;
+}
+
+export interface DocSource {
+  title: string;
+  file: string;
+}
+
+export interface DocsConsultantAnswer {
+  answer: string;
+  sources: DocSource[];
 }
 
 function resolveSystemPrompt(config: AIModelConfig, request: AIGenerateRequest): string | undefined {
@@ -357,39 +361,6 @@ async function callOpenAI(
   return data.choices?.[0]?.message?.content ?? '';
 }
 
-/** Embeddings are OpenAI-only here, so this has no per-provider dispatch — just the one endpoint. */
-async function callOpenAIEmbeddings(
-  apiKey: string,
-  baseUrl: string,
-  modelId: string,
-  input: string[],
-  signal?: AbortSignal
-): Promise<number[][]> {
-  const response = await safeFetch(
-    `${normalizeBaseUrl(baseUrl)}/v1/embeddings`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      signal,
-      body: JSON.stringify({ model: modelId, input }),
-    },
-    'Unable to reach OpenAI API. Check the server network connection.'
-  );
-
-  if (!response.ok) {
-    const detail = await response.json().catch(() => null);
-    throw new AIServiceError(
-      `OpenAI embeddings request failed (${response.status}): ${detail?.error?.message || response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  return (data.data ?? []).map((entry: { embedding: number[] }) => entry.embedding);
-}
-
 async function callAnthropic(
   apiKey: string,
   modelId: string,
@@ -527,15 +498,13 @@ async function callGemini(
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
 }
 
-/**
- * Direct call to a local Ollama server's embeddings endpoint (no credential needed). Exported
- * (not just used via {@link embedWithAI}) so server-only routes can embed with a specific model
- * that isn't the user's configured chat/embedding provider — e.g. the Database AI Assistant's
- * RAG index, which was built with a fixed local model regardless of AIModelConfig.
- */
+/** Direct call to a local Ollama server's embeddings endpoint (no credential needed). */
 export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
   if (!normalizeBaseUrl(baseUrlRaw)) throw new AIServiceError('Ollama base URL is not configured.');
-  const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embeddings`;
+  // Modern /api/embed truncates over-long input to the model's context (all-minilm caps at 256
+  // tokens); the legacy /api/embeddings endpoint 500s with "input length exceeds the context
+  // length" instead. This also matches how the offline index was built (see build-database-knowledge-index.mjs).
+  const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embed`;
 
   const response = await safeFetch(
     url,
@@ -543,7 +512,7 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal,
-      body: JSON.stringify({ model, prompt: text }),
+      body: JSON.stringify({ model, input: text, truncate: true }),
     },
     `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and that ${model} is pulled.`
   );
@@ -552,12 +521,12 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
     const detail = await response.text().catch(() => '');
     throw new AIServiceError(
       `Ollama embeddings request failed (${response.status}): ${detail || response.statusText}. ` +
-        `Pull the model first with "ollama pull ${model}".`
+      `Pull the model first with "ollama pull ${model}".`
     );
   }
 
   const data = await response.json();
-  const embedding = data.embedding;
+  const embedding = Array.isArray(data.embeddings) ? data.embeddings[0] : data.embedding;
   if (!Array.isArray(embedding)) throw new AIServiceError('Ollama returned no embedding vector.');
   return embedding;
 }
@@ -594,6 +563,16 @@ async function callOpenAIEmbed(
   const embedding = data.data?.[0]?.embedding;
   if (!Array.isArray(embedding)) throw new AIServiceError('OpenAI returned no embedding vector.');
   return embedding;
+}
+
+export async function generateEmbeddingsWithCloudKey(
+  apiKey: string,
+  baseUrl: string,
+  modelId: string,
+  texts: string[],
+  signal?: AbortSignal
+): Promise<number[][]> {
+  return Promise.all(texts.map((text) => callOpenAIEmbed(apiKey, modelId, baseUrl, text, signal)));
 }
 
 async function callGeminiEmbed(
@@ -957,26 +936,6 @@ export async function generateWithCloudKey(
   }
 }
 
-/**
- * Server-side entry point used by /api/ai/docs-context. Embeddings-only, OpenAI-only — the API
- * key is supplied by the route from the server environment, same as {@link generateWithCloudKey}.
- */
-export async function generateEmbeddingsWithCloudKey(
-  apiKey: string,
-  baseUrl: string,
-  modelId: string,
-  input: string[],
-  signal?: AbortSignal
-): Promise<number[][]> {
-  if (!apiKey?.trim()) {
-    throw new AIServiceError(
-      'No API key configured on the server for openai. Set OPENAI_API_KEY in .env and restart the dev server.'
-    );
-  }
-  if (!modelId?.trim()) throw new AIServiceError('Embedding model ID is not configured.');
-  return callOpenAIEmbeddings(apiKey, baseUrl, modelId, input, signal);
-}
-
 /** Streaming counterpart of {@link generateWithCloudKey}, used by /api/ai/generate/stream. */
 export async function generateWithCloudKeyStream(
   provider: CloudProvider,
@@ -1105,59 +1064,85 @@ export async function streamWithAI(
   return callCloudViaProxyStream(config, request, onDelta);
 }
 
-/**
- * Escapes raw control characters that are only ever valid JSON when escaped, but that models
- * frequently stream unescaped inside long string values (most often literal newlines inside a
- * multi-line "optimized_sql" value). Left alone, a single raw newline inside a string is enough
- * to make `JSON.parse` throw and force the ugly "show the raw JSON" fallback.
- */
-function escapeRawControlCharsInStrings(text: string): string {
-  let result = '';
-  let inString = false;
-  let escapeNext = false;
-  for (const ch of text) {
-    if (escapeNext) {
-      result += ch;
-      escapeNext = false;
-      continue;
-    }
-    if (ch === '\\') {
-      result += ch;
-      escapeNext = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      result += ch;
-      continue;
-    }
-    if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
-      result += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
-      continue;
-    }
-    result += ch;
-  }
-  return result;
+function parseDocSources(value: unknown): DocSource[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((source) => {
+    if (!source || typeof source !== 'object') return [];
+    const candidate = source as Record<string, unknown>;
+    const title = typeof candidate.title === 'string' ? candidate.title.trim() : '';
+    const file = typeof candidate.file === 'string' ? candidate.file.trim() : '';
+    return title && file ? [{ title, file }] : [];
+  });
 }
 
-/** Pulls the JSON object out of an answer that may be fenced or padded with prose. Falls back to
- * a light repair pass (unescaped control chars, trailing commas) before giving up, since those
- * are the most common reasons a model's otherwise-good JSON answer fails to parse. */
+const DOCS_CONSULTANT_PROMPT: Record<Locale, (question: string, context: string) => string> = {
+  en: (question, context) => `Answer the user's question using the retrieved SQL Visualizer documentation context. Be practical and cite the feature or file names when they matter.
+
+Documentation context:
+${context || 'No relevant documentation chunks were retrieved.'}
+
+Question: ${question}`,
+  vi: (question, context) => `Trả lời câu hỏi của người dùng bằng tiếng Việt, dựa trên ngữ cảnh tài liệu SQL Visualizer đã truy xuất. Hãy thực tế và nêu tên tính năng hoặc file khi cần.
+
+Ngữ cảnh tài liệu:
+${context || 'Không truy xuất được đoạn tài liệu liên quan.'}
+
+Câu hỏi: ${question}`,
+};
+
+export async function askDocsConsultant({
+  question,
+  config,
+  locale = 'en',
+  signal,
+}: {
+  question: string;
+  config: AIModelConfig;
+  locale?: Locale;
+  signal?: AbortSignal;
+}): Promise<DocsConsultantAnswer> {
+  const trimmed = question.trim();
+  if (!trimmed) throw new AIServiceError('There is no question to ask.');
+
+  const contextResponse = await safeFetch(
+    '/api/ai/docs-context',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({ question: trimmed }),
+    },
+    'Unable to reach the app server to search the documentation.'
+  );
+  const contextData = await contextResponse.json().catch(() => null);
+  if (!contextResponse.ok) {
+    throw new AIServiceError(contextData?.error || `Documentation search failed (${contextResponse.status}).`);
+  }
+
+  const prompt = (DOCS_CONSULTANT_PROMPT[locale] ?? DOCS_CONSULTANT_PROMPT.en)(
+    trimmed,
+    typeof contextData?.context === 'string' ? contextData.context : ''
+  );
+  const answer = (
+    await generateWithAI(config, {
+      prompt,
+      maxTokens: resolveBudget(config).maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
+  return { answer, sources: parseDocSources(contextData?.sources) };
+}
+
+/** Pulls the JSON object out of an answer that may be fenced or padded with prose. */
 function extractJsonObject(text: string): unknown {
   const withoutFence = text.replace(/```(?:json)?/gi, '').trim();
   const start = withoutFence.indexOf('{');
   const end = withoutFence.lastIndexOf('}');
   if (start === -1 || end <= start) return null;
-
-  const candidate = withoutFence.slice(start, end + 1);
   try {
-    return JSON.parse(candidate);
-  } catch {
-    // fall through to the repair pass below
-  }
-  try {
-    const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
-    return JSON.parse(repaired);
+    return JSON.parse(withoutFence.slice(start, end + 1));
   } catch {
     return null;
   }
@@ -1207,15 +1192,55 @@ export interface SqlOptimizationResult {
   budget: AIBudgetReport;
 }
 
-const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
+function formatLintingIssue(issue: LintingIssue): string {
+  const location = issue.location ? ` Location: ${issue.location}.` : '';
+  return `- ${issue.rule} (${issue.severity}): ${issue.message}${location} Required fix: ${issue.suggestion}`;
+}
+
+function buildDetectedLintingAlerts(sql: string, locale: Locale): string {
+  const issues = [...checkSelectAll(sql, locale), ...checkOtherLintingRules(sql, locale)];
+  if (!issues.length) {
+    return 'Linting alerts detected for this query:\n- None detected by the local SQL linting rules.';
+  }
+  return ['Linting alerts detected for this query:', ...issues.map(formatLintingIssue)].join('\n');
+}
+
+function buildLintingRuleCatalog(locale: Locale): string {
+  const t = getT(locale);
+  const rules = [
+    [t.lintingSelectAll, t.lintingSelectAllMessage, t.lintingSelectAllSuggestion],
+    [t.lintingDistinct, t.lintingDistinctMessage, t.lintingDistinctSuggestion],
+    [t.lintingOrPredicate, t.lintingOrPredicateMessage, t.lintingOrPredicateSuggestion],
+    [t.lintingInSubquery, t.lintingInSubqueryMessage, t.lintingInSubquerySuggestion],
+    [t.lintingFunctionOnColumn, t.lintingFunctionOnColumnMessage, t.lintingFunctionOnColumnSuggestion],
+    [t.lintingDeepNesting, t.lintingDeepNestingMessage, t.lintingDeepNestingSuggestion],
+    [t.lintingCrossJoin, t.lintingCrossJoinMessage, t.lintingCrossJoinSuggestion],
+    [t.lintingMissingWhere, t.lintingMissingWhereMessage, t.lintingMissingWhereSuggestion],
+    [t.lintingUnionDedup, t.lintingUnionDedupMessage, t.lintingUnionDedupSuggestion],
+    [t.lintingNullComparison, t.lintingNullComparisonMessage, t.lintingNullComparisonSuggestion],
+    [t.lintingLeadingWildcard, t.lintingLeadingWildcardMessage, t.lintingLeadingWildcardSuggestion],
+    [t.lintingNonAggregateHaving, t.lintingNonAggregateHavingMessage, t.lintingNonAggregateHavingSuggestion],
+    [t.lintingScalarSubquery, t.lintingScalarSubqueryMessage, t.lintingScalarSubquerySuggestion],
+    [t.lintingSubqueryOrderBy, t.lintingSubqueryOrderByMessage, t.lintingSubqueryOrderBySuggestion],
+  ];
+
+  return [
+    'Complete linting and code quality rule catalog that must be enforced:',
+    ...rules.map(([rule, message, suggestion]) => `- ${rule}: ${message} Required handling: ${suggestion}`),
+  ].join('\n');
+}
+
+const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string, lintingContext: string) => string> = {
+  en: (sql, lintingContext) => `Analyze the retrieved knowledge chunks, local parser facts, and linting alerts to decide whether refactoring is necessary. Return only targeted pain points that require optimization, then provide the optimized SQL immediately.
 
 Return only a JSON object with exactly these keys, in this order:
 {
-  "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
-  "suggestions": ["one specific improvement per issue actually fixed"],
-  "optimized_sql": "the full SQL query with only the necessary changes applied"
+  "analysis": "targeted pain points identified; do not echo or restate the original query",
+  "suggestions": ["recommended optimizations, one specific strategy per pain point that requires action"],
+  "optimized_sql": "the full SQL query with the recommended optimization applied, or the original SQL unchanged when no safe refactor is necessary"
 }
+
+${lintingContext}
 
 SQL:
 \`\`\`sql
@@ -1223,21 +1248,26 @@ ${sql}
 \`\`\`
 
 Rules:
-- If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
-- If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
+- Use retrieved official documentation excerpts and embedded knowledge context when present; ground index, rewrite, and configuration recommendations in those chunks when they apply.
+- Treat the linting rule catalog as mandatory behavioral constraints for every run, even when this query has no detected linting alerts.
+- Fix detected linting alerts first, then apply only the smallest set of high-confidence performance or maintainability fixes.
+- In "analysis", name only concrete pain points and refactoring necessity. Do not repeat the user's request, the original SQL text, or generic optimization advice.
+- In "suggestions", include only actionable optimization strategies tied to the pain points.
 - Do not change business logic or result semantics.
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
 - Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
-- If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
-  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
+- If no safe code rewrite is justified, return the SQL unchanged and explain the specific reason in "analysis".`,
+  vi: (sql, lintingContext) => `Phân tích các knowledge chunk đã truy xuất, dữ kiện parser cục bộ và cảnh báo linting để quyết định có cần refactor hay không. Chỉ trả về các điểm đau cụ thể cần tối ưu, sau đó cung cấp SQL đã tối ưu ngay lập tức.
 
 Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
-  "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
-  "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
-  "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
+  "analysis": "các điểm đau cụ thể đã xác định; không lặp lại hoặc diễn giải lại truy vấn gốc",
+  "suggestions": ["các tối ưu được khuyến nghị, mỗi chiến lược cụ thể ứng với một điểm đau cần xử lý"],
+  "optimized_sql": "toàn bộ truy vấn SQL đã áp dụng tối ưu được khuyến nghị, hoặc giữ nguyên SQL gốc khi không cần refactor an toàn"
 }
+
+${lintingContext}
 
 SQL:
 \`\`\`sql
@@ -1245,13 +1275,16 @@ ${sql}
 \`\`\`
 
 Quy tắc:
-- Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
-- Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
+- Dùng các đoạn trích tài liệu chính thức và embedded knowledge context khi có; dựa vào các chunk đó khi đề xuất chỉ mục, viết lại truy vấn hoặc cấu hình nếu phù hợp.
+- Xem danh mục quy tắc linting là ràng buộc bắt buộc cho mọi lần chạy, kể cả khi truy vấn này không có cảnh báo linting được phát hiện.
+- Sửa các cảnh báo linting được phát hiện trước, rồi chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất hoặc khả năng bảo trì có độ tin cậy cao.
+- Trong "analysis", chỉ nêu các điểm đau cụ thể và sự cần thiết refactor. Không lặp lại yêu cầu người dùng, nội dung SQL gốc, hoặc lời khuyên tối ưu chung chung.
+- Trong "suggestions", chỉ bao gồm các chiến lược tối ưu có thể hành động và gắn với điểm đau.
 - Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
 - Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
-- Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
+- Nếu không có phần viết lại an toàn nào được chứng minh là cần thiết, trả lại SQL không đổi và giải thích lý do cụ thể trong "analysis".`,
 };
 
 /** Resolves the effective context budget for the active provider from the saved settings. */
@@ -1308,8 +1341,8 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
       objective: raw,
       filters: [],
       output: '',
-      tables: [],
       fieldMeanings: [],
+      tables: [],
       raw,
       structured: false,
       budget: report,
@@ -1320,8 +1353,8 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
     objective,
     filters: asList(parsed.filters),
     output,
-    tables: asList(parsed.tables),
     fieldMeanings: asList(parsed.field_meanings),
+    tables: asList(parsed.tables),
     raw,
     structured: true,
     budget: report,
@@ -1399,10 +1432,12 @@ function prepareOptimizePrompt(
 
   const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
   const briefTokens = estimateTokens(brief);
-  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
+  const lintingContext = `${buildDetectedLintingAlerts(sql, locale)}\n\n${buildLintingRuleCatalog(locale)}`;
+  const lintingTokens = estimateTokens(lintingContext);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - lintingTokens - 320));
 
   const buildPrompt = OPTIMIZE_SQL_STRUCTURED_PROMPT[locale] ?? OPTIMIZE_SQL_STRUCTURED_PROMPT.en;
-  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql, lintingContext)}` : buildPrompt(fitted.sql, lintingContext);
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -1497,8 +1532,8 @@ export async function optimizeSqlWithAIStream(
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: 'You are a SQL expert answering any question about one specific query. Explain the query’s intent, fields, expressions, filters, joins, returned data, and likely business impact in plain language suitable for non-technical staff. Stay grounded in the SQL and verified parser facts. Clearly distinguish what the query proves from a reasonable inference, and say when an exact business definition or answer is not present. Give detail when the question calls for it; otherwise be concise.',
-  vi: 'Bạn là chuyên gia SQL đang trả lời mọi câu hỏi về một truy vấn cụ thể. Hãy giải thích mục đích, field, biểu thức, điều kiện, phép nối, dữ liệu trả về và tác động nghiệp vụ có thể suy ra từ truy vấn bằng tiếng Việt dễ hiểu cho cả người không chuyên. Chỉ dựa trên SQL và các dữ kiện đã được parser xác thực. Phân biệt rõ điều truy vấn chứng minh được với suy luận hợp lý, và nói rõ khi truy vấn không có định nghĩa nghiệp vụ hoặc câu trả lời chính xác. Trả lời chi tiết khi câu hỏi cần; các trường hợp khác giữ ngắn gọn.',
+  en: 'You are a SQL expert answering follow-up questions about one specific query. Answer in plain language, stay grounded in the query and the verified parser facts, and say plainly when the query does not contain the answer. Be concise: a few sentences unless asked for detail.',
+  vi: 'Bạn là chuyên gia SQL đang trả lời các câu hỏi tiếp theo về một truy vấn cụ thể. Hãy trả lời bằng tiếng Việt, ngôn ngữ đơn giản, chỉ dựa trên truy vấn và các dữ kiện đã được parser xác thực, và nói rõ khi truy vấn không chứa câu trả lời. Ngắn gọn: vài câu, trừ khi được yêu cầu chi tiết.',
 };
 
 export interface FollowUpOptions {
@@ -1588,87 +1623,6 @@ export async function askFollowUp({
       contextBriefDropped: Boolean(contextBrief) && !brief,
     },
   };
-}
-
-const DOCS_CONSULTANT_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: "You are the SQL Visualizer documentation consultant. Answer the user's question about the app's own features and best practices using ONLY the documentation context provided below. If the context does not cover the question, say so plainly instead of guessing.",
-  vi: 'Bạn là trợ lý tư vấn tài liệu của SQL Visualizer. Hãy trả lời câu hỏi của người dùng về các tính năng và thực hành tốt nhất của ứng dụng CHỈ dựa trên phần tài liệu tham khảo được cung cấp dưới đây. Nếu tài liệu không đề cập tới câu hỏi, hãy nói rõ điều đó bằng tiếng Việt thay vì suy đoán.',
-};
-
-export interface DocSource {
-  title: string;
-  file: string;
-}
-
-interface DocsContextResponse {
-  context: string;
-  sources: DocSource[];
-}
-
-export interface DocsConsultantOptions {
-  question: string;
-  config: AIModelConfig;
-  locale?: Locale;
-  signal?: AbortSignal;
-}
-
-export interface DocsConsultantAnswer {
-  answer: string;
-  sources: DocSource[];
-}
-
-/** Retrieval step: embeds the question server-side and returns the closest doc chunks as context. */
-async function fetchDocsContext(question: string, signal?: AbortSignal): Promise<DocsContextResponse> {
-  const response = await safeFetch(
-    '/api/ai/docs-context',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify({ question }),
-    },
-    'Unable to reach the app server to search the documentation.'
-  );
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new AIServiceError(data?.error || `Documentation search failed (${response.status}).`);
-  }
-  return { context: data?.context ?? '', sources: data?.sources ?? [] };
-}
-
-/**
- * RAG loop for the Docs Consultant chat: embed the question, retrieve the closest feature-doc
- * chunks, then hand that context to whichever provider the user has configured — mirrors
- * {@link askFollowUp}'s shape but anchors on retrieved documentation instead of a pasted SQL query.
- */
-export async function askDocsConsultant({
-  question,
-  config,
-  locale = 'en',
-  signal,
-}: DocsConsultantOptions): Promise<DocsConsultantAnswer> {
-  if (!question.trim()) throw new AIServiceError('There is no question to ask.');
-
-  const { context, sources } = await fetchDocsContext(question, signal);
-  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
-
-  const messages: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
-    },
-  ];
-
-  const budget = resolveBudget(config);
-  const answer = (
-    await generateWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal })
-  ).trim();
-
-  if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
-
-  return { answer, sources };
 }
 
 /** Convenience wrapper for a free-form (unstructured) SQL explanation. */

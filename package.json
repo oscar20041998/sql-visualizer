@@ -48,7 +48,7 @@
     "test": "vitest run",
     "setup:piper": "node scripts/setup-piper.mjs",
     "build:docs-index": "node scripts/build-docs-index.mjs",
-    "build:database-knowledge-index": "node scripts/build-database-knowledge-index.mjs",
+    "build:database-knowledge-index": "node --env-file-if-exists=.env scripts/build-database-knowledge-index.mjs",
     "serve": "next start",
     "type-check": "tsc --noEmit"
   },
@@ -68,7 +68,6 @@
     "reactflow": "^11.11.4",
     "recharts": "^2.15.2",
     "sherpa-onnx-node": "^1.13.4",
-
     "sonner": "^1.7.4",
     "sql-formatter": "^15.8.2",
     "xlsx": "^0.18.5",

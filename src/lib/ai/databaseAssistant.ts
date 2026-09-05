@@ -10,8 +10,7 @@ import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
 import type { SqlDialect } from '../sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '../sql/complexityScorer';
-import { callOllamaEmbed, generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
-import { DATABASE_KNOWLEDGE_EMBEDDING_MODEL } from './aiProviders';
+import { generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
 import { estimateTokens, trimMessagesForBudget } from './aiTokens';
 
 const DATABASE_ASSISTANT_SYSTEM_PROMPT: Record<Locale, string> = {
@@ -99,31 +98,28 @@ interface PreparedDatabaseAssistantRequest {
 }
 
 /**
- * Best-effort RAG retrieval over the 4-database-manual corpus: embeds the question with the
- * fixed local Ollama model the corpus was built with (independent of the user's chosen chat
- * provider), then asks the server to find the closest excerpts. Never throws — a missing/unpulled
- * Ollama model, an unbuilt index, or any network failure just means the assistant answers from
- * general knowledge only, exactly like before this feature existed.
+ * Best-effort RAG retrieval over the 4-database-manual corpus: the server embeds the question
+ * with the same cloud model the corpus was indexed with (OPENAI_EMBEDDING_*) and returns the
+ * closest excerpts. Never throws — an unconfigured embedding gateway, an unbuilt index, or any
+ * network failure just means the assistant answers from general knowledge only, exactly like
+ * before this feature existed.
  *
  * `dialect`, when given, asks the server to prefer excerpts from that vendor's manual (still
  * falling back to the overall best matches if that vendor has few close ones for this question).
  */
 export async function fetchDatabaseKnowledgeContext(
   question: string,
-  ollamaBaseUrl: string,
   signal?: AbortSignal,
   dialect?: SqlDialect
 ): Promise<DatabaseKnowledgeContext | null> {
   try {
-    const embedding = await callOllamaEmbed(ollamaBaseUrl, DATABASE_KNOWLEDGE_EMBEDDING_MODEL, question, signal);
-
     const response = await safeFetch(
       '/api/ai/database-knowledge-context',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
-        body: JSON.stringify({ embedding, topN: RAG_TOP_N, dialect }),
+        body: JSON.stringify({ question, topN: RAG_TOP_N, dialect }),
       },
       'Unable to reach the app server to search the database knowledge base.'
     );
@@ -146,22 +142,20 @@ const OPTIMIZE_KNOWLEDGE_HEADER: Record<Locale, string> = {
  * Builds a labeled knowledge-brief section for the Optimize flow: embeds a short description of
  * the query's dialect and its flagged linting issues, retrieves the closest official-manual
  * excerpts (biased toward the active dialect), and formats them as a prompt-ready block. Returns
- * `null` when retrieval finds nothing usable (missing Ollama/model/index, or no relevant match) —
- * callers should simply omit the section rather than treat this as an error.
+ * `null` when retrieval finds nothing usable (unconfigured embedding gateway/index, or no relevant
+ * match) — callers should simply omit the section rather than treat this as an error.
  */
 export async function buildOptimizeKnowledgeBrief({
   sql,
   dialect,
   lintIssues,
   locale = 'en',
-  ollamaBaseUrl,
   signal,
 }: {
   sql: string;
   dialect: SqlDialect;
   lintIssues: LintingIssue[];
   locale?: Locale;
-  ollamaBaseUrl: string;
   signal?: AbortSignal;
 }): Promise<{ brief: string; sources: DatabaseKnowledgeSource[] } | null> {
   const issueSummary = lintIssues.map((issue) => `${issue.rule}: ${issue.message}`).join('; ');
@@ -173,7 +167,7 @@ export async function buildOptimizeKnowledgeBrief({
     .filter(Boolean)
     .join(' ');
 
-  const knowledge = await fetchDatabaseKnowledgeContext(question, ollamaBaseUrl, signal, dialect);
+  const knowledge = await fetchDatabaseKnowledgeContext(question, signal, dialect);
   if (!knowledge?.context) return null;
 
   const header = OPTIMIZE_KNOWLEDGE_HEADER[locale] ?? OPTIMIZE_KNOWLEDGE_HEADER.en;
@@ -190,7 +184,7 @@ export class DatabaseAssistantService {
   constructor(
     private readonly config: AIModelConfig,
     private readonly locale: Locale = 'en'
-  ) {}
+  ) { }
 
   private async prepareRequest({
     question,
@@ -204,11 +198,7 @@ export class DatabaseAssistantService {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) throw new AIServiceError('There is no question to ask.');
 
-    const knowledge = await fetchDatabaseKnowledgeContext(
-      trimmedQuestion,
-      this.config.baseUrls?.ollama ?? '',
-      signal
-    );
+    const knowledge = await fetchDatabaseKnowledgeContext(trimmedQuestion, signal);
     const hasKnowledge = Boolean(knowledge?.context);
 
     const budget = resolveBudget(this.config);
