@@ -32,7 +32,46 @@ interface ChatTurn {
 
 const CODE_FENCE_RE = /```(\w+)?\n?([\s\S]*?)```/g;
 
-/** Renders fenced ```sql code blocks as monospace panels, everything else as plain paragraphs. */
+function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const markdownToken = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = markdownToken.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    const token = match[0];
+    const tokenKey = `${keyPrefix}-${key++}`;
+    if (token.startsWith('**')) {
+      parts.push(<strong key={tokenKey} className="font-semibold text-foreground">{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith('`')) {
+      parts.push(<code key={tokenKey} className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary">{token.slice(1, -1)}</code>);
+    } else {
+      parts.push(<em key={tokenKey}>{token.slice(1, -1)}</em>);
+    }
+    lastIndex = markdownToken.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
+function MarkdownText({ content }: { content: string }) {
+  return (
+    <div className="space-y-2 text-sm leading-relaxed text-foreground">
+      {content.split('\n').map((line, index) => {
+        const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+        if (heading) {
+          const headingClass = heading[1].length === 1 ? 'text-base' : heading[1].length === 2 ? 'text-sm' : 'text-xs';
+          return <p key={index} className={`${headingClass} font-semibold text-primary`}>{renderInlineMarkdown(heading[2], `heading-${index}`)}</p>;
+        }
+        return line ? <p key={index}>{renderInlineMarkdown(line, `line-${index}`)}</p> : <div key={index} className="h-1" />;
+      })}
+    </div>
+  );
+}
+
+/** Renders fenced code blocks and safe Markdown text from assistant responses. */
 function MessageContent({ content }: { content: string }) {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -43,9 +82,9 @@ function MessageContent({ content }: { content: string }) {
   while ((match = CODE_FENCE_RE.exec(content))) {
     if (match.index > lastIndex) {
       parts.push(
-        <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed">
-          {content.slice(lastIndex, match.index)}
-        </p>
+        <div key={key++}>
+          <MarkdownText content={content.slice(lastIndex, match.index)} />
+        </div>
       );
     }
     parts.push(
@@ -60,9 +99,7 @@ function MessageContent({ content }: { content: string }) {
   }
   if (lastIndex < content.length) {
     parts.push(
-      <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed">
-        {content.slice(lastIndex)}
-      </p>
+      <MarkdownText key={key++} content={content.slice(lastIndex)} />
     );
   }
   return <div className="space-y-2">{parts}</div>;
@@ -290,8 +327,8 @@ export default function DatabaseAIAssistantContent() {
               <div
                 className={`max-w-[86%] px-1 py-1.5 ${
                   turn.role === 'user'
-                    ? 'rounded-2xl bg-muted px-4'
-                    : ''
+                    ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
+                    : 'text-sm text-foreground'
                 }`}
               >
                 <div className="mb-1 flex items-center justify-between gap-3">
@@ -299,7 +336,13 @@ export default function DatabaseAIAssistantContent() {
                     <CopyButton text={turn.content} label={t.dbAssistantCopy} labelCopied={t.dbAssistantCopied} />
                   )}
                 </div>
-                {turn.content ? <MessageContent content={turn.content} /> : <Loader2 size={15} className="animate-spin text-muted-foreground" />}
+                {turn.content ? (
+                  turn.role === 'assistant' ? (
+                    <MessageContent content={turn.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
+                  )
+                ) : <Loader2 size={15} className="animate-spin text-muted-foreground" />}
                 {turn.isStreaming && turn.content && <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />}
                 {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
