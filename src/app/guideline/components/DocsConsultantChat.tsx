@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { BookMarked, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import { useAppStore, type AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
-import { askDocsConsultant } from '@/lib/ai/aiService';
+import { streamDocsConsultant } from '@/lib/ai/aiService';
 
 interface DocsConsultantChatProps {
   config: AIModelConfig;
@@ -52,19 +52,28 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
       abortRef.current = controller;
 
       const priorHistory = history;
-      setHistory((prev) => [...prev, { role: 'user', content: trimmed }]);
+      // Index of the placeholder assistant turn appended below, so streamed deltas can target it
+      // without needing an id field on ChatTurn.
+      const assistantIndex = priorHistory.length + 1;
+      setHistory((prev) => [...prev, { role: 'user', content: trimmed }, { role: 'assistant', content: '' }]);
       setQuestion('');
       setIsAsking(true);
 
       try {
-        const { answer, sources } = await askDocsConsultant({
-          question: trimmed,
-          config,
-          locale,
-          signal: controller.signal,
-        });
+        const { answer, sources } = await streamDocsConsultant(
+          { question: trimmed, config, locale, signal: controller.signal },
+          (delta) => {
+            setHistory((prev) =>
+              prev.map((turn, index) =>
+                index === assistantIndex ? { ...turn, content: turn.content + delta } : turn
+              )
+            );
+          }
+        );
         if (controller.signal.aborted) return;
-        setHistory((prev) => [...prev, { role: 'assistant', content: answer, sources }]);
+        setHistory((prev) =>
+          prev.map((turn, index) => (index === assistantIndex ? { ...turn, content: answer, sources } : turn))
+        );
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError') return;
         // Roll the unanswered question back out of the thread so a retry is not duplicated.
@@ -134,9 +143,16 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {turn.role === 'user' ? t.docsConsultantRoleYou : t.docsConsultantRoleAssistant}
                 </p>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                  {turn.content}
-                </p>
+                {turn.role === 'assistant' && !turn.content && isAsking ? (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <RefreshCw size={11} className="animate-spin" />
+                    {t.docsConsultantThinking}
+                  </p>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                    {turn.content}
+                  </p>
+                )}
                 {turn.sources && turn.sources.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <span className="text-[10px] text-muted-foreground">
@@ -155,12 +171,6 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                 )}
               </div>
             ))}
-            {isAsking && (
-              <div className="mr-6 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                <RefreshCw size={11} className="animate-spin" />
-                {t.docsConsultantThinking}
-              </div>
-            )}
             <div ref={endRef} />
           </div>
         )}

@@ -1070,7 +1070,7 @@ const vi = {
   demoInstallDepsLabel: 'Cài đặt phụ thuộc cho phát triển cục bộ:',
   demoInstallDepsCmd: 'npm install',
   demoStartOllamaLabel: 'Khởi động Ollama nếu dùng tối ưu hóa mô hình cục bộ:',
-  demoStartOllamaCmd: 'ollama serve',
+  demoStartOllamaCmd: 'máy chủ ollama',
   demoTestInDemoLabel: 'Sau đó chạy demo và nhấn Analyze & Optimize.',
   demoFeaturesTitle: '✨ Tính năng demo',
   demoFeature1: 'Trình chỉnh sửa SQL tương tác với định dạng',

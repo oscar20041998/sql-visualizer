@@ -228,7 +228,7 @@ async function callOllama(baseUrlRaw: string, model: string, call: ProviderCall)
         messages: call.messages,
       }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and reachable from the browser.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and reachable from the browser.`
   );
 
   if (!response.ok) {
@@ -309,7 +309,7 @@ async function callOllamaStream(
         messages: call.messages,
       }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and reachable from the browser.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and reachable from the browser.`
   );
 
   if (!response.ok) {
@@ -545,7 +545,7 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
       signal,
       body: JSON.stringify({ model, prompt: text }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and that ${model} is pulled.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and that ${model} is pulled.`
   );
 
   if (!response.ok) {
@@ -1676,6 +1676,35 @@ export async function askDocsConsultant({
   const budget = resolveBudget(config);
   const answer = (
     await generateWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal })
+  ).trim();
+
+  if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
+
+  return { answer, sources };
+}
+
+/** Streaming counterpart of {@link askDocsConsultant}: same retrieval + prompt, but calls
+ *  `onDelta` with each text fragment as it streams in instead of waiting for the full answer. */
+export async function streamDocsConsultant(
+  { question, config, locale = 'en', signal }: DocsConsultantOptions,
+  onDelta: (text: string) => void
+): Promise<DocsConsultantAnswer> {
+  if (!question.trim()) throw new AIServiceError('There is no question to ask.');
+
+  const { context, sources } = await fetchDocsContext(question, signal);
+  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
+
+  const messages: AIMessage[] = [
+    { role: 'system', content: systemPrompt },
+    {
+      role: 'user',
+      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
+    },
+  ];
+
+  const budget = resolveBudget(config);
+  const answer = (
+    await streamWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal }, onDelta)
   ).trim();
 
   if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
