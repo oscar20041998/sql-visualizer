@@ -498,11 +498,13 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   // PostgreSQL: USING, LATERAL JOIN
   // SQL Server: CROSS APPLY, OUTER APPLY
   // Oracle: USING
+  // Each pattern is tagged with its own `kind` so branch selection below no longer has to guess
+  // which pattern produced a match by sniffing the captured text (see bug note below).
   const joinPatterns = [
-    SQL_REGEX_PATTERNS.STANDARD_JOIN,
-    SQL_REGEX_PATTERNS.USING_JOIN,
-    SQL_REGEX_PATTERNS.LATERAL_JOIN,
-    SQL_REGEX_PATTERNS.APPLY_JOIN,
+    { pattern: SQL_REGEX_PATTERNS.STANDARD_JOIN, kind: 'standard' as const },
+    { pattern: SQL_REGEX_PATTERNS.USING_JOIN, kind: 'using' as const },
+    { pattern: SQL_REGEX_PATTERNS.LATERAL_JOIN, kind: 'lateral' as const },
+    { pattern: SQL_REGEX_PATTERNS.APPLY_JOIN, kind: 'apply' as const },
   ];
 
   let idx = 0;
@@ -514,7 +516,7 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   const processedPositions = new Set<number>();
 
   // Process each pattern
-  for (const pattern of joinPatterns) {
+  for (const { pattern, kind } of joinPatterns) {
     pattern.lastIndex = 0; // Reset regex
     let match;
 
@@ -528,29 +530,33 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
       let tableAlias = '';
       let condition = '';
 
-      if (match[1] && match[1].toUpperCase().includes('APPLY')) {
+      // Branch strictly on which pattern produced this match (`kind`) rather than sniffing the
+      // matched text — LATERAL_JOIN only has 3 capture groups (table/alias/condition, no join-type
+      // group), so a text-sniffing check against match[1]/match[4] almost never matched a real
+      // LATERAL JOIN's own groups, silently misrouting it through the "standard" branch and
+      // reading joinedTable/tableAlias/condition from the wrong group indices entirely.
+      if (kind === 'apply') {
         // CROSS APPLY / OUTER APPLY pattern
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
         joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
-        tableAlias = match[3] || '';
+        tableAlias = (match[3] || '').replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         condition = ''; // APPLY doesn't have ON clause in same way
-      } else if (match[4] && match[4].match(/^\s*[\w\s,]+\s*$/)) {
-        // USING clause pattern
+      } else if (kind === 'using') {
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
         joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
-        tableAlias = match[3] || '';
+        tableAlias = (match[3] || '').replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         condition = `USING (${match[4]})`; // Keep USING info in condition
-      } else if (match[1] && match[1].toUpperCase().includes('LATERAL')) {
-        // LATERAL JOIN pattern
+      } else if (kind === 'lateral') {
+        // LATERAL JOIN pattern — groups are (table, alias, condition), no separate join-type group
         rawJoinType = 'LATERAL JOIN';
         joinedTable = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
-        tableAlias = match[2] || '';
+        tableAlias = (match[2] || '').replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         condition = match[3]?.trim() || '';
       } else {
         // Standard JOIN pattern
         rawJoinType = match[1].replace(/\s+/g, ' ').toUpperCase().trim();
         joinedTable = match[2].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
-        tableAlias = match[3] || '';
+        tableAlias = (match[3] || '').replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
         condition = match[4]?.trim() || '';
       }
 
@@ -1275,17 +1281,82 @@ function countLines(rawSql: string): number {
 }
 
 /**
- * Finds every top-level FROM clause's comma-separated table list (old-style implicit joins,
- * e.g. `FROM a, b`), returning each clause's parts already trimmed. Shared by
- * countImplicitJoins() and extractImplicitJoinEdges() so they can never drift apart. The
- * terminator check requires a word boundary (e.g. `ORDER\s+BY`, not just `ORDER`) so a table
- * literally named `orders`, `groups`, `limits`, etc. is not mistaken for a clause keyword.
+ * Scans forward from `startIdx` (just past a clause keyword like FROM/WHERE) collecting raw text
+ * at the same paren depth as `baseDepth`, stopping at the first occurrence (at that same depth)
+ * of any keyword in `stopKeywords`, a closing paren that drops below `baseDepth`, or end of
+ * string. Quote-aware (skips over string/identifier literals without matching keywords inside
+ * them). Returns the collected body text and the index right after it.
  */
-function findImplicitJoinClauses(sql: string): string[][] {
+function scanClauseBody(
+  sql: string,
+  startIdx: number,
+  baseDepth: number,
+  stopPattern: RegExp
+): { body: string; endIdx: number } {
   const upper = sql.toUpperCase();
-  const clauses: string[][] = [];
+  let depth = baseDepth;
+  let body = '';
+  let j = startIdx;
+
+  while (j < sql.length) {
+    const c = sql[j];
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c;
+      body += c;
+      j++;
+      while (j < sql.length) {
+        body += sql[j];
+        if (sql[j] === quote && sql[j + 1] === quote) {
+          body += sql[j + 1] || '';
+          j += 2;
+          continue;
+        }
+        if (sql[j] === quote) {
+          j++;
+          break;
+        }
+        j++;
+      }
+      continue;
+    }
+    if (c === '(') {
+      depth++;
+      body += c;
+      j++;
+      continue;
+    }
+    if (c === ')') {
+      depth = Math.max(0, depth - 1);
+      if (depth < baseDepth) break;
+      body += c;
+      j++;
+      continue;
+    }
+
+    if (depth === baseDepth && stopPattern.test(upper.slice(j))) break;
+
+    body += c;
+    j++;
+  }
+
+  return { body, endIdx: j };
+}
+
+/**
+ * Finds every top-level FROM clause's comma-separated table list (old-style implicit joins,
+ * e.g. `FROM a, b`), returning each clause's parts already trimmed, plus the raw text of that
+ * FROM clause's own WHERE clause (if any) so callers can look up the real join condition between
+ * any two of its tables instead of guessing. Shared by countImplicitJoins() and
+ * extractImplicitJoinEdges() so they can never drift apart. The terminator check requires a word
+ * boundary (e.g. `ORDER\s+BY`, not just `ORDER`) so a table literally named `orders`, `groups`,
+ * `limits`, etc. is not mistaken for a clause keyword.
+ */
+function findImplicitJoinClauses(sql: string): { parts: string[]; whereText: string }[] {
+  const upper = sql.toUpperCase();
+  const clauses: { parts: string[]; whereText: string }[] = [];
   let depth = 0;
-  const stopPattern = /^\s+(?:WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION)\b/;
+  const fromStopPattern = /^\s+(?:WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION)\b/;
+  const whereStopPattern = /^\s+(?:GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|UNION)\b/;
 
   for (let i = 0; i < sql.length; i++) {
     const ch = sql[i];
@@ -1316,51 +1387,15 @@ function findImplicitJoinClauses(sql: string): string[][] {
     if (!upper.startsWith('FROM', i) || !isWordBoundary(upper, i, 4)) continue;
 
     const fromDepth = depth;
-    let j = i + 4;
-    let fromBody = '';
-    while (j < sql.length) {
-      const c = sql[j];
-      if (c === "'" || c === '"' || c === '`') {
-        const quote = c;
-        fromBody += c;
-        j++;
-        while (j < sql.length) {
-          fromBody += sql[j];
-          if (sql[j] === quote && sql[j + 1] === quote) {
-            fromBody += sql[j + 1] || '';
-            j += 2;
-            continue;
-          }
-          if (sql[j] === quote) {
-            j++;
-            break;
-          }
-          j++;
-        }
-        continue;
-      }
-      if (c === '(') {
-        depth++;
-        fromBody += c;
-        j++;
-        continue;
-      }
-      if (c === ')') {
-        depth = Math.max(0, depth - 1);
-        if (depth < fromDepth) break;
-        fromBody += c;
-        j++;
-        continue;
-      }
-
-      if (depth === fromDepth && stopPattern.test(upper.slice(j))) break;
-
-      fromBody += c;
-      j++;
-    }
+    const { body: fromBody, endIdx: j } = scanClauseBody(sql, i + 4, fromDepth, fromStopPattern);
 
     const commaParts = splitTopLevelComma(fromBody);
-    if (commaParts.length > 1) clauses.push(commaParts.map((part) => part.trim()));
+    let whereText = '';
+    if (commaParts.length > 1 && /^\s+WHERE\b/.test(upper.slice(j))) {
+      const whereKeywordEnd = j + upper.slice(j).match(/^\s+WHERE\b/)![0].length;
+      whereText = scanClauseBody(sql, whereKeywordEnd, fromDepth, whereStopPattern).body;
+    }
+    if (commaParts.length > 1) clauses.push({ parts: commaParts.map((part) => part.trim()), whereText });
 
     i = j;
   }
@@ -1369,19 +1404,23 @@ function findImplicitJoinClauses(sql: string): string[][] {
 }
 
 function countImplicitJoins(sql: string): number {
-  return findImplicitJoinClauses(sql).reduce((sum, parts) => sum + parts.length - 1, 0);
+  return findImplicitJoinClauses(sql).reduce((sum, clause) => sum + clause.parts.length - 1, 0);
 }
 
 /**
- * Turns comma-separated FROM tables (e.g. `FROM a, b, c`) into graph edges, chained N-1 per
- * clause so the count always matches countImplicitJoins() — keeps totalJoinCount and the
- * Relationship Graph in sync with metrics.joinCount for this join style too.
+ * Turns comma-separated FROM tables (e.g. `FROM a, b, c`) into graph edges. Always produces
+ * exactly N-1 edges per clause (a spanning tree) so the count still matches countImplicitJoins()
+ * and keeps totalJoinCount/the Relationship Graph in sync with metrics.joinCount for this join
+ * style. Edges are preferentially the REAL equi-join conditions found in that FROM clause's own
+ * WHERE text (e.g. `FROM a, b, c WHERE a.id = c.a_id AND b.id = c.b_id` correctly links a-c and
+ * b-c, not the naive adjacency a-b/b-c) — naive positional chaining is only used as a fallback to
+ * connect any tables left unmatched by a real condition, so the graph never disconnects.
  */
 function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] {
   const edges: JoinEdge[] = [];
   let idx = 0;
 
-  findImplicitJoinClauses(sql).forEach((parts) => {
+  findImplicitJoinClauses(sql).forEach(({ parts, whereText }) => {
     const partRefs = parts.map((part) => {
       const parsed = /^[`"[]?([\w.]+)[`"\]]?(?:\s+(?:AS\s+)?(\w+))?/i.exec(part);
       return { name: parsed?.[1] ?? '', alias: parsed?.[2] };
@@ -1405,23 +1444,85 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
       return node;
     };
 
-    for (let k = 0; k < partRefs.length - 1; k++) {
-      const sourceNode = ensureImplicitTable(partRefs[k].name, partRefs[k].alias);
-      const targetNode = ensureImplicitTable(partRefs[k + 1].name, partRefs[k + 1].alias);
-      if (!sourceNode || !targetNode || sourceNode.id === targetNode.id) continue;
+    const nodes = partRefs.map((ref) => ensureImplicitTable(ref.name, ref.alias));
 
+    // Simple union-find so the spanning tree never adds a redundant (cycle-forming) edge.
+    const parent = nodes.map((_, i) => i);
+    const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+    const union = (a: number, b: number): boolean => {
+      const ra = find(a);
+      const rb = find(b);
+      if (ra === rb) return false;
+      parent[ra] = rb;
+      return true;
+    };
+
+    const addEdge = (
+      a: number,
+      b: number,
+      joinType: JoinType,
+      condition: string
+    ) => {
+      const sourceNode = nodes[a];
+      const targetNode = nodes[b];
+      if (!sourceNode || !targetNode || sourceNode.id === targetNode.id) return;
+      if (!union(a, b)) return;
       edges.push({
         id: `implicit-${idx++}`,
         source: sourceNode.id,
         target: targetNode.id,
-        joinType: 'RELATES TO',
-        condition: '',
+        joinType,
+        condition,
       });
+    };
+
+    // Pass 1: link every pair that has a real equality condition in this clause's WHERE text.
+    if (whereText) {
+      for (let a = 0; a < partRefs.length; a++) {
+        for (let b = a + 1; b < partRefs.length; b++) {
+          const condition = findEquiJoinCondition(whereText, partRefs[a], partRefs[b]);
+          if (condition) addEdge(a, b, 'INNER JOIN', condition);
+        }
+      }
+    }
+
+    // Pass 2: fall back to positional chaining for anything the WHERE scan didn't connect,
+    // guaranteeing the clause always ends up with exactly N-1 edges (a full spanning tree).
+    for (let k = 0; k < partRefs.length - 1; k++) {
+      addEdge(k, k + 1, 'RELATES TO', '');
     }
   });
 
   return edges;
 }
+
+/**
+ * Looks for a real `a.col <op> b.col` (or reversed) equality/comparison between two implicit-join
+ * table refs inside a WHERE clause's raw text, matching either alias (preferred) or table name.
+ * Returns the exact matched condition substring, or '' if the two tables are never compared.
+ */
+function findEquiJoinCondition(
+  whereText: string,
+  a: { name: string; alias?: string },
+  b: { name: string; alias?: string }
+): string {
+  const refsFor = (ref: { name: string; alias?: string }) =>
+    [ref.alias, ref.name].filter(Boolean).map((s) => (s as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const aRefs = refsFor(a);
+  const bRefs = refsFor(b);
+  if (!aRefs.length || !bRefs.length) return '';
+
+  const op = '(?:<>|!=|<=|>=|=|<|>)';
+  const buildPattern = (left: string[], right: string[]) =>
+    new RegExp(`\\b(?:${left.join('|')})\\.\\w+\\s*${op}\\s*(?:${right.join('|')})\\.\\w+\\b`, 'i');
+
+  const forward = buildPattern(aRefs, bRefs).exec(whereText);
+  if (forward) return forward[0].trim();
+  const reverse = buildPattern(bRefs, aRefs).exec(whereText);
+  if (reverse) return reverse[0].trim();
+  return '';
+}
+
 
 
 function countCaseWhen(sql: string): number {

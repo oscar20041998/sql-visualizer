@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, ChevronRight, MessageSquareText, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Copy, MessageSquareText, RefreshCw, Trash2 } from 'lucide-react';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
 import { askFollowUp, type AIMessage } from '@/lib/ai/aiService';
@@ -13,6 +13,68 @@ interface AiFollowUpChatProps {
   locale: Locale;
   contextBrief: string;
   t: Translations;
+}
+
+const SQL_CODE_FENCE_RE = /```(?:sql)?\s*\n?([\s\S]*?)```/gi;
+
+function SqlCodeBlock({ sql, t }: { sql: string; t: Translations }) {
+  const [copied, setCopied] = useState(false);
+  const copySql = async () => {
+    try {
+      await navigator.clipboard.writeText(sql);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(t.aiExplainerCopyFailed);
+    }
+  };
+
+  return (
+    <div className="relative my-2 overflow-hidden rounded-lg border border-gray-700 bg-gray-950">
+      <button
+        onClick={() => void copySql()}
+        title={copied ? t.aiExplainerCopiedShort : t.aiExplainerCopy}
+        className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+      >
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+      </button>
+      <pre className="max-h-56 overflow-auto p-3 pr-11 font-mono text-xs leading-relaxed text-sky-200 scrollbar-thin">
+        <code>{sql}</code>
+      </pre>
+    </div>
+  );
+}
+
+function AssistantMessage({ content, t }: { content: string; t: Translations }) {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  SQL_CODE_FENCE_RE.lastIndex = 0;
+
+  while ((match = SQL_CODE_FENCE_RE.exec(content))) {
+    if (match.index > lastIndex) {
+      parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{content.slice(lastIndex, match.index)}</p>);
+    }
+    parts.push(<SqlCodeBlock key={key++} sql={match[1].trim()} t={t} />);
+    lastIndex = SQL_CODE_FENCE_RE.lastIndex;
+  }
+  if (lastIndex < content.length) {
+    parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{content.slice(lastIndex)}</p>);
+  }
+  return <div>{parts}</div>;
+}
+
+function buildSuggestions(sql: string, t: Translations): string[] {
+  const normalized = sql.toUpperCase();
+  const suggestions: string[] = [];
+  if (/\bJOIN\b/.test(normalized)) suggestions.push(t.aiChatSuggestion2);
+  if (/\bWHERE\b|\bHAVING\b/.test(normalized)) suggestions.push(t.aiChatSuggestion3);
+  if (/\bGROUP\s+BY\b|\bSUM\s*\(|\bCOUNT\s*\(|\bAVG\s*\(/.test(normalized)) {
+    suggestions.push(t.aiChatSuggestionAggregation);
+  }
+  if (/\bSELECT\b/.test(normalized)) suggestions.push(t.aiChatSuggestion1);
+  return suggestions.slice(0, 3);
 }
 
 /**
@@ -93,7 +155,7 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
     setDroppedMessages(0);
   }, []);
 
-  const suggestions = [t.aiChatSuggestion1, t.aiChatSuggestion2, t.aiChatSuggestion3];
+  const suggestions = buildSuggestions(sql, t);
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
@@ -126,16 +188,18 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
               key={`ai-turn-${index}`}
               className={
                 message.role === 'user'
-                  ? 'ml-6 rounded-lg border border-violet-800/40 bg-violet-950/30 px-3 py-2'
+                  ? 'ml-6 rounded-lg border border-violet-600/50 bg-violet-950/40 px-3 py-2'
                   : 'mr-6 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2'
               }
             >
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${message.role === 'user' ? 'text-violet-300' : 'text-sky-300'}`}>
                 {message.role === 'user' ? t.aiChatRoleYou : t.aiChatRoleAssistant}
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
-                {message.content}
-              </p>
+              {message.role === 'assistant' ? (
+                <AssistantMessage content={message.content} t={t} />
+              ) : (
+                <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-violet-100">{message.content}</p>
+              )}
             </div>
           ))}
           {isAsking && (
@@ -155,8 +219,8 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
         </p>
       )}
 
-      {/* Suggestions on an empty thread */}
-      {history.length === 0 && (
+      {/* Query-aware suggestions stay available throughout the conversation. */}
+      {suggestions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {suggestions.map((suggestion, index) => (
             <button

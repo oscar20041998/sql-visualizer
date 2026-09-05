@@ -81,6 +81,19 @@ export const SQL_OPERATORS = {
   BETWEEN: 'BETWEEN',
 } as const;
 
+// ─── Qualified identifier building blocks ─────────────────────────────────────
+// A single identifier segment across all 4 supported dialects' quoting styles: MySQL
+// `backtick`, PostgreSQL/Oracle "double quote", SQL Server [bracket], or a bare word.
+// Each vendor quotes EVERY dot-separated segment of a schema-qualified name independently
+// (e.g. `[dbo].[Users]`, `"schema"."table"`, `` `db`.`table` ``) — a single `[\w.]+` capture
+// (the old approach) cannot span the closing-quote/dot/opening-quote sequence in the middle,
+// so it silently truncated the match at the FIRST segment (capturing just "dbo"/"schema"/"db")
+// and left the real table name dangling as unmatched text, dropping it from the graph entirely.
+const IDENT_SEGMENT = '(?:`[^`]+`|"[^"]+"|\\[[^\\]]+\\]|[A-Za-z_][\\w$#]*)';
+// One or more dot-joined identifier segments: `db`.`table`, "schema"."table", [dbo].[Table],
+// schema.table, or a single unqualified name — covers every vendor's schema.table syntax.
+const QUALIFIED_NAME = `${IDENT_SEGMENT}(?:\\.${IDENT_SEGMENT})*`;
+
 // ─── Regex Patterns ───────────────────────────────────────────────────────────
 export const SQL_REGEX_PATTERNS = {
   // Extract CTEs from WITH clause
@@ -90,8 +103,10 @@ export const SQL_REGEX_PATTERNS = {
   // swallowing the next clause keyword (e.g. `FROM t1 JOIN t2 ...` with no alias on t1 — without
   // it, "JOIN" gets captured as t1's alias and the scanner's position skips past it, so the next
   // `JOIN t2` is never found at all).
-  TABLE_PATTERN:
-    /(?:FROM|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(?!(?:ON|USING|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT_JOIN|LATERAL|SET|VALUES)\b)([`"\[]?\w+[`"\]]?))?/gi,
+  TABLE_PATTERN: new RegExp(
+    `(?:FROM|JOIN)\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(?!(?:ON|USING|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT_JOIN|LATERAL|SET|VALUES)\\b)(${IDENT_SEGMENT}))?`,
+    'gi'
+  ),
 
   // Column references with table prefix
   COLUMN_WITH_TABLE: /(\w+)\.(\w+)/g,
@@ -125,19 +140,28 @@ export const SQL_REGEX_PATTERNS = {
   // RIGHT, ORDER, GROUP, ...) must be followed by a word boundary (`\b`) — without it, a column
   // name that merely *starts with* one of them (order_id, group_id, left_amount, right_value...)
   // falsely satisfies the lookahead and truncates the captured condition mid-column-name.
-  STANDARD_JOIN:
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|STRAIGHT_JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+(?:ON\s+([\s\S]+?))?(?=\s*(?:(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\s+APPLY|OUTER\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION)\b|;|$))/gi,
+  STANDARD_JOIN: new RegExp(
+    `(LEFT\\s+(?:OUTER\\s+)?JOIN|RIGHT\\s+(?:OUTER\\s+)?JOIN|FULL\\s+(?:OUTER\\s+)?JOIN|INNER\\s+JOIN|CROSS\\s+JOIN|NATURAL\\s+JOIN|STRAIGHT_JOIN|JOIN)\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s+(?:ON\\s+([\\s\\S]+?))?(?=\\s*(?:(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|CROSS\\s+APPLY|OUTER\\s+APPLY|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION)\\b|;|$))`,
+    'gi'
+  ),
 
-  USING_JOIN:
-    /(LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|FULL\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|JOIN)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+USING\s*\(\s*([\w\s,]+)\s*\)/gi,
+  USING_JOIN: new RegExp(
+    `(LEFT\\s+(?:OUTER\\s+)?JOIN|RIGHT\\s+(?:OUTER\\s+)?JOIN|FULL\\s+(?:OUTER\\s+)?JOIN|INNER\\s+JOIN|JOIN)\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s+USING\\s*\\(\\s*([\\w\\s,]+)\\s*\\)`,
+    'gi'
+  ),
 
-  LATERAL_JOIN:
-    /LATERAL\s+(?:LEFT\s+(?:OUTER\s+)?)?JOIN\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+([\s\S]+?)(?=\s*(?:(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT)\b|$))/gi,
+  LATERAL_JOIN: new RegExp(
+    `LATERAL\\s+(?:LEFT\\s+(?:OUTER\\s+)?)?JOIN\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s+ON\\s+([\\s\\S]+?)(?=\\s*(?:(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT)\\b|$))`,
+    'gi'
+  ),
 
-  APPLY_JOIN: /(CROSS\s+APPLY|OUTER\s+APPLY)\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/gi,
+  APPLY_JOIN: new RegExp(
+    `(CROSS\\s+APPLY|OUTER\\s+APPLY)\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?`,
+    'gi'
+  ),
 
   // FROM clause extraction
-  FROM_CLAUSE: /FROM\s+([`"\[]?[\w.]+[`"\]]?)(?:\s+(?:AS\s+)?(\w+))?/i,
+  FROM_CLAUSE: new RegExp(`FROM\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?`, 'i'),
 
   // SQL comments
   LINE_COMMENT: /--[^\n]*/g,
