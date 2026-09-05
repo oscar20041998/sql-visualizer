@@ -14,6 +14,32 @@ interface DocsConsultantChatProps {
   className?: string;
 }
 
+function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const markdownToken = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = markdownToken.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    const token = match[0];
+    const tokenKey = `${keyPrefix}-${key++}`;
+    if (token.startsWith('***')) {
+      parts.push(<strong key={tokenKey} className="font-semibold text-foreground"><em>{token.slice(3, -3)}</em></strong>);
+    } else if (token.startsWith('**')) {
+      parts.push(<strong key={tokenKey} className="font-semibold text-foreground">{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith('`')) {
+      parts.push(<code key={tokenKey} className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary">{token.slice(1, -1)}</code>);
+    } else {
+      parts.push(<em key={tokenKey}>{token.slice(1, -1)}</em>);
+    }
+    lastIndex = markdownToken.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
 /**
  * RAG chat over the app's own feature docs: embeds the question, retrieves the closest doc
  * chunks server-side, then answers grounded in that context. Same interaction shape as
@@ -136,11 +162,11 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                 key={`docs-turn-${index}`}
                 className={
                   turn.role === 'user'
-                    ? 'ml-6 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2'
-                    : 'mr-6 rounded-lg border border-border bg-muted px-3 py-2'
+                    ? 'ml-6 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-foreground'
+                    : 'mr-6 rounded-lg border border-border bg-muted px-3 py-2 text-muted-foreground'
                 }
               >
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${turn.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}>
                   {turn.role === 'user' ? t.docsConsultantRoleYou : t.docsConsultantRoleAssistant}
                 </p>
                 {turn.role === 'assistant' && !turn.content && isAsking ? (
@@ -149,8 +175,10 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                     {t.docsConsultantThinking}
                   </p>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                    {turn.content}
+                  <p className={`whitespace-pre-wrap text-sm leading-relaxed ${turn.role === 'user' ? 'font-medium text-foreground' : 'font-normal text-muted-foreground'}`}>
+                    {turn.role === 'assistant'
+                      ? renderInlineMarkdown(turn.content, `docs-reply-${index}`)
+                      : turn.content}
                   </p>
                 )}
                 {turn.sources && turn.sources.length > 0 && (
