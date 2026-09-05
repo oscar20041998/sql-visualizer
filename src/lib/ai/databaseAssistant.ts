@@ -10,8 +10,7 @@ import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
 import type { SqlDialect } from '../sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '../sql/complexityScorer';
-import { callOllamaEmbed, generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
-import { DATABASE_KNOWLEDGE_EMBEDDING_MODEL } from './aiProviders';
+import { generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
 import { estimateTokens, trimMessagesForBudget } from './aiTokens';
 
 const DATABASE_ASSISTANT_SYSTEM_PROMPT: Record<Locale, string> = {
@@ -110,20 +109,19 @@ interface PreparedDatabaseAssistantRequest {
  */
 export async function fetchDatabaseKnowledgeContext(
   question: string,
-  ollamaBaseUrl: string,
   signal?: AbortSignal,
   dialect?: SqlDialect
 ): Promise<DatabaseKnowledgeContext | null> {
   try {
-    const embedding = await callOllamaEmbed(ollamaBaseUrl, DATABASE_KNOWLEDGE_EMBEDDING_MODEL, question, signal);
-
+    // The server embeds the question with the same cloud model the corpus was indexed with, so the
+    // client sends plain text — a locally-produced embedding would be the wrong dimensionality.
     const response = await safeFetch(
       '/api/ai/database-knowledge-context',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal,
-        body: JSON.stringify({ embedding, topN: RAG_TOP_N, dialect }),
+        body: JSON.stringify({ question, topN: RAG_TOP_N, dialect }),
       },
       'Unable to reach the app server to search the database knowledge base.'
     );
@@ -154,14 +152,12 @@ export async function buildOptimizeKnowledgeBrief({
   dialect,
   lintIssues,
   locale = 'en',
-  ollamaBaseUrl,
   signal,
 }: {
   sql: string;
   dialect: SqlDialect;
   lintIssues: LintingIssue[];
   locale?: Locale;
-  ollamaBaseUrl: string;
   signal?: AbortSignal;
 }): Promise<{ brief: string; sources: DatabaseKnowledgeSource[] } | null> {
   const issueSummary = lintIssues.map((issue) => `${issue.rule}: ${issue.message}`).join('; ');
@@ -173,7 +169,7 @@ export async function buildOptimizeKnowledgeBrief({
     .filter(Boolean)
     .join(' ');
 
-  const knowledge = await fetchDatabaseKnowledgeContext(question, ollamaBaseUrl, signal, dialect);
+  const knowledge = await fetchDatabaseKnowledgeContext(question, signal, dialect);
   if (!knowledge?.context) return null;
 
   const header = OPTIMIZE_KNOWLEDGE_HEADER[locale] ?? OPTIMIZE_KNOWLEDGE_HEADER.en;
@@ -206,7 +202,6 @@ export class DatabaseAssistantService {
 
     const knowledge = await fetchDatabaseKnowledgeContext(
       trimmedQuestion,
-      this.config.baseUrls?.ollama ?? '',
       signal
     );
     const hasKnowledge = Boolean(knowledge?.context);

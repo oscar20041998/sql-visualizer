@@ -400,6 +400,14 @@ const editorOptions: MonacoEditorNS.IStandaloneEditorConstructionOptions = {
   padding: { top: 16, bottom: 16 },
   smoothScrolling: true,
   cursorBlinking: 'blink',
+  // Keep the scrollbar always visible (not hover-to-reveal) with a consistent, page-like size.
+  scrollbar: {
+    vertical: 'visible',
+    horizontal: 'visible',
+    verticalScrollbarSize: 12,
+    horizontalScrollbarSize: 12,
+    useShadows: false,
+  },
 };
 
 const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
@@ -411,6 +419,13 @@ const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
   padding: { top: 16, bottom: 16 },
   smoothScrolling: true,
   renderSideBySide: true,
+  scrollbar: {
+    vertical: 'visible',
+    horizontal: 'visible',
+    verticalScrollbarSize: 12,
+    horizontalScrollbarSize: 12,
+    useShadows: false,
+  },
 };
 
 export const SmartSQLEditor: React.FC<{
@@ -682,14 +697,26 @@ export const SmartSQLEditor: React.FC<{
     }, []);
 
     const handleResetToOriginal = useCallback(() => {
+      optimizeAbortRef.current?.abort();
       setState((prev) => ({
         ...prev,
         currentSql: prev.originalSql,
         isDiffMode: false,
         hasChanges: false,
+        isOptimizing: false,
       }));
+      // Clear the optimization results panel along with the SQL.
+      resetSpeechCache();
+      setOptimizePhase('idle');
+      setOptimizeStreamRaw('');
+      setOptimizeResult(null);
+      setOptimizeError(null);
+      setAppliedProposalIds([]);
+      setKnowledgeSources([]);
+      setStructuralWarnings([]);
+      onOptimizationResult?.(null);
       toast.info(t.smartEditorResetTitle);
-    }, [t]);
+    }, [t, resetSpeechCache, onOptimizationResult]);
 
     const handleCopyToClipboard = useCallback(async () => {
       try {
@@ -766,9 +793,9 @@ export const SmartSQLEditor: React.FC<{
         brief = brief ? `${brief}\n\n${lintBrief}` : lintBrief;
       }
 
-      // Best-effort: ground the rewrite in the official manual for the active dialect. Requires a
-      // local Ollama embedding model (independent of the chat provider); any failure — no Ollama, no
-      // index built, no relevant match — just means this section is silently omitted.
+      // Best-effort: ground the rewrite in the official manual for the active dialect. The server
+      // embeds the query server-side and searches the manual index; any failure — no index built,
+      // no relevant match — just means this section is silently omitted.
       setKnowledgeSources([]);
       try {
         const knowledge = await buildOptimizeKnowledgeBrief({
@@ -776,7 +803,6 @@ export const SmartSQLEditor: React.FC<{
           dialect,
           lintIssues,
           locale: settings.locale,
-          ollamaBaseUrl: settings.aiConfig.baseUrls?.ollama ?? '',
           signal: controller.signal,
         });
         if (knowledge) {
@@ -1197,8 +1223,9 @@ export const SmartSQLEditor: React.FC<{
           <LintingAlerts sql={state.currentSql} collapsible />
         </div>
 
-        {/* Editor Container */}
-        <div className="relative flex-1 min-h-0 w-full">
+        {/* Editor Container: min-h floor guarantees it stays visible even when the optimize
+         * results panel above grows tall enough to otherwise squeeze a flex-1 sibling to 0. */}
+        <div className="relative flex-1 min-h-[420px] w-full">
           {state.isDiffMode ? (
             <DiffEditor
               original={state.originalSql}
@@ -1207,7 +1234,7 @@ export const SmartSQLEditor: React.FC<{
               theme={monacoTheme}
               options={{ ...diffEditorOptions, readOnly: state.isOptimizing }}
               className="min-h-0 w-full"
-              height="100vh"
+              height="100%"
             />
           ) : (
             <Editor
@@ -1224,7 +1251,7 @@ export const SmartSQLEditor: React.FC<{
                 }));
               }}
               className="min-h-0 w-full"
-              height="100vh"
+              height="100%"
             />
           )}
 
