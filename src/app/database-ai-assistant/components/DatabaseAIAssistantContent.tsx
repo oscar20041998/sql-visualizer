@@ -60,7 +60,7 @@ function MarkdownText({ content }: { content: string }) {
   return (
     <div className="space-y-2 text-sm leading-relaxed text-foreground">
       {content.split('\n').map((line, index) => {
-        const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+        const heading = /^(#{1,6})\s+(.+)$/.exec(line);
         if (heading) {
           const headingClass = heading[1].length === 1 ? 'text-base' : heading[1].length === 2 ? 'text-sm' : 'text-xs';
           return <p key={index} className={`${headingClass} font-semibold text-primary`}>{renderInlineMarkdown(heading[2], `heading-${index}`)}</p>;
