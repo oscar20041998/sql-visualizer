@@ -303,9 +303,8 @@ export const SmartSQLEditor: React.FC<{
   );
   const [semanticBrief, setSemanticBrief] = useState<SqlSemanticBrief | null>(null);
   const [semanticError, setSemanticError] = useState<string | null>(null);
-  // Expanded by default (the user must review this before confirming); toggle to collapse it
-  // afterwards to save screen space.
-  const [isSemanticDetailExpanded, setIsSemanticDetailExpanded] = useState(true);
+  // Collapsed by default; the user clicks to open it before deciding to confirm.
+  const [isSemanticDetailExpanded, setIsSemanticDetailExpanded] = useState(false);
   /** Carries the sql/context computed in step 1 over to the confirmed optimize call in step 2. */
   const pendingOptimizeRef = useRef<{ sql: string; brief: string; originalAnalysis: AnalysisResult | null } | null>(
     null
@@ -579,7 +578,7 @@ export const SmartSQLEditor: React.FC<{
     setSemanticError(null);
     setSemanticBrief(null);
     setSemanticPhase('running');
-    setIsSemanticDetailExpanded(true);
+    setIsSemanticDetailExpanded(false);
     pendingOptimizeRef.current = null;
 
     let brief = '';
@@ -752,9 +751,8 @@ export const SmartSQLEditor: React.FC<{
 
       setState((prev) => ({ ...prev, isOptimizing: false }));
       setOptimizeResult(finalResult);
-      // Expanded by default so a fresh result is immediately visible in full — the collapse
-      // toggle is for the user to tidy up afterwards, not to hide brand-new suggestions.
-      setExpandedProposalIds(new Set(finalResult.proposals.map((proposal) => proposal.id)));
+      // Collapsed by default; the user clicks each proposal to open it.
+      setExpandedProposalIds(new Set());
       setOptimizePhase('done');
       onOptimizationResult?.(finalResult);
     } catch (error) {
