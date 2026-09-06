@@ -163,6 +163,39 @@ export const SQL_REGEX_PATTERNS = {
   // FROM clause extraction
   FROM_CLAUSE: new RegExp(`FROM\\s+(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?`, 'i'),
 
+  // A single already-comma-split FROM-list item (old-style implicit join, e.g. `FROM a, b, c`):
+  // qualified name in any of the 4 dialects' quoting styles — including multi-segment
+  // schema-qualified names — plus an optional alias, anchored so it consumes the whole trimmed
+  // item. Replaces a much weaker ad-hoc `[\w.]+` pattern that silently truncated bracket/quote
+  // -wrapped multi-segment names (e.g. `[db].[dbo].[Table]` matched only "db") and dropped the
+  // real table from the graph entirely.
+  FROM_LIST_ITEM: new RegExp(`^(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s*$`, 'i'),
+
+  // Detects a derived-table (subquery-as-table) FROM/JOIN item: optional LATERAL keyword then '('.
+  DERIVED_TABLE_START: /^(?:LATERAL\s+)?\(/i,
+
+  // Optional alias immediately following a derived table's closing paren, e.g. `) AS t` / `) t`.
+  DERIVED_TABLE_ALIAS: new RegExp(
+    `^\\s+(?:AS\\s+)?(?!(?:ON|USING|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT_JOIN|LATERAL|SET|VALUES)\\b)(${IDENT_SEGMENT})`,
+    'i'
+  ),
+
+  // JOIN-family or CROSS/OUTER APPLY keyword immediately followed by a derived-table subquery —
+  // e.g. `JOIN (SELECT ...) x ON ...` or `CROSS APPLY (SELECT ...) x` (very common: correlated
+  // derived tables, SQL Server APPLY, Postgres/MySQL8+/Oracle12c+ LATERAL). STANDARD_JOIN/
+  // APPLY_JOIN can't match these since their QUALIFIED_NAME grammar requires an identifier
+  // right after the keyword, never '(' — previously these edges (and the alias "table") were
+  // silently dropped from the graph entirely.
+  DERIVED_JOIN_KEYWORD: new RegExp(
+    `\\b(LEFT\\s+(?:OUTER\\s+)?JOIN|RIGHT\\s+(?:OUTER\\s+)?JOIN|FULL\\s+(?:OUTER\\s+)?JOIN|INNER\\s+JOIN|CROSS\\s+JOIN|NATURAL\\s+JOIN|STRAIGHT_JOIN|JOIN|CROSS\\s+APPLY|OUTER\\s+APPLY)\\s+(?:LATERAL\\s+)?\\(`,
+    'gi'
+  ),
+
+  // ON-condition + terminator for a derived-table JOIN, mirroring STANDARD_JOIN's own terminator
+  // keyword list so both stop at the same set of clause boundaries.
+  DERIVED_JOIN_CONDITION:
+    /^\s*ON\s+([\s\S]+?)(?=\s*(?:(?:LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|STRAIGHT|LATERAL|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|UNION)\b|;|$))/i,
+
   // SQL comments
   LINE_COMMENT: /--[^\n]*/g,
   BLOCK_COMMENT: /\/\*[\s\S]*?\*\//g,

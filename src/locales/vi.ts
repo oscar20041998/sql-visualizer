@@ -1025,6 +1025,8 @@ const vi = {
   smartEditorOptimizeProposalAppliedLabel: 'Đã áp dụng',
   smartEditorOptimizeProposalApplied: 'Đã áp dụng tối ưu hóa được phê duyệt',
   smartEditorOptimizeProposalNoLongerMatches: 'Đề xuất này không còn khớp với SQL hiện tại.',
+  smartEditorOptimizeProposalsDropped:
+    'Đã bỏ qua {count} đề xuất vì không xác định được vị trí chính xác trong truy vấn.',
   smartEditorOptimizeProposalBlocked: 'Đã chặn: thay đổi này có thể làm thay đổi quan hệ hoặc ngữ nghĩa truy vấn.',
   smartEditorOptimizeRegressionTitle:
     '⚠ Có khả năng đã mất logic truy vấn — hãy xem kỹ trước khi giữ bản viết lại này',
@@ -1039,10 +1041,23 @@ const vi = {
     'Trả về ít cột hơn ({optimized} so với {original} ban đầu)',
   smartEditorOptimizeRegressionDistinct: 'DISTINCT đã bị loại bỏ',
   smartEditorOptimizeRegressionGroupBy: 'GROUP BY đã bị loại bỏ',
+  smartEditorOptimizeRegressionJoinType: 'Một quan hệ JOIN đã đổi loại (ví dụ INNER ↔ LEFT), có thể làm thay đổi kết quả trả về',
+  smartEditorOptimizeRegressionColumnIdentity: 'Đã loại bỏ hoặc đổi tên cột đầu ra: {column}',
+  smartEditorOptimizeNoProposals: 'Mô hình không tìm thấy thay đổi nào để đề xuất cho truy vấn này.',
   smartEditorOptimizeWaitingLabel: 'Đang trong quá trình tối ưu hóa…',
   smartEditorSpeechPlay: 'Đọc kết quả tối ưu hóa',
   smartEditorSpeechStop: 'Dừng đọc',
   smartEditorSpeechError: 'Trình duyệt này không hỗ trợ chuyển văn bản thành giọng nói',
+
+  // Optimize SQL - Bước 1: hiểu ngữ nghĩa, xác nhận trước khi đề xuất viết lại
+  smartEditorSemanticAnalyzing: 'AI đang đọc hiểu ý nghĩa truy vấn…',
+  smartEditorSemanticReviewTitle: 'Xác nhận ý nghĩa truy vấn trước khi tối ưu hóa',
+  smartEditorSemanticRelationshipsLabel: 'Quan hệ cần giữ nguyên',
+  smartEditorSemanticFiltersLabel: 'Điều kiện lọc quan trọng',
+  smartEditorSemanticRisksLabel: 'Rủi ro nếu viết lại bất cẩn',
+  smartEditorSemanticConfirmButton: 'Xác nhận & tối ưu hóa',
+  smartEditorSemanticCancelButton: 'Hủy',
+  smartEditorSemanticConfirmedLabel: 'Đã xác nhận — các đề xuất bên dưới không được vi phạm điều này.',
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Lịch sử truy vấn',

@@ -1027,6 +1027,8 @@ const en = {
   smartEditorOptimizeProposalAppliedLabel: 'Applied',
   smartEditorOptimizeProposalApplied: 'Approved optimization applied',
   smartEditorOptimizeProposalNoLongerMatches: 'This suggestion no longer matches the current SQL.',
+  smartEditorOptimizeProposalsDropped:
+    '{count} suggestion(s) could not be matched to the query exactly and were removed.',
   smartEditorOptimizeProposalBlocked: 'Blocked: this change could alter query relationships or semantics.',
   smartEditorOptimizeRegressionTitle:
     '⚠ Possible logic loss detected — review carefully before keeping this rewrite',
@@ -1041,9 +1043,22 @@ const en = {
     'Returns fewer output columns ({optimized} vs {original} originally)',
   smartEditorOptimizeRegressionDistinct: 'DISTINCT was removed',
   smartEditorOptimizeRegressionGroupBy: 'GROUP BY was removed',
+  smartEditorOptimizeRegressionJoinType: 'A join relationship changed type (e.g. INNER ↔ LEFT), which can change row results',
+  smartEditorOptimizeRegressionColumnIdentity: 'Removed or renamed an output column: {column}',
+  smartEditorOptimizeNoProposals: 'The model found no changes to propose for this query.',
   smartEditorSpeechPlay: 'Read optimization aloud',
   smartEditorSpeechStop: 'Stop speech',
   smartEditorSpeechError: 'Text to speech is not available in this browser',
+
+  // Optimize SQL - Step 1: semantic understanding, reviewed before any rewrite is proposed
+  smartEditorSemanticAnalyzing: 'AI is reading the query’s meaning…',
+  smartEditorSemanticReviewTitle: 'Confirm the query’s meaning before optimizing',
+  smartEditorSemanticRelationshipsLabel: 'Relationships that must be preserved',
+  smartEditorSemanticFiltersLabel: 'Critical filters',
+  smartEditorSemanticRisksLabel: 'Risks of a careless rewrite',
+  smartEditorSemanticConfirmButton: 'Confirm & optimize',
+  smartEditorSemanticCancelButton: 'Cancel',
+  smartEditorSemanticConfirmedLabel: 'Confirmed — proposals below must not violate this.',
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Query History',

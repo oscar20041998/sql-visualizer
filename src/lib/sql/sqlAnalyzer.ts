@@ -508,8 +508,31 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   ];
 
   let idx = 0;
-  const fromMatch = SQL_REGEX_PATTERNS.FROM_CLAUSE.exec(sql);
-  const fromTable = fromMatch ? fromMatch[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '') : '';
+  let derivedTableCounter = 0;
+  // Resolve the outer query's own FROM subject at depth 0 specifically. `FROM_CLAUSE.exec(sql)`
+  // alone finds the FIRST "FROM" ANYWHERE in the string — for `FROM (SELECT ... FROM x ...) t`
+  // the outer "FROM (" can't match a table name, so it silently falls through to the *inner*
+  // subquery's "FROM x" instead, making every following JOIN attribute its source to that
+  // unrelated inner table (and dropping the derived table's own alias `t` entirely).
+  const topFromIdx = findTopLevelFromIndex(sql);
+  let fromTable = '';
+  if (topFromIdx >= 0) {
+    const afterKeyword = topFromIdx + 4;
+    const leadingWs = /^\s*/.exec(sql.slice(afterKeyword))![0];
+    const lateralMatch = /^LATERAL\s+/i.exec(sql.slice(afterKeyword + leadingWs.length));
+    const contentIdx = afterKeyword + leadingWs.length + (lateralMatch ? lateralMatch[0].length : 0);
+    if (sql[contentIdx] === '(') {
+      const closeIdx = findMatchingParenIndex(sql, contentIdx);
+      const { alias } = closeIdx >= 0 ? parseAliasAfterParen(sql, closeIdx + 1) : { alias: undefined };
+      const node = ensureDerivedTableNode(tables, alias, `derived_${derivedTableCounter++}`);
+      fromTable = node.name;
+    } else {
+      const fromClauseMatch = SQL_REGEX_PATTERNS.FROM_CLAUSE.exec(sql.slice(topFromIdx));
+      if (fromClauseMatch) {
+        fromTable = fromClauseMatch[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
+      }
+    }
+  }
   let previousTable = fromTable;
 
   // Track all matched joins to avoid duplicates
@@ -612,6 +635,70 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
       }
       previousTable = targetNode.name;
     }
+  }
+
+  // JOIN/APPLY targeting a derived table (subquery) — e.g. `JOIN (SELECT ...) x ON ...` or
+  // `CROSS APPLY (SELECT ...) x` — can't be matched by the patterns above since their
+  // QUALIFIED_NAME grammar requires an identifier right after the keyword, never '('. Scanned
+  // separately with paren-depth-aware matching instead of a fixed-nesting regex.
+  const derivedJoinPattern = SQL_REGEX_PATTERNS.DERIVED_JOIN_KEYWORD;
+  derivedJoinPattern.lastIndex = 0;
+  let derivedMatch;
+  while ((derivedMatch = derivedJoinPattern.exec(sql)) !== null) {
+    const rawJoinType = derivedMatch[1].replace(/\s+/g, ' ').toUpperCase().trim();
+    const joinType = normalizeJoinType(rawJoinType);
+    const openParenIdx = derivedMatch.index + derivedMatch[0].length - 1;
+    const closeParenIdx = findMatchingParenIndex(sql, openParenIdx);
+    if (closeParenIdx < 0) continue;
+
+    const { alias, endIdx } = parseAliasAfterParen(sql, closeParenIdx + 1);
+    const targetNode = ensureDerivedTableNode(tables, alias, `derived_${derivedTableCounter++}`);
+
+    let condition = '';
+    const isApply = rawJoinType.includes('APPLY');
+    if (!isApply) {
+      const onMatch = SQL_REGEX_PATTERNS.DERIVED_JOIN_CONDITION.exec(sql.slice(endIdx));
+      condition = onMatch?.[1]?.trim() || '';
+    }
+
+    // Resolve the join's source: prefer the ON condition's other side, falling back to whichever
+    // known table/alias was most recently referenced in the text before this JOIN/APPLY.
+    let sourceNode: TableNode | null = null;
+    if (condition) {
+      const condParts = condition.match(SQL_REGEX_PATTERNS.JOIN_CONDITION);
+      if (condParts) {
+        const t1 = condParts[1];
+        const t2 = condParts[4];
+        const targetRefs = [alias, targetNode.name].filter(Boolean).map((s) => s!.toLowerCase());
+        const other = targetRefs.includes(t1.toLowerCase())
+          ? t2
+          : targetRefs.includes(t2.toLowerCase())
+            ? t1
+            : null;
+        if (other) {
+          sourceNode =
+            tables.find(
+              (t) =>
+                t.alias?.toLowerCase() === other.toLowerCase() ||
+                t.name.toLowerCase() === other.toLowerCase()
+            ) || null;
+        }
+      }
+    }
+    if (!sourceNode) {
+      sourceNode = findNearestPrecedingTable(sql, derivedMatch.index, tables, targetNode.id);
+    }
+
+    if (sourceNode && sourceNode.id !== targetNode.id) {
+      joins.push({
+        id: `join-${idx++}`,
+        source: sourceNode.id,
+        target: targetNode.id,
+        joinType,
+        condition,
+      });
+    }
+    previousTable = targetNode.name;
   }
 
   return joins;
@@ -1079,6 +1166,154 @@ function extractNestedSubqueries(
   return results;
 }
 
+/**
+ * Finds the index of the '(' at `openIdx`'s matching ')', skipping over nested parens and string
+ * literals. Returns -1 if unbalanced. Shared by every derived-table (subquery-as-table) scanner
+ * since a fixed-nesting regex can't reliably match arbitrarily nested parens.
+ */
+function findMatchingParenIndex(text: string, openIdx: number): number {
+  let depth = 0;
+  let i = openIdx;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < text.length) {
+        if (text[i] === quote && text[i + 1] === quote) {
+          i += 2;
+          continue;
+        }
+        if (text[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '(') {
+      depth++;
+      i++;
+      continue;
+    }
+    if (ch === ')') {
+      depth--;
+      if (depth === 0) return i;
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/** Parses an optional `[AS] alias` right after a derived table's closing paren. */
+function parseAliasAfterParen(text: string, afterCloseIdx: number): { alias?: string; endIdx: number } {
+  const match = SQL_REGEX_PATTERNS.DERIVED_TABLE_ALIAS.exec(text.slice(afterCloseIdx));
+  if (!match) return { endIdx: afterCloseIdx };
+  const alias = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
+  return { alias, endIdx: afterCloseIdx + match[0].length };
+}
+
+/**
+ * Finds the first "FROM" keyword at paren depth 0 (i.e. the outer query's own FROM clause, not
+ * one belonging to a nested subquery/CTE body) so callers never mistake an inner query's FROM
+ * subject for the outer query's.
+ */
+function findTopLevelFromIndex(sql: string): number {
+  const upper = sql.toUpperCase();
+  let depth = 0;
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === quote && sql[i + 1] === quote) {
+          i += 2;
+          continue;
+        }
+        if (sql[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '(') {
+      depth++;
+      i++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      i++;
+      continue;
+    }
+    if (depth === 0 && upper.startsWith('FROM', i) && isWordBoundary(upper, i, 4)) {
+      return i;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/** Finds-or-creates a graph node for a derived-table (subquery-as-table) alias, flagged `isSubquery`. */
+function ensureDerivedTableNode(
+  tables: TableNode[],
+  alias: string | undefined,
+  fallbackName: string
+): TableNode {
+  const name = alias || fallbackName;
+  const key = name.toLowerCase();
+  const existing = tables.find((t) => t.name.toLowerCase() === key || t.alias?.toLowerCase() === key);
+  if (existing) {
+    existing.isSubquery = true;
+    return existing;
+  }
+  const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: true };
+  tables.push(node);
+  return node;
+}
+
+/**
+ * Fallback source-table resolver for a derived-table JOIN/APPLY when its ON condition can't be
+ * parsed (or there's no ON at all, e.g. APPLY): picks whichever known table/alias was most
+ * recently mentioned in the text before `beforeIndex`.
+ */
+function findNearestPrecedingTable(
+  sql: string,
+  beforeIndex: number,
+  tables: TableNode[],
+  excludeId?: string
+): TableNode | null {
+  const textBefore = sql.slice(0, beforeIndex);
+  let best: TableNode | null = null;
+  let bestPos = -1;
+  for (const table of tables) {
+    if (table.id === excludeId) continue;
+    const refs = [table.alias, table.name].filter(Boolean) as string[];
+    for (const ref of refs) {
+      const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`\\b${escaped}\\b`, 'gi');
+      let m: RegExpExecArray | null;
+      let lastIdx = -1;
+      while ((m = re.exec(textBefore)) !== null) {
+        lastIdx = m.index;
+        if (m[0].length === 0) re.lastIndex++;
+      }
+      if (lastIdx > bestPos) {
+        bestPos = lastIdx;
+        best = table;
+      }
+    }
+  }
+  return best;
+}
+
 function isWordBoundary(text: string, start: number, len: number): boolean {
   const before = start <= 0 ? ' ' : text[start - 1];
   const after = start + len >= text.length ? ' ' : text[start + len];
@@ -1408,6 +1643,41 @@ function countImplicitJoins(sql: string): number {
 }
 
 /**
+ * Parses one already-comma-split FROM-list item into its table/derived-table reference. Handles
+ * quoted/bracketed multi-segment qualified names (e.g. `[db].[dbo].[Table]`, `"schema"."table"`)
+ * via the same QUALIFIED_NAME grammar as the main TABLE_PATTERN, and derived-table subqueries
+ * (`(SELECT ...) alias` / `LATERAL (SELECT ...) alias`) via paren-depth-aware scanning — the
+ * previous simplified `[\w.]+` regex silently truncated multi-segment quoted names to their
+ * first segment (dropping the real table name entirely) and mis-parsed `LATERAL (...)` as a
+ * bogus table literally named "LATERAL".
+ */
+function parseFromListItem(
+  part: string,
+  nextDerivedIndex: () => number
+): { name: string; alias?: string; isDerived: boolean } {
+  const trimmed = part.trim();
+  const derivedStartMatch = SQL_REGEX_PATTERNS.DERIVED_TABLE_START.exec(trimmed);
+  if (derivedStartMatch) {
+    const openParenIdx = derivedStartMatch[0].length - 1;
+    const closeParenIdx = findMatchingParenIndex(trimmed, openParenIdx);
+    const { alias } =
+      closeParenIdx >= 0 ? parseAliasAfterParen(trimmed, closeParenIdx + 1) : { alias: undefined };
+    return { name: alias || `derived_${nextDerivedIndex()}`, alias, isDerived: true };
+  }
+
+  const match = SQL_REGEX_PATTERNS.FROM_LIST_ITEM.exec(trimmed);
+  if (match) {
+    return {
+      name: match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, ''),
+      alias: match[2]?.replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, ''),
+      isDerived: false,
+    };
+  }
+
+  return { name: trimmed, isDerived: false };
+}
+
+/**
  * Turns comma-separated FROM tables (e.g. `FROM a, b, c`) into graph edges. Always produces
  * exactly N-1 edges per clause (a spanning tree) so the count still matches countImplicitJoins()
  * and keeps totalJoinCount/the Relationship Graph in sync with metrics.joinCount for this join
@@ -1421,14 +1691,18 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
   let idx = 0;
 
   findImplicitJoinClauses(sql).forEach(({ parts, whereText }) => {
-    const partRefs = parts.map((part) => {
-      const parsed = /^[`"[]?([\w.]+)[`"\]]?(?:\s+(?:AS\s+)?(\w+))?/i.exec(part);
-      return { name: parsed?.[1] ?? '', alias: parsed?.[2] };
-    });
+    let derivedCounter = 0;
+    const partRefs = parts.map((part) => parseFromListItem(part, () => derivedCounter++));
 
     // extractTables() only captures the table right after FROM/JOIN — comma-separated
-    // siblings here have no such keyword, so they must be created on demand.
-    const ensureImplicitTable = (name: string, alias?: string): TableNode | null => {
+    // siblings here have no such keyword, so they must be created on demand. Derived-table
+    // (subquery) items are flagged `isDerived` so they render as subquery nodes instead of
+    // being mis-parsed as a plain table name.
+    const ensureImplicitTable = (
+      name: string,
+      alias?: string,
+      isDerived?: boolean
+    ): TableNode | null => {
       if (!name) return null;
       const normalizedName = name.toLowerCase();
       const normalizedAlias = alias?.toLowerCase();
@@ -1437,14 +1711,17 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
           t.name.toLowerCase() === normalizedName ||
           Boolean(normalizedAlias && t.alias?.toLowerCase() === normalizedAlias)
       );
-      if (existing) return existing;
+      if (existing) {
+        if (isDerived) existing.isSubquery = true;
+        return existing;
+      }
 
-      const node: TableNode = { id: toNodeId(name), name, alias, columns: [] };
+      const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: isDerived };
       tables.push(node);
       return node;
     };
 
-    const nodes = partRefs.map((ref) => ensureImplicitTable(ref.name, ref.alias));
+    const nodes = partRefs.map((ref) => ensureImplicitTable(ref.name, ref.alias, ref.isDerived));
 
     // Simple union-find so the spanning tree never adds a redundant (cycle-forming) edge.
     const parent = nodes.map((_, i) => i);
