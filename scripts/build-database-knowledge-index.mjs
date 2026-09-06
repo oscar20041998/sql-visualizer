@@ -72,7 +72,7 @@ async function main() {
 
   const pingResponse = await fetch(`${OLLAMA_BASE_URL}/api/tags`).catch(() => null);
   if (!pingResponse?.ok) {
-    console.error(`Cannot reach Ollama at ${OLLAMA_BASE_URL}. Start it ("ollama serve") first.`);
+    console.error(`Cannot reach Ollama at ${OLLAMA_BASE_URL}. Start it ("ollama server") first.`);
     process.exitCode = 1;
     return;
   }

@@ -228,7 +228,7 @@ async function callOllama(baseUrlRaw: string, model: string, call: ProviderCall)
         messages: call.messages,
       }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and reachable from the browser.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and reachable from the browser.`
   );
 
   if (!response.ok) {
@@ -309,7 +309,7 @@ async function callOllamaStream(
         messages: call.messages,
       }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and reachable from the browser.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and reachable from the browser.`
   );
 
   if (!response.ok) {
@@ -545,7 +545,7 @@ export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: s
       signal,
       body: JSON.stringify({ model, prompt: text }),
     },
-    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama serve) and that ${model} is pulled.`
+    `Unable to reach Ollama server at ${url}. Ensure Ollama is running (ollama server) and that ${model} is pulled.`
   );
 
   if (!response.ok) {
@@ -1140,33 +1140,61 @@ function escapeRawControlCharsInStrings(text: string): string {
   return result;
 }
 
+/** Extracts balanced JSON-object candidates without being confused by prose or braces inside
+ * quoted SQL snippets. Local models often wrap an otherwise-valid object in Markdown. */
+function jsonObjectCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < text.length; index += 1) {
+      const character = text[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') inString = true;
+      else if (character === '{') depth += 1;
+      else if (character === '}' && --depth === 0) {
+        candidates.push(text.slice(start, index + 1));
+        break;
+      }
+    }
+  }
+  return candidates;
+}
+
 /** Pulls the JSON object out of an answer that may be fenced or padded with prose. Falls back to
  * a light repair pass (unescaped control chars, trailing commas) before giving up, since those
  * are the most common reasons a model's otherwise-good JSON answer fails to parse. */
 function extractJsonObject(text: string): unknown {
   const withoutFence = text.replace(/```(?:json)?/gi, '').trim();
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-  if (start === -1 || end <= start) return null;
-
-  const candidate = withoutFence.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    // fall through to the repair pass below
+  for (const candidate of jsonObjectCandidates(withoutFence)) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
+        return JSON.parse(repaired);
+      } catch {
+        // Try the next balanced object, if model prose contained one before its actual payload.
+      }
+    }
   }
-  try {
-    const repaired = escapeRawControlCharsInStrings(candidate).replace(/,(\s*[}\]])/g, '$1');
-    return JSON.parse(repaired);
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function asText(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (Array.isArray(value)) return value.map(asText).filter(Boolean).join(' ');
   return '';
+}
+
+function asExactText(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
 
 function asList(value: unknown): string[] {
@@ -1202,9 +1230,211 @@ export interface SqlOptimizationResult {
   optimizedSql: string;
   analysis: string;
   suggestions: string[];
+  /** A narrowly scoped edit which must be explicitly approved in the editor before applying. */
+  proposals: SqlOptimizationProposal[];
+  /** Plain-language statement of whether/how the result set changed, so the user can judge the
+   * rewrite before applying it — not folded into `analysis` so the UI can show it up front. */
+  semanticImpact: string;
   raw: string;
   structured: boolean;
   budget: AIBudgetReport;
+}
+
+export interface SqlOptimizationProposal {
+  id: string;
+  location: string;
+  issue: string;
+  reason: string;
+  recommendation: string;
+  find: string;
+  replace: string;
+  semanticImpact: string;
+}
+
+/** One join/table relationship the model must treat as fixed before proposing any rewrite. */
+export interface SqlSemanticRelationship {
+  tables: string;
+  description: string;
+}
+
+/**
+ * The model's own understanding of a query's business purpose and relationships, gathered
+ * *before* it is asked to optimize anything. Shown to the user for confirmation so an
+ * optimize pass only proceeds once there is an explicit, reviewable statement of what must not
+ * change — rather than the model silently "deciding" the semantics while also rewriting the SQL.
+ */
+export interface SqlSemanticBrief {
+  purpose: string;
+  relationships: SqlSemanticRelationship[];
+  criticalFilters: string[];
+  risks: string[];
+  raw: string;
+  structured: boolean;
+  budget: AIBudgetReport;
+}
+
+const SEMANTIC_BRIEF_PROMPT: Record<Locale, (sql: string) => string> = {
+  en: (sql) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Return only a JSON object with exactly these keys:
+{
+  "purpose": "one or two sentences on the business goal of this query",
+  "relationships": [{"tables": "the two tables/CTEs involved", "description": "what this join/relationship means and why it must be preserved"}],
+  "critical_filters": ["every WHERE/HAVING condition, in plain language, that determines which rows are included or excluded"],
+  "risks": ["specific ways a careless rewrite of this query could silently change its result set or business meaning"]
+}
+
+Rules:
+- List every JOIN and every CTE-to-CTE dependency as a relationship, even ones that look removable.
+- Do not omit a filter just because it looks redundant — state what it does.
+- This is a read-only understanding step; "relationships" and "critical_filters" become the constraints a later optimization step must not violate.`,
+  vi: (sql) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Chỉ trả về một đối tượng JSON với đúng các khóa sau:
+{
+  "purpose": "một đến hai câu về mục tiêu nghiệp vụ của truy vấn này",
+  "relationships": [{"tables": "hai bảng/CTE liên quan", "description": "quan hệ JOIN này có ý nghĩa gì và vì sao phải giữ nguyên"}],
+  "critical_filters": ["mọi điều kiện WHERE/HAVING, bằng ngôn ngữ dễ hiểu, quyết định dòng nào được giữ hoặc loại"],
+  "risks": ["những cách cụ thể mà một bản viết lại bất cẩn có thể âm thầm thay đổi tập kết quả hoặc ý nghĩa nghiệp vụ"]
+}
+
+Quy tắc:
+- Liệt kê mọi JOIN và mọi quan hệ phụ thuộc CTE-CTE như một relationship, kể cả những quan hệ trông như có thể loại bỏ.
+- Không bỏ qua điều kiện lọc nào dù trông thừa — hãy nêu rõ nó làm gì.
+- Đây là bước hiểu chỉ đọc; "relationships" và "critical_filters" sẽ trở thành ràng buộc mà bước tối ưu sau này không được vi phạm.`,
+};
+
+/** Builds the prompt + budget report for the semantic-brief pre-analysis call. */
+function prepareSemanticBriefPrompt(
+  sql: string,
+  config: AIModelConfig,
+  locale: Locale,
+  contextBrief: string
+): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
+  if (!sql.trim()) throw new AIServiceError('There is no SQL query to analyze.');
+
+  const budget = resolveBudget(config);
+  const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
+  const available = Math.max(128, budget.promptTokens - systemTokens);
+
+  const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
+  const briefTokens = estimateTokens(brief);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
+
+  const buildPrompt = SEMANTIC_BRIEF_PROMPT[locale] ?? SEMANTIC_BRIEF_PROMPT.en;
+  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+
+  const report: AIBudgetReport = {
+    contextTokens: budget.contextTokens,
+    promptBudgetTokens: budget.promptTokens,
+    estimatedPromptTokens: systemTokens + estimateTokens(prompt),
+    sqlTruncated: fitted.truncated,
+    omittedSqlLines: fitted.omittedLines,
+    droppedMessages: 0,
+    contextBriefDropped: Boolean(contextBrief) && !brief,
+  };
+
+  return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+}
+
+function parseSemanticBrief(raw: string, report: AIBudgetReport): SqlSemanticBrief {
+  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+
+  const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
+  if (!parsed) {
+    return {
+      purpose: '',
+      relationships: [],
+      criticalFilters: [],
+      risks: [],
+      raw,
+      structured: false,
+      budget: report,
+    };
+  }
+
+  const relationships = Array.isArray(parsed.relationships)
+    ? parsed.relationships.flatMap((entry) => {
+        if (!entry || typeof entry !== 'object') return [];
+        const item = entry as Record<string, unknown>;
+        const description = asText(item.description);
+        if (!description) return [];
+        return [{ tables: asText(item.tables), description }];
+      })
+    : [];
+
+  return {
+    purpose: asText(parsed.purpose),
+    relationships,
+    criticalFilters: asList(parsed.critical_filters),
+    risks: asList(parsed.risks),
+    raw,
+    structured: true,
+    budget: report,
+  };
+}
+
+/**
+ * Read-only pre-analysis step: asks the model to state a query's business purpose, every
+ * join/CTE relationship, every filter, and the specific ways a careless rewrite could break it
+ * — with no SQL change proposed yet. Meant to be shown to the user for confirmation before
+ * {@link optimizeSqlWithAIStream} is ever called, and its `relationships`/`criticalFilters` are
+ * then fed back into the optimize prompt as constraints the model already committed to.
+ */
+export async function analyzeSqlSemantics({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  signal,
+}: ExplainSqlOptions): Promise<SqlSemanticBrief> {
+  const { prompt, report, maxOutputTokens } = prepareSemanticBriefPrompt(sql, config, locale, contextBrief);
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  return parseSemanticBrief(raw, report);
+}
+
+/** Renders a confirmed semantic brief as a prompt section the optimize call must not contradict. */
+/** Keeps the confirmed-brief section from crowding out the SQL itself in small local context windows. */
+const MAX_SEMANTIC_CONSTRAINT_ITEMS = 6;
+const MAX_SEMANTIC_CONSTRAINT_LINE_CHARS = 140;
+
+export function formatSemanticBriefForOptimizePrompt(brief: SqlSemanticBrief, locale: Locale = 'en'): string {
+  if (!brief.structured) return '';
+  const truncate = (text: string) =>
+    text.length > MAX_SEMANTIC_CONSTRAINT_LINE_CHARS ? `${text.slice(0, MAX_SEMANTIC_CONSTRAINT_LINE_CHARS)}…` : text;
+
+  const lines: string[] = [];
+  const header =
+    locale === 'vi'
+      ? 'Ràng buộc đã xác nhận — KHÔNG vi phạm:'
+      : 'Confirmed constraints — do NOT violate:';
+  lines.push(header);
+  for (const rel of brief.relationships.slice(0, MAX_SEMANTIC_CONSTRAINT_ITEMS)) {
+    lines.push(`- ${rel.tables}: ${truncate(rel.description)}`);
+  }
+  for (const filter of brief.criticalFilters.slice(0, MAX_SEMANTIC_CONSTRAINT_ITEMS)) {
+    lines.push(`- ${truncate(filter)}`);
+  }
+  return lines.join('\n');
 }
 
 const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
@@ -1214,7 +1444,8 @@ Return only a JSON object with exactly these keys, in this order:
 {
   "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
   "suggestions": ["one specific improvement per issue actually fixed"],
-  "optimized_sql": "the full SQL query with only the necessary changes applied"
+  "proposals": [{"id": "unique-short-id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original to replace", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}],
+  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"
 }
 
 SQL:
@@ -1226,17 +1457,21 @@ Rules:
 - If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
 - If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
 - Do not change business logic or result semantics.
+- Never delete, merge, or rewrite a table, JOIN, WHERE/HAVING condition, CASE branch, subquery, or CTE that is not the specific target of a listed issue — this holds even when a bigger rewrite would look "cleaner". A correct fix for one flagged issue is almost always a small, local edit, not a rewrite of large parts of the query.
 - Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
 - Do not change NULL handling or DISTINCT semantics.
 - Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
-- If the query has no fixable issues, return it unchanged and explain why in "analysis".`,
+- Each proposal must contain one exact, unique \`find\` snippet from the original and one narrow \`replace\` snippet. Never propose a full-query replacement.
+- Before returning a proposal, verify it preserves every table, join relationship, filter condition, output column, NULL rule and DISTINCT/GROUP BY behavior. If this cannot be proven from the query, do not propose the change; explain the uncertainty in "analysis".
+- If the query has no fixable issues, return an empty "proposals" array and explain why in "analysis".`,
   vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
 
 Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
   "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
   "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
-  "optimized_sql": "toàn bộ truy vấn SQL với chỉ những thay đổi cần thiết được áp dụng"
+  "proposals": [{"id": "ma-dinh-danh-ngan", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL duy nhất, chính xác trong bản gốc cần thay", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, JOIN và aggregate không thay đổi"}],
+  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"
 }
 
 SQL:
@@ -1248,10 +1483,13 @@ Quy tắc:
 - Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
 - Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
 - Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
+- Tuyệt đối không xóa, gộp hay viết lại bất kỳ bảng, JOIN, điều kiện WHERE/HAVING, nhánh CASE, subquery hay CTE nào không phải là mục tiêu cụ thể của một vấn đề đã liệt kê — kể cả khi một bản viết lại lớn hơn trông "gọn gàng" hơn. Cách sửa đúng cho một vấn đề được gắn cờ gần như luôn là một chỉnh sửa nhỏ, cục bộ, không phải viết lại phần lớn truy vấn.
 - Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
 - Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
 - Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
-- Nếu truy vấn không có vấn đề nào cần sửa, trả lại chính nó và giải thích lý do trong "analysis".`,
+- Mỗi proposal phải có đúng một đoạn \`find\` duy nhất, chính xác từ SQL gốc và một đoạn \`replace\` cục bộ. Tuyệt đối không đề xuất thay toàn bộ truy vấn.
+- Trước khi trả proposal, hãy xác minh nó giữ nguyên mọi bảng, quan hệ JOIN, điều kiện lọc, cột đầu ra, quy tắc NULL và DISTINCT/GROUP BY. Nếu không thể chứng minh từ truy vấn, không đề xuất thay đổi đó; hãy nêu sự không chắc chắn trong "analysis".
+- Nếu truy vấn không có vấn đề nào cần sửa, trả về mảng "proposals" rỗng và giải thích lý do trong "analysis".`,
 };
 
 /** Resolves the effective context budget for the active provider from the saved settings. */
@@ -1418,19 +1656,72 @@ function prepareOptimizePrompt(
 }
 
 /** Turns the model's raw answer into a {@link SqlOptimizationResult}, shared by both optimize calls. */
+/**
+ * Schema-description phrases from OPTIMIZE_SQL_STRUCTURED_PROMPT (both locales). A weak/small
+ * local model sometimes fills a JSON field with the field's own instructional description
+ * instead of real content — this is indistinguishable from real text by shape alone, so it must
+ * be matched literally and treated as "no answer" rather than shown to the user as if genuine.
+ */
+const OPTIMIZE_PLACEHOLDER_ECHOES = new Set(
+  [
+    'a short summary of what you changed and why, naming the specific issue(s) fixed',
+    'one specific improvement per issue actually fixed',
+    'clause and affected expression',
+    'specific anti-pattern',
+    'why it is costly or risky',
+    'what this targeted change does',
+    'why rows, columns, joins and aggregates stay unchanged',
+    'plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships',
+    'tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa',
+    'mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa',
+    'mệnh đề và biểu thức bị ảnh hưởng',
+    'anti-pattern cụ thể',
+    'vì sao gây tốn chi phí hoặc rủi ro',
+    'thay đổi cục bộ này thực hiện gì',
+    'vì sao số dòng, cột, join và aggregate không thay đổi',
+    'giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ',
+  ].map((phrase) => phrase.toLowerCase())
+);
+
+function dropPlaceholderEcho(text: string): string {
+  return OPTIMIZE_PLACEHOLDER_ECHOES.has(text.trim().toLowerCase()) ? '' : text;
+}
+
 function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport): SqlOptimizationResult {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
   const optimizedSql = asText(parsed?.optimized_sql);
-  const analysis = asText(parsed?.analysis);
-  const suggestions = asList(parsed?.suggestions);
+  const analysis = dropPlaceholderEcho(asText(parsed?.analysis));
+  const suggestions = asList(parsed?.suggestions).filter((item) => !OPTIMIZE_PLACEHOLDER_ECHOES.has(item.trim().toLowerCase()));
+  const semanticImpact = dropPlaceholderEcho(asText(parsed?.semantic_impact));
+  const proposals = Array.isArray(parsed?.proposals)
+    ? parsed.proposals.flatMap((proposal, index) => {
+        if (!proposal || typeof proposal !== 'object') return [];
+        const entry = proposal as Record<string, unknown>;
+        const find = asExactText(entry.find);
+        const replace = asExactText(entry.replace);
+        if (!find || !replace || find === replace) return [];
+        return [{
+          id: asText(entry.id) || `proposal-${index + 1}`,
+          location: dropPlaceholderEcho(asText(entry.location)),
+          issue: dropPlaceholderEcho(asText(entry.issue)),
+          reason: dropPlaceholderEcho(asText(entry.reason)),
+          recommendation: dropPlaceholderEcho(asText(entry.recommendation)),
+          find,
+          replace,
+          semanticImpact: dropPlaceholderEcho(asText(entry.semantic_impact)),
+        }];
+      })
+    : [];
 
-  if (!parsed || !optimizedSql) {
+  if (!parsed) {
     return {
       optimizedSql: sql,
       analysis: raw,
       suggestions: [],
+      proposals: [],
+      semanticImpact: '',
       raw,
       structured: false,
       budget: report,
@@ -1441,6 +1732,8 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
     optimizedSql: optimizedSql || sql,
     analysis,
     suggestions,
+    proposals,
+    semanticImpact,
     raw,
     structured: true,
     budget: report,
@@ -1494,6 +1787,156 @@ export async function optimizeSqlWithAIStream(
   ).trim();
 
   return parseSqlOptimization(sql, raw, report);
+}
+
+/** Counts how many times `needle` appears in `haystack` via plain substring split — the same
+ * check the editor runs immediately before applying a proposal, so a proposal is only ever
+ * considered valid when it can be applied unambiguously (exactly one match). */
+export function countExactOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  return haystack.split(needle).length - 1;
+}
+
+/** A proposal is only safely applicable when its `find` text matches the given SQL exactly once. */
+export function isProposalApplicable(sql: string, proposal: Pick<SqlOptimizationProposal, 'find'>): boolean {
+  return countExactOccurrences(sql, proposal.find) === 1;
+}
+
+const REPAIR_PROPOSALS_PROMPT: Record<
+  Locale,
+  (sql: string, invalid: { issue: string; find: string; occurrences: number }[]) => string
+> = {
+  en: (sql, invalid) => `You previously proposed targeted SQL edits for the query below, but some of them cannot be applied because their "find" text does not match the ORIGINAL query exactly once (occurrences=0 means it was not found at all; occurrences>1 means it matched more than once and is ambiguous — a repeated expression like an aggregate reused in HAVING/ORDER BY is a common cause).
+
+Re-emit ONLY the proposals listed below, corrected. Keep each one's original intent (the same issue/fix) — only correct "find"/"replace" so that:
+- "find" is copied character-for-character from the SQL below (same whitespace, casing, line breaks).
+- "find" occurs in the SQL EXACTLY ONCE. If the expression repeats, widen "find" to include enough surrounding text (a neighboring keyword, clause, alias, or operand) to make it unique.
+- If a proposal genuinely cannot be made both valid and unique from this exact SQL, omit it from the output array entirely rather than guessing.
+
+Original SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Proposals to correct:
+${invalid.map((p, i) => `${i + 1}. issue: ${p.issue || '(none)'} | previous find (occurrences=${p.occurrences}): ${JSON.stringify(p.find)}`).join('\n')}
+
+Return only a JSON object with exactly this key:
+{"proposals": [{"id": "short id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}]}`,
+  vi: (sql, invalid) => `Bạn đã đề xuất các thay đổi SQL cục bộ cho truy vấn bên dưới, nhưng một số đề xuất không thể áp dụng vì đoạn "find" không khớp CHÍNH XÁC MỘT LẦN với truy vấn GỐC (occurrences=0 nghĩa là không tìm thấy; occurrences>1 nghĩa là khớp nhiều lần nên không rõ ràng — nguyên nhân thường gặp là một biểu thức lặp lại, ví dụ hàm aggregate được dùng lại ở HAVING/ORDER BY).
+
+Chỉ trả lại các đề xuất được liệt kê bên dưới, đã sửa. Giữ nguyên mục đích ban đầu của từng đề xuất (cùng vấn đề/cách sửa) — chỉ sửa "find"/"replace" sao cho:
+- "find" được copy nguyên văn từng ký tự từ SQL bên dưới (giữ nguyên khoảng trắng, chữ hoa/thường, xuống dòng).
+- "find" xuất hiện trong SQL ĐÚNG MỘT LẦN. Nếu biểu thức bị lặp lại, hãy mở rộng "find" để bao gồm đủ ngữ cảnh xung quanh (từ khóa lân cận, mệnh đề, alias, hoặc toán hạng) để nó trở nên duy nhất.
+- Nếu một đề xuất thực sự không thể vừa hợp lệ vừa duy nhất từ SQL này, hãy bỏ hẳn nó khỏi mảng kết quả thay vì đoán bừa.
+
+SQL gốc:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Các đề xuất cần sửa:
+${invalid.map((p, i) => `${i + 1}. issue: ${p.issue || '(không có)'} | find cũ (occurrences=${p.occurrences}): ${JSON.stringify(p.find)}`).join('\n')}
+
+Chỉ trả về một đối tượng JSON với đúng khóa sau:
+{"proposals": [{"id": "id ngắn", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL chính xác và duy nhất từ bản gốc", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, join và aggregate không thay đổi"}]}`,
+};
+
+export interface RepairProposalsOptions {
+  /** The exact current editor SQL every proposal's `find` must match against. */
+  sql: string;
+  proposals: SqlOptimizationProposal[];
+  config: AIModelConfig;
+  locale?: Locale;
+  signal?: AbortSignal;
+}
+
+export interface RepairProposalsResult {
+  /** Already-valid proposals plus any successfully repaired ones, in no particular order. */
+  proposals: SqlOptimizationProposal[];
+  /** Proposals that were invalid and could not be repaired — dropped rather than shown, since an
+   * unresolvable `find` can never be applied safely. */
+  droppedCount: number;
+}
+
+/**
+ * Validates every proposal's `find` against the exact current SQL (must match exactly once) and,
+ * for any that don't, asks the model to re-derive just those — using the original issue/reason as
+ * context so the fix's intent survives the correction. Proposals still invalid after this single
+ * repair pass (or if the repair call itself fails) are dropped rather than shown, so the UI never
+ * offers an "Apply" button that is guaranteed to fail. Streams the model's raw answer through
+ * `onDelta` as it arrives, same as the main optimize call, so the UI never looks frozen while
+ * this second pass runs.
+ */
+export async function repairInvalidProposals(
+  { sql, proposals, config, locale = 'en', signal }: RepairProposalsOptions,
+  onDelta: (text: string) => void = () => {}
+): Promise<RepairProposalsResult> {
+  const validProposals = proposals.filter((proposal) => isProposalApplicable(sql, proposal));
+  const invalidProposals = proposals.filter((proposal) => !isProposalApplicable(sql, proposal));
+
+  if (invalidProposals.length === 0) {
+    return { proposals: validProposals, droppedCount: 0 };
+  }
+
+  const buildPrompt = REPAIR_PROPOSALS_PROMPT[locale] ?? REPAIR_PROPOSALS_PROMPT.en;
+  const budget = resolveBudget(config);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, Math.floor(budget.promptTokens * 0.6)));
+  const prompt = buildPrompt(
+    fitted.sql,
+    invalidProposals.map((proposal) => ({
+      issue: proposal.issue,
+      find: proposal.find,
+      occurrences: countExactOccurrences(sql, proposal.find),
+    }))
+  );
+
+  try {
+    const raw = (
+      await streamWithAI(
+        config,
+        {
+          prompt,
+          jsonMode: true,
+          maxTokens: budget.maxOutputTokens,
+          signal,
+        },
+        onDelta
+      )
+    ).trim();
+
+    const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
+    const rawRepaired = Array.isArray(parsed?.proposals) ? parsed!.proposals : [];
+    const repaired = rawRepaired.flatMap((proposal, index) => {
+      if (!proposal || typeof proposal !== 'object') return [];
+      const entry = proposal as Record<string, unknown>;
+      const find = asExactText(entry.find);
+      const replace = asExactText(entry.replace);
+      if (!find || !replace || find === replace) return [];
+      if (countExactOccurrences(sql, find) !== 1) return []; // still invalid — drop, don't guess
+      return [
+        {
+          id: asText(entry.id) || `repaired-proposal-${index + 1}`,
+          location: dropPlaceholderEcho(asText(entry.location)),
+          issue: dropPlaceholderEcho(asText(entry.issue)),
+          reason: dropPlaceholderEcho(asText(entry.reason)),
+          recommendation: dropPlaceholderEcho(asText(entry.recommendation)),
+          find,
+          replace,
+          semanticImpact: dropPlaceholderEcho(asText(entry.semantic_impact)),
+        },
+      ];
+    });
+
+    return {
+      proposals: [...validProposals, ...repaired],
+      droppedCount: invalidProposals.length - repaired.length,
+    };
+  } catch {
+    // Repair call itself failed (network/abort/parse) — fall back to dropping the invalid ones
+    // rather than surfacing proposals that are already known not to apply.
+    return { proposals: validProposals, droppedCount: invalidProposals.length };
+  }
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {
@@ -1591,8 +2034,13 @@ export async function askFollowUp({
 }
 
 const DOCS_CONSULTANT_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: "You are the SQL Visualizer documentation consultant. Answer the user's question about the app's own features and best practices using ONLY the documentation context provided below. If the context does not cover the question, say so plainly instead of guessing.",
-  vi: 'Bạn là trợ lý tư vấn tài liệu của SQL Visualizer. Hãy trả lời câu hỏi của người dùng về các tính năng và thực hành tốt nhất của ứng dụng CHỈ dựa trên phần tài liệu tham khảo được cung cấp dưới đây. Nếu tài liệu không đề cập tới câu hỏi, hãy nói rõ điều đó bằng tiếng Việt thay vì suy đoán.',
+  en: "You are the SQL Visualizer documentation assistant. Answer only about the app's existing features using the retrieved documentation below. Treat the retrieved documentation as relevant and synthesize its direct answer. Answer in English, with at most three short sentences. Do not add unrelated features, generic database advice, alternatives, or follow-up questions.",
+  vi: 'Bạn là trợ lý tài liệu của SQL Visualizer. Chỉ trả lời về các tính năng hiện có của ứng dụng dựa vào tài liệu được truy xuất bên dưới. Hãy coi tài liệu được truy xuất là liên quan và diễn giải câu trả lời trực tiếp. Trả lời bằng tiếng Việt, tối đa ba câu ngắn. Không thêm tính năng không liên quan, lời khuyên cơ sở dữ liệu chung, phương án thay thế hoặc câu hỏi tiếp theo.',
+};
+
+const DOCS_CONSULTANT_NO_CONTEXT_PROMPT: Record<Locale, string> = {
+  en: 'The current SQL Visualizer documentation does not cover this.',
+  vi: 'Tài liệu SQL Visualizer hiện tại chưa đề cập nội dung này.',
 };
 
 export interface DocSource {
@@ -1637,6 +2085,24 @@ async function fetchDocsContext(question: string, signal?: AbortSignal): Promise
   return { context: data?.context ?? '', sources: data?.sources ?? [] };
 }
 
+function buildDocsConsultantMessages(
+  question: string,
+  context: string,
+  locale: Locale
+): AIMessage[] {
+  const basePrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
+  const noContextPrompt =
+    DOCS_CONSULTANT_NO_CONTEXT_PROMPT[locale] ?? DOCS_CONSULTANT_NO_CONTEXT_PROMPT.en;
+  return [
+    {
+      role: 'system',
+      content: context ? `${basePrompt}\n\nRetrieved documentation:\n${context}` : noContextPrompt,
+    },
+    // Keep the user message free of retrieved content: Ollama receives exactly the typed question.
+    { role: 'user', content: question },
+  ];
+}
+
 /**
  * RAG loop for the Docs Consultant chat: embed the question, retrieve the closest feature-doc
  * chunks, then hand that context to whichever provider the user has configured — mirrors
@@ -1651,19 +2117,32 @@ export async function askDocsConsultant({
   if (!question.trim()) throw new AIServiceError('There is no question to ask.');
 
   const { context, sources } = await fetchDocsContext(question, signal);
-  const systemPrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
-
-  const messages: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: context ? `Documentation context:\n${context}\n\nQuestion: ${question}` : question,
-    },
-  ];
+  const messages = buildDocsConsultantMessages(question, context, locale);
 
   const budget = resolveBudget(config);
   const answer = (
     await generateWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal })
+  ).trim();
+
+  if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');
+
+  return { answer, sources };
+}
+
+/** Streaming counterpart of {@link askDocsConsultant}: same retrieval + prompt, but calls
+ *  `onDelta` with each text fragment as it streams in instead of waiting for the full answer. */
+export async function streamDocsConsultant(
+  { question, config, locale = 'en', signal }: DocsConsultantOptions,
+  onDelta: (text: string) => void
+): Promise<DocsConsultantAnswer> {
+  if (!question.trim()) throw new AIServiceError('There is no question to ask.');
+
+  const { context, sources } = await fetchDocsContext(question, signal);
+  const messages = buildDocsConsultantMessages(question, context, locale);
+
+  const budget = resolveBudget(config);
+  const answer = (
+    await streamWithAI(config, { messages, maxTokens: budget.maxOutputTokens, signal }, onDelta)
   ).trim();
 
   if (!answer) throw new AIServiceError('The model returned an empty answer. Try asking again.');

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 
@@ -28,11 +28,21 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
     }
   };
 
+  // Pasting jumps the textarea's native scroll to the caret before React
+  // re-renders the gutter with the new line count, so the gutter's own
+  // "scroll" event fires too early and gets clamped to its old (shorter)
+  // scroll range. Re-sync once the gutter has re-rendered with all lines.
+  useEffect(() => {
+    if (textareaRef.current && gutterRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, [value]);
+
   return (
     <div className="relative animate-fade-in">
       <div
         ref={gutterRef}
-        className="absolute inset-y-px left-0 w-14 overflow-hidden border-r border-border bg-card/80 pr-2 pt-3 text-right text-sm font-mono leading-6 text-muted-foreground select-none"
+        className="absolute inset-y-px left-0 z-10 w-14 overflow-hidden rounded-l-lg border-r border-border bg-card pr-2 pt-3 text-right text-sm font-mono leading-6 text-muted-foreground select-none"
       >
         <div className="space-y-0 leading-6">
           {lineNumbers.map((line) => (
@@ -49,7 +59,7 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
         onScroll={handleScroll}
         wrap="off"
         placeholder={placeholder}
-        className="w-full h-[420px] pl-16 pr-4 py-3 bg-card border border-border rounded-lg font-mono text-sm leading-6 text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin code-block overflow-x-auto"
+        className="block w-full h-[420px] pl-16 pr-4 py-3 bg-card border border-border rounded-lg font-mono text-sm leading-6 text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring transition-all scrollbar-thin overflow-x-auto"
         spellCheck={false}
       />
       <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs text-muted-foreground font-mono">

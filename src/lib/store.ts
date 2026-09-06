@@ -70,6 +70,16 @@ export interface ChatTurn {
   sources?: DocSource[];
 }
 
+/** Conversation state for the Database AI Assistant page. Kept separate from GlobalChat's
+ * documentation-focused history so each assistant retains its own context when routes change. */
+export interface DatabaseAssistantChatTurn {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Array<{ sourceFile: string; section?: string; pageAnchor?: string }>;
+  isStreaming?: boolean;
+}
+
 interface AppState {
   settings: AppSettings;
   dialect: SqlDialect;
@@ -95,6 +105,8 @@ interface AppState {
   chatIsOpen: boolean;
   chatHistory: ChatTurn[];
   chatQuestionDraft: string;
+  databaseAssistantHistory: DatabaseAssistantChatTurn[];
+  databaseAssistantQuestionDraft: string;
 
   // Actions
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -114,6 +126,13 @@ interface AppState {
   setChatHistory: (updater: ChatTurn[] | ((prev: ChatTurn[]) => ChatTurn[])) => void;
   setChatQuestionDraft: (value: string) => void;
   resetChat: () => void;
+  setDatabaseAssistantHistory: (
+    updater:
+      | DatabaseAssistantChatTurn[]
+      | ((prev: DatabaseAssistantChatTurn[]) => DatabaseAssistantChatTurn[])
+  ) => void;
+  setDatabaseAssistantQuestionDraft: (value: string) => void;
+  resetDatabaseAssistantChat: () => void;
   resetAll: () => void;
 }
 
@@ -164,6 +183,8 @@ export const useAppStore = create<AppState>()(
       chatIsOpen: false,
       chatHistory: [],
       chatQuestionDraft: '',
+      databaseAssistantHistory: [],
+      databaseAssistantQuestionDraft: '',
 
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       setDialect: (d) => set({ dialect: d }),
@@ -186,6 +207,14 @@ export const useAppStore = create<AppState>()(
         })),
       setChatQuestionDraft: (value) => set({ chatQuestionDraft: value }),
       resetChat: () => set({ chatIsOpen: false, chatHistory: [], chatQuestionDraft: '' }),
+      setDatabaseAssistantHistory: (updater) =>
+        set((state) => ({
+          databaseAssistantHistory:
+            typeof updater === 'function' ? updater(state.databaseAssistantHistory) : updater,
+        })),
+      setDatabaseAssistantQuestionDraft: (value) => set({ databaseAssistantQuestionDraft: value }),
+      resetDatabaseAssistantChat: () =>
+        set({ databaseAssistantHistory: [], databaseAssistantQuestionDraft: '' }),
       resetAll: () =>
         set({
           rawSql: '',

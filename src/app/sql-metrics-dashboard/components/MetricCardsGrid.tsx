@@ -71,7 +71,7 @@ function MetricCard({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-[-120%] w-[220%] opacity-0 transition-transform duration-500 group-hover:translate-x-[120%] group-hover:opacity-100"
+        className="pointer-events-none absolute inset-y-0 left-[-120%] w-[220%] opacity-0 transition-transform duration-1000 group-hover:translate-x-[120%] group-hover:opacity-100"
         style={{
           background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${accentColor} 18%, transparent) 18%, color-mix(in srgb, ${accentColor} 62%, transparent) 50%, color-mix(in srgb, ${accentColor} 18%, transparent) 82%, transparent 100%)`,
         }}
@@ -79,7 +79,7 @@ function MetricCard({
       {interactive && (
         <ChevronRight
           size={13}
-          className="absolute top-3 right-3 text-muted-foreground/50 z-10"
+          className="absolute top-3 right-3 z-10 rotate-90 text-muted-foreground/50 transition-all duration-300 ease-out group-hover:rotate-0 group-hover:translate-x-0.5 group-hover:scale-125 group-hover:text-[var(--card-accent)]"
         />
       )}
       <div className="relative z-10 flex items-center justify-between">

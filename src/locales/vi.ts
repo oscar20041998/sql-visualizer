@@ -44,6 +44,12 @@ const vi = {
   dialectMismatchError:
     'Không khớp dialect: truy vấn có cú pháp giống {detected} ({reason}), nhưng dialect đang chọn là {selected}. Vui lòng chỉnh lại dialect hoặc truy vấn trước khi phân tích.',
   dialectReasonAstParse: 'cú pháp không hợp lệ cho dialect đã chọn',
+  sqlFormatIssueWarning: 'Đây không phải là SQL hợp lệ ({reason}): "{sample}". Vui lòng xóa định dạng/ký tự thừa trước khi phân tích.',
+  sqlFormatWrappedInQuotes: 'toàn bộ câu truy vấn bị bọc trong dấu ngoặc kép/nháy',
+  sqlFormatCurlyDoubleQuote: 'chứa dấu ngoặc kép cong \u201C \u201D thay vì dấu " thẳng',
+  sqlFormatCurlySingleQuote: 'chứa dấu nháy đơn cong \u2018 \u2019 thay vì dấu \' thẳng',
+  sqlFormatNonBreakingSpace: 'chứa khoảng trắng không ngắt dòng (non-breaking space)',
+  sqlFormatZeroWidthChar: 'chứa ký tự vô hình (zero-width character)',
   clearButton: 'Xóa',
   loadSample: 'Tải mẫu',
   resolvedPreviewTitle: 'Xem trước SQL đã giải quyết',
@@ -1010,10 +1016,48 @@ const vi = {
     'Mô hình không trả về kết quả có cấu trúc, nên không có thay đổi nào được áp dụng vào trình soạn thảo. Dưới đây là toàn bộ câu trả lời của mô hình.',
   smartEditorEditorLockedNotice: 'AI đang viết lại truy vấn này — trình soạn thảo tạm khóa cho đến khi hoàn tất.',
   smartEditorOptimizeGroundedIn: 'Đối chiếu với tài liệu chính thức: {sources}',
+  smartEditorOptimizeSemanticImpactLabel: 'Tác động về ngữ nghĩa',
+  smartEditorOptimizeProposalsLabel: 'Xem xét và áp dụng đề xuất',
+  smartEditorOptimizeProposalLocation: 'Vị trí',
+  smartEditorOptimizeProposalReason: 'Lý do cần tối ưu',
+  smartEditorOptimizeProposalRecommendation: 'Thay đổi được đề xuất',
+  smartEditorOptimizeProposalApply: 'Áp dụng',
+  smartEditorOptimizeProposalAppliedLabel: 'Đã áp dụng',
+  smartEditorOptimizeProposalApplied: 'Đã áp dụng tối ưu hóa được phê duyệt',
+  smartEditorOptimizeProposalNoLongerMatches: 'Đề xuất này không còn khớp với SQL hiện tại.',
+  smartEditorOptimizeProposalsDropped:
+    'Đã bỏ qua {count} đề xuất vì không xác định được vị trí chính xác trong truy vấn.',
+  smartEditorOptimizeProposalBlocked: 'Đã chặn: thay đổi này có thể làm thay đổi quan hệ hoặc ngữ nghĩa truy vấn.',
+  smartEditorOptimizeRegressionTitle:
+    '⚠ Có khả năng đã mất logic truy vấn — hãy xem kỹ trước khi giữ bản viết lại này',
+  smartEditorOptimizeRegressionToast:
+    'Tối ưu hóa hoàn tất, nhưng có thể đã loại bỏ logic của truy vấn — hãy xem cảnh báo trước khi giữ lại',
+  smartEditorOptimizeRegressionTables: 'Đã loại bỏ {count} bảng khỏi truy vấn',
+  smartEditorOptimizeRegressionTableIdentity: 'Đã loại bỏ hoặc thay đổi một bảng được tham chiếu',
+  smartEditorOptimizeRegressionJoins: 'Đã loại bỏ {count} phép nối/quan hệ',
+  smartEditorOptimizeRegressionJoinIdentity: 'Đã loại bỏ hoặc thay đổi một quan hệ JOIN',
+  smartEditorOptimizeRegressionConditions: 'Đã loại bỏ {count} điều kiện lọc',
+  smartEditorOptimizeRegressionColumns:
+    'Trả về ít cột hơn ({optimized} so với {original} ban đầu)',
+  smartEditorOptimizeRegressionDistinct: 'DISTINCT đã bị loại bỏ',
+  smartEditorOptimizeRegressionGroupBy: 'GROUP BY đã bị loại bỏ',
+  smartEditorOptimizeRegressionJoinType: 'Một quan hệ JOIN đã đổi loại (ví dụ INNER ↔ LEFT), có thể làm thay đổi kết quả trả về',
+  smartEditorOptimizeRegressionColumnIdentity: 'Đã loại bỏ hoặc đổi tên cột đầu ra: {column}',
+  smartEditorOptimizeNoProposals: 'Mô hình không tìm thấy thay đổi nào để đề xuất cho truy vấn này.',
   smartEditorOptimizeWaitingLabel: 'Đang trong quá trình tối ưu hóa…',
   smartEditorSpeechPlay: 'Đọc kết quả tối ưu hóa',
   smartEditorSpeechStop: 'Dừng đọc',
   smartEditorSpeechError: 'Trình duyệt này không hỗ trợ chuyển văn bản thành giọng nói',
+
+  // Optimize SQL - Bước 1: hiểu ngữ nghĩa, xác nhận trước khi đề xuất viết lại
+  smartEditorSemanticAnalyzing: 'AI đang đọc hiểu ý nghĩa truy vấn…',
+  smartEditorSemanticReviewTitle: 'Xác nhận ý nghĩa truy vấn trước khi tối ưu hóa',
+  smartEditorSemanticRelationshipsLabel: 'Quan hệ cần giữ nguyên',
+  smartEditorSemanticFiltersLabel: 'Điều kiện lọc quan trọng',
+  smartEditorSemanticRisksLabel: 'Rủi ro nếu viết lại bất cẩn',
+  smartEditorSemanticConfirmButton: 'Xác nhận & tối ưu hóa',
+  smartEditorSemanticCancelButton: 'Hủy',
+  smartEditorSemanticConfirmedLabel: 'Đã xác nhận — các đề xuất bên dưới không được vi phạm điều này.',
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Lịch sử truy vấn',
@@ -1058,7 +1102,7 @@ const vi = {
   demoInstallDepsLabel: 'Cài đặt phụ thuộc cho phát triển cục bộ:',
   demoInstallDepsCmd: 'npm install',
   demoStartOllamaLabel: 'Khởi động Ollama nếu dùng tối ưu hóa mô hình cục bộ:',
-  demoStartOllamaCmd: 'ollama serve',
+  demoStartOllamaCmd: 'máy chủ ollama',
   demoTestInDemoLabel: 'Sau đó chạy demo và nhấn Analyze & Optimize.',
   demoFeaturesTitle: '✨ Tính năng demo',
   demoFeature1: 'Trình chỉnh sửa SQL tương tác với định dạng',
@@ -1392,6 +1436,7 @@ const vi = {
   aiChatSuggestion1: 'Phần nào có khả năng chạy chậm nhất?',
   aiChatSuggestion2: 'Giải thích chi tiết hơn các điều kiện JOIN.',
   aiChatSuggestion3: 'Nếu bỏ điều kiện lọc theo ngày thì kết quả thay đổi thế nào?',
+  aiChatSuggestionAggregation: 'Việc nhóm và các giá trị tổng hợp ảnh hưởng kết quả thế nào?',
 
   // AI - giải thích theo lô từng CTE
   aiBatchTitle: 'Giải thích từng CTE',
