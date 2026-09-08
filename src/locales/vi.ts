@@ -1057,7 +1057,23 @@ const vi = {
   smartEditorSemanticRisksLabel: 'Rủi ro nếu viết lại bất cẩn',
   smartEditorSemanticConfirmButton: 'Xác nhận & tối ưu hóa',
   smartEditorSemanticCancelButton: 'Hủy',
+
   smartEditorSemanticConfirmedLabel: 'Đã xác nhận — các đề xuất bên dưới không được vi phạm điều này.',
+
+  // Modal tối ưu hóa: ô nhập yêu cầu bằng ngôn ngữ tự nhiên, và bước xác nhận/bỏ qua ở cấp phiên
+  smartEditorOptimizeModalTitle: 'Tối ưu hóa truy vấn',
+  smartEditorOptimizeModalClose: 'Đóng',
+  smartEditorInstructionLabel: 'Mô tả điều bạn muốn tối ưu (không bắt buộc)',
+  smartEditorInstructionPlaceholder:
+    'ví dụ: "làm truy vấn này nhanh hơn nhưng không đổi kết quả trả về"',
+  smartEditorInstructionSubmit: 'Phân tích theo yêu cầu này',
+  smartEditorInstructionRefusedTitle: 'Yêu cầu chưa được áp dụng đầy đủ',
+  smartEditorInstructionRefusedNote:
+    'Một phần yêu cầu này sẽ làm thay đổi ý nghĩa của truy vấn nên chưa được áp dụng.',
+  smartEditorSessionApplyButton: 'Áp dụng vào trình soạn thảo',
+  smartEditorSessionDiscardButton: 'Bỏ qua',
+  smartEditorSessionAppliedToast: 'Đã áp dụng tối ưu hóa vào trình soạn thảo',
+  smartEditorSessionDiscardedToast: 'Đã bỏ qua kết quả tối ưu hóa',
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Lịch sử truy vấn',

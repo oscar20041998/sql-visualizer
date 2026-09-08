@@ -1665,7 +1665,17 @@ function parseFromListItem(
     return { name: alias || `derived_${nextDerivedIndex()}`, alias, isDerived: true };
   }
 
-  const match = SQL_REGEX_PATTERNS.FROM_LIST_ITEM.exec(trimmed);
+  // A single comma-separated FROM-list item can itself be a joined-table expression, e.g.
+  // `FROM a, b, c JOIN d ON c.id = d.id` — the last item is "c JOIN d ON c.id = d.id", not a
+  // plain identifier. The trailing "JOIN d ON ..." is already captured as its own table/edge by
+  // extractTables()/extractJoins() (which scan the whole SQL for JOIN keywords independently), so
+  // only the leading base identifier ("c") belongs to this comma item — without this truncation,
+  // FROM_LIST_ITEM's anchored match fails and the entire raw clause text (e.g.
+  // "c JOIN d ON c.id = d.id") was returned as a single bogus/placeholder table name.
+  const joinKeywordMatch = SQL_REGEX_PATTERNS.JOIN_KEYWORD.exec(trimmed);
+  const basePart = joinKeywordMatch ? trimmed.slice(0, joinKeywordMatch.index).trim() : trimmed;
+
+  const match = SQL_REGEX_PATTERNS.FROM_LIST_ITEM.exec(basePart);
   if (match) {
     return {
       name: match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, ''),
@@ -1674,7 +1684,7 @@ function parseFromListItem(
     };
   }
 
-  return { name: trimmed, isDerived: false };
+  return { name: basePart || trimmed, isDerived: false };
 }
 
 /**

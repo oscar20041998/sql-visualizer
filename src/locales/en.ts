@@ -1060,6 +1060,21 @@ const en = {
   smartEditorSemanticCancelButton: 'Cancel',
   smartEditorSemanticConfirmedLabel: 'Confirmed — proposals below must not violate this.',
 
+  // Optimize modal: natural-language instruction input, and the session-level confirm/discard gate
+  smartEditorOptimizeModalTitle: 'Optimize Query',
+  smartEditorOptimizeModalClose: 'Close',
+  smartEditorInstructionLabel: 'Describe what you want optimized (optional)',
+  smartEditorInstructionPlaceholder:
+    'e.g. "make this faster without changing what it returns"',
+  smartEditorInstructionSubmit: 'Analyze with this instruction',
+  smartEditorInstructionRefusedTitle: 'Instruction not fully applied',
+  smartEditorInstructionRefusedNote:
+    'Part of this request would change the query’s meaning, so it was not applied.',
+  smartEditorSessionApplyButton: 'Apply to editor',
+  smartEditorSessionDiscardButton: 'Discard',
+  smartEditorSessionAppliedToast: 'Optimization applied to the editor',
+  smartEditorSessionDiscardedToast: 'Optimization discarded',
+
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Query History',
   queryHistorySubtitle:
