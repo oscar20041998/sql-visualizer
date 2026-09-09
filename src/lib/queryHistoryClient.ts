@@ -9,6 +9,7 @@ import staticHistoryRaw from '../data-history/query-history.json'; // This is a 
 
 const LOCAL_HISTORY_KEY = 'sql_visualizer_local_history';
 const DELETED_STATIC_KEY = 'sql_visualizer_deleted_static_ids';
+const SCORE_LIST_KEY = 'complexityScoreList';
 
 // Safely cast the static JSON import to QueryHistoryEntry[]
 const staticHistory = staticHistoryRaw as QueryHistoryEntry[];
@@ -167,6 +168,8 @@ export async function clearQueryHistory(): Promise<void> {
 
   // 1. Clear all local history
   setLocalHistory([]);
+  // 1a. Clear the complexity score list
+  localStorage.removeItem(SCORE_LIST_KEY);
 
   // 2. Mark all static history entries as deleted so they don't show up
   const deletedStaticIds = getDeletedStaticIds();
