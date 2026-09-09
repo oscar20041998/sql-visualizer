@@ -1,6 +1,7 @@
 // Adapter layer routing AI generation requests to the active provider (Ollama or a cloud API).
 import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
+import type { AnalysisResult } from '../sql/sqlAnalyzer';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
@@ -1847,6 +1848,238 @@ export async function optimizeSqlWithAIStream(
   ).trim();
 
   return parseSqlOptimization(sql, raw, report);
+}
+
+/**
+ * Which of the three optimize surfaces is active: the pre-existing automatic lint/alert-driven
+ * pass, the pre-existing semantics-preserving natural-language instruction pass, or the new
+ * requirement-driven pass (spec 004) which may change the query's result semantics.
+ */
+export type OptimizationMode = 'lint' | 'instruction' | 'requirement';
+
+/** The user's free-form description of new logic to add to an analyzed query (spec 004 US1). */
+export interface RequirementInput {
+  text: string;
+  /** Table/column names the user explicitly named as candidates to reference. */
+  hintedTables?: string[];
+}
+
+/**
+ * Result of a requirement-driven candidate generation call. Deliberately a simpler shape than
+ * {@link SqlOptimizationResult} (no narrow `find`/`replace` proposals) — a requirement may
+ * restructure the query broadly, so the whole candidate query is returned as one unit and
+ * compared against the original via {@link buildRequirementChangeSummary} by the caller.
+ */
+export interface SqlRequirementCandidateResult {
+  optimizedSql: string;
+  analysis: string;
+  /** Table/column names from the requirement that could not be resolved (FR-003). */
+  unresolvedReferences: string[];
+  raw: string;
+  structured: boolean;
+  budget: AIBudgetReport;
+}
+
+const REQUIREMENT_CANDIDATE_PROMPT: Record<
+  Locale,
+  (sql: string, requirementText: string, hintedTables: string[]) => string
+> = {
+  en: (sql, requirementText, hintedTables) => `The user wants to add a new requirement to the following SQL query. Unlike a normal optimization pass, you MAY change which tables, joins, filters, or output columns the query uses if that is what the requirement needs — but only to satisfy the stated requirement, nothing else.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Requirement, in the user's own words: "${requirementText}"
+${hintedTables.length ? `The user specifically named these tables/columns to consider: ${hintedTables.join(', ')}.` : ''}
+
+Reply with ONLY a JSON object — no prose, no markdown fence — using exactly this shape:
+{
+  "optimized_sql": "the full candidate query that satisfies the requirement",
+  "analysis": "plain-language explanation of what was added or changed and why, compared to the original query",
+  "unresolved_references": ["any table or column name from the requirement that you could not find evidence for in the SQL or the verified facts above, and therefore did not use"]
+}
+
+Rules:
+- Only change what is needed to satisfy the stated requirement. Do not perform an unrelated general rewrite.
+- Never invent a table or column name that does not appear in the SQL, the verified facts above, or the user's own hinted names — if you cannot resolve a needed reference, list it in "unresolved_references" and do not use it in "optimized_sql".
+- If the requirement cannot be satisfied at all without an unresolvable reference, return the original query unchanged in "optimized_sql" and explain why in "analysis".
+- "analysis" must clearly state which tables, joins, filters, or output columns were added, removed, or changed.`,
+  vi: (sql, requirementText, hintedTables) => `Người dùng muốn thêm một yêu cầu mới vào truy vấn SQL sau đây. Khác với một lượt tối ưu hóa thông thường, bạn ĐƯỢC PHÉP thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra của truy vấn nếu yêu cầu cần như vậy — nhưng chỉ để đáp ứng đúng yêu cầu đã nêu, không hơn.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Yêu cầu, theo lời của người dùng: "${requirementText}"
+${hintedTables.length ? `Người dùng đã nêu rõ các bảng/cột sau cần xem xét: ${hintedTables.join(', ')}.` : ''}
+
+Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng cấu trúc sau:
+{
+  "optimized_sql": "toàn bộ truy vấn mẫu đáp ứng yêu cầu",
+  "analysis": "giải thích bằng ngôn ngữ dễ hiểu về những gì đã được thêm hoặc thay đổi và vì sao, so với truy vấn gốc",
+  "unresolved_references": ["tên bảng hoặc cột trong yêu cầu mà bạn không tìm thấy bằng chứng trong SQL hoặc các dữ kiện đã xác thực ở trên, và do đó không sử dụng"]
+}
+
+Quy tắc:
+- Chỉ thay đổi những gì cần thiết để đáp ứng yêu cầu đã nêu. Không viết lại toàn bộ một cách không liên quan.
+- Tuyệt đối không tự đặt ra tên bảng hoặc cột không xuất hiện trong SQL, trong các dữ kiện đã xác thực ở trên, hoặc trong tên người dùng đã nêu — nếu không thể xác định một tham chiếu cần thiết, hãy liệt kê nó trong "unresolved_references" và không sử dụng nó trong "optimized_sql".
+- Nếu yêu cầu hoàn toàn không thể đáp ứng được vì thiếu tham chiếu không xác định, hãy trả về truy vấn gốc không đổi trong "optimized_sql" và giải thích lý do trong "analysis".
+- "analysis" phải nêu rõ những bảng, phép nối, điều kiện lọc hoặc cột đầu ra nào đã được thêm, loại bỏ hoặc thay đổi.`,
+};
+
+/** Builds the prompt + budget report shared by the blocking and streaming requirement-candidate calls. */
+function prepareRequirementCandidatePrompt(
+  sql: string,
+  config: AIModelConfig,
+  locale: Locale,
+  contextBrief: string,
+  requirementInput: RequirementInput
+): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
+  if (!sql.trim()) throw new AIServiceError('There is no SQL query to add a requirement to.');
+  if (!requirementInput.text.trim()) throw new AIServiceError('The requirement text is empty.');
+
+  const budget = resolveBudget(config);
+  const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
+  const available = Math.max(128, budget.promptTokens - systemTokens);
+
+  const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
+  const briefTokens = estimateTokens(brief);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
+
+  const hintedTables = requirementInput.hintedTables ?? [];
+  const buildPrompt = REQUIREMENT_CANDIDATE_PROMPT[locale] ?? REQUIREMENT_CANDIDATE_PROMPT.en;
+  const prompt = brief
+    ? `${brief}\n\n${buildPrompt(fitted.sql, requirementInput.text, hintedTables)}`
+    : buildPrompt(fitted.sql, requirementInput.text, hintedTables);
+
+  const report: AIBudgetReport = {
+    contextTokens: budget.contextTokens,
+    promptBudgetTokens: budget.promptTokens,
+    estimatedPromptTokens: systemTokens + estimateTokens(prompt),
+    sqlTruncated: fitted.truncated,
+    omittedSqlLines: fitted.omittedLines,
+    droppedMessages: 0,
+    contextBriefDropped: Boolean(contextBrief) && !brief,
+  };
+
+  return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+}
+
+/** Turns the model's raw answer into a {@link SqlRequirementCandidateResult}. */
+function parseRequirementCandidate(sql: string, raw: string, report: AIBudgetReport): SqlRequirementCandidateResult {
+  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+
+  const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
+  if (!parsed) {
+    return {
+      optimizedSql: sql,
+      analysis: raw,
+      unresolvedReferences: [],
+      raw,
+      structured: false,
+      budget: report,
+    };
+  }
+
+  const optimizedSql = asText(parsed.optimized_sql);
+  return {
+    optimizedSql: optimizedSql || sql,
+    analysis: asText(parsed.analysis),
+    unresolvedReferences: asList(parsed.unresolved_references),
+    raw,
+    structured: true,
+    budget: report,
+  };
+}
+
+/**
+ * Generates a candidate query that satisfies a user-stated requirement (spec 004 US1). Unlike
+ * {@link optimizeSqlWithAI}, the model is explicitly allowed to change tables/joins/filters/
+ * output columns — the caller is responsible for computing a structural diff (see
+ * `buildRequirementChangeSummary` in `src/lib/sql/optimizeRegression.ts`) and gating any editor
+ * change behind explicit user confirmation (FR-005/FR-006).
+ */
+export async function generateRequirementCandidate({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  requirementInput,
+  signal,
+}: ExplainSqlOptions & { requirementInput: RequirementInput }): Promise<SqlRequirementCandidateResult> {
+  const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    requirementInput
+  );
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  return parseRequirementCandidate(sql, raw, report);
+}
+
+/** Streaming counterpart of {@link generateRequirementCandidate}. */
+export async function generateRequirementCandidateStream(
+  { sql, config, locale = 'en', contextBrief = '', requirementInput, signal }: ExplainSqlOptions & { requirementInput: RequirementInput },
+  onDelta: (text: string) => void
+): Promise<SqlRequirementCandidateResult> {
+  const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    requirementInput
+  );
+
+  const raw = (
+    await streamWithAI(
+      config,
+      {
+        prompt,
+        jsonMode: true,
+        maxTokens: maxOutputTokens,
+        signal,
+      },
+      onDelta
+    )
+  ).trim();
+
+  return parseRequirementCandidate(sql, raw, report);
+}
+
+/**
+ * Deterministically checks the user's explicitly hinted table/column names against the tables
+ * already known from the current analyzed query. There is no live schema catalog in this app
+ * (see specs/004-nl-requirement-optimize/research.md R3), so this can only confirm/deny against
+ * what the local parser already knows — anything else is left for the model to self-report via
+ * `unresolvedReferences`, not authoritatively validated here.
+ */
+export function resolveHintedTableReferences(
+  hintedTables: string[],
+  analysis: AnalysisResult | null
+): { resolved: string[]; unresolved: string[] } {
+  const knownNames = new Set((analysis?.tables ?? []).map((table) => table.name.toLowerCase()));
+  const resolved: string[] = [];
+  const unresolved: string[] = [];
+  for (const hint of hintedTables) {
+    const trimmed = hint.trim();
+    if (!trimmed) continue;
+    if (knownNames.has(trimmed.toLowerCase())) resolved.push(trimmed);
+    else unresolved.push(trimmed);
+  }
+  return { resolved, unresolved };
 }
 
 /** Counts how many times `needle` appears in `haystack` via plain substring split — the same

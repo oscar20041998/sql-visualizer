@@ -97,3 +97,96 @@ export function buildStructuralRegressionWarnings(
 
   return warnings;
 }
+
+/**
+ * Structural diff between a requirement-driven candidate query and the original it was derived
+ * from (spec 004). Unlike {@link buildStructuralRegressionWarnings} (which only flags *removed*
+ * facts as a safety warning for a supposedly semantics-preserving rewrite), this reports both
+ * additions and removals — a requirement candidate is explicitly allowed to add tables/joins/
+ * columns, but the user must still be told exactly what changed either way.
+ */
+export interface SemanticChangeSummary {
+  addedTables: string[];
+  removedTables: string[];
+  addedJoins: string[];
+  removedJoins: string[];
+  addedColumns: string[];
+  removedColumns: string[];
+  filterChanged: boolean;
+  isSemanticChange: boolean;
+}
+
+export function buildRequirementChangeSummary(
+  original: AnalysisResult,
+  candidate: AnalysisResult
+): SemanticChangeSummary {
+  const tableKey = (table: AnalysisResult['tables'][number]) => table.name.toLowerCase();
+  const originalTableNames = new Map(original.tables.map((table) => [tableKey(table), table.name]));
+  const candidateTableNames = new Map(candidate.tables.map((table) => [tableKey(table), table.name]));
+
+  const addedTables = [...candidateTableNames.keys()]
+    .filter((key) => !originalTableNames.has(key))
+    .map((key) => candidateTableNames.get(key)!);
+  const removedTables = [...originalTableNames.keys()]
+    .filter((key) => !candidateTableNames.has(key))
+    .map((key) => originalTableNames.get(key)!);
+
+  const nameById = (analysis: AnalysisResult) => new Map(analysis.tables.map((table) => [table.id, table.name]));
+  const joinDescription = (analysis: AnalysisResult, join: AnalysisResult['joins'][number]) => {
+    const names = nameById(analysis);
+    const source = names.get(join.source) ?? join.source;
+    const target = names.get(join.target) ?? join.target;
+    return `${source} ${join.joinType} ${target}`;
+  };
+  const joinKey = (analysis: AnalysisResult, join: AnalysisResult['joins'][number]) => {
+    const names = nameById(analysis);
+    const source = (names.get(join.source) ?? join.source).toLowerCase();
+    const target = (names.get(join.target) ?? join.target).toLowerCase();
+    return [source, target].sort().join('::');
+  };
+  const originalJoinKeys = new Map(original.joins.map((join) => [joinKey(original, join), joinDescription(original, join)]));
+  const candidateJoinKeys = new Map(candidate.joins.map((join) => [joinKey(candidate, join), joinDescription(candidate, join)]));
+
+  const addedJoins = [...candidateJoinKeys.keys()]
+    .filter((key) => !originalJoinKeys.has(key))
+    .map((key) => candidateJoinKeys.get(key)!);
+  const removedJoins = [...originalJoinKeys.keys()]
+    .filter((key) => !candidateJoinKeys.has(key))
+    .map((key) => originalJoinKeys.get(key)!);
+
+  const fieldKey = (field: AnalysisResult['mainQueryFields'][number]) => (field.alias || field.field).toLowerCase();
+  const originalFields = new Map(original.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field]));
+  const candidateFields = new Map(candidate.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field]));
+
+  const addedColumns = [...candidateFields.keys()]
+    .filter((key) => !originalFields.has(key))
+    .map((key) => candidateFields.get(key)!);
+  const removedColumns = [...originalFields.keys()]
+    .filter((key) => !candidateFields.has(key))
+    .map((key) => originalFields.get(key)!);
+
+  const filterChanged =
+    original.metrics.conditionCount !== candidate.metrics.conditionCount ||
+    original.metrics.where !== candidate.metrics.where ||
+    original.metrics.having !== candidate.metrics.having;
+
+  const isSemanticChange =
+    addedTables.length > 0 ||
+    removedTables.length > 0 ||
+    addedJoins.length > 0 ||
+    removedJoins.length > 0 ||
+    addedColumns.length > 0 ||
+    removedColumns.length > 0 ||
+    filterChanged;
+
+  return {
+    addedTables,
+    removedTables,
+    addedJoins,
+    removedJoins,
+    addedColumns,
+    removedColumns,
+    filterChanged,
+    isSemanticChange,
+  };
+}

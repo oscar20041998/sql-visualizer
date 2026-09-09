@@ -1075,6 +1075,45 @@ const en = {
   smartEditorSessionAppliedToast: 'Optimization applied to the editor',
   smartEditorSessionDiscardedToast: 'Optimization discarded',
 
+  // Optimize modal: mode toggle between the existing safe optimize flow and the new
+  // requirement-driven flow that may change query semantics (spec 004)
+  smartEditorModeToggleLabel: 'Mode',
+  smartEditorModeOptimizeLabel: 'Optimize (keeps behavior)',
+  smartEditorModeRequirementLabel: 'Add requirement (may change behavior)',
+  smartEditorRequirementLabel: 'Describe the new requirement',
+  smartEditorRequirementPlaceholder:
+    'e.g. "also include the customer\'s shipping address, referencing table B"',
+  smartEditorRequirementHintedTablesLabel: 'Tables/columns to consider (optional)',
+  smartEditorRequirementHintedTablesPlaceholder: 'e.g. table_b, shipping_address',
+  smartEditorRequirementSubmit: 'Generate candidate query',
+  smartEditorRequirementEmptyError: 'Describe a requirement first.',
+  smartEditorRequirementProgressTitle: 'AI is drafting a candidate query…',
+  smartEditorRequirementWaitingLabel: 'Working on your requirement…',
+  smartEditorRequirementError: 'Failed to generate a candidate query',
+  smartEditorRequirementResultTitle: 'Candidate query',
+  smartEditorRequirementAnalysisLabel: 'What changed',
+  smartEditorRequirementUnresolvedTitle: 'Could not resolve these references',
+  smartEditorRequirementUnresolvedNote:
+    'The model could not find these in the query or known tables, so it did not use them.',
+  smartEditorRequirementSemanticChangeTitle: 'This candidate changes query results',
+  smartEditorRequirementSemanticChangeNote:
+    'Review carefully — applying this candidate can add, remove, or change which rows or columns are returned.',
+  smartEditorRequirementNoSemanticChangeNote:
+    'This candidate does not appear to change tables, joins, filters, or output columns.',
+  smartEditorRequirementAddedTables: 'Added tables: {items}',
+  smartEditorRequirementRemovedTables: 'Removed tables: {items}',
+  smartEditorRequirementAddedJoins: 'Added joins: {items}',
+  smartEditorRequirementRemovedJoins: 'Removed joins: {items}',
+  smartEditorRequirementAddedColumns: 'Added columns: {items}',
+  smartEditorRequirementRemovedColumns: 'Removed columns: {items}',
+  smartEditorRequirementFilterChanged: 'Filter conditions changed',
+  smartEditorRequirementApplyButton: 'Apply candidate to editor',
+  smartEditorRequirementDiscardButton: 'Discard candidate',
+  smartEditorRequirementAppliedToast: 'Candidate query applied to the editor',
+  smartEditorRequirementDiscardedToast: 'Candidate query discarded',
+  smartEditorRequirementStaleNotice:
+    'The query changed since this candidate was generated — regenerate before applying.',
+
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Query History',
   queryHistorySubtitle:

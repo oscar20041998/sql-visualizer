@@ -1075,6 +1075,45 @@ const vi = {
   smartEditorSessionAppliedToast: 'Đã áp dụng tối ưu hóa vào trình soạn thảo',
   smartEditorSessionDiscardedToast: 'Đã bỏ qua kết quả tối ưu hóa',
 
+  // Optimize modal: mode toggle between the existing safe optimize flow and the new
+  // requirement-driven flow that may change query semantics (spec 004)
+  smartEditorModeToggleLabel: 'Chế độ',
+  smartEditorModeOptimizeLabel: 'Tối ưu hóa (giữ nguyên hành vi)',
+  smartEditorModeRequirementLabel: 'Thêm yêu cầu (có thể thay đổi hành vi)',
+  smartEditorRequirementLabel: 'Mô tả yêu cầu mới',
+  smartEditorRequirementPlaceholder:
+    'ví dụ: "lấy thêm địa chỉ giao hàng của khách hàng, tham chiếu bảng B"',
+  smartEditorRequirementHintedTablesLabel: 'Bảng/cột cần xem xét (không bắt buộc)',
+  smartEditorRequirementHintedTablesPlaceholder: 'ví dụ: table_b, shipping_address',
+  smartEditorRequirementSubmit: 'Tạo truy vấn mẫu',
+  smartEditorRequirementEmptyError: 'Hãy mô tả một yêu cầu trước.',
+  smartEditorRequirementProgressTitle: 'AI đang soạn truy vấn mẫu…',
+  smartEditorRequirementWaitingLabel: 'Đang xử lý yêu cầu của bạn…',
+  smartEditorRequirementError: 'Không thể tạo truy vấn mẫu',
+  smartEditorRequirementResultTitle: 'Truy vấn mẫu',
+  smartEditorRequirementAnalysisLabel: 'Những gì đã thay đổi',
+  smartEditorRequirementUnresolvedTitle: 'Không thể xác định các tham chiếu sau',
+  smartEditorRequirementUnresolvedNote:
+    'Mô hình không tìm thấy các tên này trong truy vấn hoặc các bảng đã biết, nên không sử dụng chúng.',
+  smartEditorRequirementSemanticChangeTitle: 'Truy vấn mẫu này làm thay đổi kết quả',
+  smartEditorRequirementSemanticChangeNote:
+    'Hãy xem xét cẩn thận — áp dụng truy vấn mẫu này có thể thêm, bớt hoặc thay đổi các dòng hoặc cột trả về.',
+  smartEditorRequirementNoSemanticChangeNote:
+    'Truy vấn mẫu này dường như không thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra.',
+  smartEditorRequirementAddedTables: 'Bảng đã thêm: {items}',
+  smartEditorRequirementRemovedTables: 'Bảng đã bỏ: {items}',
+  smartEditorRequirementAddedJoins: 'Phép nối đã thêm: {items}',
+  smartEditorRequirementRemovedJoins: 'Phép nối đã bỏ: {items}',
+  smartEditorRequirementAddedColumns: 'Cột đã thêm: {items}',
+  smartEditorRequirementRemovedColumns: 'Cột đã bỏ: {items}',
+  smartEditorRequirementFilterChanged: 'Điều kiện lọc đã thay đổi',
+  smartEditorRequirementApplyButton: 'Áp dụng truy vấn mẫu vào trình soạn thảo',
+  smartEditorRequirementDiscardButton: 'Bỏ truy vấn mẫu',
+  smartEditorRequirementAppliedToast: 'Đã áp dụng truy vấn mẫu vào trình soạn thảo',
+  smartEditorRequirementDiscardedToast: 'Đã bỏ truy vấn mẫu',
+  smartEditorRequirementStaleNotice:
+    'Truy vấn đã thay đổi kể từ khi tạo truy vấn mẫu này — hãy tạo lại trước khi áp dụng.',
+
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Lịch sử truy vấn',
   queryHistorySubtitle:

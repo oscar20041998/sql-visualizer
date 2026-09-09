@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
-import { buildStructuralRegressionWarnings } from '@/lib/sql/optimizeRegression';
+import { buildStructuralRegressionWarnings, buildRequirementChangeSummary, type SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import {
   optimizeSqlWithAIStream,
@@ -34,9 +34,13 @@ import {
   repairInvalidProposals,
   isProposalApplicable,
   countExactOccurrences,
+  generateRequirementCandidateStream,
+  resolveHintedTableReferences,
   type SqlOptimizationProposal,
   type SqlOptimizationResult,
   type SqlSemanticBrief,
+  type SqlRequirementCandidateResult,
+  type OptimizationMode,
 } from '@/lib/ai/aiService';
 import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
@@ -230,6 +234,24 @@ export const SmartSQLEditor: React.FC<{
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
   // One synthesized clip per optimize result — replayable without re-billing a fresh request.
   const speechUrlRef = useRef<string | null>(null);
+
+  // Requirement-driven candidate flow (spec 004): a separate mode from the existing
+  // lint/instruction optimizer above — it is explicitly allowed to change query semantics, so
+  // its result is never auto-applied; the user must review the change summary and confirm.
+  const [optimizeMode, setOptimizeMode] = useState<OptimizationMode>('instruction');
+  const requirementAbortRef = useRef<AbortController | null>(null);
+  const [requirementDraft, setRequirementDraft] = useState('');
+  const [requirementHintedTablesDraft, setRequirementHintedTablesDraft] = useState('');
+  const [requirementPhase, setRequirementPhase] = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
+  const [requirementStreamRaw, setRequirementStreamRaw] = useState('');
+  const [requirementResult, setRequirementResult] = useState<SqlRequirementCandidateResult | null>(null);
+  const [requirementError, setRequirementError] = useState<string | null>(null);
+  const [requirementChangeSummary, setRequirementChangeSummary] = useState<SemanticChangeSummary | null>(null);
+  // The exact SQL the candidate was generated from — if the editor's SQL no longer matches this
+  // when the user tries to apply, the candidate is stale and must be regenerated (FR-007).
+  const requirementSourceSqlRef = useRef<string | null>(null);
+  const requirementIsStale =
+    requirementResult !== null && requirementSourceSqlRef.current !== state.currentSql;
 
   const stopSpeech = useCallback(() => {
     speechAbortRef.current?.abort();
@@ -741,7 +763,12 @@ export const SmartSQLEditor: React.FC<{
       setSemanticPhase('idle');
       setOptimizePhase('idle');
     }
-  }, [semanticPhase, optimizePhase]);
+    if (requirementPhase === 'streaming') {
+      requirementAbortRef.current?.abort();
+      requirementAbortRef.current = null;
+      setRequirementPhase('idle');
+    }
+  }, [semanticPhase, optimizePhase, requirementPhase]);
 
   const handleSubmitInstruction = useCallback(
     (instruction: string) => {
@@ -814,6 +841,120 @@ export const SmartSQLEditor: React.FC<{
     toast.info(t.smartEditorSessionDiscardedToast);
   }, [onOptimizationResult, t]);
 
+  /**
+   * Requirement-driven candidate generation (spec 004 US1): unlike the lint/instruction optimizer
+   * above, the model may change tables/joins/filters/output columns to satisfy the requirement.
+   * The result is only ever shown as a candidate here — nothing is applied to the editor until
+   * the user explicitly reviews the change summary and clicks Apply (US2).
+   */
+  const handleSubmitRequirement = useCallback(async () => {
+    const sql = state.currentSql.trim();
+    const requirementText = requirementDraft.trim();
+    if (!sql) {
+      toast.error(t.emptyQueryError);
+      return;
+    }
+    if (!requirementText) {
+      toast.error(t.smartEditorRequirementEmptyError);
+      return;
+    }
+    const hintedTables = requirementHintedTablesDraft
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    requirementAbortRef.current?.abort();
+    const controller = new AbortController();
+    requirementAbortRef.current = controller;
+
+    setRequirementResult(null);
+    setRequirementError(null);
+    setRequirementChangeSummary(null);
+    setRequirementStreamRaw('');
+    setRequirementPhase('streaming');
+    requirementSourceSqlRef.current = null;
+
+    let originalAnalysis: AnalysisResult | null = null;
+    let brief = '';
+    try {
+      originalAnalysis = await analyzeSql(sql, dialect, settings.locale);
+      brief = buildSqlContextBrief(originalAnalysis);
+    } catch {
+      brief = '';
+    }
+
+    // Deterministic check against what the local parser already knows (there is no live schema
+    // catalog in this app) — anything not recognized locally is left for the model to
+    // self-report in `unresolved_references` rather than being authoritatively rejected here.
+    const { unresolved: unresolvedHints } = resolveHintedTableReferences(hintedTables, originalAnalysis);
+
+    try {
+      const result = await generateRequirementCandidateStream(
+        {
+          sql,
+          config: settings.aiConfig,
+          locale: settings.locale,
+          contextBrief: brief,
+          requirementInput: { text: requirementText, hintedTables },
+          signal: controller.signal,
+        },
+        (delta) => setRequirementStreamRaw((prev) => prev + delta)
+      );
+      if (controller.signal.aborted) return;
+
+      const mergedUnresolved = Array.from(new Set([...result.unresolvedReferences, ...unresolvedHints]));
+      const finalResult = { ...result, unresolvedReferences: mergedUnresolved };
+
+      let changeSummary: SemanticChangeSummary | null = null;
+      if (result.structured && originalAnalysis) {
+        try {
+          const candidateAnalysis = await analyzeSql(result.optimizedSql || sql, dialect, settings.locale);
+          changeSummary = buildRequirementChangeSummary(originalAnalysis, candidateAnalysis);
+        } catch {
+          changeSummary = null;
+        }
+      }
+
+      requirementSourceSqlRef.current = sql;
+      setRequirementResult(finalResult);
+      setRequirementChangeSummary(changeSummary);
+      setRequirementPhase('done');
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') {
+        setRequirementPhase('idle');
+        return;
+      }
+      const message = (error as Error)?.message || t.smartEditorRequirementError;
+      setRequirementError(message);
+      setRequirementPhase('error');
+      toast.error(message);
+    } finally {
+      if (requirementAbortRef.current === controller) requirementAbortRef.current = null;
+    }
+  }, [state.currentSql, requirementDraft, requirementHintedTablesDraft, dialect, settings, t]);
+
+  /** Whole-query replacement, gated behind explicit confirmation (US2) — switches to the diff
+   * view immediately after, same as the existing session-apply flow, so the user sees exactly
+   * what changed before trusting the result. */
+  const handleApplyRequirementCandidate = useCallback(() => {
+    if (!requirementResult || requirementIsStale) return;
+    setState((prev) => ({ ...prev, currentSql: requirementResult.optimizedSql, isDiffMode: true }));
+    setIsModalOpen(false);
+    toast.success(t.smartEditorRequirementAppliedToast);
+  }, [requirementResult, requirementIsStale, t]);
+
+  const handleDiscardRequirementCandidate = useCallback(() => {
+    requirementAbortRef.current?.abort();
+    requirementAbortRef.current = null;
+    requirementSourceSqlRef.current = null;
+    setRequirementPhase('idle');
+    setRequirementResult(null);
+    setRequirementError(null);
+    setRequirementChangeSummary(null);
+    setRequirementStreamRaw('');
+    toast.info(t.smartEditorRequirementDiscardedToast);
+  }, [t]);
+
   // Calculate statistics. originalLines/originalChars reflect state.originalSql (the "before"
   // state) so the stats bar can show before → after counts once the SQL has been modified.
   const stats = {
@@ -862,10 +1003,7 @@ export const SmartSQLEditor: React.FC<{
           </button>
 
           <button
-            onClick={() => {
-              setIsModalOpen(true);
-              void handleAnalyzeSemantics(instructionDraft);
-            }}
+            onClick={() => setIsModalOpen(true)}
             disabled={semanticPhase === 'running' || state.isOptimizing || !state.currentSql.trim()}
             className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             title={t.analyzeOptimizeTitle}
@@ -965,6 +1103,8 @@ export const SmartSQLEditor: React.FC<{
       <OptimizeQueryModal
         isOpen={isModalOpen}
         onClose={handleCloseOptimizeModal}
+        optimizeMode={optimizeMode}
+        onOptimizeModeChange={setOptimizeMode}
         semanticPhase={semanticPhase}
         semanticBrief={semanticBrief}
         semanticError={semanticError}
@@ -995,6 +1135,19 @@ export const SmartSQLEditor: React.FC<{
         onSpeech={() => void handleSpeech()}
         onSessionApply={() => void handleSessionApply()}
         onSessionDiscard={handleSessionDiscard}
+        requirementDraft={requirementDraft}
+        onRequirementDraftChange={setRequirementDraft}
+        requirementHintedTablesDraft={requirementHintedTablesDraft}
+        onRequirementHintedTablesDraftChange={setRequirementHintedTablesDraft}
+        onSubmitRequirement={() => void handleSubmitRequirement()}
+        requirementPhase={requirementPhase}
+        requirementStreamRaw={requirementStreamRaw}
+        requirementError={requirementError}
+        requirementResult={requirementResult}
+        requirementChangeSummary={requirementChangeSummary}
+        requirementIsStale={requirementIsStale}
+        onApplyRequirementCandidate={handleApplyRequirementCandidate}
+        onDiscardRequirementCandidate={handleDiscardRequirementCandidate}
       />
 
       <div className="px-4">

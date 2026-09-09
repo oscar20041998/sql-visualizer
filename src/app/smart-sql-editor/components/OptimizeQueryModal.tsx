@@ -17,7 +17,10 @@ import type {
   SqlOptimizationProposal,
   SqlOptimizationResult,
   SqlSemanticBrief,
+  SqlRequirementCandidateResult,
+  OptimizationMode,
 } from '@/lib/ai/aiService';
+import type { SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
 import type { DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 
 /** Renders the raw streamed JSON as a short "waiting" message until real content has arrived. */
@@ -29,6 +32,9 @@ interface OptimizeQueryModalProps {
   isOpen: boolean;
   /** Backdrop click / X / Escape — aborts an in-flight call but keeps the last result. */
   onClose: () => void;
+
+  optimizeMode: OptimizationMode;
+  onOptimizeModeChange: (mode: OptimizationMode) => void;
 
   semanticPhase: 'idle' | 'running' | 'ready' | 'confirmed' | 'error';
   semanticBrief: SqlSemanticBrief | null;
@@ -54,6 +60,21 @@ interface OptimizeQueryModalProps {
   onDismissResults: () => void;
   knowledgeSources: DatabaseKnowledgeSource[];
 
+  // Requirement-driven candidate flow (spec 004): a separate mode that may change semantics.
+  requirementDraft: string;
+  onRequirementDraftChange: (value: string) => void;
+  requirementHintedTablesDraft: string;
+  onRequirementHintedTablesDraftChange: (value: string) => void;
+  onSubmitRequirement: () => void;
+  requirementPhase: 'idle' | 'streaming' | 'done' | 'error';
+  requirementStreamRaw: string;
+  requirementError: string | null;
+  requirementResult: SqlRequirementCandidateResult | null;
+  requirementChangeSummary: SemanticChangeSummary | null;
+  requirementIsStale: boolean;
+  onApplyRequirementCandidate: () => void;
+  onDiscardRequirementCandidate: () => void;
+
   speechPhase: 'idle' | 'loading' | 'playing';
   onSpeech: () => void;
 
@@ -69,6 +90,8 @@ interface OptimizeQueryModalProps {
 export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
   isOpen,
   onClose,
+  optimizeMode,
+  onOptimizeModeChange,
   semanticPhase,
   semanticBrief,
   semanticError,
@@ -90,6 +113,19 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
   onApplyProposal,
   onDismissResults,
   knowledgeSources,
+  requirementDraft,
+  onRequirementDraftChange,
+  requirementHintedTablesDraft,
+  onRequirementHintedTablesDraftChange,
+  onSubmitRequirement,
+  requirementPhase,
+  requirementStreamRaw,
+  requirementError,
+  requirementResult,
+  requirementChangeSummary,
+  requirementIsStale,
+  onApplyRequirementCandidate,
+  onDiscardRequirementCandidate,
   speechPhase,
   onSpeech,
   onSessionApply,
@@ -135,7 +171,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         aria-modal="true"
         aria-labelledby="optimize-query-modal-heading"
         onClick={(event) => event.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl animate-slide-up"
+        className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl animate-slide-up"
       >
         <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-5 py-4">
           <h2 id="optimize-query-modal-heading" className="flex items-center gap-2 text-sm font-semibold text-gray-100">
@@ -153,6 +189,216 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-3">
+          {/* Mode toggle (spec 004): the existing safe optimize flow vs the new requirement-driven
+           * flow that may change query semantics. Switching modes never clears the other mode's
+           * in-progress/result state, so the user can flip back and forth without losing work. */}
+          <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 p-1">
+            <button
+              type="button"
+              onClick={() => onOptimizeModeChange('instruction')}
+              aria-pressed={optimizeMode !== 'requirement'}
+              disabled={semanticPhase === 'running' || optimizePhase === 'streaming' || requirementPhase === 'streaming'}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                optimizeMode !== 'requirement'
+                  ? 'bg-indigo-500/20 text-indigo-200'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {t.smartEditorModeOptimizeLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => onOptimizeModeChange('requirement')}
+              aria-pressed={optimizeMode === 'requirement'}
+              disabled={semanticPhase === 'running' || optimizePhase === 'streaming' || requirementPhase === 'streaming'}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                optimizeMode === 'requirement'
+                  ? 'bg-indigo-500/20 text-indigo-200'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {t.smartEditorModeRequirementLabel}
+            </button>
+          </div>
+
+          {optimizeMode === 'requirement' ? (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label htmlFor="requirement-text-input" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {t.smartEditorRequirementLabel}
+                </label>
+                <textarea
+                  id="requirement-text-input"
+                  value={requirementDraft}
+                  onChange={(event) => onRequirementDraftChange(event.target.value)}
+                  placeholder={t.smartEditorRequirementPlaceholder}
+                  rows={3}
+                  disabled={requirementPhase === 'streaming'}
+                  className="w-full resize-none rounded-lg border border-gray-800 bg-gray-950 p-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                />
+                <label htmlFor="requirement-hinted-tables-input" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {t.smartEditorRequirementHintedTablesLabel}
+                </label>
+                <input
+                  id="requirement-hinted-tables-input"
+                  type="text"
+                  value={requirementHintedTablesDraft}
+                  onChange={(event) => onRequirementHintedTablesDraftChange(event.target.value)}
+                  placeholder={t.smartEditorRequirementHintedTablesPlaceholder}
+                  disabled={requirementPhase === 'streaming'}
+                  className="w-full rounded-lg border border-gray-800 bg-gray-950 p-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                />
+                <button
+                  onClick={onSubmitRequirement}
+                  disabled={requirementPhase === 'streaming'}
+                  className="rounded-md border border-indigo-500/60 bg-indigo-500/15 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {t.smartEditorRequirementSubmit}
+                </button>
+              </div>
+
+              {requirementPhase !== 'idle' && (
+                <div className="rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
+                      <Sparkles size={12} className={requirementPhase === 'streaming' ? 'animate-pulse' : ''} />
+                      {requirementPhase === 'streaming'
+                        ? t.smartEditorRequirementProgressTitle
+                        : requirementPhase === 'error'
+                          ? t.smartEditorRequirementError
+                          : t.smartEditorRequirementResultTitle}
+                    </p>
+                    {requirementPhase !== 'streaming' && (
+                      <button
+                        onClick={onDiscardRequirementCandidate}
+                        className="text-gray-500 transition-colors hover:text-gray-300"
+                        aria-label={t.smartEditorReset}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {requirementPhase === 'streaming' && (
+                    <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                      {buildOptimizeProgressMessage(requirementStreamRaw, t.smartEditorRequirementWaitingLabel)}
+                      <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+                    </p>
+                  )}
+
+                  {requirementPhase === 'error' && requirementError && (
+                    <p className="mt-2 text-xs text-red-300">{requirementError}</p>
+                  )}
+
+                  {requirementPhase === 'done' && requirementResult && (
+                    <div className="mt-2 space-y-2">
+                      {requirementIsStale && (
+                        <div className="rounded-lg border border-yellow-800/60 bg-yellow-950/20 p-3">
+                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-yellow-300">
+                            <AlertTriangle size={13} />
+                            {t.smartEditorRequirementStaleNotice}
+                          </p>
+                        </div>
+                      )}
+
+                      {requirementResult.unresolvedReferences.length > 0 && (
+                        <div className="rounded-lg border border-yellow-800/60 bg-yellow-950/20 p-3">
+                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-yellow-300">
+                            <AlertTriangle size={13} />
+                            {t.smartEditorRequirementUnresolvedTitle}
+                          </p>
+                          <p className="mt-1.5 text-xs text-yellow-100">{t.smartEditorRequirementUnresolvedNote}</p>
+                          <ul className="mt-2 space-y-1">
+                            {requirementResult.unresolvedReferences.map((ref, index) => (
+                              <li key={`requirement-unresolved-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-yellow-100">
+                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-yellow-400" />
+                                {ref}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {requirementChangeSummary && (
+                        <div
+                          className={`rounded-lg border p-3 ${
+                            requirementChangeSummary.isSemanticChange
+                              ? 'border-red-800/60 bg-red-950/30'
+                              : 'border-gray-800 bg-gray-900/60'
+                          }`}
+                        >
+                          <p
+                            className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wide ${
+                              requirementChangeSummary.isSemanticChange ? 'text-red-300' : 'text-gray-400'
+                            }`}
+                          >
+                            {requirementChangeSummary.isSemanticChange && <AlertTriangle size={13} />}
+                            {requirementChangeSummary.isSemanticChange
+                              ? t.smartEditorRequirementSemanticChangeTitle
+                              : t.smartEditorRequirementNoSemanticChangeNote}
+                          </p>
+                          {requirementChangeSummary.isSemanticChange && (
+                            <>
+                              <p className="mt-1.5 text-sm leading-relaxed text-red-200">
+                                {t.smartEditorRequirementSemanticChangeNote}
+                              </p>
+                              <ul className="mt-2 space-y-1 text-sm leading-relaxed text-red-200">
+                                {requirementChangeSummary.addedTables.length > 0 && (
+                                  <li>{t.smartEditorRequirementAddedTables.replace('{items}', requirementChangeSummary.addedTables.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.removedTables.length > 0 && (
+                                  <li>{t.smartEditorRequirementRemovedTables.replace('{items}', requirementChangeSummary.removedTables.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.addedJoins.length > 0 && (
+                                  <li>{t.smartEditorRequirementAddedJoins.replace('{items}', requirementChangeSummary.addedJoins.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.removedJoins.length > 0 && (
+                                  <li>{t.smartEditorRequirementRemovedJoins.replace('{items}', requirementChangeSummary.removedJoins.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.addedColumns.length > 0 && (
+                                  <li>{t.smartEditorRequirementAddedColumns.replace('{items}', requirementChangeSummary.addedColumns.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.removedColumns.length > 0 && (
+                                  <li>{t.smartEditorRequirementRemovedColumns.replace('{items}', requirementChangeSummary.removedColumns.join(', '))}</li>
+                                )}
+                                {requirementChangeSummary.filterChanged && <li>{t.smartEditorRequirementFilterChanged}</li>}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="text-sm leading-relaxed text-gray-200">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t.smartEditorRequirementAnalysisLabel}: </span>
+                        {requirementResult.analysis || t.aiExplainerNoContent}
+                      </p>
+
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                        {requirementResult.optimizedSql}
+                      </pre>
+
+                      <div className="flex items-center gap-2 border-t border-gray-800 pt-3">
+                        <button
+                          onClick={onApplyRequirementCandidate}
+                          disabled={requirementIsStale}
+                          className="rounded-md border border-success/50 bg-success/15 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {t.smartEditorRequirementApplyButton}
+                        </button>
+                        <button
+                          onClick={onDiscardRequirementCandidate}
+                          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                        >
+                          {t.smartEditorRequirementDiscardButton}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           {/* Natural-language instruction: optional, folded into both the semantic-brief step and
            * the optimize step as an explicit "must not change semantics" constraint. */}
           <div className="space-y-2">
@@ -522,6 +768,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                 </div>
               )}
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

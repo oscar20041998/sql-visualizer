@@ -1,0 +1,17 @@
+{
+  "workflow": "speckit",
+  "specName": "Microsoft & Google Social Login",
+  "branch": "duyvt7",
+  "currentStep": "specify",
+  "status": "specified",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-09T13:45:07.300Z"
+    }
+  ],
+  "telemetryInstanceId": "4e2bd9af-8006-43e0-b378-30b33420626f"
+}
