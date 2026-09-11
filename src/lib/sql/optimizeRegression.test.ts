@@ -60,6 +60,7 @@ function makeAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
       hasCTE: false,
     },
     metricDetails: {
+      subqueries: [],
       windowFunctions: [],
       groupBy: [],
       orderBy: [],

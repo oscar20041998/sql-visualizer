@@ -8,24 +8,25 @@
 
 ## Summary
 
-Audit and harden the existing "paste query → click Analyze" flow so table/JOIN/CTE
-extraction (`analyzeSql` in `src/lib/sql/sqlAnalyzer.ts`) is correct across all four
-supported dialects and edge cases (aliasing, comma-joins, derived tables, CTE
-dependencies), and so every consuming page (Metrics Dashboard, Graph Visualizer, CTE
-Analysis) reads the same canonical counts/labels from the single `analysisResult` in
-the Zustand store rather than recomputing its own numbers. No new dialects, pages, or
-entry points are introduced — this is a correctness/consistency fix-and-verify pass
-over existing functionality, validated with regression tests per dialect.
+Audit and harden the existing "paste query → click Analyze" flow so table/JOIN/CTE and
+nested-subquery extraction (`analyzeSql` in `src/lib/sql/sqlAnalyzer.ts`) is correct
+across all four supported dialects and edge cases. Preserve the dual representation
+of derived subqueries: graph consumers receive a `Table Reference`, while metric
+details receive a `Nested Subquery` with count, depth, original-editor source line,
+and cleaned-parser line. Every consumer continues to read the canonical
+`analysisResult` rather than recomputing counts. The Metrics Dashboard's Complexity
+Factors Breakdown is also in scope: its formulas, labels, contributions, and
+percentages must reconcile with the same `DetailedComplexityScore` used by the gauge.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5 (strict mode), Next.js 15.5 (App Router), React 19
 
-**Primary Dependencies**: `dt-sql-parser` (AST cross-check), Zustand (`useAppStore`), ReactFlow (Graph Visualizer), existing regex-based analyzer in `src/lib/sql/sqlAnalyzer.ts` / `sqlAnalyzerUtils.ts`
+**Primary Dependencies**: `dt-sql-parser` (mandatory AST cross-check), Zustand (`useAppStore`), ReactFlow (Graph Visualizer), Monaco line-navigation flow (`src/lib/useGoToSqlLine.ts`), existing regex-based analyzer in `src/lib/sql/sqlAnalyzer.ts` and `src/app/common/sqlAnalyzerUtils.ts`
 
 **Storage**: N/A (client-side analysis only; no new persistence)
 
-**Testing**: Vitest (unit tests per dialect/edge case in `src/lib/sql/*.test.ts`)
+**Testing**: Vitest unit/integration-style tests covering all four dialects, nested-subquery forms, AST cross-checks, source-line mapping, canonical consumer counts, Complexity Factors Breakdown reconciliation and localization, and the 50-table performance budget
 
 **Target Platform**: Web (browser), existing Next.js app
 
@@ -33,9 +34,9 @@ over existing functionality, validated with regression tests per dialect.
 
 **Performance Goals**: Analysis of queries with up to 50 tables completes within 1 second (existing constitution requirement, must not regress)
 
-**Constraints**: No new noticeable latency vs. current analyze flow; must not change previously-correct results for queries that already parse correctly today (zero regressions)
+**Constraints**: Analysis of queries with up to 50 tables MUST remain within 1 second; must not change previously-correct results for queries that already parse correctly; source-line navigation MUST use the original editor SQL while parser offsets may use cleaned SQL
 
-**Scale/Scope**: Fixes are scoped to `src/lib/sql/sqlAnalyzer.ts`, `src/lib/sql/sqlAnalyzerUtils.ts`, and the 3 consuming pages (`sql-metrics-dashboard`, `relationship-graph-visualizer`, `cte-analysis`); no new pages or routes
+**Scale/Scope**: Fixes are scoped to `src/lib/sql/sqlAnalyzer.ts`, `src/lib/sql/complexityScorer.ts`, `src/app/common/sqlAnalyzerUtils.ts`, `src/app/query-input`, `src/lib/useGoToSqlLine.ts`, and the consuming areas (`sql-metrics-dashboard`, `relationship-graph-visualizer`, `cte-analysis`); no new pages or routes
 
 ## Constitution Check
 
@@ -43,9 +44,9 @@ over existing functionality, validated with regression tests per dialect.
 
 | Principle | Check | Result |
 |-----------|-------|--------|
-| I. Multi-Dialect SQL Analysis | Fixes must be verified across MySQL/PostgreSQL/SQL Server/Oracle; regex extraction changes should be cross-checked against `dt-sql-parser` AST output where feasible | PASS — planned research task covers per-dialect regression tests |
-| II. Interactive Visualization First | No visualization changes planned; existing ReactFlow-based Graph Visualizer is only made to read consistent data, not redesigned | PASS (no violation, no new visual components needed) |
-| III. Real-Time Feedback Loop | Existing streaming/incremental update behavior on the Smart SQL Editor is untouched by this feature | PASS (out of scope, not modified) |
+| I. Multi-Dialect SQL Analysis | Fixes must be verified across MySQL/PostgreSQL/SQL Server/Oracle, and every supported regression fixture must be cross-checked against `dt-sql-parser` AST output; unsupported grammar cases must be explicitly documented and tested per dialect | PASS after design — research and test plan make the AST comparison an explicit gate |
+| II. Interactive Visualization First | Preserve ReactFlow graph nodes for derived tables and provide direct source-line drill-down from nested-subquery metric details | PASS |
+| III. Real-Time Feedback Loop | A completed analysis replaces the canonical result; the Complexity Factors Breakdown and gauge refresh from the same completed score; source-line navigation uses the current Smart SQL Editor query | PASS after design |
 | IV. AI-Grounded Explanations | Not applicable — this feature does not touch AI explanation/optimize flows | N/A |
 | V. Minimal Deployment Friction | No new dependencies, providers, or server-side credentials introduced | PASS |
 
@@ -87,12 +88,30 @@ src/
 ```
 
 **Structure Decision**: No new project or route is created. This feature modifies the
-existing analysis engine (`src/lib/sql/sqlAnalyzer.ts` / `sqlAnalyzerUtils.ts`) and
-audits the three existing consumer pages under `src/app/` to ensure they all read
-counts from the single `analysisResult` object in `src/lib/store.ts` instead of
-deriving their own. Contracts/ is omitted — this feature has no external API surface;
-its "contract" is the shape of the internal `AnalysisResult` type already defined in
-`sqlAnalyzer.ts`, which is documented in data-model.md instead.
+existing analysis engine and its canonical `AnalysisResult` contract, adds the
+source-line mapping needed by the existing `useGoToSqlLine` flow, and audits the
+three existing consumer areas. Contracts/ is omitted because there is no external
+API surface; the internal analysis and UI contract is documented in data-model.md.
+
+## Implementation Approach
+
+1. Establish AST-backed regression fixtures for all four dialects and the historical
+    table/JOIN defects before changing extraction code.
+2. Refine nested-subquery extraction to cover scalar, `IN`, `EXISTS`, derived,
+    `LATERAL/APPLY`, and nested-CTE-body `SELECT` forms; preserve depth semantics and
+    emit both original-editor and cleaned-parser line coordinates. Keep the original
+    editor SQL available as `AnalysisResult.rawSql` for navigation.
+3. Make `metricDetails.subqueries` the single canonical `Nested Subquery` collection.
+    Keep derived subqueries as graph `Table Reference` nodes while exposing the same
+    construct through metric details; deduplicate graph relationships independently
+    from detail records and expose any legacy structural alias from that collection.
+4. Update the Metrics Dashboard and Smart Editor jump path to consume canonical
+    details, then verify stale-result replacement, labels, zero states, and performance.
+5. Add concise inline comments documenting the extraction algorithm, dialect-specific
+   behavior, source-line mapping, and known limitations as required by the constitution.
+6. Normalize the Complexity Factors Breakdown contract: use localized keyword labels,
+    define one canonical contribution total, expose score/max/percentage context, and
+    test that JOIN and subquery factors are neither omitted nor double-counted.
 
 ## Complexity Tracking
 

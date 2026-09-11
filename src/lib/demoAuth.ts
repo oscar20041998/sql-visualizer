@@ -11,6 +11,37 @@ export interface UserSession {
   expiry: number; // Unix timestamp in ms
 }
 
+export interface AuthProviderConfig {
+  clientId: string;
+  authUrl: string;
+  redirectUri: string;
+  scopes: string[];
+}
+
+export interface OAuthCallbackPayload {
+  accessToken?: string;
+  expiresIn?: number;
+  state?: string;
+  error?: string;
+  errorDescription?: string;
+  profile?: { name: string; email: string; picture?: string };
+}
+
+export type AuthUIState = 'idle' | 'authenticating' | 'error';
+
+function isUserSession(value: unknown): value is UserSession {
+  if (!value || typeof value !== 'object') return false;
+  const session = value as Partial<UserSession>;
+  return (
+    (session.provider === 'google' || session.provider === 'microsoft') &&
+    typeof session.displayName === 'string' &&
+    typeof session.email === 'string' &&
+    typeof session.accessToken === 'string' &&
+    typeof session.expiry === 'number' &&
+    Number.isFinite(session.expiry)
+  );
+}
+
 export function isDemoAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
 
@@ -20,23 +51,7 @@ export function isDemoAuthenticated(): boolean {
   }
 
   // 2. Check social session
-  const sessionStr = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY);
-  if (!sessionStr) return false;
-
-  try {
-    const session: UserSession = JSON.parse(sessionStr);
-    if (Date.now() < session.expiry) {
-      return true;
-    } else {
-      // Session expired
-      clearSocialSession();
-      return false;
-    }
-  } catch (e) {
-    // Corrupted session
-    clearSocialSession();
-    return false;
-  }
+  return getSocialSession() !== null;
 }
 
 export function setDemoAuthenticated(): void {
@@ -48,7 +63,25 @@ export function clearDemoAuthenticated(): void {
   clearSocialSession();
 }
 
-function clearSocialSession(): void {
+export function getSocialSession(): UserSession | null {
+  if (typeof window === 'undefined') return null;
+
+  const sessionStr = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY);
+  if (!sessionStr) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(sessionStr);
+    if (isUserSession(parsed) && Date.now() < parsed.expiry) return parsed;
+  } catch {
+    // Treat malformed local storage as an unauthenticated session.
+  }
+
+  clearSocialSession();
+  return null;
+}
+
+export function clearSocialSession(): void {
+  if (typeof window === 'undefined') return;
   window.localStorage.removeItem(SOCIAL_AUTH_STORAGE_KEY);
 }
 

@@ -8,6 +8,15 @@
 
 **Input**: User description: "kiểm tra và thực hiện nâng cấp tính năng phân tích câu truy vấn sau khi người dùng paste câu query và click nút phân tích. Kiểm tra các logic đã đúng chưa, phải đảm bảo các tính năng hiện tại vẫn làm việc đúng, đảm bảo các ouput phải đồng nhất và nhất quán, thể hiện rõ ràng các thông tin sau khi truy vấn" (Audit and upgrade the query analysis feature triggered when a user pastes a query and clicks the analyze button — verify the logic is correct, ensure existing features keep working, ensure outputs are uniform and consistent, and clearly present the resulting information.)
 
+## Clarifications
+
+### Session 2026-09-11
+
+- Q: Khi SQL có subquery lồng nhau hoặc derived table, hệ thống nên biểu diễn chúng trong metric dashboard như thế nào? → A: Dùng dual representation: graph ghi nhận derived subquery như `Table Reference`, còn metric details ghi nhận như `Nested Subquery` với số lượng, depth và source line; người dùng có thể click source line để Smart SQL Editor scroll và highlight vị trí tương ứng.
+- Q: Độ sâu subquery nên được tính theo quy tắc nào? → A: Subquery trực tiếp trong query chính có `depth = 1`; mỗi subquery lồng bên trong tăng thêm 1. Dashboard hiển thị depth lớn nhất của query và depth của từng subquery.
+- Q: Số line của subquery nên được tính theo nội dung SQL nào? → A: Lưu cả `sourceLine` theo SQL gốc trong editor và `parsedLine` theo SQL đã làm sạch; giao diện metric và thao tác mở Smart SQL Editor MUST dùng `sourceLine`.
+- Q: Những dạng SQL nào phải được tính vào tổng số subquery? → A: Tính mọi nested `SELECT` gồm scalar subquery, `IN`, `EXISTS`, derived table và `LATERAL/APPLY`; CTE có metric riêng, còn nested `SELECT` bên trong thân CTE được tính là subquery.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Trustworthy analysis results on first click (Priority: P1)
@@ -73,6 +82,9 @@ A developer pastes an empty query, a malformed query, or a query with no JOINs/C
 - **FR-001**: The system MUST correctly identify every table referenced in a query — including aliased tables, unaliased tables immediately followed by another JOIN, comma-style joins, and derived tables (subquery-as-table) — with no table silently dropped or merged with another.
 - **FR-002**: The system MUST correctly identify every JOIN/relationship edge in a query, including explicit JOIN keywords, comma-style implicit joins, and CTE-to-CTE dependencies, without double-counting a pair connected by both an explicit JOIN and an implicit reference.
 - **FR-003**: The system MUST expose one canonical count each for tables, relationships/JOINs, and CTEs per analyzed query, and every page that displays these counts MUST read from that canonical source rather than recomputing its own count.
+- **FR-003a**: The system MUST expose a canonical nested-subquery detail collection containing the total subquery count, each subquery's nesting depth, `sourceLine` from the original editor SQL, and `parsedLine` from the cleaned SQL; a subquery directly inside the main query has `depth = 1`, and each nested subquery increases depth by 1. The dashboard and Smart SQL Editor navigation MUST use `sourceLine`. The dashboard MUST expose both the maximum depth and each subquery's depth. Derived subqueries MUST remain available both as graph `Table Reference` entries and as `Nested Subquery` metric details without double-counting the same relationship.
+- **FR-003b**: The system MUST count scalar, `IN`, `EXISTS`, derived-table, and `LATERAL/APPLY` nested `SELECT` constructs as subqueries. CTEs MUST retain a separate CTE count; a nested `SELECT` inside a CTE body counts as a subquery, while the CTE definition itself is not counted again as a subquery.
+- **FR-003c**: The implementation MUST document the nested-subquery extraction algorithm, dialect-specific behavior, source-line mapping, and known limitations in concise inline code comments near the parser logic.
 - **FR-004**: All pages that consume an analysis result (Metrics Dashboard, Graph Visualizer, CTE Analysis, and any other current or future consumer) MUST display identical table/relationship/CTE counts for the same analyzed query.
 - **FR-005**: All pages that consume an analysis result MUST use consistent terminology for the same concept (e.g., a single consistent term for "relationship" vs. "join" edges) rather than mixing labels across pages.
 - **FR-006**: The system MUST validate query format (e.g., copy-paste artifacts, wrapping quotes, invisible characters) before attempting a full parse, and MUST report the specific issue found rather than a generic failure.
@@ -81,6 +93,7 @@ A developer pastes an empty query, a malformed query, or a query with no JOINs/C
 - **FR-009**: The system MUST distinguish a legitimate "zero relationships / zero CTEs" result (valid simple query) from an error or failed-analysis state, using clear, distinct messaging/visual treatment for each.
 - **FR-010**: When the user submits a new analysis, the system MUST NOT mix or blend results from a previous, still-in-flight analysis with the new one; only one analysis result may be active at a time.
 - **FR-011**: When a new analysis completes, every consuming page MUST reflect the new result; no page may continue displaying counts or details from a prior analyzed query.
+- **FR-011a**: When a user activates a nested-subquery source-line detail, the application MUST navigate to the Smart SQL Editor and reveal/highlight the corresponding 1-based line from the analyzed SQL.
 - **FR-012**: Any regression fix made to satisfy FR-001/FR-002 MUST be validated against all currently supported dialects (MySQL, PostgreSQL, SQL Server, Oracle) and MUST NOT change the previously-correct behavior for queries that already parse correctly today.
 - **FR-013**: The system MUST maintain existing analyze-time performance characteristics (no new noticeable delay before results appear) after any correctness fixes are applied.
 
@@ -90,6 +103,7 @@ A developer pastes an empty query, a malformed query, or a query with no JOINs/C
 - **Table Reference**: A distinct table (or derived/subquery-as-table, or CTE) participating in the query, uniquely identified regardless of whether it is aliased, comma-joined, or referenced via a derived subquery.
 - **Relationship/JOIN Edge**: A connection between two table references — either an explicit JOIN (any type), an implicit comma-style join, or an inferred CTE-to-CTE dependency — counted exactly once per distinct pair.
 - **Analysis Validation Outcome**: The result of the pre-analysis checks (format validity, dialect compatibility, parseability) that determines whether an Analyze click proceeds to a full analysis, is blocked with a specific message, or completes as an empty/zero-relationship result.
+- **Nested Subquery Detail**: A canonical metric detail containing a subquery's source line and nesting depth. A derived subquery may also have a corresponding `Table Reference` for graph relationships; these are two views of the same parsed construct, not two independent relationships.
 
 ## Success Criteria *(mandatory)*
 
@@ -97,6 +111,7 @@ A developer pastes an empty query, a malformed query, or a query with no JOINs/C
 
 - **SC-001**: 100% of representative test queries (covering aliased/unaliased tables, comma-joins, derived tables, multi-CTE dependencies, across all 4 supported dialects) produce table/relationship/CTE counts matching manual inspection.
 - **SC-002**: 100% of pages that display a table, relationship, or CTE count for the same analyzed query show identical numbers, with zero discrepancies across Metrics Dashboard, Graph Visualizer, and CTE Analysis.
+- **SC-002a**: 100% of analyzed queries containing subqueries expose the same canonical subquery count, depth values, and 1-based source lines in metric details, and every source-line activation opens the Smart SQL Editor at the matching line.
 - **SC-003**: 100% of invalid or edge-case inputs (empty query, format issue, dialect mismatch, parse failure, zero-relationship valid query) produce a distinct, specific, non-crashing message appropriate to that case.
 - **SC-004**: 0% of existing, currently-passing sample queries regress (produce different/incorrect counts) after the upgrade.
 - **SC-005**: Analysis results for a newly submitted query fully replace the previous query's results on every consuming page within the same interaction, with no stale data visible.

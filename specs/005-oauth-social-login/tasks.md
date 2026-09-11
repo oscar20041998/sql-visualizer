@@ -12,7 +12,7 @@
 
 **Purpose**: Review the existing code structure and plan implementation points without mutating files.
 
-- [ ] T001 Audit the codebase: inspect `src/lib/demoAuth.ts`, `src/app/page.tsx`, and `src/components/Sidebar.tsx` in full to align surgical changes with the established context.
+- [X] T001 Audit the codebase: inspect `src/lib/demoAuth.ts`, `src/app/page.tsx`, and `src/components/Sidebar.tsx` in full to align surgical changes with the established context.
 
 ---
 
@@ -22,14 +22,14 @@
 
 **⚠️ CRITICAL**: This phase must be completed before any UI work begins.
 
-- [ ] T002 [P] Create and export TypeScript definitions for `UserSession`, `AuthProviderConfig`, `OAuthCallbackPayload`, and `AuthUIState` inside a new or existing module (recommended: `src/lib/demoAuth.ts` or a shared types file).
-- [ ] T003 Upgrade session management in `src/lib/demoAuth.ts`:
+- [X] T002 [P] Create and export TypeScript definitions for `UserSession`, `AuthProviderConfig`, `OAuthCallbackPayload`, and `AuthUIState` inside a new or existing module (recommended: `src/lib/demoAuth.ts` or a shared types file).
+- [X] T003 Upgrade session management in `src/lib/demoAuth.ts`:
   - Keep legacy `sqlvisualizer-demo-authenticated` handling intact.
   - Implement `getSocialSession(): UserSession | null` to read and parse the `sqlvisualizer-user-session` key.
   - Implement `setSocialSession(session: UserSession): void` to serialize and save.
   - Implement `clearSocialSession(): void` to clear keys.
   - Update `isDemoAuthenticated()` to return `true` if *either* the legacy admin flag is set *or* `getSocialSession()` returns a valid, unexpired session (FR-010).
-- [ ] T004 [P] Add required i18n keys to `src/locales/en.ts` and `src/locales/vi.ts`:
+- [X] T004 [P] Add required i18n keys to `src/locales/en.ts` and `src/locales/vi.ts`:
   - `authSocialLoginSuccess`: *"Signed in via {provider} as {name}."*
   - `authSocialLoginCancelled`: *"Authentication cancelled or rejected by the provider."*
   - `authSocialLoginFailed`: *"Authentication failed: {error}."*
@@ -48,7 +48,7 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] Create a comprehensive unit test suite in `src/lib/demoAuth.test.ts` verifying `isDemoAuthenticated` under multiple cases:
+- [X] T005 [P] Create a comprehensive unit test suite in `src/lib/demoAuth.test.ts` verifying `isDemoAuthenticated` under multiple cases:
   - Admin login flag set.
   - No active logins.
   - Valid social session in localStorage.
@@ -57,16 +57,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [P] Implement OAuth callback URL parsing and state tracking in `src/lib/oauthUtils.ts` (or directly within `src/lib/demoAuth.ts`) to extract access tokens, CSRF state, and error fields from the callback.
-- [ ] T007 Implement the **Interactive OAuth Mock Simulator**:
+- [X] T006 [P] Implement OAuth callback URL parsing and state tracking in `src/lib/oauthUtils.ts` (or directly within `src/lib/demoAuth.ts`) to extract access tokens, CSRF state, and error fields from the callback.
+- [X] T007 Implement the **Interactive OAuth Mock Simulator**:
   - Create a custom interactive handler or a static simulator page/modal that opens when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is absent.
   - Show a styled card allowing developers to select a mock Google profile (*Duy VT* or *Google Developer*) or click "Cancel".
   - On select, postMessage or return the mock callback parameters (access token, name, email, avatar, expiry).
-- [ ] T008 Update the "Google" button in `src/app/page.tsx`:
+- [X] T008 Update the "Google" button in `src/app/page.tsx`:
   - Trigger the Google OAuth consent flow or mock simulator in a secure centered popup.
   - Detect blocked popups immediately and show an instructional notice to "Allow Popups".
   - Display loading state and disable the button during active authorization.
-- [ ] T009 Handle successful login in `src/app/page.tsx`:
+- [X] T009 Handle successful login in `src/app/page.tsx`:
   - Capture the returned OAuth parameters.
   - Retrieve the user profile (fetch from Google UserInfo endpoint if real client ID used; resolve static profile if in mock mode).
   - Store the `UserSession` to local storage, show a localized success toast, and trigger router redirect to `/query-input`.
@@ -83,11 +83,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T010 Extend the interactive mock simulator popup to support Microsoft profiles (*Duy VT* or *Microsoft Consultant*).
-- [ ] T011 Update the "Microsoft" button in `src/app/page.tsx`:
+- [X] T010 Extend the interactive mock simulator popup to support Microsoft profiles (*Duy VT* or *Microsoft Consultant*).
+- [X] T011 Update the "Microsoft" button in `src/app/page.tsx`:
   - Trigger the Microsoft OAuth consent flow (using `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`) or mock simulator in a popup.
   - Show loading state and handle popup blocker fallbacks identically to Google.
-- [ ] T012 Handle successful Microsoft login callback in `src/app/page.tsx`:
+- [X] T012 Handle successful Microsoft login callback in `src/app/page.tsx`:
   - Retrieve the user profile (fetch from Microsoft Graph API if real; resolve static profile if mock).
   - Call `setSocialSession()` with Microsoft details, show success toast, and redirect.
 
@@ -103,14 +103,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T013 Implement automatic session expiration checks on application boot:
+- [X] T013 Implement automatic session expiration checks on application boot:
   - Inside a global component or layout (e.g. `src/app/layout.tsx` or `src/components/ThemeProvider.tsx`), add a `useEffect` checking if the active social session is expired.
   - If expired, automatically trigger `clearSocialSession()`, notify the user with an expiry warning toast, and redirect to the login screen.
-- [ ] T014 Upgrade `src/components/Sidebar.tsx` to display social profile details:
+- [X] T014 Upgrade `src/components/Sidebar.tsx` to display social profile details:
   - If a social session is active, read the name, email, and avatar from local storage.
   - Render the user's avatar (or user icon placeholder) at the bottom or top of the sidebar.
   - Render a small provider badge (colored Google "G" icon or Microsoft logo) next to the user name.
-- [ ] T015 Wire the "Sign out" button in `src/components/Sidebar.tsx`:
+- [X] T015 Wire the "Sign out" button in `src/components/Sidebar.tsx`:
   - On click, clear both legacy admin keys and active social session keys from local storage.
   - Redirect the browser to the login page (`src/app/page.tsx`) immediately.
 
@@ -122,5 +122,5 @@
 
 **Purpose**: Verify the codebase compiles with zero TypeScript errors and all tests pass.
 
-- [ ] T016 Run `npx tsc --noEmit` and fix any compiler warnings or type mismatches.
-- [ ] T017 Run `npx vitest run` to ensure both `src/lib/demoAuth.test.ts` and all existing project unit tests pass.
+- [X] T016 Run `npx tsc --noEmit` and fix any compiler warnings or type mismatches.
+- [X] T017 Run `npx vitest run` to ensure both `src/lib/demoAuth.test.ts` and all existing project unit tests pass.

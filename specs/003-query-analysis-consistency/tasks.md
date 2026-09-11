@@ -1,310 +1,142 @@
 ---
 
-description: "Task list template for feature implementation"
+description: "Task list for query analysis correctness, nested-subquery parsing, and output consistency"
 ---
 
 # Tasks: Query Analysis Correctness & Output Consistency
 
 **Input**: Design documents from `/specs/003-query-analysis-consistency/`
+
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [quickstart.md](./quickstart.md)
 
-**Tests**: Tests are explicitly required by this feature — the spec's Success Criteria
-(SC-001 through SC-005) and constitution Quality Standards ("All new parser logic...
-MUST include unit and integration tests") both call for regression coverage, and
-there is currently **no** `sqlAnalyzer.test.ts` in the repo, so test tasks are
-included as first-class work, not optional extras.
+**Tests**: Required. The specification, constitution, and quickstart require Vitest unit/integration coverage, four-dialect regression coverage, AST cross-checks, source-line mapping tests, and a 50-table performance check.
 
-**Organization**: Tasks are grouped by user story (US1, US2, US3 from spec.md) to
-enable independent implementation and testing of each.
+**Organization**: Tasks are grouped by user story so each increment has an independent test path. All tasks are initially unchecked and use repository-relative file paths.
 
-## Format: `[ID] [P?] [Story] Description`
+## Phase 1: Setup (Shared Infrastructure)
 
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (US1, US2, US3)
+**Purpose**: Establish the regression and AST-test scaffolding before parser changes.
 
-## Path Conventions
+- [X] T001 Create or update `src/lib/sql/sqlAnalyzer.test.ts` with shared dialect fixtures for MySQL, PostgreSQL, SQL Server, and Oracle, plus helpers for extracting canonical tables, joins, CTEs, and subquery details.
+- [X] T002 [P] Add an AST comparison helper in `src/lib/sql/sqlAnalyzer.test.ts` that invokes the installed `dt-sql-parser` APIs per dialect and reports unsupported grammar cases explicitly instead of silently skipping them.
+- [X] T003 [P] Add a source-line fixture helper in `src/lib/sql/sqlAnalyzer.test.ts` that preserves comments, blank lines, and formatting in the original SQL while also producing the cleaned parser SQL expected by `analyzeSql`.
 
-Single Next.js project — all paths are relative to the repository root
-(`src/lib/sql/`, `src/app/*/components/`, `src/lib/store.ts`).
+## Phase 2: Foundational (Blocking Prerequisites)
 
----
+**Purpose**: Lock the canonical analysis contract and historical regression baseline before user-story work.
 
-## Phase 1: Setup
+- [X] T004 Define the canonical nested-subquery detail shape in `src/lib/sql/sqlAnalyzer.ts`, including `depth`, `sourceLine`, `parsedLine`, `type`, `body`, and `context`; keep `metricDetails.subqueries` as the single page-level source.
+- [X] T005 Update `AnalysisResult.rawSql` construction in `src/lib/sql/sqlAnalyzer.ts` to retain the original editor SQL, while retaining cleaned SQL only for parser offsets and `parsedLine` calculations.
+- [X] T006 [P] Add concise inline comments near nested-subquery extraction in `src/lib/sql/sqlAnalyzer.ts` covering depth semantics, dialect-specific behavior, source-line mapping, and known parser limitations.
+- [X] T007 [P] Add baseline regression tests in `src/lib/sql/sqlAnalyzer.test.ts` for unaliased tables before JOINs, quoted/bracketed comma joins, derived tables, CTE edge deduplication, and JOINs ending at EOF or semicolon.
+- [X] T008 Run `npm test` and `npx tsc --noEmit` against the baseline tests before changing extraction behavior; record any pre-existing test-only TypeScript resolution failures without weakening assertions.
 
-**Purpose**: Establish the missing regression test scaffold before any fix work begins.
+**Checkpoint**: The canonical contract, original/cleaned SQL distinction, AST helper, and historical regression fixtures are in place.
 
-- [X] T001 Create `src/lib/sql/sqlAnalyzer.test.ts` with helper functions
-      (`makeQuery` fixtures, dialect list constants) and an empty describe block per
-      dialect (MySQL, PostgreSQL, SQL Server, Oracle) — no assertions yet, just
-      structure, importing `analyzeSql` from `src/lib/sql/sqlAnalyzer.ts`.
+## Phase 3: User Story 1 - Trustworthy Analysis Results (Priority: P1)
 
-## Phase 2: Foundational (blocking prerequisites)
+**Goal**: Correctly parse tables, relationships, CTE dependencies, and all specified nested-subquery forms across supported dialects.
 
-**Purpose**: Lock in the regression baseline for previously-fixed bugs (research.md R2)
-before making any further changes, so any accidental regression is caught immediately.
+**Independent Test**: Run the US1 parser test suite with representative four-dialect queries and confirm counts, depths, source lines, and AST comparisons.
 
-**⚠️ CRITICAL**: Must complete before proceeding to any user story phase.
+- [X] T009 [P] [US1] Add parser tests in `src/lib/sql/sqlAnalyzer.test.ts` for scalar, `IN`, `EXISTS`, derived-table, and `LATERAL/APPLY` nested SELECT forms, including nested SELECTs inside CTE bodies.
+- [X] T010 [P] [US1] Add depth tests in `src/lib/sql/sqlAnalyzer.test.ts` proving direct subqueries are depth 1, nested SELECTs increment depth, wrapper/function parentheses do not increment depth, and `metrics.subqueryDepth` equals the maximum detail depth.
+- [X] T011 [P] [US1] Add source-coordinate tests in `src/lib/sql/sqlAnalyzer.test.ts` proving `sourceLine` points to the original SQL with comments/blank lines and `parsedLine` points to cleaned SQL.
+- [X] T012 [P] [US1] Add four-dialect AST cross-check tests in `src/lib/sql/sqlAnalyzer.test.ts` for table, JOIN, CTE, and nested-SELECT boundaries; document every dialect grammar limitation in the test fixture.
+- [X] T013 [US1] Refine nested-subquery scanning in `src/lib/sql/sqlAnalyzer.ts` to recognize all clarified forms, preserve depth semantics, and emit canonical `NestedSubquery` records with both line coordinates.
+- [X] T014 [US1] Update subquery type/context inference in `src/lib/sql/sqlAnalyzer.ts` and `src/app/common/sqlAnalyzerUtils.ts` so scalar, IN, EXISTS, FROM, LATERAL, and APPLY details use stable labels across dialects.
+- [X] T015 [US1] Populate `metricDetails.subqueries` from the single extracted collection in `src/lib/sql/sqlAnalyzer.ts`, set `metrics.subqueryCount` to its length, and set `metrics.subqueryDepth` to its maximum depth or zero.
+- [X] T016 [US1] Preserve derived subquery graph nodes and deduplicate their relationships in `src/lib/sql/sqlAnalyzer.ts`, ensuring dual representation does not create duplicate `JoinEdge` records.
+- [X] T017 [US1] Re-run the baseline and US1 test suites with `npm test` and `npx tsc --noEmit`; fix parser root causes without relaxing regression or AST assertions.
 
-- [X] T002 [P] In `src/lib/sql/sqlAnalyzer.test.ts`, add a regression test asserting an
-      unaliased table immediately followed by another `JOIN` keyword
-      (`FROM t1 JOIN t2 ON ... JOIN t3 ON ...` with `t1` unaliased) produces exactly
-      the expected table set (no table swallowed as a fake alias).
-- [X] T003 [P] In `src/lib/sql/sqlAnalyzer.test.ts`, add a regression test for
-      comma-style joins using multi-segment quoted/bracketed names
-      (`[MyDb].[dbo].[Customers], [MyDb].[dbo].[Orders]` and
-      `"public"."orders", "public"."customers"`) asserting both tables are present
-      and distinct (no truncation/collision).
-- [X] T004 [P] In `src/lib/sql/sqlAnalyzer.test.ts`, add a regression test for a
-      derived table (`FROM (SELECT ...) x JOIN y ON x.id = y.id`) asserting `x` is
-      registered as its own `TableNode` (`isSubquery: true`) with a correctly
-      resolved JOIN edge, not misattributed to an inner table.
-- [X] T005 [P] In `src/lib/sql/sqlAnalyzer.test.ts`, add a regression test for a
-      multi-CTE query where two CTEs are connected by both an explicit JOIN and an
-      implicit reference, asserting `metrics.totalJoinCount` / `joins.length` counts
-      that pair exactly once (no double-count).
-- [X] T006 [P] In `src/lib/sql/sqlAnalyzer.test.ts`, add a regression test for a JOIN
-      condition ending exactly at end-of-string or immediately before `;` with no
-      trailing space, asserting the final JOIN is still extracted.
-- [X] T007 Run `npm test` and confirm all Phase 2 regression tests pass against the
-      **current, unmodified** `sqlAnalyzer.ts`/`sqlAnalyzerUtils.ts` (they document
-      already-fixed behavior) before proceeding — this is the safety net, not new
-      work; if any fails, treat it as its own regression to fix first.
+**Checkpoint**: US1 produces correct canonical parser facts and is independently verified across dialects and subquery forms.
 
-**Checkpoint**: Regression baseline locked. Any change from this point on that breaks
-one of T002-T006 is a hard stop.
+## Phase 4: User Story 2 - Consistent Dashboard and Navigation Output (Priority: P1)
 
----
+**Goal**: Metrics Dashboard, Graph Visualizer, CTE Analysis, and Smart Editor navigation consume one canonical result with consistent labels and no stale data.
 
-## Phase 3: User Story 1 - Trustworthy analysis results on first click (Priority: P1)
+**Independent Test**: Analyze one query containing all supported subquery forms, compare all page counts/details, activate every source-line detail, then re-analyze a second query without reload.
 
-**Goal**: Table/JOIN/CTE extraction is correct across all four dialects and the
-edge-case shapes called out in the spec (aliasing, comma-joins, derived tables,
-subqueries, CTE dependency graphs).
+- [X] T018 [P] [US2] Update `src/app/sql-metrics-dashboard/components/NestedSubqueryAnalysis.tsx` to read `analysisResult.metricDetails.subqueries`, display total count, maximum depth, per-item depth/type, and both source-coordinate values.
+- [X] T019 [P] [US2] Update `src/app/sql-metrics-dashboard/components/MetricCardsGrid.tsx` and `src/app/sql-metrics-dashboard/components/MetricsBarChart.tsx` to keep subquery count/depth labels tied to canonical metrics and avoid independent recomputation.
+- [X] T020 [P] [US2] Add or update localized labels in `src/locales/en.ts` and `src/locales/vi.ts` for source line, parsed line, subquery type, maximum depth, and canonical relationship terminology.
+- [X] T021 [US2] Wire `src/app/sql-metrics-dashboard/components/NestedSubqueryAnalysis.tsx` through `src/lib/useGoToSqlLine.ts` so clicks use `sourceLine` and highlight the matching line in the Smart SQL Editor without a page reload.
+- [X] T022 [P] [US2] Audit `src/app/relationship-graph-visualizer/components/*.tsx` and `src/app/cte-analysis/components/*.tsx` to confirm table, relationship, and CTE counts come from canonical `analysisResult` fields and derived subquery nodes do not alter displayed relationship totals.
+- [X] T023 [US2] Update `src/app/sql-metrics-dashboard/components/NestedSubqueryAnalysis.tsx` and any compatibility path using `structuralReport.subqueries` so it reads the canonical `metricDetails.subqueries` collection only, with any legacy field treated as a derived alias.
+- [X] T024 [US2] Add an integration-style test in `src/lib/sql/analysisResultConsistency.test.ts` covering canonical table, relationship, CTE, subquery count, depth, and source-line values consumed by all analysis pages.
+- [X] T025 [US2] Verify `setAnalysisResult` in `src/lib/store.ts` fully replaces prior analysis and add a regression test for re-analysis while a previous result is displayed, ensuring no stale counts or details remain.
+- [ ] T026 [US2] Perform the manual cross-page and Smart Editor jump validation from `specs/003-query-analysis-consistency/quickstart.md` using representative queries with comments, blank lines, derived tables, and nested CTE subqueries.
 
-**Independent Test**: Paste representative queries per dialect (simple, JOIN-heavy,
-CTE-heavy, comma-join, derived-table/subquery) and confirm table/JOIN/CTE counts
-match manual inspection (per quickstart.md manual steps 1-3).
+**Checkpoint**: US2 has one canonical display contract, consistent terminology, accurate source-line navigation, and no stale cross-page state.
 
-- [X] T008 [P] [US1] Add dialect-coverage tests in `src/lib/sql/sqlAnalyzer.test.ts`:
-      one representative multi-table, multi-JOIN query per dialect (MySQL,
-      PostgreSQL, SQL Server, Oracle), asserting exact table/JOIN counts.
-- [X] T009 [P] [US1] Add a CTE-dependency-graph test in
-      `src/lib/sql/sqlAnalyzer.test.ts` covering 3+ CTEs with a mix of direct
-      references and explicit JOINs between CTEs, asserting the full expected
-      `ctes`/`joins` shape.
-- [X] T010 [US1] Run `npm test` and `npx tsc --noEmit`; for any failing test from
-      T008/T009, diagnose and fix the root cause in `src/app/common/sqlAnalyzerUtils.ts`
-      or `src/lib/sql/sqlAnalyzer.ts` (regex patterns, extraction/dedup logic) —
-      NOT by relaxing the test assertion.
-- [X] T011 [US1] Re-run the full Phase 2 regression suite (T002-T006) plus T008/T009
-      after any fix from T010 to confirm zero regressions.
-- [X] T012 [US1] Manually verify against `quickstart.md` steps 1-3 using the dev
-      server: paste each of the 4 representative queries (unaliased+JOIN,
-      comma-join with bracketed/quoted names, derived table, multi-CTE) into
-      `/query-input`, click Analyze, and confirm Metrics Dashboard counts match
-      manual inspection. Live manual pass (mixed comma-join + CTE + explicit JOIN
-      query) surfaced a real bug: a comma-separated FROM item ending in its own
-      explicit JOIN (`FROM orders o, customers c, a JOIN b ON a.id = b.id`)
-      produced a phantom table literally named the raw clause text. Fixed in
-      `parseFromListItem` (sqlAnalyzer.ts) to truncate at the embedded JOIN
-      keyword; added a regression test; re-verified in-browser (Referenced Tables
-      dropped from 6 to the correct 5, phantom entry gone) and via `npx vitest
-      run` (38/38 passing, zero regressions).
+## Phase 5: User Story 3 - Clear Edge-Case and Invalid-Input Feedback (Priority: P2)
 
-**Checkpoint**: US1 independently functional — analysis correctness verified by
-automated tests and one manual pass.
+**Goal**: Empty, malformed, dialect-mismatched, zero-relationship, and overlapping analyses produce distinct, non-crashing outcomes.
 
----
+**Independent Test**: Submit each edge-case query through `/query-input` and confirm the expected message, state transition, and absence of partial results.
 
-## Phase 4: User Story 2 - Consistent, unambiguous output across every analysis-consuming page (Priority: P1)
+- [X] T027 [P] [US3] Add validation tests in `src/lib/sql/sqlFormatValidator.test.ts` and `src/lib/sql/dialectValidator.test.ts` for empty input, wrapping quotes, invisible characters, curly quotes, and detected-vs-selected dialect mismatch.
+- [X] T028 [P] [US3] Add malformed-input tests in `src/lib/sql/sqlAnalyzer.test.ts` and `src/app/query-input/page.tsx` coverage notes proving parse failure cannot store a partial `analysisResult` and is distinct from a valid zero-subquery/zero-relationship result.
+- [X] T029 [US3] Add an analysis-run guard or cancellation test around `src/app/query-input/page.tsx` and `src/lib/store.ts` so overlapping Analyze actions cannot blend results or leave an older result visible after the newer run completes.
+- [X] T030 [US3] Verify and, only if needed, improve zero-state rendering in `src/app/sql-metrics-dashboard/components/ReferencedTablesTable.tsx`, `src/app/relationship-graph-visualizer/`, and `src/app/cte-analysis/components/CTEAnalysisContent.tsx` so valid zero values are not presented as errors.
+- [ ] T031 [US3] Run the manual edge-case validation in `specs/003-query-analysis-consistency/quickstart.md` and capture expected behavior for empty, malformed, dialect-mismatched, and simple valid queries.
 
-**Goal**: Metrics Dashboard, Graph Visualizer, and CTE Analysis all display identical
-table/relationship/CTE counts for the same analyzed query, with consistent
-terminology, and no stale data after a re-analysis.
-
-**Independent Test**: Analyze one query, then visit each consuming page and record
-every displayed count/label; confirm identical numbers and consistent terminology
-(per quickstart.md manual steps 3-4, 7).
-
-- [X] T013 [P] [US2] Audit `src/app/sql-metrics-dashboard/components/*.tsx` for any
-      count derived independently of `analysisResult.tables`/`analysisResult.ctes`/
-      `analysisResult.metrics.totalJoinCount`; confirm none exist (per research.md
-      R1) or fix any found to read from the canonical fields.
-- [X] T014 [P] [US2] Audit `src/app/relationship-graph-visualizer/components/*.tsx`
-      for the same; confirm `GraphVisualizerContent.tsx`'s "all" filter count reads
-      `analysisResult.metrics.totalJoinCount` directly (already verified in
-      research.md) and remains so.
-- [X] T015 [P] [US2] Audit `src/app/cte-analysis/components/*.tsx` for the same;
-      confirm `ctes.length`/`cte.tables.length` usages read directly from the
-      canonical `analysisResult` and are not recomputed.
-- [X] T016 [US2] Add an integration-style test (in
-      `src/lib/sql/sqlAnalyzer.test.ts` or a new
-      `src/lib/sql/analysisResultConsistency.test.ts`) that runs `analyzeSql()` once
-      on a representative multi-table/JOIN/CTE query and asserts
-      `analysisResult.tables.length`, `analysisResult.ctes.length`, and
-      `analysisResult.metrics.totalJoinCount` are the single values every consumer
-      would read (i.e., re-derive nothing) — a lightweight regression guard for
-      FR-003/FR-004.
-- [X] T017 [US2] Verify that submitting a new Analyze while a previous result is
-      displayed (per FR-010/FR-011) fully replaces `analysisResult` in
-      `src/lib/store.ts` with no merge/blend logic; confirm `setAnalysisResult`
-      overwrites rather than appends.
-- [X] T018 [US2] Manually verify against `quickstart.md` steps 3-4 and 7: after one
-      Analyze, cross-check Metrics Dashboard vs. Graph Visualizer vs. CTE Analysis
-      counts are identical, then re-analyze a different query and confirm no stale
-      counts remain on any page. Verified via live dev server: Analyze navigated to
-      Metrics Dashboard and displayed self-consistent Joins=3/CTEs=2/Tables=5
-      (post-fix) figures sourced directly from the canonical `analysisResult`.
-
-**Checkpoint**: US2 independently functional — cross-page consistency verified by
-audit, a regression test, and a manual pass.
-
----
-
-## Phase 5: User Story 3 - Clear feedback for edge-case and invalid input (Priority: P2)
-
-**Goal**: Empty query, format issues, dialect mismatches, parse failures, and valid
-zero-relationship results each produce a distinct, specific, non-crashing message.
-
-**Independent Test**: Submit each edge-case input in turn and confirm distinct,
-specific messaging, with the zero-state visually distinguishable from an error (per
-quickstart.md manual step 6).
-
-- [X] T019 [P] [US3] Add tests in `src/lib/sql/sqlAnalyzer.test.ts` (or existing
-      `src/lib/sql/dialectValidator.test.ts` as appropriate) asserting
-      `validateSqlFormat` rejects known copy-paste artifacts (wrapped-in-quotes,
-      curly quotes, invisible characters) with a specific `reasonKey`/`reason`.
-      Added new `src/lib/sql/sqlFormatValidator.test.ts` (7 tests: wrapped in
-      double/single quotes, curly double/single quotes, non-breaking space,
-      zero-width character, and a clean-query pass-through case).
-- [X] T020 [P] [US3] Add a test asserting `validateSqlDialect` flags a query written
-      for one dialect (e.g., Postgres-only syntax) when a different dialect (e.g.,
-      MySQL) is selected, with a specific detected-vs-selected mismatch payload.
-      Already fully covered by the existing `src/lib/sql/dialectValidator.test.ts`
-      (Oracle/SQL Server/MySQL/PostgreSQL signature mismatches, AST cross-check
-      for signature-less cases like `DISTINCT ON`, string-literal false-positive
-      guard) — no gap found, no new test needed.
-- [X] T021 [P] [US3] Add a test asserting `analyzeSql` on a deliberately malformed
-      query (unbalanced parens / truncated statement) throws or rejects in a way
-      `handleAnalyze` (`src/app/query-input/page.tsx`) catches and surfaces as
-      `t.parseErrorMessage`, without storing a partial `analysisResult`.
-      Correction from code audit: `analyzeSql` has zero `throw` statements — it is
-      intentionally regex-based/tolerant and never crashes on malformed input by
-      design. Added a test asserting it *resolves* (does not throw) on unbalanced
-      parens / a truncated statement. `handleAnalyze`'s catch-and-toast path is
-      structurally confirmed (by reading `page.tsx`) to only ever trigger from
-      `validateSqlFormat`/`validateSqlDialect` failures or a genuine unexpected
-      exception, and `setAnalysisResult(result)` is only reached after `analyzeSql`
-      resolves — so a thrown error can never leave a partial `analysisResult`
-      stored, satisfying the task's real intent.
-- [X] T022 [US3] Add a test asserting a valid, simple query with no JOINs and no
-      CTEs produces `analysisResult.joins.length === 0` /
-      `analysisResult.ctes.length === 0` as a normal, non-error result (distinct
-      code path from T021's thrown-error case). Already satisfied by the existing
-      "analyzeSql - edge cases and validation outcomes (US3)" test in
-      `sqlAnalyzer.test.ts`.
-- [X] T023 [US3] Verify the zero-relationship/zero-CTE state renders a clear
-      zero-state (not a blank/broken-looking view) in
-      `src/app/sql-metrics-dashboard/components/ReferencedTablesTable.tsx` (existing
-      `tables.length === 0` branch), `src/app/relationship-graph-visualizer/`, and
-      `src/app/cte-analysis/components/CTEAnalysisContent.tsx` (existing
-      `ctes.length === 0` branch); fix messaging/visuals only if a gap is found.
-      Confirmed via code read: both `ReferencedTablesTable.tsx` (line 84,
-      `t.noTablesDetected` message) and `CTEAnalysisContent.tsx` (line 174) have an
-      explicit, distinct zero-state branch — no gap found, no fix needed.
-- [X] T024 [US3] Manually verify against `quickstart.md` step 6: empty query,
-      malformed query, dialect-mismatched query, and a JOIN-less/CTE-less query each
-      produce the expected distinct message/zero-state in the running app. Verified
-      live: empty query -> "Query is empty..." toast; whole-query-wrapped-in-quotes
-      -> specific format-issue toast naming the exact artifact; Oracle `ROWNUM`
-      syntax with MySQL selected -> specific dialect-mismatch toast naming both the
-      detected and selected dialects. Each message is distinct and non-crashing.
-
-**Checkpoint**: US3 independently functional — edge-case messaging verified by
-targeted tests and a manual pass.
-
----
+**Checkpoint**: US3 has distinct validation/error/zero-state behavior and safe overlapping-analysis handling.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Final validation across all stories, performance/regression sign-off,
-and closing out the feature per its Success Criteria.
+**Purpose**: Verify performance, documentation, type safety, and full regression coverage.
 
-- [X] T025 [P] Add or confirm a performance-style test/benchmark using a generated
-      50+ table query, asserting `analyzeSql` completes within the constitution's
-      1-second budget (Quality Standards, Performance) — extend
-      `src/lib/sql/sqlAnalyzer.test.ts` or add
-      `src/lib/sql/sqlAnalyzerPerformance.test.ts`. Added a new "performance"
-      describe block in `sqlAnalyzer.test.ts` generating a 55-table JOIN query;
-      asserts `result.tables.length === 55` and wall-clock duration < 1000ms.
-      Measured ~ well under the budget locally; test passes.
-- [X] T026 Run the full suite (`npm test`) and `npx tsc --noEmit`; confirm zero
-      regressions across every existing test file (`complexityScorer.test.ts`,
-      `dialectValidator.test.ts`, `optimizeRegression.test.ts`, plus all tests added
-      in Phases 2-6) — satisfies SC-004. `npx vitest run` → 5 test files, 47 tests,
-      all passing, zero regressions. `npx tsc --noEmit` → 5 pre-existing errors,
-      all confined to `vi`/`expect.arrayContaining`/`it.each` type-export
-      resolution in test files only (including the untouched `dialectValidator.test.ts`,
-      confirming this is a pre-existing vitest/moduleResolution quirk, not a
-      regression from this feature); zero errors in any application source file.
-- [X] T027 Walk through the full `quickstart.md` manual validation sequence
-      end-to-end (steps 1-7) in one continuous session and confirm SC-001 through
-      SC-005 are all satisfied. Steps 1-6 verified live in the browser across this
-      feature's work (T012/T018: multi-dialect queries with derived tables, comma
-      joins, CTE-CTE dependencies — consistent 5 tables/3 joins/2 CTEs across
-      Metrics Dashboard, Graph Visualizer, CTE Analysis; T024: empty/format/dialect
-      edge cases). Step 7 (re-analyze without reload leaves no stale data) is
-      guaranteed structurally: `setAnalysisResult` (store.ts) is a plain Zustand
-      overwrite of the whole `analysisResult` object, not a merge (confirmed in
-      T017), and is covered by the automated "canonical AnalysisResult consistency
-      (US2 guard)" test in `sqlAnalyzer.test.ts`, which asserts every consumer
-      reads the same freshly-computed object. SC-001 through SC-005 satisfied.
-- [X] T028 Update repo memory (`sql-visualizer-architecture.md`) with any new
-      correctness finding or confirmed-fixed status discovered during this feature,
-      following the existing note-taking convention in that file. Added 3 new
-      sections: the phantom-table comma-join+JOIN bug (root cause, fix, lesson),
-      confirmation that `analyzeSql` never throws by design, and a note on the
-      pre-existing tsc/vitest type-resolution quirk (so it isn't mistaken for a
-      real bug in future sessions).
+- [X] T032 [P] Add or update the 50+ table performance test in `src/lib/sql/sqlAnalyzer.test.ts`, asserting analysis and relationship graph data complete within 1 second.
+- [X] T033 [P] Add parser limitation and dialect behavior notes to `src/lib/sql/sqlAnalyzer.ts` and `src/app/common/sqlAnalyzerUtils.ts` inline comments where the implementation has non-obvious boundaries.
+- [X] T034 Run the full suite with `npm test` and type checking with `npx tsc --noEmit`; confirm all existing and new tests pass, recording only known pre-existing test-type resolution issues.
+- [ ] T035 Execute all seven scenarios plus the nested-subquery scenario from `specs/003-query-analysis-consistency/quickstart.md` and confirm SC-001 through SC-005 and SC-002a are satisfied.
+
+## Phase 7: User Story 2 Extension - Complexity Factors Breakdown (Priority: P1)
+
+**Purpose**: Complete the chart-specific correctness and completeness work defined in the updated plan and data model.
+
+**Independent Test**: Analyze a large CTE/JOIN/subquery query and a simple zero-factor query; confirm the chart and gauge reconcile, labels are localized, and no factor is omitted or double-counted.
+
+- [X] T036 [P] [US2] Add `src/lib/sql/complexityScorer.test.ts` coverage proving displayed factor contributions reconcile to `DetailedComplexityScore.totalScore`, including JOIN, CTE, subquery, SELECT-field, and window-function factors.
+- [X] T037 [P] [US2] Add zero-factor and wrapper-parenthesis cases to `src/lib/sql/complexityScorer.test.ts`, asserting zero-safe percentage behavior and subquery count agreement with `analysisResult.metrics.subqueryCount`.
+- [X] T038 [US2] Update `src/app/sql-metrics-dashboard/components/ComplexityFactorsBreakdown.tsx` to display total score, maximum score, percentage of maximum, formula/count, raw contribution, and normalized percentage for every factor.
+- [X] T039 [US2] Add localized keyword-category mappings in `src/locales/en.ts` and `src/locales/vi.ts`, and update `src/app/sql-metrics-dashboard/components/ComplexityFactorsBreakdown.tsx` so keys such as `GROUP_BY`, `INNER_JOIN`, and `WITH_CTE` are not shown as raw labels.
+- [X] T040 [US2] Reconcile JOIN display data in `src/lib/sql/complexityScorer.ts` and `src/app/sql-metrics-dashboard/components/ComplexityFactorsBreakdown.tsx` so JOIN contribution appears exactly once and the dedicated `scoreBreakdown.joins` field is used only as a consistency check.
+- [X] T041 [US2] Add a canonical subquery consistency assertion between `src/lib/sql/complexityScorer.ts`, `src/lib/sql/sqlAnalyzer.ts`, and `src/app/sql-metrics-dashboard/components/ComplexityFactorsBreakdown.tsx`; weighted complexity may differ, but the displayed subquery count must match parser facts.
+- [X] T042 [US2] Replace the `as any` CSS containment cast in `src/app/sql-metrics-dashboard/components/ComplexityFactorsBreakdown.tsx` with a type-safe style declaration or a documented, justified alternative.
+- [ ] T043 [US2] Perform the Complexity Factors Breakdown manual validation in `specs/003-query-analysis-consistency/quickstart.md`, including a large CTE/JOIN query and a simple zero-factor query.
 
 ## Dependencies & Execution Order
 
-- **Phase 1 (Setup)** → **Phase 2 (Foundational)**: T001 must exist before any test
-  can be added in Phase 2.
-- **Phase 2 (Foundational)** blocks all user story phases: the regression baseline
-  (T002-T007) must be locked in first so later fixes don't silently break already-fixed
-  bugs.
-- **User Stories (Phase 3, 4, 5)**: US1 (Phase 3) and US2 (Phase 4) are both P1 and
-  can proceed in parallel once Phase 2 is complete, since US1 fixes analyzer
-  correctness (`sqlAnalyzer.ts`/`sqlAnalyzerUtils.ts`) while US2 audits consumer
-  pages (`src/app/*/components/*.tsx`) — different files, no direct dependency,
-  though US2's T016 regression test is most meaningful once any US1 fixes have
-  landed. US3 (Phase 5, P2) is independent of both and can run in parallel too, since
-  it targets `validateSqlFormat`/`validateSqlDialect`/error-handling paths.
-- **Phase 6 (Polish)** depends on all prior phases being complete.
+- Phase 1 must complete before Phase 2 because tests need shared fixtures and AST helpers.
+- Phase 2 blocks all user stories because the canonical contract and regression baseline must be stable first.
+- US1 should complete before US2 because dashboard integration depends on the finalized nested-subquery collection, although US2 consumer audits can begin after T007.
+- US3 can proceed in parallel with US2 after Phase 2 because it targets validation and run-state handling, not the parser detail UI.
+- Phase 6 depends on US1, US2, and US3.
+- Phase 7 depends on the completed canonical score and metric contracts from US1 and US2, and is the final chart-specific completion gate.
+
+```text
+Phase 1 → Phase 2 → US1 → US2 → Phase 6
+                   └──→ US3 ──┘
+```
 
 ## Parallel Execution Examples
 
-Within Phase 2 (Foundational), T002-T006 can run in parallel (all append independent
-`describe`/`it` blocks to the same new file, but each test case is independent and
-non-conflicting once T001 exists):
+Within Phase 1: `T002`, `T003` can run in parallel after `T001`.
 
-```text
-T002, T003, T004, T005, T006 (parallel) → T007 (sequential, runs the full suite)
-```
+Within Phase 2: `T006` and `T007` can run in parallel after the contract tasks `T004` and `T005`.
 
-Across Phase 3/4/5 (once Phase 2 checkpoint passes), the three user stories can be
-staffed in parallel:
+Within US1: `T009`, `T010`, `T011`, and `T012` can run in parallel before parser implementation `T013`.
 
-```text
-Phase 3 (US1: T008-T012) | Phase 4 (US2: T013-T018) | Phase 5 (US3: T019-T024)
-```
+Within US2: `T018`, `T019`, `T020`, and `T022` can run in parallel after `T015`; `T021`, `T023`, and `T024` depend on the canonical collection wiring.
+
+Within US3: `T027`, `T028`, and `T030` can run in parallel; `T029` depends on the observed run-state behavior.
 
 ## Implementation Strategy
 
-**MVP first**: Complete Phase 1 + Phase 2 (regression baseline) + Phase 3 (US1) —
-this alone delivers the highest-value fix (correct analysis results) and is
-independently testable/shippable. Phase 4 (US2, cross-page consistency) is a close
-second since research.md shows it is mostly an audit-and-confirm pass rather than
-new code, so it is low-risk to include in the same increment. Phase 5 (US3, P2 edge
-messaging) and Phase 6 (Polish) can follow as a second increment.
+**MVP**: Phase 1 + Phase 2 + US1. This delivers correct, tested parser output for all clarified subquery forms and preserves the graph representation.
+
+**Increment 2**: US2. This makes the Metrics Dashboard, Graph Visualizer, CTE Analysis, Smart Editor navigation, and Complexity Factors Breakdown consume canonical results consistently.
+
+**Increment 3**: US3 + Phase 6. This completes invalid-input handling, concurrency protection, performance verification, and full sign-off.

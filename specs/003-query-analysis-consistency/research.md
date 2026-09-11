@@ -56,17 +56,16 @@
 
 ## R3: AST cross-check availability (`dt-sql-parser`)
 
-- **Decision**: Use `dt-sql-parser` as a secondary verification signal in tests only
-  (not a runtime gate) for the regression matrix in R2 — i.e., for each regression
-  fixture, assert the regex-based `analyzeSql` table/JOIN count is consistent with
-  what an AST parse of the same fixture would produce, where the dialect's grammar
-  in `dt-sql-parser` supports the construct.
+- **Decision**: Use `dt-sql-parser` as a mandatory test-time verification signal (not
+  a runtime gate) for every supported dialect fixture in the regression matrix. Each
+  fixture must compare regex-based extraction with the AST result for tables, joins,
+  CTEs, and nested SELECT boundaries. Any construct not supported by the AST grammar
+  must be listed as a dialect-specific limitation with a dedicated parser test rather
+  than silently skipped.
 - **Rationale**: Constitution Principle I requires dual regex+AST cross-checks;
   `dt-sql-parser` is already a project dependency used elsewhere for dialect
-  validation (`validateSqlDialect`). Using it as a test-time oracle (rather than
-  adding a new runtime AST-parse path into `analyzeSql`, which would be a much larger
-  change) satisfies the constitutional requirement without expanding scope beyond
-  what this feature's spec calls for.
+  validation (`validateSqlDialect`). Keeping the comparison in tests avoids adding
+  runtime latency while making parser correctness failures visible before release.
 - **Alternatives considered**: Making `analyzeSql` call `dt-sql-parser` at runtime for
   every analysis was rejected as out of scope — the spec only requires *outputs* to
   be correct and consistent, not a new dual-engine runtime architecture; that would
@@ -82,6 +81,59 @@
   already exist as prior art) are O(n) style changes, not complexity-class changes.
 - **Alternatives considered**: N/A — no alternative approach needed since this is a
   non-issue given the scope of planned fixes.
+
+## R5: Canonical nested-subquery detail and source-line mapping
+
+- **Decision**: Extend the canonical nested-subquery detail contract with the total
+  collection, per-item `depth`, `sourceLine` (1-based line in the original editor
+  SQL), and `parsedLine` (1-based line in cleaned parser SQL). Derived subqueries are
+  represented twice by design: one graph `Table Reference` and one `Nested Subquery`
+  detail, with no duplicate relationship edge.
+- **Rationale**: The dashboard already exposes subquery count/depth and the existing
+  `useGoToSqlLine` flow supports editor navigation. Keeping both coordinates makes
+  parser offsets auditable while ensuring user-facing navigation remains accurate
+  when comments, blank lines, or formatting are removed for parsing.
+- **Alternatives considered**: Using only cleaned-SQL lines was rejected because it
+  can highlight the wrong editor line; using only graph nodes was rejected because it
+  loses nested depth and detailed metric context.
+
+## R6: Subquery form scope and depth semantics
+
+- **Decision**: Count scalar, `IN`, `EXISTS`, derived-table, and `LATERAL/APPLY`
+  nested `SELECT` constructs. CTEs retain a separate count; nested `SELECT` inside a
+  CTE body counts as a subquery, while the CTE definition itself does not count again.
+  Direct subqueries have depth 1 and each nested subquery increments depth by 1;
+  grouping/function parentheses do not add depth.
+- **Rationale**: This matches the existing recursive scanner's intended boundary
+  semantics and prevents wrapper parentheses from inflating complexity metrics.
+
+## R7: Complexity Factors Breakdown canonical contract
+
+- **Decision**: Keep `DetailedComplexityScore` as the single source for both the
+  Complexity Factors Breakdown and Complexity Gauge. The chart renders keyword,
+  SELECT-field, CTE, subquery, and window-function factors from `scoreBreakdown`,
+  while exposing total score, maximum score, percentage, formula, raw contribution,
+  and localized labels. JOIN contribution remains represented by keyword subtotals;
+  the dedicated `scoreBreakdown.joins` object is a reconciliation field, not another
+  score to add.
+- **Rationale**: Reusing scorer output prevents chart/gauge drift. Explicit tests can
+  assert that displayed contributions sum to `totalScore`, while the dedicated JOIN
+  object prevents relationship scoring from disappearing. Raw keys such as
+  `GROUP_BY` and `INNER_JOIN` are implementation keys and must be localized.
+- **Alternatives considered**: Recomputing chart values from `analysisResult.metrics`
+  was rejected because it duplicates the scoring algorithm. Adding JOIN score twice
+  was rejected because JOIN scoring already exists in keyword totals.
+
+## R8: Complexity/subquery consistency boundary
+
+- **Decision**: Compare the chart's subquery count against canonical
+  `analysisResult.metrics.subqueryCount` and `metricDetails.subqueries` in tests. The
+  chart may display the scorer's weighted contribution, but scorer parenthesis depth
+  must not replace canonical parser depth.
+- **Rationale**: Weighted complexity and structural parser facts answer different
+  questions, but their count must agree for the same analyzed query. This prevents
+  wrapper parentheses and dialect-specific formatting from changing the displayed
+  subquery count unexpectedly.
 
 **Output**: All NEEDS CLARIFICATION items from Technical Context resolved (none were
 present — Technical Context was fully determinable from the existing codebase).

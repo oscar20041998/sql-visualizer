@@ -62,6 +62,10 @@ export interface NestedSubquery {
   lineCount: number;
   /** 1-based line number (within AnalysisResult.rawSql) where this subquery starts — lets the UI jump to it in the editor. */
   line: number;
+  /** 1-based line number in the original editor SQL, including comments and blank lines. */
+  sourceLine: number;
+  /** 1-based line number in the cleaned SQL used by the parser. */
+  parsedLine: number;
   hasJoins: boolean;
   hasAggregation: boolean;
   context: string; // surrounding keyword context (WHERE, FROM, SELECT, etc.)
@@ -164,6 +168,7 @@ export interface MetricDetailItem {
 }
 
 export interface MetricDetailsReport {
+  subqueries: NestedSubquery[];
   windowFunctions: MetricDetailItem[];
   groupBy: MetricDetailItem[];
   orderBy: MetricDetailItem[];
@@ -221,6 +226,8 @@ export async function analyzeSql(
 ): Promise<AnalysisResult> {
   // Strip all SQL comments before scanning
   const stripped = stripSqlComments(sql);
+  const leadingTrim = stripped.length - stripped.trimStart().length;
+  const sourceLineOffset = lineCountBefore(stripped, leadingTrim);
   // Backend integration point: Replace with dt-sql-parser AST traversal
   const cleaned = stripped.trim();
   const extractedTables = extractTables(cleaned);
@@ -229,20 +236,53 @@ export async function analyzeSql(
   // invisible to the graph/totalJoinCount even though countImplicitJoins() already counted them
   // for the structural score. Represented separately so the two counts never double up.
   const implicitJoins = extractImplicitJoinEdges(cleaned, extractedTables);
-  const ctes = extractCTEs(cleaned);
+  let ctes = extractCTEs(cleaned);
   const tables = buildGraphTables(extractedTables, ctes);
   const joins = buildGraphJoins([...extractedJoins, ...implicitJoins], tables, ctes);
   // Structural metrics must be based on SQL joins only (exclude graph-only RELATES TO edges).
-  const structuralReport = buildStructuralAnalysisReport(cleaned, sql, ctes, extractedJoins);
-  
-  // Itemized detail behind the metric-card counts, for the detail modal
-  const metricDetails = buildMetricDetails(cleaned, ctes);
+  // Itemized detail behind the metric-card counts, for the detail modal.
+  let metricDetails = buildMetricDetails(cleaned, ctes);
+  const mainQuery = extractMainQuery(cleaned);
+
+  // Extract every nested SELECT once so metric details and structural compatibility
+  // consumers cannot drift in count, depth, type, or source-line values.
+  const mainQueryOffset = Math.max(0, cleaned.lastIndexOf(mainQuery));
+  const mainQuerySubqueries = extractNestedSubqueries(
+    mainQuery,
+    'main',
+    cleaned,
+    mainQueryOffset,
+    sourceLineOffset
+  );
+  const cteSubqueries = ctes.flatMap((cte) => {
+    const cteBodyOffset = Math.max(0, cleaned.indexOf(cte.body));
+    return extractNestedSubqueries(cte.body, cte.id, cleaned, cteBodyOffset, sourceLineOffset);
+  });
+  const enhancedSubqueries = [...mainQuerySubqueries, ...cteSubqueries].map((sq) => ({
+    ...sq,
+    expression: sq.body,
+    nestingLevel: sq.depth,
+    content: sq.body,
+    type: inferSubqueryType(sq.context),
+  }));
+
+  ctes = ctes.map((cte) => ({
+    ...cte,
+    nestedSubqueries: enhancedSubqueries.filter((subquery) => subquery.id.startsWith(`${cte.id}-`)),
+  }));
+  const structuralReport = buildStructuralAnalysisReport(
+    cleaned,
+    sql,
+    ctes,
+    extractedJoins,
+    enhancedSubqueries
+  );
+  metricDetails = { ...metricDetails, subqueries: enhancedSubqueries };
 
   const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport, metricDetails, joins.length);
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
-  const mainQuery = extractMainQuery(cleaned);
   const mainQueryFields = extractMainQueryFields(mainQuery, ctes, tables);
 
   // New: Calculate detailed complexity score using the comprehensive scoring engine
@@ -266,7 +306,7 @@ export async function analyzeSql(
     executionCost,
     mainQueryFields,
     dialect,
-    rawSql: cleaned,
+      rawSql: sql,
     structuralReport,
     metricDetails,
     hasCTE: ctes.length > 0,
@@ -767,7 +807,7 @@ function countCteSourceReferences(sql: string, cteNames: Set<string>): Map<strin
   return counts;
 }
 
-function extractCTEs(sql: string): CTE[] {
+function extractCTEs(sql: string, sourceLineOffset = 0): CTE[] {
   const ctes: CTE[] = [];
 
   // Check if SQL starts with WITH (case-insensitive, allowing leading whitespace/comments)
@@ -917,10 +957,6 @@ function extractCTEs(sql: string): CTE[] {
     // A CTE is used when the main query references it directly or through a used CTE.
     const isUnused = !usedCtes.has(normalizedName);
 
-    // Extract nested subqueries within this CTE body
-    const cteBodyOffset = Math.max(0, sql.indexOf(body));
-    const nestedSubqueries = extractNestedSubqueries(body, `cte-${i}`, sql, cteBodyOffset);
-
     ctes.push({
       id: `cte-${i}`,
       name,
@@ -934,7 +970,7 @@ function extractCTEs(sql: string): CTE[] {
       isUnused,
       columnReferences: colRefs.slice(0, SQL_ANALYZER_LIMITS.MAX_CTE_FIELD_REFERENCES),
       lineCount: bodyLines,
-      nestedSubqueries,
+      nestedSubqueries: [],
     });
   });
 
@@ -1040,7 +1076,8 @@ function extractNestedSubqueries(
   sql: string,
   cteId: string,
   cleanedSql: string,
-  baseOffset: number
+  baseOffset: number,
+  sourceLineOffset = 0
 ): NestedSubquery[] {
   const results: NestedSubquery[] = [];
 
@@ -1129,7 +1166,8 @@ function extractNestedSubqueries(
           const subLines = innerBody.split('\n').length;
           const hasJoins = /\bJOIN\b/i.test(innerBody);
           const hasAggregation = /\b(COUNT|SUM|AVG|MIN|MAX|GROUP\s+BY)\b/i.test(innerBody);
-          const line = lineNumberAt(cleanedSql, baseOffset + nextTextOffset);
+          const parsedLine = lineNumberAt(cleanedSql, baseOffset + nextTextOffset);
+          const sourceLine = parsedLine + sourceLineOffset;
 
           results.push({
             id: `${cteId}-sub-${results.length}`,
@@ -1138,7 +1176,9 @@ function extractNestedSubqueries(
             tables: subTables,
             fields: subFields,
             lineCount: subLines,
-            line,
+            line: sourceLine,
+            sourceLine,
+            parsedLine,
             hasJoins,
             hasAggregation,
             context,
@@ -1925,7 +1965,8 @@ function buildStructuralAnalysisReport(
   cleanedSql: string,
   rawSql: string,
   ctes: CTE[],
-  joins: JoinEdge[]
+  joins: JoinEdge[],
+  subqueries: NestedSubquery[]
 ): StructuralAnalysisReport {
   const mainQuery = extractMainQuery(cleanedSql);
   const allFields = toFieldProjection(
@@ -1938,29 +1979,7 @@ function buildStructuralAnalysisReport(
     (field) => field.expression.length > 0
   );
 
-  // Extract all nested subqueries from main query and CTEs. Offsets are resolved against
-  // `cleanedSql` so every subquery can report a real line number the UI can jump to.
-  const mainQueryOffset = Math.max(0, cleanedSql.lastIndexOf(mainQuery));
-  const mainQuerySubqueries = extractNestedSubqueries(mainQuery, 'main', cleanedSql, mainQueryOffset);
-  const cteSubqueries: NestedSubquery[] = [];
-  ctes.forEach((cte) => {
-    const cteBodyOffset = Math.max(0, cleanedSql.indexOf(cte.body));
-    cteSubqueries.push(...extractNestedSubqueries(cte.body, cte.id, cleanedSql, cteBodyOffset));
-  });
-
-  const allSubqueries = [...mainQuerySubqueries, ...cteSubqueries];
-
-  // Enhance subqueries with display-friendly properties
-  const enhancedSubqueries = allSubqueries.map((sq) => ({
-    ...sq,
-    expression: sq.body, // Add expression as alias for body
-    nestingLevel: sq.depth, // Add nestingLevel as alias for depth
-    content: sq.body, // Add content as alternative
-    // Infer type from context keyword
-    type: inferSubqueryType(sq.context),
-  }));
-
-  const subqueryCount = allSubqueries.length;
+  const subqueryCount = subqueries.length;
 
   const whereCount = countPattern(cleanedSql.toUpperCase(), /\bWHERE\b/g);
   const havingCount = countPattern(cleanedSql.toUpperCase(), /\bHAVING\b/g);
@@ -1978,7 +1997,7 @@ function buildStructuralAnalysisReport(
     finalSelectFields,
     finalSelectFieldCount: finalSelectFields.length,
     hasCTE: ctes.length > 0,
-    subqueries: enhancedSubqueries, // Add detailed subqueries list
+    subqueries,
   };
 }
 
@@ -2009,6 +2028,15 @@ function lineNumberAt(text: string, index: number): number {
     if (text.charCodeAt(i) === 10 /* \n */) line++;
   }
   return line;
+}
+
+function lineCountBefore(text: string, index: number): number {
+  let count = 0;
+  const clamped = Math.max(0, Math.min(index, text.length));
+  for (let i = 0; i < clamped; i++) {
+    if (text.charCodeAt(i) === 10) count++;
+  }
+  return count;
 }
 
 /** Locates the offset of each (already-trimmed) part within `body`, in order, for per-item line numbers. */
@@ -2358,6 +2386,7 @@ function buildMetricDetails(cleanedSql: string, ctes: CTE[]): MetricDetailsRepor
   }));
 
   return {
+    subqueries: [],
     windowFunctions: extractWindowFunctionItems(cleanedSql, ctes),
     groupBy,
     orderBy,
