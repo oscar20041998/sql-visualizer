@@ -30,7 +30,7 @@ export default function MetricsDashboardContent() {
     );
   }
 
-  const { metrics, detailedComplexity, structuralReport, ctes, tables, metricDetails } = analysisResult;
+  const { metrics, detailedComplexity, ctes, tables, metricDetails } = analysisResult;
   const isHighRisk =
     detailedComplexity?.level === 'HIGH' || detailedComplexity?.level === 'SUPER_HIGH';
 
@@ -116,7 +116,7 @@ export default function MetricsDashboardContent() {
         />
 
         {/* Nested Subquery Analysis */}
-        <NestedSubqueryAnalysis metrics={metrics} structuralReport={structuralReport} t={t} />
+        <NestedSubqueryAnalysis metrics={metrics} subqueries={metricDetails.subqueries} t={t} />
 
         {/* Field Extraction */}
         <FieldExtractionSummary analysisResult={analysisResult} t={t} />

@@ -1,11 +1,18 @@
 'use client';
 
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import { isDemoAuthenticated, setDemoAuthenticated } from '@/lib/demoAuth';
+import {
+  isDemoAuthenticated,
+  setDemoAuthenticated,
+  setSocialSession,
+  type AuthUIState,
+  type OAuthCallbackPayload,
+} from '@/lib/demoAuth';
+import { buildOAuthUrl, createOAuthState } from '@/lib/oauthUtils';
 import {
   Database,
   Zap,
@@ -64,6 +71,119 @@ function AuthenticationPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [authState, setAuthState] = useState<AuthUIState>('idle');
+  const [authError, setAuthError] = useState('');
+  const pendingAuthRef = useRef<{ provider: 'google' | 'microsoft'; state: string } | null>(null);
+
+  const finishSocialLogin = async (
+    provider: 'google' | 'microsoft',
+    expectedState: string,
+    payload: OAuthCallbackPayload
+  ) => {
+    if (payload.state !== expectedState) {
+      const message = t.authSocialLoginFailed.replace('{error}', 'invalid OAuth state');
+      setAuthState('error');
+      setAuthError(message);
+      toast.error(message);
+      return;
+    }
+    if (payload.error || !payload.accessToken) {
+      const message = payload.errorDescription || payload.error || t.authSocialLoginCancelled;
+      setAuthState('error');
+      setAuthError(message);
+      toast.error(payload.error ? t.authSocialLoginFailed.replace('{error}', message) : message);
+      return;
+    }
+
+    try {
+      const profile =
+        payload.profile ||
+        (await fetch(
+          provider === 'google'
+            ? 'https://www.googleapis.com/oauth2/v3/userinfo'
+            : 'https://graph.microsoft.com/v1.0/me',
+          { headers: { Authorization: `Bearer ${payload.accessToken}` } }
+        ).then((response) => (response.ok ? response.json() : null)));
+      const displayName = profile?.name || profile?.displayName;
+      const email = profile?.email || profile?.mail || profile?.userPrincipalName;
+      if (!displayName || !email) throw new Error('profile unavailable');
+      setSocialSession({
+        provider,
+        displayName,
+        email,
+        avatarUrl: profile.picture,
+        accessToken: payload.accessToken,
+        expiry: Date.now() + (payload.expiresIn || 3600) * 1000,
+      });
+      setAuthState('idle');
+      toast.success(
+        t.authSocialLoginSuccess
+          .replace('{provider}', provider === 'google' ? 'Google' : 'Microsoft')
+          .replace('{name}', displayName)
+      );
+      beginNavigation('/query-input');
+      router.push('/query-input');
+    } catch {
+      const message = t.authSocialLoginFailed.replace('{error}', 'profile unavailable');
+      setAuthState('error');
+      setAuthError(message);
+      toast.error(message);
+    }
+  };
+
+  const startSocialLogin = (provider: 'google' | 'microsoft') => {
+    const state = createOAuthState();
+    pendingAuthRef.current = { provider, state };
+    setAuthState('authenticating');
+    setAuthError('');
+    const clientId =
+      provider === 'google'
+        ? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        : process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID;
+    const popupUrl = clientId
+      ? buildOAuthUrl({
+          clientId,
+          authUrl:
+            provider === 'google'
+              ? 'https://accounts.google.com/o/oauth2/v2/auth'
+              : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+          redirectUri: `${window.location.origin}/oauth/callback?provider=${provider}`,
+          scopes: ['openid', 'profile', 'email'],
+          state,
+        })
+      : `/oauth/mock-popup.html?provider=${provider}&state=${encodeURIComponent(state)}`;
+    const popup = window.open(popupUrl, 'sql-visualizer-oauth', 'popup,width=480,height=640');
+    if (!popup) {
+      pendingAuthRef.current = null;
+      setAuthState('error');
+      setAuthError('Allow Popups to continue signing in.');
+      toast.error('Allow Popups to continue signing in.');
+      return;
+    }
+    const poll = window.setInterval(() => {
+      if (!popup.closed) return;
+      window.clearInterval(poll);
+      if (pendingAuthRef.current?.state === state) {
+        pendingAuthRef.current = null;
+        setAuthState('error');
+        setAuthError(t.authSocialLoginCancelled);
+        toast.info(t.authSocialLoginCancelled);
+      }
+    }, 400);
+  };
+
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'oauth-callback') return;
+      const pending = pendingAuthRef.current;
+      if (!pending || (event.data.provider && event.data.provider !== pending.provider)) return;
+      pendingAuthRef.current = null;
+      void finishSocialLogin(pending.provider, pending.state, event.data.payload);
+    };
+
+    window.addEventListener('message', handleOAuthMessage);
+    return () => window.removeEventListener('message', handleOAuthMessage);
+  });
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -82,10 +202,6 @@ function AuthenticationPanel() {
   const handleRegister = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     toast.info(t.authRegisterUnavailable);
-  };
-
-  const handleUnavailableAuth = (provider: string) => {
-    toast.info(t.authSocialUnavailable.replace('{provider}', provider));
   };
 
   // Splits the localized notice on {username}/{password} tokens so the credentials stay styled.
@@ -240,10 +356,19 @@ function AuthenticationPanel() {
           {t.authOrContinueWith}
           <span className="h-px flex-1 bg-border" />
         </div>
+        {authError && (
+          <div
+            role="alert"
+            className="mb-3 border-l-2 border-danger bg-danger/5 px-2.5 py-2 text-[10px] text-danger"
+          >
+            {authError}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => handleUnavailableAuth(t.authGoogleButton)}
+            onClick={() => startSocialLogin('google')}
+            disabled={authState === 'authenticating'}
             className="flex h-8 items-center justify-center gap-1.5 border border-border bg-background text-[11px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
           >
             <Globe2 className="h-3.5 w-3.5" />
@@ -251,7 +376,8 @@ function AuthenticationPanel() {
           </button>
           <button
             type="button"
-            onClick={() => handleUnavailableAuth(t.authMicrosoftButton)}
+            onClick={() => startSocialLogin('microsoft')}
+            disabled={authState === 'authenticating'}
             className="flex h-8 items-center justify-center gap-1.5 border border-border bg-background text-[11px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
           >
             <PanelsTopLeft className="h-3.5 w-3.5" />

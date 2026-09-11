@@ -5,5 +5,6 @@ export default defineConfig({
     // dt-sql-parser (ANTLR-based) is lazy-loaded on the first AST cross-check; that
     // one-time cold-load can exceed vitest's default 5s timeout in CI.
     testTimeout: 30000,
+    environment: 'jsdom',
   },
 });

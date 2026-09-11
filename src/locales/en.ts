@@ -46,10 +46,11 @@ const en = {
   dialectMismatchError:
     'Dialect mismatch: this query looks like {detected} syntax ({reason}), but {selected} is selected. Fix the dialect or the query before analyzing.',
   dialectReasonAstParse: 'syntax not valid for the selected dialect',
-  sqlFormatIssueWarning: 'This does not look like valid SQL ({reason}): "{sample}". Remove the extra formatting/characters before analyzing.',
+  sqlFormatIssueWarning:
+    'This does not look like valid SQL ({reason}): "{sample}". Remove the extra formatting/characters before analyzing.',
   sqlFormatWrappedInQuotes: 'the entire query is wrapped in quote characters',
   sqlFormatCurlyDoubleQuote: 'contains curly \u201C \u201D quotes instead of straight " quotes',
-  sqlFormatCurlySingleQuote: 'contains curly \u2018 \u2019 quotes instead of straight \' quotes',
+  sqlFormatCurlySingleQuote: "contains curly \u2018 \u2019 quotes instead of straight ' quotes",
   sqlFormatNonBreakingSpace: 'contains a non-breaking space',
   sqlFormatZeroWidthChar: 'contains an invisible zero-width character',
   clearButton: 'Clear',
@@ -220,6 +221,8 @@ const en = {
   metricsDetailScopeHeader: 'Scope',
   metricsDetailLineHeader: 'Line',
   metricsDetailGoToLine: 'Go to line',
+  metricsSourceLine: 'Source line',
+  metricsParsedLine: 'Parsed line',
   metricsDetailSearchPlaceholder: 'Search snippet, clause, scope...',
   metricsDetailNoResults: 'No items match your search.',
   metricsDetailItemsLabel: 'items',
@@ -254,6 +257,25 @@ const en = {
   complexityFactorsValue: 'Value',
   complexityFactorsWeight: 'Weight',
   complexityFactorsContribution: 'Contribution',
+  complexityFactorsReconciled: 'Displayed total',
+  complexityFactorsJoinsConsistent: 'JOIN score consistent',
+  complexityFactorsJoinsMismatch: 'JOIN score mismatch',
+  complexityKeywordFrom: 'FROM',
+  complexityKeywordWhere: 'WHERE',
+  complexityKeywordDistinct: 'DISTINCT',
+  complexityKeywordGroupBy: 'GROUP BY',
+  complexityKeywordOrderBy: 'ORDER BY',
+  complexityKeywordHaving: 'HAVING',
+  complexityKeywordInnerJoin: 'INNER JOIN',
+  complexityKeywordLeftJoin: 'LEFT JOIN',
+  complexityKeywordRightJoin: 'RIGHT JOIN',
+  complexityKeywordFullOuterJoin: 'FULL OUTER JOIN',
+  complexityKeywordCrossJoin: 'CROSS JOIN',
+  complexityKeywordNaturalJoin: 'NATURAL JOIN',
+  complexityKeywordJoin: 'JOIN',
+  complexityKeywordUnion: 'UNION',
+  complexityKeywordExcept: 'EXCEPT',
+  complexityKeywordIntersect: 'INTERSECT',
   complexityFactorsNoDetails: 'Detailed scoring is unavailable for this query.',
   complexityFactorsFieldTypeRaw: 'raw',
   complexityFactorsFieldTypeAlias: 'aliased',
@@ -1016,7 +1038,8 @@ const en = {
   smartEditorOptimizeWaitingLabel: 'In the process of optimizing…',
   smartEditorOptimizeUnstructuredNotice:
     'The model did not return a structured result, so no changes were applied to the editor. Here is its full answer.',
-  smartEditorEditorLockedNotice: 'AI is rewriting this query — editing is locked until it finishes.',
+  smartEditorEditorLockedNotice:
+    'AI is rewriting this query — editing is locked until it finishes.',
   smartEditorOptimizeGroundedIn: 'Grounded in official documentation: {sources}',
   smartEditorOptimizeSemanticImpactLabel: 'Semantic impact',
   smartEditorOptimizeProposalsLabel: 'Review and apply suggestions',
@@ -1029,7 +1052,8 @@ const en = {
   smartEditorOptimizeProposalNoLongerMatches: 'This suggestion no longer matches the current SQL.',
   smartEditorOptimizeProposalsDropped:
     '{count} suggestion(s) could not be matched to the query exactly and were removed.',
-  smartEditorOptimizeProposalBlocked: 'Blocked: this change could alter query relationships or semantics.',
+  smartEditorOptimizeProposalBlocked:
+    'Blocked: this change could alter query relationships or semantics.',
   smartEditorOptimizeRegressionTitle:
     '⚠ Possible logic loss detected — review carefully before keeping this rewrite',
   smartEditorOptimizeRegressionToast:
@@ -1043,7 +1067,8 @@ const en = {
     'Returns fewer output columns ({optimized} vs {original} originally)',
   smartEditorOptimizeRegressionDistinct: 'DISTINCT was removed',
   smartEditorOptimizeRegressionGroupBy: 'GROUP BY was removed',
-  smartEditorOptimizeRegressionJoinType: 'A join relationship changed type (e.g. INNER ↔ LEFT), which can change row results',
+  smartEditorOptimizeRegressionJoinType:
+    'A join relationship changed type (e.g. INNER ↔ LEFT), which can change row results',
   smartEditorOptimizeRegressionColumnIdentity: 'Removed or renamed an output column: {column}',
   smartEditorOptimizeNoProposals: 'The model found no changes to propose for this query.',
   smartEditorSpeechPlay: 'Read optimization aloud',
@@ -1059,6 +1084,59 @@ const en = {
   smartEditorSemanticConfirmButton: 'Confirm & optimize',
   smartEditorSemanticCancelButton: 'Cancel',
   smartEditorSemanticConfirmedLabel: 'Confirmed — proposals below must not violate this.',
+
+  // Optimize modal: natural-language instruction input, and the session-level confirm/discard gate
+  smartEditorOptimizeModalTitle: 'Optimize Query',
+  smartEditorOptimizeModalClose: 'Close',
+  smartEditorInstructionLabel: 'Describe what you want optimized (optional)',
+  smartEditorInstructionPlaceholder: 'e.g. "make this faster without changing what it returns"',
+  smartEditorInstructionSubmit: 'Analyze with this instruction',
+  smartEditorInstructionRefusedTitle: 'Instruction not fully applied',
+  smartEditorInstructionRefusedNote:
+    'Part of this request would change the query’s meaning, so it was not applied.',
+  smartEditorSessionApplyButton: 'Apply to editor',
+  smartEditorSessionDiscardButton: 'Discard',
+  smartEditorSessionAppliedToast: 'Optimization applied to the editor',
+  smartEditorSessionDiscardedToast: 'Optimization discarded',
+
+  // Optimize modal: mode toggle between the existing safe optimize flow and the new
+  // requirement-driven flow that may change query semantics (spec 004)
+  smartEditorModeToggleLabel: 'Mode',
+  smartEditorModeOptimizeLabel: 'Optimize (keeps behavior)',
+  smartEditorModeRequirementLabel: 'Add requirement (may change behavior)',
+  smartEditorRequirementLabel: 'Describe the new requirement',
+  smartEditorRequirementPlaceholder:
+    'e.g. "also include the customer\'s shipping address, referencing table B"',
+  smartEditorRequirementHintedTablesLabel: 'Tables/columns to consider (optional)',
+  smartEditorRequirementHintedTablesPlaceholder: 'e.g. table_b, shipping_address',
+  smartEditorRequirementSubmit: 'Generate candidate query',
+  smartEditorRequirementEmptyError: 'Describe a requirement first.',
+  smartEditorRequirementProgressTitle: 'AI is drafting a candidate query…',
+  smartEditorRequirementWaitingLabel: 'Working on your requirement…',
+  smartEditorRequirementError: 'Failed to generate a candidate query',
+  smartEditorRequirementResultTitle: 'Candidate query',
+  smartEditorRequirementAnalysisLabel: 'What changed',
+  smartEditorRequirementUnresolvedTitle: 'Could not resolve these references',
+  smartEditorRequirementUnresolvedNote:
+    'The model could not find these in the query or known tables, so it did not use them.',
+  smartEditorRequirementSemanticChangeTitle: 'This candidate changes query results',
+  smartEditorRequirementSemanticChangeNote:
+    'Review carefully — applying this candidate can add, remove, or change which rows or columns are returned.',
+  smartEditorRequirementNoSemanticChangeNote:
+    'This candidate does not appear to change tables, joins, filters, or output columns.',
+  smartEditorRequirementAddedTables: 'Added tables: {items}',
+  smartEditorRequirementRemovedTables: 'Removed tables: {items}',
+  smartEditorRequirementAddedJoins: 'Added joins: {items}',
+  smartEditorRequirementRemovedJoins: 'Removed joins: {items}',
+  smartEditorRequirementAddedColumns: 'Added columns: {items}',
+  smartEditorRequirementRemovedColumns: 'Removed columns: {items}',
+  smartEditorRequirementFilterChanged: 'Filter conditions changed',
+  smartEditorRequirementApplyButton: 'Apply candidate to editor',
+  smartEditorRequirementDiscardButton: 'Discard candidate',
+  smartEditorRequirementAppliedToast: 'Candidate query applied to the editor',
+  smartEditorRequirementDiscardedToast: 'Candidate query discarded',
+  smartEditorRequirementStaleNotice:
+    'The query changed since this candidate was generated — regenerate before applying.',
 
   // Query History (semantic search over saved queries)
   queryHistoryTitle: 'Query History',
@@ -1174,7 +1252,8 @@ const en = {
 
   // Guideline - Database AI Assistant Section
   guidelineDbAssistantTitle: 'Database AI Assistant',
-  guidelineDbAssistantSubtitle: 'Ask general database questions, optionally grounded in official manuals',
+  guidelineDbAssistantSubtitle:
+    'Ask general database questions, optionally grounded in official manuals',
   guidelineDbAssistantStep1Label: 'Open the assistant',
   guidelineDbAssistantStep1Desc:
     'Select Database AI Assistant in the sidebar. No analyzed query is required — ask anything database-related at any time.',
@@ -1292,6 +1371,11 @@ const en = {
   authSocialUnavailable:
     '{provider} sign-in will be available when the authentication API is connected.',
   authSignInPrompt: 'Please sign in to open the query workspace.',
+  authSocialLoginSuccess: 'Signed in via {provider} as {name}.',
+  authSocialLoginCancelled: 'Authentication cancelled or rejected by the provider.',
+  authSocialLoginFailed: 'Authentication failed: {error}.',
+  authSessionExpiredMessage: 'Session expired. Please sign in again.',
+  authSignOutSuccess: 'Successfully signed out.',
 
   homeWorkflowEyebrow: 'Workflow',
   homeWorkflowTitle: 'From SQL text to a clear next step',

@@ -8,12 +8,14 @@ out/
 
 # Production build
 build/
+dist/
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
 
 # OS-specific files
 .DS_Store
@@ -50,6 +52,7 @@ turbo/
 
 # Optional: if using environment variables
 .env
+.env*
 docs/knowledge/*.pdf
 
 # Optional: if using Specify or GitHub Skills

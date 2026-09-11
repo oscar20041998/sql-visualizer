@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OAuth Simulator</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #111827; color: #f9fafb; }
+      main { width: min(360px, calc(100% - 32px)); padding: 28px; border: 1px solid #374151; background: #1f2937; box-sizing: border-box; }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      p { color: #9ca3af; font-size: 13px; margin: 0 0 20px; }
+      button { display: block; width: 100%; padding: 11px 12px; margin-top: 10px; border: 1px solid #4b5563; background: #111827; color: #f9fafb; text-align: left; cursor: pointer; }
+      button:hover { border-color: #67e8f9; }
+      button:last-child { color: #9ca3af; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 id="title">Sign in</h1>
+      <p>Select a simulated account to continue.</p>
+      <div id="profiles"></div>
+    </main>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const provider = params.get('provider') === 'microsoft' ? 'microsoft' : 'google';
+      const state = params.get('state') || '';
+      const profiles = provider === 'google'
+        ? [{ name: 'Duy VT', email: 'duyvt7@gmail.com' }, { name: 'Google Developer', email: 'dev.google@gmail.com' }]
+        : [{ name: 'Duy VT', email: 'duyvt7@fpt.com' }, { name: 'Microsoft Consultant', email: 'consultant@microsoft.com' }];
+      document.getElementById('title').textContent = provider === 'google' ? 'Google sign in' : 'Microsoft sign in';
+      const container = document.getElementById('profiles');
+      function send(payload) {
+        window.opener.postMessage({ type: 'oauth-callback', provider, payload }, location.origin);
+        window.close();
+      }
+      profiles.forEach((profile, index) => {
+        const button = document.createElement('button');
+        button.textContent = profile.name + ' (' + profile.email + ')';
+        button.onclick = () => send({ accessToken: 'mock-' + provider + '-' + index, expiresIn: 3600, state, profile });
+        container.appendChild(button);
+      });
+      const cancel = document.createElement('button');
+      cancel.textContent = 'Cancel';
+      cancel.onclick = () => send({ error: 'access_denied', errorDescription: 'Authentication cancelled or rejected by the provider.', state });
+      container.appendChild(cancel);
+    </script>
+  </body>
+</html>

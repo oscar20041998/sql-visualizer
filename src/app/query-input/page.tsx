@@ -132,6 +132,7 @@ export default function QueryInputContent() {
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
   const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const analysisRunRef = useRef(0);
 
   // Detect params when MyBatis XML changes
   useEffect(() => {
@@ -223,9 +224,11 @@ export default function QueryInputContent() {
       return;
     }
 
+    const runId = ++analysisRunRef.current;
     const runAnalyze = async (): Promise<void> => {
       setIsAnalyzing(true);
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
+      if (runId !== analysisRunRef.current) return;
       setAnalysisResult(result);
       toast.success(
         t.analysisCompleteMessage
@@ -253,9 +256,11 @@ export default function QueryInputContent() {
     };
 
     await runAnalyze().catch(() => {
-      toast.error(t.parseErrorMessage || 'Parse error');
+      if (runId === analysisRunRef.current) {
+        toast.error(t.parseErrorMessage || 'Parse error');
+      }
     });
-    setIsAnalyzing(false);
+    if (runId === analysisRunRef.current) setIsAnalyzing(false);
   }, [
     inputMode,
     rawSql,
