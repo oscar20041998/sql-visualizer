@@ -1375,6 +1375,12 @@ const vi = {
   authSessionExpiredMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
   authSignOutSuccess: 'Đã đăng xuất thành công.',
 
+  signInBrandTitle: 'SQL Visualizer',
+  signInBrandTagline:
+    'Kiểm tra cấu trúc truy vấn, xác định yếu tố chi phí và cải thiện câu lệnh cuối bằng dữ liệu cụ thể — từ văn bản SQL đến bước tiếp theo rõ ràng.',
+  signInBrandFeatureAnalysis: 'Truy vết CTE, nguồn gốc trường, join, truy vấn lồng nhau và quan hệ giữa các bảng.',
+  signInBrandFeatureScoring: 'Dùng hệ số chấm điểm chính xác và cảnh báo lint để tập trung thay đổi tiếp theo.',
+
   homeWorkflowEyebrow: 'Quy trình',
   homeWorkflowTitle: 'Từ SQL đến bước tiếp theo rõ ràng',
   homeWorkflowDescription:

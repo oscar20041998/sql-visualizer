@@ -1377,6 +1377,12 @@ const en = {
   authSessionExpiredMessage: 'Session expired. Please sign in again.',
   authSignOutSuccess: 'Successfully signed out.',
 
+  signInBrandTitle: 'SQL Visualizer',
+  signInBrandTagline:
+    'Inspect query structure, identify cost drivers, and improve the final statement with evidence — from SQL text to a clear next step.',
+  signInBrandFeatureAnalysis: 'Trace CTEs, field origins, joins, nested queries, and table relationships.',
+  signInBrandFeatureScoring: 'Use exact scoring factors and linting findings to focus your next change.',
+
   homeWorkflowEyebrow: 'Workflow',
   homeWorkflowTitle: 'From SQL text to a clear next step',
   homeWorkflowDescription:

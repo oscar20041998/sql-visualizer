@@ -121,7 +121,7 @@ export default function QueryInputContent() {
 
   useEffect(() => {
     if (!isDemoAuthenticated()) {
-      router.replace('/');
+      router.replace('/login');
       return;
     }
 

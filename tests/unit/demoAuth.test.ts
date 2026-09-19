@@ -6,7 +6,7 @@ import {
   setSocialSession,
   DEMO_AUTH_STORAGE_KEY,
   SOCIAL_AUTH_STORAGE_KEY
-} from './demoAuth';
+} from '@/lib/demoAuth';
 
 // Mock localStorage
 const localStorageMock = (() => {

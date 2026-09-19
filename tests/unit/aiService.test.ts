@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveHintedTableReferences } from './aiService';
-import type { AnalysisResult } from '../sql/sqlAnalyzer';
+import { resolveHintedTableReferences } from '@/lib/ai/aiService';
+import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 
 function makeAnalysisWithTables(names: string[]): AnalysisResult {
   return {

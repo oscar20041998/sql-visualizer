@@ -1,18 +1,10 @@
 'use client';
 
-import React, { FormEvent, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import {
-  isDemoAuthenticated,
-  setDemoAuthenticated,
-  setSocialSession,
-  type AuthUIState,
-  type OAuthCallbackPayload,
-} from '@/lib/demoAuth';
-import { buildOAuthUrl, createOAuthState } from '@/lib/oauthUtils';
+import { isDemoAuthenticated } from '@/lib/demoAuth';
 import {
   Database,
   Zap,
@@ -24,14 +16,6 @@ import {
   SearchCheck,
   ShieldAlert,
   Table2,
-  Eye,
-  EyeOff,
-  Globe2,
-  KeyRound,
-  LockKeyhole,
-  Mail,
-  PanelsTopLeft,
-  UserRoundPlus,
 } from 'lucide-react';
 
 const FeatureCard = ({
@@ -61,354 +45,6 @@ const FeatureCard = ({
   </div>
 );
 
-function AuthenticationPanel() {
-  const router = useRouter();
-  const { settings, beginNavigation } = useAppStore();
-  const t = getT(settings.locale as 'en' | 'vi');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [authState, setAuthState] = useState<AuthUIState>('idle');
-  const [authError, setAuthError] = useState('');
-  const pendingAuthRef = useRef<{ provider: 'google' | 'microsoft'; state: string } | null>(null);
-
-  const finishSocialLogin = async (
-    provider: 'google' | 'microsoft',
-    expectedState: string,
-    payload: OAuthCallbackPayload
-  ) => {
-    if (payload.state !== expectedState) {
-      const message = t.authSocialLoginFailed.replace('{error}', 'invalid OAuth state');
-      setAuthState('error');
-      setAuthError(message);
-      toast.error(message);
-      return;
-    }
-    if (payload.error || !payload.accessToken) {
-      const message = payload.errorDescription || payload.error || t.authSocialLoginCancelled;
-      setAuthState('error');
-      setAuthError(message);
-      toast.error(payload.error ? t.authSocialLoginFailed.replace('{error}', message) : message);
-      return;
-    }
-
-    try {
-      const profile =
-        payload.profile ||
-        (await fetch(
-          provider === 'google'
-            ? 'https://www.googleapis.com/oauth2/v3/userinfo'
-            : 'https://graph.microsoft.com/v1.0/me',
-          { headers: { Authorization: `Bearer ${payload.accessToken}` } }
-        ).then((response) => (response.ok ? response.json() : null)));
-      const displayName = profile?.name || profile?.displayName;
-      const email = profile?.email || profile?.mail || profile?.userPrincipalName;
-      if (!displayName || !email) throw new Error('profile unavailable');
-      setSocialSession({
-        provider,
-        displayName,
-        email,
-        avatarUrl: profile.picture,
-        accessToken: payload.accessToken,
-        expiry: Date.now() + (payload.expiresIn || 3600) * 1000,
-      });
-      setAuthState('idle');
-      toast.success(
-        t.authSocialLoginSuccess
-          .replace('{provider}', provider === 'google' ? 'Google' : 'Microsoft')
-          .replace('{name}', displayName)
-      );
-      beginNavigation('/query-input');
-      router.push('/query-input');
-    } catch {
-      const message = t.authSocialLoginFailed.replace('{error}', 'profile unavailable');
-      setAuthState('error');
-      setAuthError(message);
-      toast.error(message);
-    }
-  };
-
-  const startSocialLogin = (provider: 'google' | 'microsoft') => {
-    const state = createOAuthState();
-    pendingAuthRef.current = { provider, state };
-    setAuthState('authenticating');
-    setAuthError('');
-    const clientId =
-      provider === 'google'
-        ? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        : process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID;
-    const popupUrl = clientId
-      ? buildOAuthUrl({
-          clientId,
-          authUrl:
-            provider === 'google'
-              ? 'https://accounts.google.com/o/oauth2/v2/auth'
-              : 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-          redirectUri: `${window.location.origin}/oauth/callback?provider=${provider}`,
-          scopes: ['openid', 'profile', 'email'],
-          state,
-        })
-      : `/oauth/mock-popup.html?provider=${provider}&state=${encodeURIComponent(state)}`;
-    const popup = window.open(popupUrl, 'sql-visualizer-oauth', 'popup,width=480,height=640');
-    if (!popup) {
-      pendingAuthRef.current = null;
-      setAuthState('error');
-      setAuthError('Allow Popups to continue signing in.');
-      toast.error('Allow Popups to continue signing in.');
-      return;
-    }
-    const poll = window.setInterval(() => {
-      if (!popup.closed) return;
-      window.clearInterval(poll);
-      if (pendingAuthRef.current?.state === state) {
-        pendingAuthRef.current = null;
-        setAuthState('error');
-        setAuthError(t.authSocialLoginCancelled);
-        toast.info(t.authSocialLoginCancelled);
-      }
-    }, 400);
-  };
-
-  useEffect(() => {
-    const handleOAuthMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'oauth-callback') return;
-      const pending = pendingAuthRef.current;
-      if (!pending || (event.data.provider && event.data.provider !== pending.provider)) return;
-      pendingAuthRef.current = null;
-      void finishSocialLogin(pending.provider, pending.state, event.data.payload);
-    };
-
-    window.addEventListener('message', handleOAuthMessage);
-    return () => window.removeEventListener('message', handleOAuthMessage);
-  });
-
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (username.trim() !== 'admin' || password !== '1234@') {
-      toast.error(t.authLoginInvalidCredentials);
-      return;
-    }
-
-    setDemoAuthenticated();
-    toast.success(t.authLoginSuccess);
-    beginNavigation('/query-input');
-    router.push('/query-input');
-  };
-
-  const handleRegister = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    toast.info(t.authRegisterUnavailable);
-  };
-
-  // Splits the localized notice on {username}/{password} tokens so the credentials stay styled.
-  const noticeParts = t.authTemporaryAccessNotice.split(/(\{username\}|\{password\})/g);
-
-  return (
-    <aside
-      id="workspace-access"
-      className="w-full border border-border bg-card shadow-2xl shadow-black/20 xl:fixed xl:inset-y-0 xl:right-0 xl:z-30 xl:flex xl:w-[36rem] xl:flex-col xl:justify-center xl:overflow-y-auto xl:rounded-none xl:border-0 xl:border-l xl:border-border"
-    >
-      <div className="border-b border-border bg-muted/30 px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center border border-primary/30 bg-primary/10 text-primary">
-            <KeyRound className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-foreground">{t.authWorkspaceAccessTitle}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              {t.authWorkspaceAccessSubtitle}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-6 py-5">
-        <div
-          className="mb-4 grid grid-cols-2 border border-border bg-muted/40 p-1"
-          role="tablist"
-          aria-label={t.authModeTabsLabel}
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'login'}
-            onClick={() => setMode('login')}
-            className={`h-8 text-xs font-medium transition-colors ${mode === 'login' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            {t.authTabLogin}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'register'}
-            onClick={() => setMode('register')}
-            className={`h-8 text-xs font-medium transition-colors ${mode === 'register' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            {t.authTabRegister}
-          </button>
-        </div>
-
-        {mode === 'login' ? (
-          <form key="login-form" className="space-y-3" onSubmit={handleLogin}>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                {t.authUsernameLabel}
-              </span>
-              <span className="flex h-9 items-center border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                <Mail className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  autoComplete="username"
-                  placeholder={t.authUsernamePlaceholder}
-                  className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-                  required
-                />
-              </span>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                {t.authPasswordLabel}
-              </span>
-              <span className="flex h-9 items-center border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                <LockKeyhole className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder={t.authPasswordPlaceholder}
-                  className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  className="mr-1.5 grid h-6 w-6 place-items-center text-muted-foreground hover:text-foreground"
-                  aria-label={showPassword ? t.authHidePassword : t.authShowPassword}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </span>
-            </label>
-            <button
-              type="submit"
-              className="flex h-9 w-full items-center justify-center gap-1.5 bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              {t.authLoginButton} <ArrowUpRight className="h-3.5 w-3.5" />
-            </button>
-          </form>
-        ) : (
-          <form key="register-form" className="space-y-3" onSubmit={handleRegister}>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                {t.authEmailLabel}
-              </span>
-              <span className="flex h-9 items-center border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                <Mail className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  value={registerEmail}
-                  onChange={(event) => setRegisterEmail(event.target.value)}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder={t.authEmailPlaceholder}
-                  className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </span>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                {t.authCreatePasswordLabel}
-              </span>
-              <span className="flex h-9 items-center border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                <LockKeyhole className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  value={registerPassword}
-                  onChange={(event) => setRegisterPassword(event.target.value)}
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  placeholder={t.authCreatePasswordPlaceholder}
-                  className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </span>
-            </label>
-            <button
-              type="submit"
-              className="flex h-9 w-full items-center justify-center gap-1.5 border border-primary bg-primary/10 px-4 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-            >
-              <UserRoundPlus className="h-3.5 w-3.5" /> {t.authRegisterButton}
-            </button>
-          </form>
-        )}
-
-        <div className="my-4 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          {t.authOrContinueWith}
-          <span className="h-px flex-1 bg-border" />
-        </div>
-        {authError && (
-          <div
-            role="alert"
-            className="mb-3 border-l-2 border-danger bg-danger/5 px-2.5 py-2 text-[10px] text-danger"
-          >
-            {authError}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => startSocialLogin('google')}
-            disabled={authState === 'authenticating'}
-            className="flex h-8 items-center justify-center gap-1.5 border border-border bg-background text-[11px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
-          >
-            <Globe2 className="h-3.5 w-3.5" />
-            {t.authGoogleButton}
-          </button>
-          <button
-            type="button"
-            onClick={() => startSocialLogin('microsoft')}
-            disabled={authState === 'authenticating'}
-            className="flex h-8 items-center justify-center gap-1.5 border border-border bg-background text-[11px] font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
-          >
-            <PanelsTopLeft className="h-3.5 w-3.5" />
-            {t.authMicrosoftButton}
-          </button>
-        </div>
-
-        <div className="mt-4 border-l-2 border-warning bg-warning/5 px-2.5 py-2 text-[10px] leading-relaxed text-muted-foreground">
-          {noticeParts.map((part, index) => {
-            if (part === '{username}') {
-              return (
-                <code key={index} className="text-warning">
-                  admin
-                </code>
-              );
-            }
-            if (part === '{password}') {
-              return (
-                <code key={index} className="text-warning">
-                  1234@
-                </code>
-              );
-            }
-            return <React.Fragment key={index}>{part}</React.Fragment>;
-          })}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 export default function HomePage() {
   const router = useRouter();
   const [isHovering, setIsHovering] = useState(false);
@@ -422,10 +58,8 @@ export default function HomePage() {
       return;
     }
 
-    document
-      .getElementById('workspace-access')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    toast.info(t.authSignInPrompt);
+    beginNavigation('/login');
+    router.push('/login');
   };
 
   return (
@@ -456,7 +90,7 @@ export default function HomePage() {
       `}</style>
 
       {/* Content */}
-      <div className="relative z-10 xl:pr-[36rem]">
+      <div className="relative z-10">
         {/* Header Navigation */}
         <nav className="border-b border-border/50 backdrop-blur-md bg-background/80 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -471,10 +105,6 @@ export default function HomePage() {
             </div>
           </div>
         </nav>
-
-        <div className="max-w-7xl mx-auto px-6 pt-8 xl:mx-0 xl:max-w-none xl:px-0 xl:pt-0">
-          <AuthenticationPanel />
-        </div>
 
         {/* Hero Section */}
         <section className="max-w-7xl mx-auto px-6 py-20 md:py-24">

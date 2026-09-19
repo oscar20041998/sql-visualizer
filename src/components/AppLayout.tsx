@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import { getSocialSession, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import { getSocialSession, isDemoAuthenticated, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
 import { getT } from '@/lib/i18n';
 
 interface AppLayoutProps {
@@ -54,14 +54,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const accentColor = useAppStore((s) => s.settings.accentColor);
   const navigationTarget = useAppStore((s) => s.navigationTarget);
   const completeNavigation = useAppStore((s) => s.completeNavigation);
+  // null = unknown (SSR/pre-hydration), true = signed in. Mirrors the
+  // query-input gate pattern: render nothing until the check completes,
+  // so protected content never flashes for signed-out visitors.
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
     const hadStoredSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
-    if (hadStoredSession && !getSocialSession()) {
-      const message = getT(locale).authSessionExpiredMessage;
-      toast.info(message);
-      router.replace('/');
+    const staleSession = hadStoredSession && !getSocialSession();
+    if (!isDemoAuthenticated() || staleSession) {
+      if (staleSession) {
+        toast.info(getT(locale).authSessionExpiredMessage);
+      }
+      router.replace('/login');
+      return;
     }
+    setIsAuthorized(true);
   }, [locale, router]);
 
   useEffect(() => {
@@ -88,6 +96,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const frame = requestAnimationFrame(() => completeNavigation(pathname));
     return () => cancelAnimationFrame(frame);
   }, [completeNavigation, navigationTarget, pathname]);
+
+  // Auth gate: signed-out users never see protected content (not even a
+  // flash) — nothing renders until the check passes, mirroring query-input.
+  if (!isAuthorized) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">

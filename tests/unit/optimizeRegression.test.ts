@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequirementChangeSummary } from './optimizeRegression';
-import type { AnalysisResult } from './sqlAnalyzer';
+import { buildRequirementChangeSummary } from '@/lib/sql/optimizeRegression';
+import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 
 function makeAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
   const base: AnalysisResult = {
@@ -8,7 +8,7 @@ function makeAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
       { id: 't1', name: 'orders', alias: 'o', columns: [] },
       { id: 't2', name: 'customers', alias: 'c', columns: [] },
     ],
-    joins: [{ id: 'j1', source: 't1', target: 't2', joinType: 'INNER', condition: 'o.customer_id = c.id' }],
+    joins: [{ id: 'j1', source: 't1', target: 't2', joinType: 'INNER JOIN', condition: 'o.customer_id = c.id' }],
     joinAnalysisDetails: [],
     ctes: [],
     metrics: {
@@ -97,8 +97,8 @@ describe('buildRequirementChangeSummary', () => {
         { id: 't3', name: 'shipping_addresses', alias: 's', columns: [] },
       ],
       joins: [
-        { id: 'j1', source: 't1', target: 't2', joinType: 'INNER', condition: 'o.customer_id = c.id' },
-        { id: 'j2', source: 't1', target: 't3', joinType: 'LEFT', condition: 'o.id = s.order_id' },
+        { id: 'j1', source: 't1', target: 't2', joinType: 'INNER JOIN', condition: 'o.customer_id = c.id' },
+        { id: 'j2', source: 't1', target: 't3', joinType: 'LEFT JOIN', condition: 'o.id = s.order_id' },
       ],
     });
     const summary = buildRequirementChangeSummary(original, candidate);

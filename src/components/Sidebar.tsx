@@ -71,8 +71,8 @@ export default function Sidebar() {
     clearDemoAuthenticated();
     setSocialSession(null);
     toast.success(t.authSignOutSuccess);
-    beginNavigation('/');
-    router.push('/');
+    beginNavigation('/login');
+    router.push('/login');
   };
 
   return (
