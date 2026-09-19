@@ -260,6 +260,8 @@ const en = {
   complexityFactorsReconciled: 'Displayed total',
   complexityFactorsJoinsConsistent: 'JOIN score consistent',
   complexityFactorsJoinsMismatch: 'JOIN score mismatch',
+  complexityFactorsSubqueriesConsistent: 'Subquery count consistent',
+  complexityFactorsSubqueriesMismatch: 'Subquery count mismatch',
   complexityKeywordFrom: 'FROM',
   complexityKeywordWhere: 'WHERE',
   complexityKeywordDistinct: 'DISTINCT',

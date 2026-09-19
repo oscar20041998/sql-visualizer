@@ -1093,11 +1093,19 @@ function scoreSubqueries(sql: string): { count: number; maxDepth: number; total:
       depth++;
       maxDepth = Math.max(maxDepth, depth);
 
-      // Check if next non-whitespace token is SELECT
+      // Check if next non-whitespace token is SELECT.
       const afterParen = sql.slice(i + 1).trimStart();
       if (/^SELECT\b/i.test(afterParen) && depth >= 1) {
-        // Any SELECT inside parentheses is treated as a subquery.
-        selectCount++;
+        // NOT a subquery if this '(' is a CTE definition body (e.g. "cte_name AS (SELECT …)").
+        // The parser's extractNestedSubqueries excludes CTE-body parens by scanning the
+        // main query (CTE definitions stripped) and each cte.body separately. Mirror that
+        // here so scoreBreakdown.subqueries.count reconciles with metrics.subqueryCount
+        // (data-model.md FR-003/FR-004, T041).
+        const beforeParen = sql.slice(0, i).trimEnd();
+        const isCteDefinition = /\bAS\s*$/i.test(beforeParen);
+        if (!isCteDefinition) {
+          selectCount++;
+        }
       }
     } else if (ch === ')') {
       depth--;

@@ -1535,8 +1535,12 @@ function computeMetrics(
     distinct: metricDetails.distinct.length,
     having: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified: use report's conditionCount if available or logic to split
     where: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified
-    subqueryDepth: computeSubqueryDepth(report.subqueries || []),
-    subqueryCount: report.subqueryCount,
+    // Canonical subquery metrics derive directly from metricDetails.subqueries
+    // (the single extracted collection), NOT from StructuralAnalysisReport.subqueryCount.
+    // This guarantees metrics.subqueryCount === metricDetails.subqueries.length
+    // at all times, per data-model.md FR-003/FR-004.
+    subqueryDepth: computeSubqueryDepth(metricDetails.subqueries),
+    subqueryCount: metricDetails.subqueries.length,
     conditionCount: report.conditionCount,
     operationAndFunctionCount: report.operationAndFunctionCount,
     lineCount: report.lineCount,

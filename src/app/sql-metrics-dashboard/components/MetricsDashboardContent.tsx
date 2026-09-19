@@ -112,6 +112,7 @@ export default function MetricsDashboardContent() {
         {/* Complexity Factors */}
         <ComplexityFactorsBreakdown
           detailedComplexity={detailedComplexity}
+          metrics={metrics}
           t={t}
         />
 

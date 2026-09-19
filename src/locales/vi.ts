@@ -257,6 +257,8 @@ const vi = {
   complexityFactorsReconciled: 'Tổng hiển thị',
   complexityFactorsJoinsConsistent: 'Điểm JOIN nhất quán',
   complexityFactorsJoinsMismatch: 'Điểm JOIN không khớp',
+  complexityFactorsSubqueriesConsistent: 'Số lượng subquery nhất quán',
+  complexityFactorsSubqueriesMismatch: 'Số lượng subquery không khớp',
   complexityKeywordFrom: 'FROM',
   complexityKeywordWhere: 'WHERE',
   complexityKeywordDistinct: 'DISTINCT',
