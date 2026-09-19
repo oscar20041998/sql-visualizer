@@ -59,3 +59,7 @@ docs/knowledge/*.pdf
 .specify
 .github/skills
 .specs
+
+# Optional: if using the command-line interface
+.cline
+.clinerules
