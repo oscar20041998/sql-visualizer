@@ -190,7 +190,7 @@ const en = {
   metricsFunctionsInsideOn: 'Functions inside ON',
   metricsNonEquiOn: 'Non-equi ON',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
-  metricsFieldExtractionSummaryTitle: 'Field Extraction Summary',
+  metricsFieldExtractionSummaryTitle: 'Extracted Fields Summary',
   metricsFieldExpressionHeader: 'Expression',
   metricsFieldAliasHeader: 'Alias',
   metricsFieldTypeHeader: 'Type',

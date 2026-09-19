@@ -187,7 +187,7 @@ const vi = {
   metricsFunctionsInsideOn: 'Hàm bên trong ON',
   metricsNonEquiOn: 'ON không bằng',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
-  metricsFieldExtractionSummaryTitle: 'Tóm tắt trích xuất trường',
+  metricsFieldExtractionSummaryTitle: 'Tổng hợp các trường được trích xuất',
   metricsFieldExpressionHeader: 'Biểu thức',
   metricsFieldAliasHeader: 'Bí danh',
   metricsFieldTypeHeader: 'Loại',
