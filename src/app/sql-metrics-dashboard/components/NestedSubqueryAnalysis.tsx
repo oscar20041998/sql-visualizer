@@ -4,12 +4,12 @@ import React from 'react';
 import { toast } from 'sonner';
 import { Layers, AlertTriangle, ArrowRight } from 'lucide-react';
 import { getT } from '@/lib/i18n';
-import type { SqlMetrics, StructuralAnalysisReport } from '@/lib/sql/sqlAnalyzer';
+import type { NestedSubquery, SqlMetrics } from '@/lib/sql/sqlAnalyzer';
 import { useGoToSqlLine } from '@/lib/useGoToSqlLine';
 
 interface NestedSubqueryAnalysisProps {
   metrics: SqlMetrics;
-  structuralReport: StructuralAnalysisReport;
+  subqueries: NestedSubquery[];
   t: ReturnType<typeof getT>;
 }
 
@@ -68,7 +68,7 @@ function MetricCard({
 
 export default function NestedSubqueryAnalysis({
   metrics,
-  structuralReport,
+  subqueries,
   t,
 }: NestedSubqueryAnalysisProps) {
   const goToSqlLine = useGoToSqlLine();
@@ -207,15 +207,15 @@ export default function NestedSubqueryAnalysis({
       )}
 
       {/* Detailed Subqueries List */}
-      {structuralReport.subqueries && structuralReport.subqueries.length > 0 && (
+      {subqueries.length > 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-              {t.metricsDetectedSubqueries} ({structuralReport.subqueries.length})
+              {t.metricsDetectedSubqueries} ({subqueries.length})
             </h4>
           </div>
           <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
-            {structuralReport.subqueries.map((subquery, idx) => (
+            {subqueries.map((subquery, idx) => (
               <div
                 key={`subquery-${idx}`}
                 className="p-3 bg-muted/30 border border-border/50 rounded-lg hover:border-border transition-colors"
@@ -234,14 +234,14 @@ export default function NestedSubqueryAnalysis({
                           {subquery.type}
                         </span>
                       )}
-                      {typeof subquery.line === 'number' && (
+                      {typeof subquery.sourceLine === 'number' && (
                         <button
                           type="button"
-                          onClick={() => goToSqlLine(subquery.line)}
+                          onClick={() => goToSqlLine(subquery.sourceLine)}
                           title={t.metricsDetailGoToLine}
                           className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
                         >
-                          #{subquery.line}
+                          {t.metricsSourceLine} #{subquery.sourceLine}
                           <ArrowRight size={9} />
                         </button>
                       )}
@@ -265,6 +265,9 @@ export default function NestedSubqueryAnalysis({
                   >
                     {t.metricsCopyButton}
                   </button>
+                </div>
+                <div className="text-[10px] text-muted-foreground mb-2">
+                  {t.metricsParsedLine} #{subquery.parsedLine}
                 </div>
                 {subquery.analysis && (
                   <div className="text-[10px] text-muted-foreground space-y-1 border-t border-border/30 pt-2 mt-2">

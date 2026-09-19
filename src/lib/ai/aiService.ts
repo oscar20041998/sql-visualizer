@@ -1,6 +1,7 @@
 // Adapter layer routing AI generation requests to the active provider (Ollama or a cloud API).
 import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
+import type { AnalysisResult } from '../sql/sqlAnalyzer';
 import {
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
@@ -1223,6 +1224,13 @@ export interface ExplainSqlOptions {
    * prompt so the model does not have to infer aliases and join shapes from raw text.
    */
   contextBrief?: string;
+  /**
+   * Free-form optimization goal typed by the user (e.g. "avoid a full table scan"). Optional —
+   * when absent, the semantic-brief/optimize prompts behave exactly as before (lint-driven only).
+   * When present, the model must still refuse any part of the request that would change the
+   * query's result semantics rather than silently applying it (see SqlOptimizationResult.instructionStatus).
+   */
+  userInstruction?: string;
   signal?: AbortSignal;
 }
 
@@ -1232,6 +1240,14 @@ export interface SqlOptimizationResult {
   suggestions: string[];
   /** A narrowly scoped edit which must be explicitly approved in the editor before applying. */
   proposals: SqlOptimizationProposal[];
+  /**
+   * Set only when a `userInstruction` was supplied: whether the model applied it in full, applied
+   * only a semantics-preserving subset, or refused it entirely because it could not be satisfied
+   * without changing the query's result semantics.
+   */
+  instructionStatus?: 'applied' | 'partial' | 'refused';
+  /** Plain-language explanation of `instructionStatus`, shown to the user when not 'applied'. */
+  instructionNote?: string;
   /** Plain-language statement of whether/how the result set changed, so the user can judge the
    * rewrite before applying it — not folded into `analysis` so the UI can show it up front. */
   semanticImpact: string;
@@ -1273,14 +1289,17 @@ export interface SqlSemanticBrief {
   budget: AIBudgetReport;
 }
 
-const SEMANTIC_BRIEF_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
+const SEMANTIC_BRIEF_PROMPT: Record<Locale, (sql: string, userInstruction?: string) => string> = {
+  en: (sql, userInstruction) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
 
 SQL:
 \`\`\`sql
 ${sql}
 \`\`\`
-
+${userInstruction ? `
+The user has asked for this optimization goal, in their own words: "${userInstruction}"
+Keep this goal in mind while describing the query, but do not act on it yet — this step is read-only.
+` : ''}
 Return only a JSON object with exactly these keys:
 {
   "purpose": "one or two sentences on the business goal of this query",
@@ -1293,13 +1312,16 @@ Rules:
 - List every JOIN and every CTE-to-CTE dependency as a relationship, even ones that look removable.
 - Do not omit a filter just because it looks redundant — state what it does.
 - This is a read-only understanding step; "relationships" and "critical_filters" become the constraints a later optimization step must not violate.`,
-  vi: (sql) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
+  vi: (sql, userInstruction) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
 
 SQL:
 \`\`\`sql
 ${sql}
 \`\`\`
-
+${userInstruction ? `
+Người dùng đã nêu mục tiêu tối ưu hóa sau, bằng lời của họ: "${userInstruction}"
+Hãy ghi nhớ mục tiêu này khi mô tả truy vấn, nhưng chưa hành động theo nó — bước này chỉ để hiểu, không thay đổi gì.
+` : ''}
 Chỉ trả về một đối tượng JSON với đúng các khóa sau:
 {
   "purpose": "một đến hai câu về mục tiêu nghiệp vụ của truy vấn này",
@@ -1319,7 +1341,8 @@ function prepareSemanticBriefPrompt(
   sql: string,
   config: AIModelConfig,
   locale: Locale,
-  contextBrief: string
+  contextBrief: string,
+  userInstruction?: string
 ): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
   if (!sql.trim()) throw new AIServiceError('There is no SQL query to analyze.');
 
@@ -1332,7 +1355,9 @@ function prepareSemanticBriefPrompt(
   const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
 
   const buildPrompt = SEMANTIC_BRIEF_PROMPT[locale] ?? SEMANTIC_BRIEF_PROMPT.en;
-  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+  const prompt = brief
+    ? `${brief}\n\n${buildPrompt(fitted.sql, userInstruction)}`
+    : buildPrompt(fitted.sql, userInstruction);
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -1396,9 +1421,16 @@ export async function analyzeSqlSemantics({
   config,
   locale = 'en',
   contextBrief = '',
+  userInstruction,
   signal,
 }: ExplainSqlOptions): Promise<SqlSemanticBrief> {
-  const { prompt, report, maxOutputTokens } = prepareSemanticBriefPrompt(sql, config, locale, contextBrief);
+  const { prompt, report, maxOutputTokens } = prepareSemanticBriefPrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    userInstruction
+  );
 
   const raw = (
     await generateWithAI(config, {
@@ -1437,15 +1469,23 @@ export function formatSemanticBriefForOptimizePrompt(brief: SqlSemanticBrief, lo
   return lines.join('\n');
 }
 
-const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
-
+const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string, userInstruction?: string) => string> = {
+  en: (sql, userInstruction) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
+${userInstruction ? `
+The user additionally asked, in their own words: "${userInstruction}"
+Apply this instruction ONLY to the extent it does not change which rows, tables, joins, filters, or output columns the query returns:
+- If it can be fully satisfied without changing result semantics, apply it and set "instruction_status" to "applied".
+- If only part of it can be applied without changing semantics, apply that part only and set "instruction_status" to "partial", explaining in "instruction_note" what was left out and why.
+- If applying it would necessarily change the query's result semantics (e.g. it asks to drop a filter, change a JOIN's row inclusion, or remove an output column), do NOT apply that part — set "instruction_status" to "refused" and explain why in "instruction_note", proposing no change (or only a safe subset) instead.
+` : ''}
 Return only a JSON object with exactly these keys, in this order:
 {
   "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
   "suggestions": ["one specific improvement per issue actually fixed"],
   "proposals": [{"id": "unique-short-id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original to replace", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}],
-  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"
+  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"${userInstruction ? `,
+  "instruction_status": "\"applied\", \"partial\", or \"refused\" — see rules above",
+  "instruction_note": "explanation shown to the user when instruction_status is not \"applied\""` : ''}
 }
 
 SQL:
@@ -1464,14 +1504,22 @@ Rules:
 - Each proposal must contain one exact, unique \`find\` snippet from the original and one narrow \`replace\` snippet. Never propose a full-query replacement.
 - Before returning a proposal, verify it preserves every table, join relationship, filter condition, output column, NULL rule and DISTINCT/GROUP BY behavior. If this cannot be proven from the query, do not propose the change; explain the uncertainty in "analysis".
 - If the query has no fixable issues, return an empty "proposals" array and explain why in "analysis".`,
-  vi: (sql) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
-
+  vi: (sql, userInstruction) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
+${userInstruction ? `
+Người dùng cũng đã yêu cầu thêm, bằng lời của họ: "${userInstruction}"
+Chỉ áp dụng yêu cầu này trong phạm vi KHÔNG làm thay đổi những dòng, bảng, phép nối, điều kiện lọc hoặc cột đầu ra mà truy vấn trả về:
+- Nếu có thể đáp ứng đầy đủ mà không đổi ngữ nghĩa kết quả, hãy áp dụng và đặt "instruction_status" là "applied".
+- Nếu chỉ một phần có thể áp dụng mà không đổi ngữ nghĩa, chỉ áp dụng phần đó và đặt "instruction_status" là "partial", giải thích trong "instruction_note" phần nào đã bỏ qua và vì sao.
+- Nếu áp dụng yêu cầu chắc chắn sẽ làm thay đổi ngữ nghĩa kết quả (ví dụ yêu cầu bỏ một điều kiện lọc, đổi loại JOIN làm thay đổi số dòng, hoặc bỏ một cột đầu ra), KHÔNG áp dụng phần đó — đặt "instruction_status" là "refused" và giải thích lý do trong "instruction_note", chỉ đề xuất không thay đổi (hoặc một phần an toàn) thay vào đó.
+` : ''}
 Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
   "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
   "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
   "proposals": [{"id": "ma-dinh-danh-ngan", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL duy nhất, chính xác trong bản gốc cần thay", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, JOIN và aggregate không thay đổi"}],
-  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"
+  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"${userInstruction ? `,
+  "instruction_status": "\"applied\", \"partial\", hoặc \"refused\" — xem quy tắc ở trên",
+  "instruction_note": "giải thích hiển thị cho người dùng khi instruction_status không phải \"applied\""` : ''}
 }
 
 SQL:
@@ -1627,7 +1675,8 @@ function prepareOptimizePrompt(
   sql: string,
   config: AIModelConfig,
   locale: Locale,
-  contextBrief: string
+  contextBrief: string,
+  userInstruction?: string
 ): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
   if (!sql.trim()) throw new AIServiceError('There is no SQL query to optimize.');
 
@@ -1640,7 +1689,9 @@ function prepareOptimizePrompt(
   const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
 
   const buildPrompt = OPTIMIZE_SQL_STRUCTURED_PROMPT[locale] ?? OPTIMIZE_SQL_STRUCTURED_PROMPT.en;
-  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+  const prompt = brief
+    ? `${brief}\n\n${buildPrompt(fitted.sql, userInstruction)}`
+    : buildPrompt(fitted.sql, userInstruction);
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -1728,11 +1779,20 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
     };
   }
 
+  const instructionStatusRaw = asText(parsed.instruction_status).toLowerCase();
+  const instructionStatus =
+    instructionStatusRaw === 'applied' || instructionStatusRaw === 'partial' || instructionStatusRaw === 'refused'
+      ? instructionStatusRaw
+      : undefined;
+  const instructionNote = dropPlaceholderEcho(asText(parsed.instruction_note));
+
   return {
     optimizedSql: optimizedSql || sql,
     analysis,
     suggestions,
     proposals,
+    instructionStatus,
+    instructionNote: instructionNote || undefined,
     semanticImpact,
     raw,
     structured: true,
@@ -1745,9 +1805,10 @@ export async function optimizeSqlWithAI({
   config,
   locale = 'en',
   contextBrief = '',
+  userInstruction,
   signal,
 }: ExplainSqlOptions): Promise<SqlOptimizationResult> {
-  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief, userInstruction);
 
   const raw = (
     await generateWithAI(config, {
@@ -1768,10 +1829,10 @@ export async function optimizeSqlWithAI({
  * model's reasoning before the rewritten query itself lands.
  */
 export async function optimizeSqlWithAIStream(
-  { sql, config, locale = 'en', contextBrief = '', signal }: ExplainSqlOptions,
+  { sql, config, locale = 'en', contextBrief = '', userInstruction, signal }: ExplainSqlOptions,
   onDelta: (text: string) => void
 ): Promise<SqlOptimizationResult> {
-  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief);
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief, userInstruction);
 
   const raw = (
     await streamWithAI(
@@ -1787,6 +1848,238 @@ export async function optimizeSqlWithAIStream(
   ).trim();
 
   return parseSqlOptimization(sql, raw, report);
+}
+
+/**
+ * Which of the three optimize surfaces is active: the pre-existing automatic lint/alert-driven
+ * pass, the pre-existing semantics-preserving natural-language instruction pass, or the new
+ * requirement-driven pass (spec 004) which may change the query's result semantics.
+ */
+export type OptimizationMode = 'lint' | 'instruction' | 'requirement';
+
+/** The user's free-form description of new logic to add to an analyzed query (spec 004 US1). */
+export interface RequirementInput {
+  text: string;
+  /** Table/column names the user explicitly named as candidates to reference. */
+  hintedTables?: string[];
+}
+
+/**
+ * Result of a requirement-driven candidate generation call. Deliberately a simpler shape than
+ * {@link SqlOptimizationResult} (no narrow `find`/`replace` proposals) — a requirement may
+ * restructure the query broadly, so the whole candidate query is returned as one unit and
+ * compared against the original via {@link buildRequirementChangeSummary} by the caller.
+ */
+export interface SqlRequirementCandidateResult {
+  optimizedSql: string;
+  analysis: string;
+  /** Table/column names from the requirement that could not be resolved (FR-003). */
+  unresolvedReferences: string[];
+  raw: string;
+  structured: boolean;
+  budget: AIBudgetReport;
+}
+
+const REQUIREMENT_CANDIDATE_PROMPT: Record<
+  Locale,
+  (sql: string, requirementText: string, hintedTables: string[]) => string
+> = {
+  en: (sql, requirementText, hintedTables) => `The user wants to add a new requirement to the following SQL query. Unlike a normal optimization pass, you MAY change which tables, joins, filters, or output columns the query uses if that is what the requirement needs — but only to satisfy the stated requirement, nothing else.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Requirement, in the user's own words: "${requirementText}"
+${hintedTables.length ? `The user specifically named these tables/columns to consider: ${hintedTables.join(', ')}.` : ''}
+
+Reply with ONLY a JSON object — no prose, no markdown fence — using exactly this shape:
+{
+  "optimized_sql": "the full candidate query that satisfies the requirement",
+  "analysis": "plain-language explanation of what was added or changed and why, compared to the original query",
+  "unresolved_references": ["any table or column name from the requirement that you could not find evidence for in the SQL or the verified facts above, and therefore did not use"]
+}
+
+Rules:
+- Only change what is needed to satisfy the stated requirement. Do not perform an unrelated general rewrite.
+- Never invent a table or column name that does not appear in the SQL, the verified facts above, or the user's own hinted names — if you cannot resolve a needed reference, list it in "unresolved_references" and do not use it in "optimized_sql".
+- If the requirement cannot be satisfied at all without an unresolvable reference, return the original query unchanged in "optimized_sql" and explain why in "analysis".
+- "analysis" must clearly state which tables, joins, filters, or output columns were added, removed, or changed.`,
+  vi: (sql, requirementText, hintedTables) => `Người dùng muốn thêm một yêu cầu mới vào truy vấn SQL sau đây. Khác với một lượt tối ưu hóa thông thường, bạn ĐƯỢC PHÉP thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra của truy vấn nếu yêu cầu cần như vậy — nhưng chỉ để đáp ứng đúng yêu cầu đã nêu, không hơn.
+
+SQL:
+\`\`\`sql
+${sql}
+\`\`\`
+
+Yêu cầu, theo lời của người dùng: "${requirementText}"
+${hintedTables.length ? `Người dùng đã nêu rõ các bảng/cột sau cần xem xét: ${hintedTables.join(', ')}.` : ''}
+
+Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng cấu trúc sau:
+{
+  "optimized_sql": "toàn bộ truy vấn mẫu đáp ứng yêu cầu",
+  "analysis": "giải thích bằng ngôn ngữ dễ hiểu về những gì đã được thêm hoặc thay đổi và vì sao, so với truy vấn gốc",
+  "unresolved_references": ["tên bảng hoặc cột trong yêu cầu mà bạn không tìm thấy bằng chứng trong SQL hoặc các dữ kiện đã xác thực ở trên, và do đó không sử dụng"]
+}
+
+Quy tắc:
+- Chỉ thay đổi những gì cần thiết để đáp ứng yêu cầu đã nêu. Không viết lại toàn bộ một cách không liên quan.
+- Tuyệt đối không tự đặt ra tên bảng hoặc cột không xuất hiện trong SQL, trong các dữ kiện đã xác thực ở trên, hoặc trong tên người dùng đã nêu — nếu không thể xác định một tham chiếu cần thiết, hãy liệt kê nó trong "unresolved_references" và không sử dụng nó trong "optimized_sql".
+- Nếu yêu cầu hoàn toàn không thể đáp ứng được vì thiếu tham chiếu không xác định, hãy trả về truy vấn gốc không đổi trong "optimized_sql" và giải thích lý do trong "analysis".
+- "analysis" phải nêu rõ những bảng, phép nối, điều kiện lọc hoặc cột đầu ra nào đã được thêm, loại bỏ hoặc thay đổi.`,
+};
+
+/** Builds the prompt + budget report shared by the blocking and streaming requirement-candidate calls. */
+function prepareRequirementCandidatePrompt(
+  sql: string,
+  config: AIModelConfig,
+  locale: Locale,
+  contextBrief: string,
+  requirementInput: RequirementInput
+): { prompt: string; report: AIBudgetReport; maxOutputTokens: number } {
+  if (!sql.trim()) throw new AIServiceError('There is no SQL query to add a requirement to.');
+  if (!requirementInput.text.trim()) throw new AIServiceError('The requirement text is empty.');
+
+  const budget = resolveBudget(config);
+  const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
+  const available = Math.max(128, budget.promptTokens - systemTokens);
+
+  const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
+  const briefTokens = estimateTokens(brief);
+  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
+
+  const hintedTables = requirementInput.hintedTables ?? [];
+  const buildPrompt = REQUIREMENT_CANDIDATE_PROMPT[locale] ?? REQUIREMENT_CANDIDATE_PROMPT.en;
+  const prompt = brief
+    ? `${brief}\n\n${buildPrompt(fitted.sql, requirementInput.text, hintedTables)}`
+    : buildPrompt(fitted.sql, requirementInput.text, hintedTables);
+
+  const report: AIBudgetReport = {
+    contextTokens: budget.contextTokens,
+    promptBudgetTokens: budget.promptTokens,
+    estimatedPromptTokens: systemTokens + estimateTokens(prompt),
+    sqlTruncated: fitted.truncated,
+    omittedSqlLines: fitted.omittedLines,
+    droppedMessages: 0,
+    contextBriefDropped: Boolean(contextBrief) && !brief,
+  };
+
+  return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+}
+
+/** Turns the model's raw answer into a {@link SqlRequirementCandidateResult}. */
+function parseRequirementCandidate(sql: string, raw: string, report: AIBudgetReport): SqlRequirementCandidateResult {
+  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+
+  const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
+  if (!parsed) {
+    return {
+      optimizedSql: sql,
+      analysis: raw,
+      unresolvedReferences: [],
+      raw,
+      structured: false,
+      budget: report,
+    };
+  }
+
+  const optimizedSql = asText(parsed.optimized_sql);
+  return {
+    optimizedSql: optimizedSql || sql,
+    analysis: asText(parsed.analysis),
+    unresolvedReferences: asList(parsed.unresolved_references),
+    raw,
+    structured: true,
+    budget: report,
+  };
+}
+
+/**
+ * Generates a candidate query that satisfies a user-stated requirement (spec 004 US1). Unlike
+ * {@link optimizeSqlWithAI}, the model is explicitly allowed to change tables/joins/filters/
+ * output columns — the caller is responsible for computing a structural diff (see
+ * `buildRequirementChangeSummary` in `src/lib/sql/optimizeRegression.ts`) and gating any editor
+ * change behind explicit user confirmation (FR-005/FR-006).
+ */
+export async function generateRequirementCandidate({
+  sql,
+  config,
+  locale = 'en',
+  contextBrief = '',
+  requirementInput,
+  signal,
+}: ExplainSqlOptions & { requirementInput: RequirementInput }): Promise<SqlRequirementCandidateResult> {
+  const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    requirementInput
+  );
+
+  const raw = (
+    await generateWithAI(config, {
+      prompt,
+      jsonMode: true,
+      maxTokens: maxOutputTokens,
+      signal,
+    })
+  ).trim();
+
+  return parseRequirementCandidate(sql, raw, report);
+}
+
+/** Streaming counterpart of {@link generateRequirementCandidate}. */
+export async function generateRequirementCandidateStream(
+  { sql, config, locale = 'en', contextBrief = '', requirementInput, signal }: ExplainSqlOptions & { requirementInput: RequirementInput },
+  onDelta: (text: string) => void
+): Promise<SqlRequirementCandidateResult> {
+  const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    requirementInput
+  );
+
+  const raw = (
+    await streamWithAI(
+      config,
+      {
+        prompt,
+        jsonMode: true,
+        maxTokens: maxOutputTokens,
+        signal,
+      },
+      onDelta
+    )
+  ).trim();
+
+  return parseRequirementCandidate(sql, raw, report);
+}
+
+/**
+ * Deterministically checks the user's explicitly hinted table/column names against the tables
+ * already known from the current analyzed query. There is no live schema catalog in this app
+ * (see specs/004-nl-requirement-optimize/research.md R3), so this can only confirm/deny against
+ * what the local parser already knows — anything else is left for the model to self-report via
+ * `unresolvedReferences`, not authoritatively validated here.
+ */
+export function resolveHintedTableReferences(
+  hintedTables: string[],
+  analysis: AnalysisResult | null
+): { resolved: string[]; unresolved: string[] } {
+  const knownNames = new Set((analysis?.tables ?? []).map((table) => table.name.toLowerCase()));
+  const resolved: string[] = [];
+  const unresolved: string[] = [];
+  for (const hint of hintedTables) {
+    const trimmed = hint.trim();
+    if (!trimmed) continue;
+    if (knownNames.has(trimmed.toLowerCase())) resolved.push(trimmed);
+    else unresolved.push(trimmed);
+  }
+  return { resolved, unresolved };
 }
 
 /** Counts how many times `needle` appears in `haystack` via plain substring split — the same

@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import { getSocialSession, isDemoAuthenticated, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import { getT } from '@/lib/i18n';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -45,10 +48,29 @@ const COLOR_PRESETS: Record<string, { dark: string; light: string }> = {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const locale = useAppStore((s) => s.settings.locale);
   const theme = useAppStore((s) => s.settings.theme);
   const accentColor = useAppStore((s) => s.settings.accentColor);
   const navigationTarget = useAppStore((s) => s.navigationTarget);
   const completeNavigation = useAppStore((s) => s.completeNavigation);
+  // null = unknown (SSR/pre-hydration), true = signed in. Mirrors the
+  // query-input gate pattern: render nothing until the check completes,
+  // so protected content never flashes for signed-out visitors.
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const hadStoredSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
+    const staleSession = hadStoredSession && !getSocialSession();
+    if (!isDemoAuthenticated() || staleSession) {
+      if (staleSession) {
+        toast.info(getT(locale).authSessionExpiredMessage);
+      }
+      router.replace('/login');
+      return;
+    }
+    setIsAuthorized(true);
+  }, [locale, router]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -75,13 +97,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => cancelAnimationFrame(frame);
   }, [completeNavigation, navigationTarget, pathname]);
 
+  // Auth gate: signed-out users never see protected content (not even a
+  // flash) — nothing renders until the check passes, mirroring query-input.
+  if (!isAuthorized) return null;
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
-      <LoadingOverlay
-        visible={navigationTarget !== null}
-        title="Loading..."
-      />
+      <LoadingOverlay visible={navigationTarget !== null} title="Loading..." />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">
           <div className="min-h-full grid-bg">{children}</div>

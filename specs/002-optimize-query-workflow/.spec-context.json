@@ -1,0 +1,31 @@
+{
+  "workflow": "speckit",
+  "specName": "Optimize Query Workflow Redesign",
+  "branch": "develop",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-08T12:57:20.382Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-08T13:01:30.885Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-08T13:04:14.768Z"
+    }
+  ],
+  "telemetryInstanceId": "ef8ff145-57a0-4aa6-b677-657562695cce"
+}
