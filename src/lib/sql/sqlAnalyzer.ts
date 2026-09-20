@@ -15,6 +15,9 @@ import {
   getJoinConditionComplexity,
   getComplexityLevelFromScore,
 } from '../../app/common/sqlAnalyzerUtils';
+import { parseMapperXml, resolveStatement } from './mybatis/conversion';
+import { collectConditionalParams, collectRawText, collectReferencePaths } from './mybatis/mapperModel';
+import { normaliseSqlText } from './mybatis/renderer';
 
 // Import dt-sql-parser for AST-based SQL parsing with dialect support
 let parser: any = null;
@@ -2776,107 +2779,38 @@ function extractMainQueryFields(
 }
 
 export function extractMyBatisParams(xml: string): string[] {
-  return collectMyBatisParams(xml);
+  return collectReferencePaths(parseMapperXml(xml));
 }
 
+/**
+ * Legacy resolve surface (FR-038, research R9): the first mapped statement
+ * rendered with the supplied values. The quoted-literal convention and the
+ * reference-own-name stand-in come from the shared pipeline, so the legacy
+ * path and the page describe the same SQL.
+ */
 export function resolveMyBatisParams(xml: string, params: Record<string, string>): string {
-  const { sql } = parseMyBatisXml(xml);
-  let resolved = sql;
-  for (const [key, value] of Object.entries(params)) {
-    const escapedKey = escapeRegExp(key);
-    const quotedValue = toSqlTextLiteral(value || key);
-    resolved = resolved.replace(new RegExp(`[#$]\\{${escapedKey}\\}`, 'g'), quotedValue);
-  }
-  return resolved.trim();
+  const model = parseMapperXml(xml);
+  const statement = model.statements[0];
+  if (!statement) return '';
+  return resolveStatement(model, statement.key, params, 'mysql').sql;
 }
 
 /** Extract clean SQL and parameters from MyBatis XML content */
 export function parseMyBatisXml(xml: string): { sql: string; params: string[] } {
-  // Extract SQL body from MyBatis tags
-  const sqlMatch =
-    /<(?:select|insert|update|delete)[^>]*>([\s\S]*?)<\/(?:select|insert|update|delete)>/i.exec(
-      xml
-    );
-  if (!sqlMatch) return { sql: '', params: [] };
-
-  let sqlContent = sqlMatch[1];
-
-  // Extract parameters from #{} and ${} syntax (supports nested object paths like args.param1)
-  const params = collectMyBatisParams(xml);
-
-  // Remove <if> tag conditions, keeping only the inner SQL
-  sqlContent = sqlContent.replace(/<if\s+test="[^"]*">\s*/gi, '');
-  sqlContent = sqlContent.replace(/<\/if\s*>/gi, '');
-
-  // Remove other MyBatis tags
-  sqlContent = sqlContent
-    .replace(/<(?:where|set|trim|foreach|choose|when|otherwise)[^>]*>/gi, '')
-    .replace(/<\/(?:where|set|trim|foreach|choose|when|otherwise)>/gi, '');
-
-  // Decode XML entities used in MyBatis SQL content.
-  sqlContent = decodeMyBatisXmlEntities(sqlContent);
-
-  // Clean up whitespace and SQL formatting
-  sqlContent = sqlContent
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('<!--'))
-    .join('\n');
-
-  return { sql: sqlContent, params };
-}
-
-const MYBATIS_PARAM_PATTERN = /[#$]\{([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)\}/g;
-
-function collectMyBatisParams(input: string): string[] {
-  const params: string[] = [];
-  let match;
-  while ((match = MYBATIS_PARAM_PATTERN.exec(input)) !== null) {
-    if (!params.includes(match[1])) params.push(match[1]);
-  }
-  return params;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function toSqlTextLiteral(value: string): string {
-  const trimmed = value.trim();
-  const unwrapped =
-    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-      ? trimmed.slice(1, -1)
-      : trimmed;
-  const escaped = unwrapped.replace(/'/g, "''");
-  return `'${escaped}'`;
-}
-
-function decodeMyBatisXmlEntities(sql: string): string {
-  return sql
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&');
+  const model = parseMapperXml(xml);
+  const statement = model.statements[0];
+  if (!statement) return { sql: '', params: [] };
+  // The legacy view of a plain statement: every tag dropped, every branch
+  // kept, references intact for the parameter editor, whitespace normalised.
+  return {
+    sql: normaliseSqlText(collectRawText(model, statement.key)),
+    params: collectReferencePaths(model),
+  };
 }
 
 /** Get conditional parameters from <if> tags in MyBatis XML */
 export function getConditionalParams(xml: string): Record<string, string> {
-  const conditionalParams: Record<string, string> = {};
-  const ifPattern = /<if\s+test="([^"]+)">/gi;
-  let match;
-
-  while ((match = ifPattern.exec(xml)) !== null) {
-    const condition = match[1];
-    // Extract parameter names from conditions like: "minAmount != null", "status != null"
-    const paramMatch = /(\w+)\s*!=\s*null/i.exec(condition);
-    if (paramMatch) {
-      conditionalParams[paramMatch[1]] = condition;
-    }
-  }
-
-  return conditionalParams;
+  return collectConditionalParams(parseMapperXml(xml));
 }
 
 // Strip all SQL comments (-- single-line and /* */ multi-line) from a string

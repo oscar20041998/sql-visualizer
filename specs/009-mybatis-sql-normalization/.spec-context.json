@@ -1,0 +1,242 @@
+{
+  "workflow": "speckit",
+  "specName": "MyBatis XML to Pure SQL Normalization",
+  "branch": "duyvt7",
+  "currentStep": "implement",
+  "status": "implementing",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T08:04:58.955Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T08:33:19.338Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T08:40:53.553Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:03:20.658Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-09-20T17:03:35.307Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T17:34:59.787Z"
+    }
+  ],
+  "telemetryInstanceId": "07d48606-b3c1-49de-948b-0ce1990c9f92",
+  "substep": 1,
+  "verified": [
+    {
+      "what": "T009:T019:SQL rendered under contract G6,G1"
+    }
+  ],
+  "livingSpecs": {
+    "loaded": [
+      "spec.md:tasks.md:plan.md:contracts/quickstart.md:data-model.md"
+    ]
+  },
+  "concerns": [
+    {
+      "note": "Offline review can start without any live session state"
+    }
+  ],
+  "expectations": [
+    "Guard rails prevent significant errors"
+  ],
+  "key": "value",
+  "currentTask": "T004"
+}
