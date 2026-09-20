@@ -36,11 +36,14 @@ export type JoinType =
   | 'RELATES TO'
   | 'LATERAL JOIN';
 
+export type SqlSourceType = 'TABLE' | 'CTE' | 'SUBQUERY' | 'UNKNOWN' | 'VIEW';
+
 export interface TableNode {
   id: string;
   name: string;
   alias?: string;
   columns: string[];
+  sourceType: SqlSourceType;
   isSubquery?: boolean;
   isCTE?: boolean;
 }
@@ -313,12 +316,23 @@ export async function analyzeSql(
   };
 }
 
-function toNodeId(name: string): string {
-  return `table-${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+function toNodeId(name: string, alias?: string): string {
+  const sourceKey = alias ? `${name}__${alias}` : name;
+  return `table-${sourceKey.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+}
+
+function setSourceType(table: TableNode, sourceType: SqlSourceType): TableNode {
+  table.sourceType = sourceType;
+  table.isCTE = sourceType === 'CTE';
+  table.isSubquery = sourceType === 'SUBQUERY';
+  return table;
 }
 
 function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
-  const tables: TableNode[] = baseTables.map((t) => ({ ...t }));
+  const tables: TableNode[] = baseTables.map((t) => {
+    const sourceType = t.sourceType ?? (t.isSubquery ? 'SUBQUERY' : t.isCTE ? 'CTE' : 'TABLE');
+    return setSourceType({ ...t }, sourceType);
+  });
   const byName = new Map<string, TableNode>();
 
   tables.forEach((table) => {
@@ -329,7 +343,7 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
     const key = cte.name.toLowerCase();
     const existing = byName.get(key);
     if (existing) {
-      existing.isCTE = true;
+      setSourceType(existing, 'CTE');
       if (!existing.columns.length && cte.fields.length) {
         existing.columns = cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS);
       }
@@ -340,8 +354,9 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
       id: toNodeId(cte.name),
       name: cte.name,
       columns: cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS),
-      isCTE: true,
+      sourceType: 'CTE',
     };
+    setSourceType(node, 'CTE');
     tables.push(node);
     byName.set(key, node);
   });
@@ -367,8 +382,9 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
       id: toNodeId(name),
       name,
       columns: [],
-      isCTE: cteNames.has(key),
+      sourceType: cteNames.has(key) ? 'CTE' : 'TABLE',
     };
+    setSourceType(node, node.sourceType);
     tables.push(node);
     byName.set(key, node);
     return node;
@@ -431,17 +447,18 @@ function extractTables(sql: string): TableNode[] {
     const alias = match[2]?.replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
     const normalizedName = rawName.toUpperCase();
     if (SQL_KEYWORDS.has(normalizedName) || normalizedName.length === 0) continue;
-    const key = rawName.toUpperCase();
-    if (!tables.has(key)) {
-      tables.set(key, {
-        id: `table-${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+    const sourceKey = rawName.toUpperCase();
+    const occurrenceKey = `${sourceKey}|${alias?.toUpperCase() ?? ''}`;
+    if (!tables.has(occurrenceKey)) {
+      tables.set(occurrenceKey, {
+        id: toNodeId(rawName, alias),
         name: rawName,
         alias:
           alias && !SQL_KEYWORDS.has(alias.toUpperCase()) && alias.toUpperCase() !== normalizedName
             ? alias
             : undefined,
         columns: extractColumnsForTable(sql, alias || rawName),
-        isCTE: cteNames.has(key),
+        sourceType: cteNames.has(sourceKey) ? 'CTE' : 'TABLE',
       });
     }
   }
@@ -516,18 +533,17 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   const ensureTable = (name: string, alias?: string): TableNode => {
     const normalizedName = name.toLowerCase();
     const normalizedAlias = alias?.toLowerCase();
-    const existing = tables.find(
-      (table) =>
-        table.name.toLowerCase() === normalizedName ||
-        Boolean(normalizedAlias && table.alias?.toLowerCase() === normalizedAlias)
-    );
+    const existing =
+      (normalizedAlias && tables.find((table) => table.alias?.toLowerCase() === normalizedAlias)) ||
+      tables.find((table) => table.name.toLowerCase() === normalizedName);
     if (existing) return existing;
 
     const table: TableNode = {
-      id: toNodeId(name),
+      id: toNodeId(name, alias),
       name,
       alias: alias || undefined,
       columns: extractColumnsForTable(sql, alias || name),
+      sourceType: 'TABLE',
     };
     tables.push(table);
     return table;
@@ -1311,10 +1327,17 @@ function ensureDerivedTableNode(
   const key = name.toLowerCase();
   const existing = tables.find((t) => t.name.toLowerCase() === key || t.alias?.toLowerCase() === key);
   if (existing) {
-    existing.isSubquery = true;
+    setSourceType(existing, 'SUBQUERY');
     return existing;
   }
-  const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: true };
+  const node: TableNode = {
+    id: toNodeId(name),
+    name,
+    alias,
+    columns: [],
+    sourceType: 'SUBQUERY',
+  };
+  setSourceType(node, 'SUBQUERY');
   tables.push(node);
   return node;
 }
@@ -1766,11 +1789,18 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
           Boolean(normalizedAlias && t.alias?.toLowerCase() === normalizedAlias)
       );
       if (existing) {
-        if (isDerived) existing.isSubquery = true;
+        if (isDerived) setSourceType(existing, 'SUBQUERY');
         return existing;
       }
 
-      const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: isDerived };
+      const node: TableNode = {
+        id: toNodeId(name),
+        name,
+        alias,
+        columns: [],
+        sourceType: isDerived ? 'SUBQUERY' : 'TABLE',
+      };
+      setSourceType(node, node.sourceType);
       tables.push(node);
       return node;
     };

@@ -5,8 +5,8 @@ import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 function makeAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
   const base: AnalysisResult = {
     tables: [
-      { id: 't1', name: 'orders', alias: 'o', columns: [] },
-      { id: 't2', name: 'customers', alias: 'c', columns: [] },
+      { id: 't1', name: 'orders', alias: 'o', columns: [], sourceType: 'TABLE' },
+      { id: 't2', name: 'customers', alias: 'c', columns: [], sourceType: 'TABLE' },
     ],
     joins: [{ id: 'j1', source: 't1', target: 't2', joinType: 'INNER JOIN', condition: 'o.customer_id = c.id' }],
     joinAnalysisDetails: [],
@@ -92,9 +92,9 @@ describe('buildRequirementChangeSummary', () => {
     const original = makeAnalysis();
     const candidate = makeAnalysis({
       tables: [
-        { id: 't1', name: 'orders', alias: 'o', columns: [] },
-        { id: 't2', name: 'customers', alias: 'c', columns: [] },
-        { id: 't3', name: 'shipping_addresses', alias: 's', columns: [] },
+        { id: 't1', name: 'orders', alias: 'o', columns: [], sourceType: 'TABLE' },
+        { id: 't2', name: 'customers', alias: 'c', columns: [], sourceType: 'TABLE' },
+        { id: 't3', name: 'shipping_addresses', alias: 's', columns: [], sourceType: 'TABLE' },
       ],
       joins: [
         { id: 'j1', source: 't1', target: 't2', joinType: 'INNER JOIN', condition: 'o.customer_id = c.id' },
@@ -112,7 +112,7 @@ describe('buildRequirementChangeSummary', () => {
   it('detects a removed table', () => {
     const original = makeAnalysis();
     const candidate = makeAnalysis({
-      tables: [{ id: 't1', name: 'orders', alias: 'o', columns: [] }],
+      tables: [{ id: 't1', name: 'orders', alias: 'o', columns: [], sourceType: 'TABLE' }],
       joins: [],
     });
     const summary = buildRequirementChangeSummary(original, candidate);

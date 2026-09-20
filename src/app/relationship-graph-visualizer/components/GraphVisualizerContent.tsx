@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import type { JoinType, AnalysisResult } from '@/lib/sql/sqlAnalyzer';
+import type { JoinType, AnalysisResult, SqlSourceType, TableNode } from '@/lib/sql/sqlAnalyzer';
 import type { FlowCanvasHandle } from './FlowCanvas';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
 import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
@@ -29,7 +29,26 @@ import JoinAnalysisPanel from './JoinAnalysisPanel';
 
 const FlowCanvas = dynamic(() => import('./FlowCanvas'), { ssr: false });
 
-type RelationshipFilterMode = 'all' | 'cte' | 'table';
+export type RelationshipFilterMode = 'all' | 'cte' | 'table' | 'subquery';
+
+export function filterTablesBySourceType(
+  tables: TableNode[],
+  filter: RelationshipFilterMode
+): TableNode[] {
+  if (filter === 'all') return tables;
+  const sourceType: SqlSourceType =
+    filter === 'cte' ? 'CTE' : filter === 'subquery' ? 'SUBQUERY' : 'TABLE';
+  return tables.filter((table) => table.sourceType === sourceType);
+}
+
+export function filterJoinsBySourceType(
+  joins: AnalysisResult['joins'],
+  tables: TableNode[],
+  filter: RelationshipFilterMode
+): AnalysisResult['joins'] {
+  const visibleIds = new Set(filterTablesBySourceType(tables, filter).map((table) => table.id));
+  return joins.filter((join) => visibleIds.has(join.source) && visibleIds.has(join.target));
+}
 
 // ─── Copy Button Component ────────────────────────────────────────────────────
 function CopyButton({
@@ -258,7 +277,7 @@ function buildExtractedTableRows(
   return rows;
 }
 
-function buildMermaidDiagram(
+export function buildMermaidDiagram(
   tables: import('@/lib/sql/sqlAnalyzer').TableNode[],
   joins: import('@/lib/sql/sqlAnalyzer').JoinEdge[],
   joinColors: Record<JoinType, string>
@@ -267,7 +286,7 @@ function buildMermaidDiagram(
 
   // Node definitions
   tables.forEach((t) => {
-    const label = `${t.name}\\n[${t.isCTE ? 'CTE' : 'TABLE'}]\\n${t.columns.length} fields`;
+    const label = `${t.name}\\n[${t.sourceType}]\\n${t.columns.length} fields`;
     lines.push(`  ${t.id}["${label}"]`);
   });
 
@@ -329,10 +348,7 @@ export default function GraphVisualizerContent() {
 
   const filteredTables = useMemo(() => {
     if (!analysisResult) return [];
-    if (relationshipFilter === 'cte') return analysisResult.tables.filter((table) => table.isCTE);
-    if (relationshipFilter === 'table')
-      return analysisResult.tables.filter((table) => !table.isCTE);
-    return analysisResult.tables;
+    return filterTablesBySourceType(analysisResult.tables, relationshipFilter);
   }, [analysisResult, relationshipFilter]);
 
   const filteredTableIdSet = useMemo(
@@ -343,22 +359,7 @@ export default function GraphVisualizerContent() {
   const filteredJoins = useMemo(() => {
     if (!analysisResult) return [];
 
-    const tableById = new Map(analysisResult.tables.map((table) => [table.id, table]));
-    return analysisResult.joins.filter((join) => {
-      if (!filteredTableIdSet.has(join.source) || !filteredTableIdSet.has(join.target)) {
-        return false;
-      }
-
-      if (relationshipFilter === 'all') return true;
-
-      const source = tableById.get(join.source);
-      const target = tableById.get(join.target);
-      const sourceIsCTE = !!source?.isCTE;
-      const targetIsCTE = !!target?.isCTE;
-
-      if (relationshipFilter === 'cte') return sourceIsCTE && targetIsCTE;
-      return !sourceIsCTE && !targetIsCTE;
-    });
+    return filterJoinsBySourceType(analysisResult.joins, analysisResult.tables, relationshipFilter);
   }, [analysisResult, relationshipFilter, filteredTableIdSet]);
 
   useEffect(() => {
@@ -388,7 +389,7 @@ export default function GraphVisualizerContent() {
 
   const selectedNode = filteredTables.find((tbl) => tbl.id === selectedNodeId);
   const selectedCte =
-    selectedNode?.isCTE && analysisResult
+    selectedNode?.sourceType === 'CTE' && analysisResult
       ? analysisResult.ctes.find(
           (cte) => cte.name.toLowerCase() === selectedNode.name.toLowerCase()
         )
@@ -431,7 +432,7 @@ export default function GraphVisualizerContent() {
       filteredTables.forEach((t) => {
         const join = filteredJoins.find((j) => j.source === t.id || j.target === t.id);
         const color = join ? JOIN_COLORS[join.joinType] : '#6ee7f7';
-        lines.push(`[${t.isCTE ? 'CTE' : 'TABLE'}] ${t.name}  color: ${color}`);
+        lines.push(`[${t.sourceType}] ${t.name}  color: ${color}`);
       });
       lines.push('');
       filteredJoins.forEach((j) => {
@@ -557,6 +558,7 @@ export default function GraphVisualizerContent() {
                   <option value="all">{t.graphFilterAll}</option>
                   <option value="cte">{t.graphFilterCte}</option>
                   <option value="table">{t.graphFilterTable}</option>
+                  <option value="subquery">{t.graphFilterSubquery}</option>
                 </select>
               </div>
             </div>
@@ -655,7 +657,7 @@ export default function GraphVisualizerContent() {
                             {table.name}
                           </span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {table.isCTE && (
+                            {table.sourceType === 'CTE' && (
                               <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-accent/20 text-accent">
                                 CTE
                               </span>
@@ -781,7 +783,7 @@ export default function GraphVisualizerContent() {
                       <span className="font-semibold text-sm text-foreground font-mono">
                         {selectedNode.name}
                       </span>
-                      {selectedNode.isCTE && (
+                      {selectedNode.sourceType === 'CTE' && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent/20 text-accent font-mono">
                           CTE
                         </span>
@@ -810,7 +812,7 @@ export default function GraphVisualizerContent() {
                     </div>
                   )}
 
-                  {selectedNode.isCTE && selectedCteTables.length > 0 && (
+                  {selectedNode.sourceType === 'CTE' && selectedCteTables.length > 0 && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">{t.cteTables}</p>
                       <div className="flex flex-wrap gap-1">
@@ -952,7 +954,7 @@ export default function GraphVisualizerContent() {
                     >
                       <Table2 size={11} className="flex-shrink-0" />
                       {table.name}
-                      {table.isCTE && (
+                      {table.sourceType === 'CTE' && (
                         <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1 rounded">
                           CTE
                         </span>

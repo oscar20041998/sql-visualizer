@@ -75,6 +75,7 @@ const vi = {
   graphFilterAll: 'Tất cả',
   graphFilterCte: 'Quan hệ CTE',
   graphFilterTable: 'Quan hệ bảng',
+  graphFilterSubquery: 'Quan hệ truy vấn con',
   noGraph: 'Không có biểu đồ để hiển thị',
   noGraphHint: 'Phân tích truy vấn trước để xem biểu đồ quan hệ',
   tableCount: 'Bảng',

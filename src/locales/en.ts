@@ -77,6 +77,7 @@ const en = {
   graphFilterAll: 'All',
   graphFilterCte: "CTE's Relationship",
   graphFilterTable: "Table's Relationship",
+  graphFilterSubquery: "Subquery's Relationship",
   noGraph: 'No graph to display',
   noGraphHint: 'Analyze a query first to see the relationship graph',
   tableCount: 'Tables',
