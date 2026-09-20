@@ -63,3 +63,7 @@ docs/knowledge/*.pdf
 # Optional: if using the command-line interface
 .cline
 .clinerules
+
+# Optional: if using Specify skills
+skills-lock.json
+.agents/

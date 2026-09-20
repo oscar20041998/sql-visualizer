@@ -1,0 +1,24 @@
+{
+  "workflow": "speckit",
+  "specName": "Query Input UX Improvement",
+  "branch": "duyvt7",
+  "currentStep": "plan",
+  "status": "planned",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T04:22:29.273Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T04:26:25.854Z"
+    }
+  ],
+  "telemetryInstanceId": "6cd9a13e-f77d-407e-b506-9eccd392d6cc"
+}

@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { Braces, FileCode2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -26,7 +27,7 @@ import { isDemoAuthenticated } from '@/lib/demoAuth';
 
 // Import sub-components
 import { Header } from './components/Header';
-import { TabNavigation } from './components/TabNavigation';
+import { TabNavigation, type QueryInputMode } from './components/TabNavigation';
 import { SqlInputPanel } from './components/SqlInputPanel';
 import { MyBatisPanel } from './components/MyBatisPanel';
 import { ParameterConfig } from './components/ParameterConfig';
@@ -34,6 +35,7 @@ import { ActionButtons } from './components/ActionButtons';
 import { PreviewPanel } from './components/PreviewPanel';
 import { BottomAnalytics } from './components/BottomAnalytics';
 import { EmptyStateTips } from './components/EmptyStateTips';
+import { QueryInputPanel } from './components/QueryInputPanel';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -131,6 +133,9 @@ export default function QueryInputContent() {
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
+  // Display-only metadata for the XML that currently backs the MyBatis input; the parsed
+  // content still lives in the store, so this adds no new state semantics.
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
   const analysisRunRef = useRef(0);
 
@@ -174,13 +179,24 @@ export default function QueryInputContent() {
   const handleXmlFileImport = useCallback(
     (content: string, fileName: string) => {
       setMyBatisXml(content);
+      setImportedFileName(fileName);
       // Auto-switch to XML content tab after import
       if (inputMode !== 'mybatis') {
         setInputMode('mybatis');
       }
     },
-    [inputMode, setMyBatisXml, setInputMode]
+    [inputMode, setMyBatisXml, setInputMode, setImportedFileName]
   );
+
+  // Removes the loaded XML without adding a workflow step: same state the Clear action resets
+  // for the MyBatis input, plus the file metadata shown next to the editor.
+  const handleRemoveFile = useCallback(() => {
+    setMyBatisXml('');
+    setDetectedParams([]);
+    setMyBatisParams({});
+    setResolvedSql('');
+    setImportedFileName(null);
+  }, [setMyBatisXml, setMyBatisParams, setResolvedSql]);
 
   const handleAnalyze = useCallback(async () => {
     const sqlToAnalyze =
@@ -282,10 +298,19 @@ export default function QueryInputContent() {
       setDetectedParams([]);
       setMyBatisParams({});
       setResolvedSql('');
+      setImportedFileName(null);
     }
     // Clear analysis result to lock navigation
     setAnalysisResult(null);
-  }, [inputMode, setRawSql, setMyBatisXml, setMyBatisParams, setResolvedSql, setAnalysisResult]);
+  }, [
+    inputMode,
+    setRawSql,
+    setMyBatisXml,
+    setMyBatisParams,
+    setResolvedSql,
+    setAnalysisResult,
+    setImportedFileName,
+  ]);
 
   const handleLoadSample = useCallback(() => {
     if (inputMode === 'sql') {
@@ -295,8 +320,8 @@ export default function QueryInputContent() {
     }
   }, [inputMode, setRawSql, setMyBatisXml]);
 
-  const handleTabChange = (newMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => {
-    setInputMode(newMode as any);
+  const handleTabChange = (newMode: QueryInputMode) => {
+    setInputMode(newMode);
     // Switching tabs manually means the pending jump no longer applies to what's shown.
     setJumpSql(null);
   };
@@ -329,7 +354,7 @@ export default function QueryInputContent() {
 
   return (
     <AppLayout>
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+      <div className="mx-auto max-w-screen-2xl space-y-6 px-6 py-8 lg:px-8 xl:px-10">
         <LoadingOverlay
           visible={isAnalyzing}
           title={t.analyzing}
@@ -340,8 +365,8 @@ export default function QueryInputContent() {
           }}
         />
 
-        {/* Header */}
-        <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        {/* Header: title, workflow spine, dialect and query history */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <Header dialect={dialect} onDialectChange={setDialect} t={t} />
           </div>
@@ -356,10 +381,15 @@ export default function QueryInputContent() {
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (
-          <div className="smart-sql-editor-theme mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
+          <div className="smart-sql-editor-theme flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-            <div className="mt-4 flex flex-col gap-4">
-              <div className="min-h-[620px] flex flex-col">
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="mt-4 flex flex-col gap-4"
+            >
+              <div className="flex min-h-[620px] flex-col">
                 <SmartSQLEditor
                   initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
                   jumpToLine={jumpLine}
@@ -388,65 +418,88 @@ export default function QueryInputContent() {
             {/* Tabs - Full Width */}
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
 
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px] mt-4">
-              {/* Left: Input Panel */}
-              <div className="xl:col-span-2 space-y-4">
-                {/* SQL Textarea */}
-                {inputMode === 'sql' && (
-                  <SqlInputPanel
-                    value={rawSql}
-                    onChange={setRawSql}
-                    placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
-                  />
-                )}
-
-                {/* MyBatis/XML Textarea */}
-                {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
-                  <div className="space-y-4">
-                    <MyBatisPanel
-                      xmlContent={myBatisXml}
-                      onXmlChange={setMyBatisXml}
-                      onFileImport={handleXmlFileImport}
-                      placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
-                      showFileImport={inputMode === 'import-xml'}
-                    />
-
-                    {/* Parameter Configuration */}
-                    {myBatisXml && (
-                      <ParameterConfig
-                        detectedParams={detectedParams}
-                        myBatisParams={myBatisParams}
-                        onParamChange={(key, value) =>
-                          setMyBatisParams({ ...myBatisParams, [key]: value })
-                        }
-                        conditionalParams={conditionalParams}
-                        t={t}
+            {/* Workspace: left = input + parameters, right = resolved SQL (more width for readability) */}
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                {/* Left: Input + Parameters */}
+                <div className="space-y-4 xl:col-span-5">
+                  {/* SQL Textarea */}
+                  {inputMode === 'sql' && (
+                    <QueryInputPanel
+                      title={t.sqlInputPanelTitle}
+                      description={t.sqlInputPanelHint}
+                      icon={<FileCode2 size={14} className="text-primary" aria-hidden />}
+                    >
+                      <SqlInputPanel
+                        value={rawSql}
+                        onChange={setRawSql}
+                        placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
                       />
-                    )}
-                  </div>
-                )}
+                    </QueryInputPanel>
+                  )}
 
-                {/* Action Buttons */}
-                <ActionButtons
-                  onAnalyze={handleAnalyze}
-                  onLoadSample={handleLoadSample}
-                  onClear={handleClear}
-                  isLoading={isAnalyzing}
-                  t={t}
-                />
+                  {/* MyBatis/XML Input + Parameter Configuration */}
+                  {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
+                    <>
+                      <QueryInputPanel
+                        title={t.myBatisPanelTitle}
+                        description={t.myBatisPanelHint}
+                        icon={<Braces size={14} className="text-primary" aria-hidden />}
+                      >
+                        <MyBatisPanel
+                          xmlContent={myBatisXml}
+                          onXmlChange={setMyBatisXml}
+                          onFileImport={handleXmlFileImport}
+                          onRemoveFile={handleRemoveFile}
+                          importedFileName={importedFileName}
+                          placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
+                          showFileImport={inputMode === 'import-xml'}
+                          t={t}
+                        />
+                      </QueryInputPanel>
+
+                      {/* Parameter Configuration */}
+                      {myBatisXml && (
+                        <ParameterConfig
+                          detectedParams={detectedParams}
+                          myBatisParams={myBatisParams}
+                          onParamChange={(key, value) =>
+                            setMyBatisParams({ ...myBatisParams, [key]: value })
+                          }
+                          conditionalParams={conditionalParams}
+                          t={t}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {/* Action Buttons */}
+                  <ActionButtons
+                    onAnalyze={handleAnalyze}
+                    onLoadSample={handleLoadSample}
+                    onClear={handleClear}
+                    isLoading={isAnalyzing}
+                    t={t}
+                  />
+                </div>
+
+                {/* Right: Preview Panel (final SQL to analyze) */}
+                <div className="xl:col-span-7 xl:min-h-[560px]">
+                  <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
+                </div>
               </div>
 
-              {/* Right: Preview Panel */}
-              <div className="xl:col-span-2 space-y-4 h-full" style={{ maxHeight: '500px' }}>
-                <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
-              </div>
+              {/* Bottom: Complexity & Linting findings */}
+              <BottomAnalytics currentSql={currentSql} />
+
+              {/* Empty State Tips */}
+              {!currentSql && <EmptyStateTips tips={tips} t={t} />}
             </div>
-
-            {/* Bottom: Complexity & Linting */}
-            <BottomAnalytics currentSql={currentSql} t={t} />
-
-            {/* Empty State Tips */}
-            {!currentSql && <EmptyStateTips tips={tips} />}
           </>
         )}
       </div>
