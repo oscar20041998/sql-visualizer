@@ -380,6 +380,14 @@ export const COMPLEXITY_SCORER_CONSTANTS = {
   MEDIUM_THRESHOLD_RATIO: 1.0, // MEDIUM level threshold as % of median (100%)
   HIGH_THRESHOLD_RATIO: 2.0, // HIGH level threshold as % of median (200%)
 
+  // Normalized presentation score (0–100) — deterministic and history-independent
+  // (specs/010-sql-intelligence-dashboard FR-001/FR-008): normalized = round(100 × raw / (raw + K)).
+  // K is calibrated so a raw score of 483 lands at 82 (HIGH), matching the product's reference example.
+  NORMALIZED_SATURATION_K: 105,
+  // Fixed level bands on the normalized 0–100 scale (FR-028, existing vocabulary):
+  // LOW < 25, MEDIUM 25–54, HIGH 55–79, SUPER_HIGH ≥ 80.
+  NORMALIZED_LEVEL_BOUNDARIES: { MEDIUM_MIN: 25, HIGH_MIN: 55, SUPER_HIGH_MIN: 80 } as const,
+
   // Linting Rule Thresholds
   MAX_NESTING_DEPTH_WARNING: 6, // Threshold for deep nesting warning (triggers if > 6 levels)
   LARGE_QUERY_KEYWORD_THRESHOLD: 3, // Min SELECT/FROM/JOIN keywords to consider "large query"

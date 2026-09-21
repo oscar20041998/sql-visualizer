@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { BarChart3, AlertTriangle, Layers, Download } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import ComplexityHeroCard from './ComplexityHeroCard';
+import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
+import { buildDashboardData } from '@/lib/sql/dashboard/buildDashboardData';
+import AnalysisHealthSummary from './AnalysisHealthSummary';
+import AdvancedDetails from './AdvancedDetails';
 import MetricCardsGrid from './MetricCardsGrid';
 import ComplexityFactorsBreakdown from './ComplexityFactorsBreakdown';
 import NestedSubqueryAnalysis from './NestedSubqueryAnalysis';
@@ -14,8 +17,100 @@ import ReferencedTablesOverview from './ReferencedTablesOverview';
 
 export default function MetricsDashboardContent() {
   const router = useRouter();
-  const { settings, analysisResult, beginNavigation } = useAppStore();
+  const {
+    settings,
+    analysisResult,
+    isAnalyzing,
+    analysisError,
+    rawSql,
+    resolvedSql,
+    dialect,
+    inputMode,
+    beginNavigation,
+    setIsAnalyzing,
+    setAnalysisResult,
+    setAnalysisError,
+  } = useAppStore();
   const t = getT(settings.locale);
+
+  /**
+   * The SQL the dashboard can re-analyse: MyBatis/XML input analyses the parameter-resolved SQL
+   * (rawSql holds unrelated text or nothing), plain SQL analyses rawSql. Smart-editor analyses keep
+   * their SQL inside the editor, so there is nothing to re-run here and retry stays disabled rather
+   * than re-analysing an empty string (FR-003, FR-016).
+   */
+  const sqlToReanalyze =
+    inputMode === 'mybatis' || inputMode === 'import-xml' ? resolvedSql : rawSql;
+  const canRetry = sqlToReanalyze.trim().length > 0;
+
+  /**
+   * Retry re-runs the analysis of the current SQL from the dashboard itself
+   * (specs/010-sql-intelligence-dashboard FR-016): loading state, then result or error.
+   */
+  const handleRetry = async () => {
+    setAnalysisError(null);
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeSql(sqlToReanalyze, dialect, settings.locale);
+      setAnalysisResult(result);
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  if (isAnalyzing) {
+    return (
+      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <BarChart3 size={22} className="text-primary" />
+          {t.metricsTitle}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        <div className="mt-6 rounded-lg border border-border/50 bg-muted/20 p-4">
+          <p className="text-sm font-semibold text-foreground">{t.analysisLoadingTitle}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t.analysisLoadingHint}</p>
+        </div>
+        {/* Skeletons only — no metric values are shown while the analysis runs. */}
+        <div className="mt-4 space-y-4" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <div
+              key={index}
+              className="h-24 rounded-xl border border-border bg-muted/20 animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (analysisError) {
+    return (
+      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <BarChart3 size={22} className="text-primary" />
+          {t.metricsTitle}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        <div role="alert" className="mt-6 rounded-lg border border-danger/30 bg-danger/5 p-4">
+          <h2 className="text-sm font-semibold text-danger flex items-center gap-2">
+            <AlertTriangle size={16} />
+            {t.analysisErrorTitle}
+          </h2>
+          <p className="text-xs text-danger/80 mt-1">{analysisError}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={!canRetry}
+            className="mt-3 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t.analysisRetry}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!analysisResult) {
     return (
@@ -31,8 +126,15 @@ export default function MetricsDashboardContent() {
   }
 
   const { metrics, detailedComplexity, ctes, tables, metricDetails } = analysisResult;
+  // AI availability determination is scheduled with the AI Insights task (T030); until then
+  // the adapter is fed "unavailable" so no AI-only action is offered (FR-021).
+  const data = buildDashboardData(analysisResult, {
+    locale: settings.locale,
+    aiAvailable: false,
+    inputMode,
+  });
   const isHighRisk =
-    detailedComplexity?.level === 'HIGH' || detailedComplexity?.level === 'SUPER_HIGH';
+    data.health.complexity.level === 'HIGH' || data.health.complexity.level === 'SUPER_HIGH';
 
   const handleExportAnalysisJson = () => {
     const json = JSON.stringify(analysisResult, null, 2);
@@ -94,36 +196,25 @@ export default function MetricsDashboardContent() {
         </div>
       )}
 
-      {/* Main Grid Layout */}
+      {/* Sections: health summary first; the existing detail sections preserved; advanced last */}
       <div className="grid grid-cols-1 gap-6">
-        {/* Top Section: Complexity Hero (Left) + Metric Cards (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          <div className="lg:col-span-1 h-full">
-            <ComplexityHeroCard
-              detailedComplexity={detailedComplexity}
-              t={t}
-            />
-          </div>
-          <div className="lg:col-span-2 h-full">
-            <MetricCardsGrid metrics={metrics} metricDetails={metricDetails} t={t} />
-          </div>
-        </div>
+        <AnalysisHealthSummary data={data} t={t} />
 
-        {/* Complexity Factors */}
+        <MetricCardsGrid metrics={metrics} metricDetails={metricDetails} t={t} />
+
         <ComplexityFactorsBreakdown
           detailedComplexity={detailedComplexity}
           metrics={metrics}
           t={t}
         />
 
-        {/* Nested Subquery Analysis */}
         <NestedSubqueryAnalysis metrics={metrics} subqueries={metricDetails.subqueries} t={t} />
 
-        {/* Field Extraction */}
         <FieldExtractionSummary analysisResult={analysisResult} t={t} />
 
-        {/* Referenced Tables */}
         <ReferencedTablesOverview tables={tables} t={t} />
+
+        <AdvancedDetails data={data} t={t} />
       </div>
     </div>
   );

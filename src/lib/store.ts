@@ -89,6 +89,9 @@ interface AppState {
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
   isAnalyzing: boolean;
+  /** Last analysis failure message, or null. The dashboard shows it with a retry that
+   *  re-runs the analysis of the current SQL (specs/010 FR-016). */
+  analysisError: string | null;
   /** Target path for an in-progress client-side route change. Never persisted. */
   navigationTarget: string | null;
   inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
@@ -117,6 +120,7 @@ interface AppState {
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
   setIsAnalyzing: (v: boolean) => void;
+  setAnalysisError: (message: string | null) => void;
   beginNavigation: (target: string) => void;
   completeNavigation: (pathname: string) => void;
   setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
@@ -176,6 +180,7 @@ export const useAppStore = create<AppState>()(
       myBatisParams: {},
       analysisResult: null,
       isAnalyzing: false,
+      analysisError: null,
       navigationTarget: null,
       inputMode: 'sql',
       selectedNodeId: null,
@@ -192,8 +197,9 @@ export const useAppStore = create<AppState>()(
       setMyBatisXml: (s) => set({ myBatisXml: s }),
       setResolvedSql: (s) => set({ resolvedSql: s }),
       setMyBatisParams: (p) => set({ myBatisParams: p }),
-      setAnalysisResult: (r) => set({ analysisResult: r }),
+      setAnalysisResult: (r) => set({ analysisResult: r, analysisError: null }),
       setIsAnalyzing: (v) => set({ isAnalyzing: v }),
+      setAnalysisError: (message) => set({ analysisError: message }),
       beginNavigation: (target) => set({ navigationTarget: target }),
       completeNavigation: (pathname) =>
         set((state) => (state.navigationTarget === pathname ? { navigationTarget: null } : {})),

@@ -116,6 +116,7 @@ export default function QueryInputContent() {
     setMyBatisParams,
     setAnalysisResult,
     setIsAnalyzing,
+    setAnalysisError,
     beginNavigation,
     setInputMode,
     setPendingEditorJump,
@@ -242,6 +243,7 @@ export default function QueryInputContent() {
 
     const runId = ++analysisRunRef.current;
     const runAnalyze = async (): Promise<void> => {
+      setAnalysisError(null);
       setIsAnalyzing(true);
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
       if (runId !== analysisRunRef.current) return;
@@ -271,8 +273,12 @@ export default function QueryInputContent() {
       router.push('/sql-metrics-dashboard');
     };
 
-    await runAnalyze().catch(() => {
+    await runAnalyze().catch((error: unknown) => {
       if (runId === analysisRunRef.current) {
+        const message = error instanceof Error ? error.message : String(error);
+        // Publish the failure to the store so the dashboard can render its error
+        // state and offer a retry (specs/010-sql-intelligence-dashboard FR-016).
+        setAnalysisError(message || t.parseErrorMessage || 'Parse error');
         toast.error(t.parseErrorMessage || 'Parse error');
       }
     });
@@ -288,6 +294,7 @@ export default function QueryInputContent() {
     t,
     setIsAnalyzing,
     setAnalysisResult,
+    setAnalysisError,
     beginNavigation,
   ]);
 

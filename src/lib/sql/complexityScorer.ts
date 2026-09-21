@@ -59,6 +59,12 @@ export interface DetailedComplexityScore {
   level: ComplexityLevel;
   levelLabel: string;
   levelThresholds: ComplexityLevelItem[];
+  /** Deterministic 0–100 presentation score (specs/010 FR-001) — the single authoritative complexity number. */
+  normalizedScore: number;
+  /** Level derived from the fixed normalized thresholds (existing LOW/MEDIUM/HIGH/SUPER_HIGH vocabulary, FR-028). */
+  normalizedLevel: ComplexityLevel;
+  /** Fixed normalized level bands with localized labels (unlike the dynamic `levelThresholds`). */
+  normalizedThresholds: ComplexityLevelItem[];
   scoreBreakdown: {
     keywords: { category: string; count: number; baseScore: number; subtotal: number }[];
     selectFields: {
@@ -200,6 +206,45 @@ export function calculateScoredByMedian(scores: number[]): {
     dynamicDefinitions.find((item) => median >= item.min && median <= item.max)?.level || 'LOW';
 
   return { median, level, dynamicDefinitions };
+}
+
+// ─── Normalized Score (specs/010-sql-intelligence-dashboard) ────────────────
+
+/**
+ * Deterministic, history-independent presentation score on a 0–100 scale.
+ * Saturation curve: normalized = round(100 × raw / (raw + K)) — monotonic, never
+ * overshoots 100, and identical for every user/session, unlike the dynamic
+ * median denominator (`maxScorePossible`) which is kept for Advanced Details only.
+ * Known limitation: the curve compresses very high raw scores (differences above
+ * ~90 normalized are less meaningful); raw points remain available as secondary detail.
+ */
+export function normalizeScore(rawScore: number): number {
+  if (!Number.isFinite(rawScore) || rawScore <= 0) return 0;
+  return Math.round(
+    (100 * rawScore) / (rawScore + COMPLEXITY_SCORER_CONSTANTS.NORMALIZED_SATURATION_K)
+  );
+}
+
+/** Fixed level bands on the normalized scale, reusing the analyzer's existing vocabulary. */
+export function getNormalizedLevel(normalizedScore: number): ComplexityLevel {
+  const boundaries = COMPLEXITY_SCORER_CONSTANTS.NORMALIZED_LEVEL_BOUNDARIES;
+  if (normalizedScore >= boundaries.SUPER_HIGH_MIN) return 'SUPER_HIGH';
+  if (normalizedScore >= boundaries.HIGH_MIN) return 'HIGH';
+  if (normalizedScore >= boundaries.MEDIUM_MIN) return 'MEDIUM';
+  return 'LOW';
+}
+
+/** Static level definitions on the normalized scale; labels resolved per locale. */
+const NORMALIZED_LEVEL_DEFINITIONS: ComplexityLevelDefinition[] = [
+  { level: 'LOW', min: 0, max: 24, labelKey: 'complexityLow' },
+  { level: 'MEDIUM', min: 25, max: 54, labelKey: 'complexityMedium' },
+  { level: 'HIGH', min: 55, max: 79, labelKey: 'complexityHigh' },
+  { level: 'SUPER_HIGH', min: 80, max: 100, labelKey: 'complexitySuperHigh' },
+];
+
+/** Fixed localized level list for the normalized scale (contrast: dynamic `getComplexityLevelList`). */
+export function getNormalizedLevelList(locale: Locale = 'en'): ComplexityLevelItem[] {
+  return getComplexityLevelList(locale, NORMALIZED_LEVEL_DEFINITIONS);
 }
 
 function normalizeUniqueScores(scores: number[]): number[] {
@@ -1184,11 +1229,17 @@ export function calculateQueryComplexity(
     console.error('Error saving scores to localStorage:', error);
   }
 
+  const normalizedScore = normalizeScore(totalScore);
+  const normalizedLevel = getNormalizedLevel(normalizedScore);
+
   return {
     totalScore,
     level,
     levelLabel: matchedLevel.label,
     levelThresholds: levelList,
+    normalizedScore,
+    normalizedLevel,
+    normalizedThresholds: getNormalizedLevelList(locale),
     scoreBreakdown: {
       keywords: keywords.keywords,
       selectFields: {
