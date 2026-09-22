@@ -1,0 +1,31 @@
+{
+  "workflow": "speckit",
+  "specName": "SQL Explainer Upgrade",
+  "branch": "duyvt7",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-21T16:56:15.246Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-21T17:03:56.010Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-21T17:06:35.044Z"
+    }
+  ],
+  "telemetryInstanceId": "9dc17471-7128-418d-b2c7-7db046b1b04f"
+}

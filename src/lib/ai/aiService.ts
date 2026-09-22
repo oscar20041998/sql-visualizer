@@ -26,52 +26,62 @@ const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
 
 /** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
 const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `You translate SQL into plain business language for a reader who does not write SQL.
+  en: (sql) => `You translate SQL into plain business language for a reader who does not write SQL. Keep it concise, business-focused, and free of SQL jargon.
 
 SQL query:
 \`\`\`sql
 ${sql}
 \`\`\`
 
-Reply with ONLY a JSON object — no prose, no markdown fence — using exactly this shape:
+Reply with ONLY a JSON object — no prose, no markdown fence — using exactly these keys in this order:
+
 {
-  "objective": "one or two sentences describing the core goal of the query",
-  "filters": ["every filter, timeframe, status, region or other constraint, one plain-language sentence each"],
-  "output": "describe the columns and rows returned, plus sorting and row limits, in plain language",
-  "tables": ["names of the tables or CTEs the query reads, with their apparent business role when it is supported by the query"],
-  "field_meanings": ["field or output label: its likely business meaning and how the query uses it, in plain language"]
+  "query_objective": "a detailed plain-language explanation of the query's purpose, between 500 and 1,000 characters (up to 1,500 for a complex query)",
+  "result_bullets": ["one plain-language bullet each for the returned columns and rows, plus sorting and row limits"],
+  "report_grain": "one sentence stating what a single result row represents, e.g. 'one row per customer per month'",
+  "filter_categories": [ { "category": "time range | status | region | other constraints", "items": ["one plain-language sentence per condition in this category"] } ],
+  "data_sources": [ { "name": "table or CTE name the query reads", "purpose": "its business purpose as supported by the query, or the literal string 'unknown'" } ]
 }
 
 Rules:
-- Avoid SQL keywords in "objective" and "output"; describe the meaning instead.
-- Expand technical expressions: DATE_SUB(NOW(), INTERVAL 30 DAY) becomes "the last 30 days", active = 1 becomes "only active accounts".
-- Explain every selected field, derived value, aggregate, grouping key, join key, and field used in a condition. Combine repeated uses of the same field into one clear item.
-- Explain every condition, including JOIN, WHERE, HAVING, CASE, and null-handling conditions: name the field, translate operators and literal values, and state how the condition affects which data is included.
-- Do not invent business definitions that cannot be supported by the SQL or verified facts. State that a name or code's exact meaning is unknown when necessary.
-- Use an empty array only when the query has no filters, no tables, or no fields for that respective array.`,
-  vi: (sql) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt.
+- "query_objective" and "report_grain" must be non-empty; "report_grain" is always present.
+- "result_bullets" must have at least one item.
+- "filter_categories" must have at least one category; when the query has no filters, return a single category (e.g. category "other constraints") with one item stating that no filters apply — never omit this section.
+- "data_sources" must have at least one entry; set "purpose" to the literal string "unknown" when the query does not support a business purpose.
+- A CTE entry is its name plus a one-phrase role only; do NOT describe a CTE's inner query logic.
+- Do NOT include join explanations, query execution logic, calculations, data lineage, or performance analysis.
+- Avoid SQL keywords; describe meaning instead.
+- Wrap every column or field name in single quotes (e.g. 'total_inbound_units') so it reads distinctly from the prose.
+- The "query_objective" section alone must measure between 500 and 1,000 characters — up to 1,500 for a complex query; keep every other section concise.
+- Do not invent business definitions the SQL or verified facts cannot support; state that a name or code's exact meaning is unknown when necessary.`,
+  vi: (sql) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt. Hãy viết ngắn gọn, tập trung vào nghiệp vụ và tránh thuật ngữ SQL.
 
 Truy vấn SQL:
 \`\`\`sql
 ${sql}
 \`\`\`
 
-Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng cấu trúc sau:
+Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng các khóa và thứ tự sau:
+
 {
-  "objective": "một đến hai câu mô tả mục tiêu chính của truy vấn",
-  "filters": ["từng điều kiện lọc, khoảng thời gian, trạng thái, khu vực hoặc ràng buộc khác, mỗi phần tử là một câu dễ hiểu"],
-  "output": "mô tả các cột và dòng dữ liệu trả về, kèm cách sắp xếp và giới hạn số dòng, bằng ngôn ngữ đơn giản",
-  "tables": ["tên các bảng hoặc CTE mà truy vấn đọc dữ liệu, kèm vai trò nghiệp vụ có thể suy ra từ truy vấn"],
-  "field_meanings": ["tên field hoặc nhãn đầu ra: ý nghĩa nghiệp vụ có thể suy ra và cách truy vấn sử dụng field đó, bằng ngôn ngữ dễ hiểu"]
+  "query_objective": "phần giải thích chi tiết bằng ngôn ngữ tự nhiên về mục đích của truy vấn, dài từ 500 đến 1.000 ký tự (tối đa 1.500 nếu truy vấn phức tạp)",
+  "result_bullets": ["mỗi phần tử mô tả cột và dòng dữ liệu trả về, kèm cách sắp xếp và giới hạn số dòng"],
+  "report_grain": "một câu nêu rõ một dòng kết quả đại diện cho điều gì, ví dụ 'một dòng cho mỗi khách hàng mỗi tháng'",
+  "filter_categories": [ { "category": "khoảng thời gian | trạng thái | khu vực | ràng buộc khác", "items": ["mỗi phần tử là một câu mô tả một điều kiện trong nhóm này"] } ],
+  "data_sources": [ { "name": "tên bảng hoặc CTE mà truy vấn đọc", "purpose": "vai trò nghiệp vụ được truy vấn chứng minh, hoặc chuỗi ký tự 'unknown'" } ]
 }
 
 Quy tắc:
-- Tránh dùng từ khóa SQL trong "objective" và "output"; hãy diễn giải ý nghĩa.
-- Diễn giải biểu thức kỹ thuật: DATE_SUB(NOW(), INTERVAL 30 DAY) thành "30 ngày gần nhất", active = 1 thành "chỉ các tài khoản đang hoạt động".
-- Giải thích mọi field được chọn, giá trị tính toán, phép tổng hợp, field dùng để nhóm, khóa nối và field dùng trong điều kiện. Gộp các lần dùng lặp lại của cùng một field thành một mục rõ ràng.
-- Giải thích mọi điều kiện, gồm điều kiện JOIN, WHERE, HAVING, CASE và xử lý NULL: nêu field, diễn giải toán tử và giá trị cố định, rồi cho biết điều kiện làm dữ liệu nào được chọn hoặc loại ra.
-- Không tự đặt nghĩa nghiệp vụ nếu SQL hoặc dữ kiện đã xác thực không chứng minh được. Khi cần, nói rõ không xác định được ý nghĩa chính xác của tên hoặc mã.
-- Chỉ dùng mảng rỗng khi truy vấn không có điều kiện, không đọc bảng hoặc không có field tương ứng.`,
+- "query_objective" và "report_grain" không được rỗng; "report_grain" luôn phải có.
+- "result_bullets" phải có ít nhất một phần tử.
+- "filter_categories" phải có ít nhất một nhóm; khi truy vấn không có điều kiện lọc, trả về một nhóm (ví dụ category "ràng buộc khác") với một phần tử nói rõ không có điều kiện lọc — không được bỏ mục này.
+- "data_sources" phải có ít nhất một mục; đặt "purpose" là chuỗi ký tự "unknown" khi truy vấn không chứng minh được vai trò nghiệp vụ.
+- Một mục CTE chỉ gồm tên và vai trò một cụm từ; KHÔNG mô tả logic truy vấn bên trong CTE.
+- KHÔNG nêu giải thích join, logic thực thi truy vấn, phép tính, nguồn gốc dữ liệu hay phân tích hiệu năng.
+- Tránh từ khóa SQL; hãy diễn giải ý nghĩa.
+- Đặt tên cột hoặc field trong dấu nháy đơn (ví dụ 'total_inbound_units') để phân biệt với phần mô tả xung quanh.
+- Chỉ mục "query_objective" phải dài từ 500 đến 1.000 ký tự — tối đa 1.500 nếu truy vấn phức tạp; giữ các mục còn lại ngắn gọn.
+- Không tự đặt nghĩa nghiệp vụ nếu SQL hoặc dữ kiện đã xác thực không chứng minh được; khi cần, nói rõ không xác định được ý nghĩa chính xác của tên hoặc mã.`,
 };
 
 export class AIServiceError extends Error {
@@ -100,14 +110,10 @@ export interface AIGenerateRequest {
   signal?: AbortSignal;
 }
 
-/** Natural-language breakdown of a SQL query, rendered section by section by the UI. */
+/** Validated result of one Explain run: the five-section payload plus fallback and budget info. */
 export interface SqlExplanation {
-  objective: string;
-  filters: string[];
-  output: string;
-  tables: string[];
-  /** Business-friendly meanings for fields, expressions, and their use in the query. */
-  fieldMeanings: string[];
+  /** The five-section payload in contract key order (FR-001). */
+  sections: ExplainerSections;
   /** Untouched model answer, kept so the UI can always show something. */
   raw: string;
   /** False when the model ignored the JSON contract and `raw` is the only usable content. */
@@ -1225,6 +1231,13 @@ export interface ExplainSqlOptions {
    */
   contextBrief?: string;
   /**
+   * Parser-identified table and CTE names, used to ground the explanation's data sources
+   * (FR-010, Constitution IV). When provided, every returned data source must match one of
+   * these names; a mismatch marks the payload unstructured. Optional — when absent, the
+   * grounding check is skipped.
+   */
+  knownSources?: string[];
+  /**
    * Free-form optimization goal typed by the user (e.g. "avoid a full table scan"). Optional —
    * when absent, the semantic-brief/optimize prompts behave exactly as before (lint-driven only).
    * When present, the model must still refuse any part of the request that would change the
@@ -1302,7 +1315,7 @@ Keep this goal in mind while describing the query, but do not act on it yet — 
 ` : ''}
 Return only a JSON object with exactly these keys:
 {
-  "purpose": "one or two sentences on the business goal of this query",
+  "purpose": "Clearly and specifically explain what business purpose this query serves and what outcome it is intended to provide.",
   "relationships": [{"tables": "the two tables/CTEs involved", "description": "what this join/relationship means and why it must be preserved"}],
   "critical_filters": ["every WHERE/HAVING condition, in plain language, that determines which rows are included or excluded"],
   "risks": ["specific ways a careless rewrite of this query could silently change its result set or business meaning"]
@@ -1324,7 +1337,7 @@ Hãy ghi nhớ mục tiêu này khi mô tả truy vấn, nhưng chưa hành đ�
 ` : ''}
 Chỉ trả về một đối tượng JSON với đúng các khóa sau:
 {
-  "purpose": "một đến hai câu về mục tiêu nghiệp vụ của truy vấn này",
+  "purpose": "Hãy giải thích chi tiết và cụ thể về mục đích kinh doanh của truy vấn này và kết quả mà nó hướng tới.",
   "relationships": [{"tables": "hai bảng/CTE liên quan", "description": "quan hệ JOIN này có ý nghĩa gì và vì sao phải giữ nguyên"}],
   "critical_filters": ["mọi điều kiện WHERE/HAVING, bằng ngôn ngữ dễ hiểu, quyết định dòng nào được giữ hoặc loại"],
   "risks": ["những cách cụ thể mà một bản viết lại bất cẩn có thể âm thầm thay đổi tập kết quả hoặc ý nghĩa nghiệp vụ"]
@@ -1581,37 +1594,194 @@ function prepareExplainPrompt(
   return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
 }
 
-/** Turns the model's raw answer into a {@link SqlExplanation}, shared by both explain calls. */
-function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanation {
-  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+/** One named condition group inside Filters & Constraints (FR-005). */
+export interface ExplainerFilterCategory {
+  category: string;
+  items: string[];
+}
 
+/** One table or CTE read by the query, paired with its business purpose (FR-006). */
+export interface ExplainerDataSource {
+  name: string;
+  purpose: string;
+}
+
+/** The validated five-section payload of one Explain run, in contract key order. */
+export interface ExplainerSections {
+  query_objective: string;
+  result_bullets: string[];
+  report_grain: string;
+  filter_categories: ExplainerFilterCategory[];
+  data_sources: ExplainerDataSource[];
+}
+
+/** Result of validating a model answer against the explainer output contract. */
+export interface ExplainerPayload {
+  sections: ExplainerSections;
+  raw: string;
+  structured: boolean;
+}
+
+/** Fixed key order of the explainer output contract (plan Decision 1). */
+const EXPLAINER_CONTRACT_KEYS = [
+  'query_objective',
+  'result_bullets',
+  'report_grain',
+  'filter_categories',
+  'data_sources',
+] as const;
+
+/**
+ * Validates a model answer against the five-section explainer contract
+ * (`contracts/explainer-output-contract.md` rules 1–6) and returns the parsed
+ * payload. Contract violations degrade to `structured: false` with the raw
+ * answer preserved, so the UI can always show something (FR-011).
+ *
+ * When `knownSources` is provided (the parser-identified table/CTE names), every
+ * payload data source must match one of them case-insensitively; a payload naming
+ * a source the parser never found contradicts the parser and is unstructured
+ * (FR-010, Constitution IV).
+ */
+export function parseExplainerPayload(raw: string, knownSources?: string[]): ExplainerPayload {
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
-  const objective = asText(parsed?.objective);
-  const output = asText(parsed?.output);
-
-  if (!parsed || (!objective && !output)) {
+  const keys = parsed ? Object.keys(parsed) : [];
+  const shapeOk =
+    !!parsed &&
+    keys.length === EXPLAINER_CONTRACT_KEYS.length &&
+    EXPLAINER_CONTRACT_KEYS.every((key, index) => keys[index] === key);
+  if (!shapeOk || !parsed) {
     return {
-      objective: raw,
-      filters: [],
-      output: '',
-      tables: [],
-      fieldMeanings: [],
+      sections: {
+        query_objective: '',
+        result_bullets: [],
+        report_grain: '',
+        filter_categories: [],
+        data_sources: [],
+      },
       raw,
       structured: false,
-      budget: report,
     };
   }
 
-  return {
-    objective,
-    filters: asList(parsed.filters),
-    output,
-    tables: asList(parsed.tables),
-    fieldMeanings: asList(parsed.field_meanings),
-    raw,
-    structured: true,
-    budget: report,
+  const categories = asFilterCategories(parsed.filter_categories);
+  const sources = asDataSources(parsed.data_sources);
+  const sections: ExplainerSections = {
+    query_objective: asText(parsed.query_objective),
+    result_bullets: asList(parsed.result_bullets),
+    report_grain: asText(parsed.report_grain),
+    filter_categories: categories ?? [],
+    data_sources: sources ?? [],
   };
+  const contentOk =
+    sections.query_objective !== '' &&
+    sections.result_bullets.length > 0 &&
+    sections.report_grain !== '' &&
+    categories !== null &&
+    sources !== null;
+
+  return {
+    sections,
+    raw,
+    structured: contentOk && !payloadHasBannedTopic(sections) && matchesParserSources(sections, knownSources),
+  };
+}
+
+/** True when every payload source name matches a parser-identified name (case-insensitive). */
+function matchesParserSources(sections: ExplainerSections, knownSources?: string[]): boolean {
+  if (!knownSources || knownSources.length === 0) return true;
+  const known = new Set(knownSources.map((name) => name.toLowerCase()));
+  return sections.data_sources.every((source) => known.has(source.name.toLowerCase()));
+}
+
+/**
+ * Counts the human-readable characters of the "purpose" section (the query
+ * objective) alone, whitespace-collapsed. Per the product clarification, the
+ * 500–1,500 character budget applies to the objective only — the other four
+ * sections are concise and not counted (FR-007).
+ */
+export function countObjectiveChars(sections: ExplainerSections): number {
+  return sections.query_objective.replace(/\s+/g, ' ').trim().length;
+}
+
+/** True when the objective's human-readable count is within the 500–1,500 budget (FR-007; up to 1,500 for complex queries). */
+export function isWithinLengthBudget(count: number): boolean {
+  return count >= 500 && count <= 1500;
+}
+
+/** Parses one filter category, returning null when it violates the contract. */
+function asFilterCategory(value: unknown): ExplainerFilterCategory | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const category = asText(record.category);
+  const rawItems = record.items;
+  if (!category || !Array.isArray(rawItems) || rawItems.length === 0) return null;
+  const items = asList(rawItems);
+  if (items.length === 0) return null;
+  return { category, items };
+}
+
+/** Parses the filter-category array, returning null when any entry violates the contract. */
+function asFilterCategories(value: unknown): ExplainerFilterCategory[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const parsed = value.map(asFilterCategory);
+  return parsed.every(Boolean) ? (parsed as ExplainerFilterCategory[]) : null;
+}
+
+/** Parses one data-source entry, returning null when it violates the contract. */
+function asDataSource(value: unknown): ExplainerDataSource | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const name = asText(record.name);
+  const purpose = asText(record.purpose);
+  if (!name || !purpose) return null;
+  return { name, purpose };
+}
+
+/** Parses the data-source array, returning null when any entry violates the contract. */
+function asDataSources(value: unknown): ExplainerDataSource[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const parsed = value.map(asDataSource);
+  return parsed.every(Boolean) ? (parsed as ExplainerDataSource[]) : null;
+}
+
+/**
+ * Word-boundary detectors for the six banned topic families (FR-008): CTE inner
+ * logic, join mechanics, execution steps, calculation expressions, data lineage,
+ * performance analysis. Applied to every prose field of the payload so banned
+ * content degrades the whole answer to the raw fallback. Sorting is deliberately
+ * NOT banned — FR-003 requires describing sorting in plain language.
+ */
+const BANNED_TOPIC_PATTERNS: RegExp[] = [
+  /\bcte\s+(?:is\s+)?(?:built|works|reads)/i,
+  /\bjoin(?:s|ed|ing)?\s+(?:with|on|to|the)\b/i,
+  /\b(?:groups?|grouped|sums?|filtered?)\s+\w+/i,
+  /\bsum\s*\(/i,
+  /\blineage\b/i,
+  /\b(?:performance|query\s+plan|index\s+scan)\b/i,
+];
+
+function containsBannedTopic(text: string): boolean {
+  return BANNED_TOPIC_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/** True when any prose field of the payload carries banned-topic content. */
+function payloadHasBannedTopic(sections: ExplainerSections): boolean {
+  const prose: string[] = [
+    sections.query_objective,
+    sections.report_grain,
+    ...sections.result_bullets,
+    ...sections.filter_categories.flatMap((category) => [category.category, ...category.items]),
+    ...sections.data_sources.map((source) => `${source.name} ${source.purpose}`),
+  ];
+  return prose.some(containsBannedTopic);
+}
+
+/** Turns the model's raw answer into a {@link SqlExplanation}, shared by both explain calls. */
+function toSqlExplanation(raw: string, report: AIBudgetReport, knownSources?: string[]): SqlExplanation {
+  if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+
+  const payload = parseExplainerPayload(raw, knownSources);
+  return { sections: payload.sections, raw: payload.raw, structured: payload.structured, budget: report };
 }
 
 /**
@@ -1622,25 +1792,44 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
  * The query and the parser brief are fitted to the model's context window before sending,
  * and whatever had to be dropped is reported back in `budget` so the UI can say so.
  */
-export async function explainSqlStructured({
-  sql,
-  config,
-  locale = 'en',
-  contextBrief = '',
-  signal,
-}: ExplainSqlOptions): Promise<SqlExplanation> {
+export async function explainSqlStructured(
+  {
+    sql,
+    config,
+    locale = 'en',
+    contextBrief = '',
+    knownSources,
+    signal,
+  }: ExplainSqlOptions,
+  generateFn: typeof generateWithAI = generateWithAI
+): Promise<SqlExplanation> {
   const { prompt, report, maxOutputTokens } = prepareExplainPrompt(sql, config, locale, contextBrief);
 
-  const raw = (
-    await generateWithAI(config, {
-      prompt,
-      jsonMode: true,
-      maxTokens: maxOutputTokens,
-      signal,
-    })
-  ).trim();
+  // FR-007 (per clarification): validate each attempt's human-readable length and
+  // regenerate with a length-steering hint, up to 1 attempt + MAX_LENGTH_RETRIES
+  // retries; after exhaustion the last attempt falls through to the caller's
+  // structured/unstructured handling (U17 adds the closest-length notice).
+  const MAX_LENGTH_RETRIES = 2;
+  const LENGTH_STEERING_HINT =
+    'The previous answer did not fit the required length for the query objective. Produce the same JSON shape with "query_objective" alone measuring between 500 and 1,500 characters: expand grounded detail when too short, summarize when too long. Keep the other sections concise.';
 
-  return parseSqlExplanation(raw, report);
+  let raw = '';
+  let activePrompt = prompt;
+  for (let attempt = 0; attempt <= MAX_LENGTH_RETRIES; attempt++) {
+    raw = (
+      await generateFn(config, {
+        prompt: activePrompt,
+        jsonMode: true,
+        maxTokens: maxOutputTokens,
+        signal,
+      })
+    ).trim();
+    const payload = parseExplainerPayload(raw, knownSources);
+    if (payload.structured && isWithinLengthBudget(countObjectiveChars(payload.sections))) break;
+    if (attempt < MAX_LENGTH_RETRIES) activePrompt = `${prompt}\n\n${LENGTH_STEERING_HINT}`;
+  }
+
+  return toSqlExplanation(raw, report, knownSources);
 }
 
 /**
@@ -1649,7 +1838,7 @@ export async function explainSqlStructured({
  * in real time instead of waiting for the full JSON payload.
  */
 export async function explainSqlStructuredStream(
-  { sql, config, locale = 'en', contextBrief = '', signal }: ExplainSqlOptions,
+  { sql, config, locale = 'en', contextBrief = '', knownSources, signal }: ExplainSqlOptions,
   onDelta: (text: string) => void
 ): Promise<SqlExplanation> {
   const { prompt, report, maxOutputTokens } = prepareExplainPrompt(sql, config, locale, contextBrief);
@@ -1667,7 +1856,7 @@ export async function explainSqlStructuredStream(
     )
   ).trim();
 
-  return parseSqlExplanation(raw, report);
+  return toSqlExplanation(raw, report, knownSources);
 }
 
 /** Builds the prompt + budget report shared by the blocking and streaming optimize calls. */

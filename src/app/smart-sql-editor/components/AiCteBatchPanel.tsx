@@ -166,19 +166,21 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
                 {isOpen && state.result && (
                   <div className="mt-1.5 ml-6 space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-2.5">
                     <p className="text-sm leading-relaxed text-gray-200">
-                      {state.result.structured ? state.result.objective : state.result.raw}
+                      {state.result.structured ? state.result.sections.query_objective : state.result.raw}
                     </p>
-                    {state.result.structured && state.result.filters.length > 0 && (
+                    {state.result.structured && state.result.sections.filter_categories.length > 0 && (
                       <ul className="space-y-1">
-                        {state.result.filters.map((filter, filterIndex) => (
-                          <li
-                            key={`cte-filter-${state.index}-${filterIndex}`}
-                            className="flex items-start gap-2 text-xs leading-relaxed text-gray-300"
-                          >
-                            <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-amber-400/70" />
-                            {filter}
-                          </li>
-                        ))}
+                        {state.result.sections.filter_categories.map((category, categoryIndex) =>
+                          category.items.map((filter, filterIndex) => (
+                            <li
+                              key={`cte-filter-${state.index}-${categoryIndex}-${filterIndex}`}
+                              className="flex items-start gap-2 text-xs leading-relaxed text-gray-300"
+                            >
+                              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-amber-400/70" />
+                              {filter}
+                            </li>
+                          ))
+                        )}
                       </ul>
                     )}
                   </div>

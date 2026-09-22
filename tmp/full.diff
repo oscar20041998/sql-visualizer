@@ -1,0 +1,261 @@
+﻿diff --git a/src/lib/ai/aiService.ts b/src/lib/ai/aiService.ts
+index e232a96..e5ed033 100644
+--- a/src/lib/ai/aiService.ts
++++ b/src/lib/ai/aiService.ts
+@@ -1581,6 +1581,199 @@ function prepareExplainPrompt(
+   return { prompt, report, maxOutputTokens: budget.maxOutputTokens };
+ }
+ 
++/** One named condition group inside Filters & Constraints (FR-005). */
++export interface ExplainerFilterCategory {
++  category: string;
++  items: string[];
++}
++
++/** One table or CTE read by the query, paired with its business purpose (FR-006). */
++export interface ExplainerDataSource {
++  name: string;
++  purpose: string;
++}
++
++/** The validated five-section payload of one Explain run, in contract key order. */
++export interface ExplainerSections {
++  query_objective: string;
++  result_bullets: string[];
++  report_grain: string;
++  filter_categories: ExplainerFilterCategory[];
++  data_sources: ExplainerDataSource[];
++}
++
++/** Result of validating a model answer against the explainer output contract. */
++export interface ExplainerPayload {
++  sections: ExplainerSections;
++  raw: string;
++  structured: boolean;
++}
++
++/** Fixed key order of the explainer output contract (plan Decision 1). */
++const EXPLAINER_CONTRACT_KEYS = [
++  'query_objective',
++  'result_bullets',
++  'report_grain',
++  'filter_categories',
++  'data_sources',
++] as const;
++
++/**
++ * Validates a model answer against the five-section explainer contract
++ * (`contracts/explainer-output-contract.md` rules 1–6) and returns the parsed
++ * payload. Contract violations degrade to `structured: false` with the raw
++ * answer preserved, so the UI can always show something (FR-011).
++ *
++ * When `knownSources` is provided (the parser-identified table/CTE names), every
++ * payload data source must match one of them case-insensitively; a payload naming
++ * a source the parser never found contradicts the parser and is unstructured
++ * (FR-010, Constitution IV).
++ */
++export function parseExplainerPayload(raw: string, knownSources?: string[]): ExplainerPayload {
++  const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
++  const keys = parsed ? Object.keys(parsed) : [];
++  const shapeOk =
++    !!parsed &&
++    keys.length === EXPLAINER_CONTRACT_KEYS.length &&
++    EXPLAINER_CONTRACT_KEYS.every((key, index) => keys[index] === key);
++  if (!shapeOk || !parsed) {
++    return {
++      sections: {
++        query_objective: '',
++        result_bullets: [],
++        report_grain: '',
++        filter_categories: [],
++        data_sources: [],
++      },
++      raw,
++      structured: false,
++    };
++  }
++
++  const categories = asFilterCategories(parsed.filter_categories);
++  const sources = asDataSources(parsed.data_sources);
++  const sections: ExplainerSections = {
++    query_objective: asText(parsed.query_objective),
++    result_bullets: asList(parsed.result_bullets),
++    report_grain: asText(parsed.report_grain),
++    filter_categories: categories ?? [],
++    data_sources: sources ?? [],
++  };
++  const contentOk =
++    sections.query_objective !== '' &&
++    sections.result_bullets.length > 0 &&
++    sections.report_grain !== '' &&
++    categories !== null &&
++    sources !== null;
++
++  return {
++    sections,
++    raw,
++    structured: contentOk && !payloadHasBannedTopic(sections) && matchesParserSources(sections, knownSources),
++  };
++}
++
++/** True when every payload source name matches a parser-identified name (case-insensitive). */
++function matchesParserSources(sections: ExplainerSections, knownSources?: string[]): boolean {
++  if (!knownSources || knownSources.length === 0) return true;
++  const known = new Set(knownSources.map((name) => name.toLowerCase()));
++  return sections.data_sources.every((source) => known.has(source.name.toLowerCase()));
++}
++
++/**
++ * Counts the human-readable characters of an explanation's visible text:
++ * objective, bullets, grain, category labels + items, and source names + purposes,
++ * joined with single spaces and whitespace-collapsed — so JSON syntax, section
++ * labels, and whitespace-only padding never count (FR-007, spec Assumptions).
++ */
++export function countHumanChars(sections: ExplainerSections): number {
++  const parts: string[] = [
++    sections.query_objective,
++    sections.report_grain,
++    ...sections.result_bullets,
++    ...sections.filter_categories.flatMap((category) => [category.category, ...category.items]),
++    ...sections.data_sources.map((source) => `${source.name} ${source.purpose}`),
++  ];
++  return parts
++    .filter((part) => part.trim().length > 0)
++    .join(' ')
++    .replace(/\s+/g, ' ')
++    .trim().length;
++}
++
++/** True when the human-readable count is within the 500–1,000 spec budget (FR-007). */
++export function isWithinLengthBudget(count: number): boolean {
++  return count >= 500 && count <= 1000;
++}
++
++/** Parses one filter category, returning null when it violates the contract. */
++function asFilterCategory(value: unknown): ExplainerFilterCategory | null {
++  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
++  const record = value as Record<string, unknown>;
++  const category = asText(record.category);
++  const rawItems = record.items;
++  if (!category || !Array.isArray(rawItems) || rawItems.length === 0) return null;
++  const items = asList(rawItems);
++  if (items.length === 0) return null;
++  return { category, items };
++}
++
++/** Parses the filter-category array, returning null when any entry violates the contract. */
++function asFilterCategories(value: unknown): ExplainerFilterCategory[] | null {
++  if (!Array.isArray(value) || value.length === 0) return null;
++  const parsed = value.map(asFilterCategory);
++  return parsed.every(Boolean) ? (parsed as ExplainerFilterCategory[]) : null;
++}
++
++/** Parses one data-source entry, returning null when it violates the contract. */
++function asDataSource(value: unknown): ExplainerDataSource | null {
++  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
++  const record = value as Record<string, unknown>;
++  const name = asText(record.name);
++  const purpose = asText(record.purpose);
++  if (!name || !purpose) return null;
++  return { name, purpose };
++}
++
++/** Parses the data-source array, returning null when any entry violates the contract. */
++function asDataSources(value: unknown): ExplainerDataSource[] | null {
++  if (!Array.isArray(value) || value.length === 0) return null;
++  const parsed = value.map(asDataSource);
++  return parsed.every(Boolean) ? (parsed as ExplainerDataSource[]) : null;
++}
++
++/**
++ * Word-boundary detectors for the six banned topic families (FR-008): CTE inner
++ * logic, join mechanics, execution steps, calculation expressions, data lineage,
++ * performance analysis. Applied to every prose field of the payload so banned
++ * content degrades the whole answer to the raw fallback. Sorting is deliberately
++ * NOT banned — FR-003 requires describing sorting in plain language.
++ */
++const BANNED_TOPIC_PATTERNS: RegExp[] = [
++  /\bcte\s+(?:is\s+)?(?:built|works|reads)/i,
++  /\bjoin(?:s|ed|ing)?\s+(?:with|on|to|the)\b/i,
++  /\b(?:groups?|grouped|sums?|filtered?)\s+\w+/i,
++  /\bsum\s*\(/i,
++  /\blineage\b/i,
++  /\b(?:performance|query\s+plan|index\s+scan)\b/i,
++];
++
++function containsBannedTopic(text: string): boolean {
++  return BANNED_TOPIC_PATTERNS.some((pattern) => pattern.test(text));
++}
++
++/** True when any prose field of the payload carries banned-topic content. */
++function payloadHasBannedTopic(sections: ExplainerSections): boolean {
++  const prose: string[] = [
++    sections.query_objective,
++    sections.report_grain,
++    ...sections.result_bullets,
++    ...sections.filter_categories.flatMap((category) => [category.category, ...category.items]),
++    ...sections.data_sources.map((source) => `${source.name} ${source.purpose}`),
++  ];
++  return prose.some(containsBannedTopic);
++}
++
+ /** Turns the model's raw answer into a {@link SqlExplanation}, shared by both explain calls. */
+ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanation {
+   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
+@@ -1622,23 +1815,41 @@ function parseSqlExplanation(raw: string, report: AIBudgetReport): SqlExplanatio
+  * The query and the parser brief are fitted to the model's context window before sending,
+  * and whatever had to be dropped is reported back in `budget` so the UI can say so.
+  */
+-export async function explainSqlStructured({
+-  sql,
+-  config,
+-  locale = 'en',
+-  contextBrief = '',
+-  signal,
+-}: ExplainSqlOptions): Promise<SqlExplanation> {
++export async function explainSqlStructured(
++  {
++    sql,
++    config,
++    locale = 'en',
++    contextBrief = '',
++    signal,
++  }: ExplainSqlOptions,
++  generateFn: typeof generateWithAI = generateWithAI
++): Promise<SqlExplanation> {
+   const { prompt, report, maxOutputTokens } = prepareExplainPrompt(sql, config, locale, contextBrief);
+ 
+-  const raw = (
+-    await generateWithAI(config, {
+-      prompt,
+-      jsonMode: true,
+-      maxTokens: maxOutputTokens,
+-      signal,
+-    })
+-  ).trim();
++  // FR-007 (per clarification): validate each attempt's human-readable length and
++  // regenerate with a length-steering hint, up to 1 attempt + MAX_LENGTH_RETRIES
++  // retries; after exhaustion the last attempt falls through to the caller's
++  // structured/unstructured handling (U17 adds the closest-length notice).
++  const MAX_LENGTH_RETRIES = 2;
++  const LENGTH_STEERING_HINT =
++    'The previous answer did not fit the required length. Produce the same JSON shape with the combined visible text of all five sections measuring between 500 and 1,000 characters: expand grounded detail when too short, summarize without dropping a section when too long.';
++
++  let raw = '';
++  let activePrompt = prompt;
++  for (let attempt = 0; attempt <= MAX_LENGTH_RETRIES; attempt++) {
++    raw = (
++      await generateFn(config, {
++        prompt: activePrompt,
++        jsonMode: true,
++        maxTokens: maxOutputTokens,
++        signal,
++      })
++    ).trim();
++    const payload = parseExplainerPayload(raw);
++    if (payload.structured && isWithinLengthBudget(countHumanChars(payload.sections))) break;
++    if (attempt < MAX_LENGTH_RETRIES) activePrompt = `${prompt}\n\n${LENGTH_STEERING_HINT}`;
++  }
+ 
+   return parseSqlExplanation(raw, report);
+ }

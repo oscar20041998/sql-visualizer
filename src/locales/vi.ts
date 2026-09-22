@@ -1532,6 +1532,7 @@ const vi = {
   aiExplainerErrorHint:
     'Hãy kiểm tra nhà cung cấp AI có thể truy cập được và mô hình, Base URL hoặc API Key trong Cài đặt → Cấu hình Mô hình AI là chính xác.',
   aiExplainerObjective: 'Mục tiêu truy vấn',
+  aiExplainerGrain: 'Cấp độ báo cáo',
   aiExplainerFilters: 'Điều kiện lọc & ràng buộc',
   aiExplainerNoFilters: 'Truy vấn này không có điều kiện lọc hay ràng buộc nào.',
   aiExplainerOutput: 'Dữ liệu bạn nhận được',
@@ -1542,6 +1543,8 @@ const vi = {
   aiExplainerHideRaw: 'Ẩn phản hồi gốc của mô hình',
   aiExplainerUnstructuredNotice:
     'Mô hình không trả về các mục có cấu trúc, dưới đây là toàn bộ câu trả lời của mô hình.',
+  aiExplainerLengthNotice:
+    'Giải thích này nằm ngoài giới hạn 500–1.000 ký tự, nên bản gần đúng nhất được hiển thị.',
   aiExplainerDrafting: 'Đang soạn phần giải thích…',
 
   // AI - quản lý cửa sổ ngữ cảnh

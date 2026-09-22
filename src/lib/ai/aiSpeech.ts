@@ -84,17 +84,21 @@ export function buildSpeechScript(explanation: SqlExplanation, t: Translations):
     return clampSpeechText(`${t.aiExplainerRunButton}.\n${explanation.raw}`);
   }
 
+  const { sections } = explanation;
   const parts = [
     `${t.aiExplainerRunButton}.`,
-    `${t.aiExplainerObjective}. ${explanation.objective || t.aiExplainerNoContent}`,
-    `${t.aiExplainerOutput}. ${explanation.output || t.aiExplainerNoContent}`,
-    explanation.filters.length
-      ? `${t.aiExplainerFilters}. ${explanation.filters.map((filter) => filter.replace(/\.?$/, '.')).join(' ')}`
+    `${t.aiExplainerObjective}. ${sections.query_objective || t.aiExplainerNoContent}`,
+    `${t.aiExplainerOutput}. ${sections.result_bullets.map((bullet) => bullet.replace(/\.?$/, '.')).join(' ')}`,
+    `${t.aiExplainerGrain}. ${sections.report_grain || t.aiExplainerNoContent}`,
+    sections.filter_categories.length
+      ? `${t.aiExplainerFilters}. ${sections.filter_categories
+          .map((category) => `${category.category}: ${category.items.map((item) => item.replace(/\.?$/, '.')).join(' ')}`)
+          .join(' ')}`
       : `${t.aiExplainerFilters}. ${t.aiExplainerNoFilters}`,
   ];
 
-  if (explanation.tables.length) {
-    parts.push(`${t.aiExplainerTables}. ${explanation.tables.join(', ')}.`);
+  if (sections.data_sources.length) {
+    parts.push(`${t.aiExplainerTables}. ${sections.data_sources.map((source) => source.name).join(', ')}.`);
   }
 
   return clampSpeechText(parts.join('\n'));

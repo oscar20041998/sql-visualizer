@@ -1536,6 +1536,7 @@ const en = {
   aiExplainerErrorHint:
     'Check that the AI provider is reachable and that the model, base URL, or API key in Settings → AI Model Configuration are correct.',
   aiExplainerObjective: 'Query objective',
+  aiExplainerGrain: 'Report grain',
   aiExplainerFilters: 'Filters & constraints',
   aiExplainerNoFilters: 'This query has no filters or constraints.',
   aiExplainerOutput: 'What you get back',
@@ -1546,6 +1547,8 @@ const en = {
   aiExplainerHideRaw: 'Hide raw model response',
   aiExplainerUnstructuredNotice:
     'The model did not return structured sections, so here is its full answer.',
+  aiExplainerLengthNotice:
+    'This explanation fell outside the 500–1,000 character guideline, so the closest match is shown.',
   aiExplainerDrafting: 'Drafting the explanation…',
 
   // AI - context window management

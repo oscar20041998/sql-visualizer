@@ -44,18 +44,45 @@ function formatSeconds(ms: number): string {
 function toPlainText(explanation: SqlExplanation, t: Translations): string {
   if (!explanation.structured) return explanation.raw;
 
-  const blocks = [`${t.aiExplainerObjective}\n${explanation.objective}`];
-  if (explanation.filters.length) {
-    blocks.push(`${t.aiExplainerFilters}\n${explanation.filters.map((f) => `- ${f}`).join('\n')}`);
+  const { sections } = explanation;
+  const blocks = [`${t.aiExplainerObjective}\n${sections.query_objective}`];
+  blocks.push(`${t.aiExplainerOutput}\n${sections.result_bullets.map((bullet) => `- ${bullet}`).join('\n')}`);
+  blocks.push(`${t.aiExplainerGrain}\n${sections.report_grain}`);
+  if (sections.filter_categories.length) {
+    blocks.push(
+      `${t.aiExplainerFilters}\n${sections.filter_categories
+        .map((category) => `${category.category}\n${category.items.map((item) => `- ${item}`).join('\n')}`)
+        .join('\n')}`
+    );
+  } else {
+    blocks.push(`${t.aiExplainerFilters}\n${t.aiExplainerNoFilters}`);
   }
-  if (explanation.output) blocks.push(`${t.aiExplainerOutput}\n${explanation.output}`);
-  if (explanation.fieldMeanings.length) {
-    blocks.push(`${t.aiExplainerFieldMeanings}\n${explanation.fieldMeanings.map((field) => `- ${field}`).join('\n')}`);
-  }
-  if (explanation.tables.length) {
-    blocks.push(`${t.aiExplainerTables}\n${explanation.tables.join(', ')}`);
+  if (sections.data_sources.length) {
+    blocks.push(
+      `${t.aiExplainerTables}\n${sections.data_sources.map((source) => `${source.name} — ${source.purpose}`).join(', ')}`
+    );
   }
   return blocks.join('\n\n');
+}
+
+/**
+ * Renders the identifiers inside a bullet — single-quoted/backticked names and
+ * bare snake_case column/table names — in the same monospace accent as the Data
+ * Sources section, so a column name reads distinctly from the prose around it.
+ */
+function renderHighlighted(text: string): React.ReactNode {
+  const parts = text.split(/(`[^`]+`|'[^']+'|\b[a-zA-Z_][a-zA-Z0-9]*_[a-zA-Z0-9]*\b)/g);
+  return parts.map((part, index) => {
+    const isIdentifier =
+      part.startsWith('`') || part.startsWith("'") || (part.length > 0 && part.includes('_'));
+    return isIdentifier ? (
+      <code key={index} className="rounded bg-emerald-500/10 px-1 font-mono text-[0.9em] text-emerald-300">
+        {part}
+      </code>
+    ) : (
+      <span key={index}>{part}</span>
+    );
+  });
 }
 
 /** One exchange in the chat thread: the query that was sent, and the assistant's answer. */
@@ -67,26 +94,6 @@ interface ExplainTurn {
   explanation: SqlExplanation | null;
   error: string | null;
   durationMs: number;
-}
-
-function buildSections(explanation: SqlExplanation, t: Translations) {
-  if (!explanation.structured) return [];
-  return [
-    {
-      key: 'objective',
-      icon: Target,
-      title: t.aiExplainerObjective,
-      accent: 'text-indigo-300 bg-indigo-500/15',
-      body: explanation.objective || t.aiExplainerNoContent,
-    },
-    {
-      key: 'output',
-      icon: MessageSquareText,
-      title: t.aiExplainerOutput,
-      accent: 'text-sky-300 bg-sky-500/15',
-      body: explanation.output || t.aiExplainerNoContent,
-    },
-  ];
 }
 
 /** Undoes the small set of JSON escapes that can appear inside a still-streaming string value. */
@@ -128,11 +135,9 @@ function extractPartialArray(buffer: string, key: string): string[] {
 function parsePartialExplanation(raw: string) {
   const withoutFence = raw.replace(/```(?:json)?/gi, '');
   return {
-    objective: extractPartialString(withoutFence, 'objective'),
-    output: extractPartialString(withoutFence, 'output'),
-    filters: extractPartialArray(withoutFence, 'filters'),
-    fieldMeanings: extractPartialArray(withoutFence, 'field_meanings'),
-    tables: extractPartialArray(withoutFence, 'tables'),
+    query_objective: extractPartialString(withoutFence, 'query_objective'),
+    result_bullets: extractPartialArray(withoutFence, 'result_bullets'),
+    report_grain: extractPartialString(withoutFence, 'report_grain'),
   };
 }
 
@@ -155,8 +160,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
 
   if (turn.status === 'streaming') {
     const partial = parsePartialExplanation(turn.streamingRaw);
-    const hasContent =
-      partial.objective || partial.output || partial.filters.length || partial.fieldMeanings.length || partial.tables.length;
+    const hasContent = partial.query_objective || partial.result_bullets.length || partial.report_grain;
 
     if (!hasContent) {
       return (
@@ -169,7 +173,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
 
     return (
       <div className="space-y-3">
-        {partial.objective && (
+        {partial.query_objective && (
           <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/15 text-indigo-300">
@@ -178,32 +182,13 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
               {t.aiExplainerObjective}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-gray-200">
-              {partial.objective}
+              {partial.query_objective}
               <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
             </p>
           </div>
         )}
 
-        {partial.filters.length > 0 && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
-                <Filter size={11} />
-              </span>
-              {t.aiExplainerFilters}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {partial.filters.map((filter, index) => (
-                <li key={`streaming-filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                  {filter}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {partial.output && (
+        {partial.result_bullets.length > 0 && (
           <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-300">
@@ -211,47 +196,26 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
               </span>
               {t.aiExplainerOutput}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-200">{partial.output}</p>
-          </div>
-        )}
-
-        {partial.fieldMeanings.length > 0 && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
-                <MessageSquareText size={11} />
-              </span>
-              {t.aiExplainerFieldMeanings}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {partial.fieldMeanings.map((field, index) => (
-                <li key={`streaming-field-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                  {field}
+            <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-gray-800">
+              {partial.result_bullets.map((bullet, index) => (
+                <li key={`streaming-result-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400/70" />
+                  {renderHighlighted(bullet)}
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {partial.tables.length > 0 && (
+        {partial.report_grain && (
           <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
-                <Database size={11} />
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-300">
+                <ShieldCheck size={11} />
               </span>
-              {t.aiExplainerTables}
+              {t.aiExplainerGrain}
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {partial.tables.map((table, index) => (
-                <span
-                  key={`streaming-table-${index}`}
-                  className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
-                >
-                  {table}
-                </span>
-              ))}
-            </div>
+            <p className="mt-2 text-sm leading-relaxed text-gray-200">{partial.report_grain}</p>
           </div>
         )}
       </div>
@@ -270,7 +234,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
     );
   }
 
-  const sections = buildSections(explanation, t);
+  const { sections } = explanation;
 
   return (
     <div className="space-y-3">
@@ -283,17 +247,42 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         </div>
       )}
 
-      {sections.map(({ key, icon: Icon, title, accent, body }) => (
-        <div key={key} className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className={`flex h-5 w-5 items-center justify-center rounded ${accent}`}>
-              <Icon size={11} />
-            </span>
-            {title}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-gray-200">{body}</p>
-        </div>
-      ))}
+      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/15 text-indigo-300">
+            <Target size={11} />
+          </span>
+          {t.aiExplainerObjective}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-gray-200">{sections.query_objective || t.aiExplainerNoContent}</p>
+      </div>
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-300">
+            <MessageSquareText size={11} />
+          </span>
+          {t.aiExplainerOutput}
+        </p>
+        <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+          {sections.result_bullets.map((bullet, index) => (
+            <li key={`result-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400/70" />
+              {renderHighlighted(bullet)}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-300">
+            <ShieldCheck size={11} />
+          </span>
+          {t.aiExplainerGrain}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-gray-200">{sections.report_grain || t.aiExplainerNoContent}</p>
+      </div>
 
       <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -302,59 +291,48 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
           </span>
           {t.aiExplainerFilters}
         </p>
-        {explanation.filters.length ? (
-          <ul className="mt-2 space-y-1.5">
-            {explanation.filters.map((filter, index) => (
-              <li key={`filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                {filter}
-              </li>
+        {sections.filter_categories.length ? (
+          <div className="mt-2 space-y-3">
+            {sections.filter_categories.map((category, categoryIndex) => (
+              <div key={`filter-category-${categoryIndex}`}>
+                {category.category && <p className="text-xs font-semibold text-gray-400">{category.category}</p>}
+                <ul className="mt-1 space-y-1.5">
+                  {category.items.map((item, itemIndex) => (
+                    <li key={`filter-${categoryIndex}-${itemIndex}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
+                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <p className="mt-2 text-sm text-gray-400">{t.aiExplainerNoFilters}</p>
         )}
       </div>
 
-      {explanation.fieldMeanings.length > 0 && (
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
-              <MessageSquareText size={11} />
-            </span>
-            {t.aiExplainerFieldMeanings}
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {explanation.fieldMeanings.map((field, index) => (
-              <li key={`field-meaning-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                {field}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {explanation.tables.length > 0 && (
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
-              <Database size={11} />
-            </span>
-            {t.aiExplainerTables}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {explanation.tables.map((table, index) => (
-              <span
-                key={`table-${index}`}
-                className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
-              >
-                {table}
+      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
+            <Database size={11} />
+          </span>
+          {t.aiExplainerTables}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {sections.data_sources.map((source, index) => (
+            <span
+              key={`source-${index}`}
+              className="inline-flex flex-col rounded border border-gray-700 bg-gray-950 px-2 py-0.5 text-xs"
+            >
+              <span className="font-mono text-emerald-300">{source.name}</span>
+              <span className={source.purpose === 'unknown' ? 'italic text-gray-500' : 'text-gray-400'}>
+                {source.purpose}
               </span>
-            ))}
-          </div>
+            </span>
+          ))}
         </div>
-      )}
+      </div>
 
       <button
         onClick={() => setShowRaw((prev) => !prev)}
@@ -486,12 +464,17 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
       setAnalysis(parsed);
       setContextBrief(brief);
 
+      const knownSources = parsed
+        ? [...parsed.tables.map((table) => table.name), ...parsed.ctes.map((cte) => cte.name)]
+        : undefined;
+
       const result = await explainSqlStructuredStream(
         {
           sql: query,
           config: aiConfig,
           locale: settings.locale,
           contextBrief: brief,
+          knownSources,
           signal: controller.signal,
         },
         (delta) => {
