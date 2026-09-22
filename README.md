@@ -130,7 +130,7 @@ flowchart TD
     G --> H
 ```
 
-## �🛠️ Installation
+## 🛠️ Installation
 
 1. Install dependencies:
 
@@ -206,7 +206,8 @@ This command requires Ollama to be running and the local `src/lib/ai/document_ch
 ```
 sql-visualizer/
 ├── docs/
-│   └── spring-backend-calcite/     # Backend design docs for a future Spring/Calcite analyzer service
+│   ├── spring-backend-calcite/     # Backend design docs for a future Spring/Calcite analyzer service
+│   └── ui-prompts/                 # UI/UX improvement prompt specs (homepage, explainer, dashboards)
 ├── models/
 │   └── piper/                     # Local Piper TTS voices (downloaded via `npm run setup:piper`)
 ├── public/
@@ -227,7 +228,7 @@ sql-visualizer/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx              # Root layout with theme provider
-│   │   ├── page.tsx                # Dashboard / landing page (login gate)
+│   │   ├── page.tsx                # Public landing page (hero, features, workflow, README link)
 │   │   ├── api/ai/                 # Server routes proxying AI generate/embed/speech/retrieval
 │   │   │   ├── database-knowledge-context/ # RAG retrieval over the official database manuals
 │   │   │   └── docs-context/        # RAG retrieval over SQL Visualizer feature docs
@@ -238,6 +239,7 @@ sql-visualizer/
 │   │   ├── sql-metrics-dashboard/  # Complexity metrics, scoring, and line-jump detail views
 │   │   ├── smart-sql-editor/       # Monaco-based editor, AI explain/optimize panels
 │   │   ├── guideline/              # Feature docs + AI Docs Consultant chat
+│   │   ├── readme/                 # Public README viewer (renders the project README.md)
 │   │   └── settings-preferences/   # User preferences, theme, and AI provider config
 │   ├── components/
 │   │   ├── AppLayout.tsx          # Main layout component
@@ -486,12 +488,12 @@ The project includes comprehensive, modularized documentation to keep guides foc
 - [FEATURES_INDEX.md](public/assets/markdown/FEATURES_INDEX.md) - Complete index with all documentation links
 - [FEATURES.md](public/assets/markdown/FEATURES.md) - Quick feature overview and getting started
 
-## � Getting Started
+## 🚀 Getting Started
 
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/oscar20041998/sql-visualizer.git
 cd sql-visualizer
 ```
 
@@ -530,7 +532,7 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out the [Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## � Documentation
+## 📚 Documentation
 
 For comprehensive feature documentation, see [FEATURES.md](./public/assets/markdown/FEATURES.md) which includes:
 
