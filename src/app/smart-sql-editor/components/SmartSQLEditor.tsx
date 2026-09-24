@@ -13,8 +13,6 @@ import {
   Copy,
   Check,
   RotateCcw,
-  Zap,
-  Sparkles,
   X,
   Volume2,
   Square,
@@ -46,6 +44,7 @@ import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
 import OptimizeQueryModal from './OptimizeQueryModal';
+import FormatSqlPanel from './FormatSqlPanel';
 import {
   captureFormatError,
   type FormatError,
@@ -1055,34 +1054,8 @@ export const SmartSQLEditor: React.FC<{
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons — Format and Analyze/Optimize now live as right-edge toggle tabs. */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleFormatSQL}
-            disabled={state.isFormatting || state.isOptimizing || !state.currentSql.trim()}
-            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
-            title="Format SQL (Ctrl+Shift+F)"
-          >
-            <Zap size={12} />
-            {state.isFormatting
-              ? t.smartEditorFormatting
-              : t.formatSqlButton || t.smartEditorFormat}
-          </button>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            disabled={semanticPhase === 'running' || state.isOptimizing || !state.currentSql.trim()}
-            className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            title={t.analyzeOptimizeTitle}
-          >
-            <Sparkles size={12} />
-            {semanticPhase === 'running'
-              ? t.smartEditorSemanticAnalyzing
-              : state.isOptimizing
-                ? t.smartEditorOptimizing
-                : t.analyzeOptimizeButton}
-          </button>
-
           <button
             onClick={handleToggleDiffMode}
             disabled={!state.hasChanges}
@@ -1170,6 +1143,7 @@ export const SmartSQLEditor: React.FC<{
       <OptimizeQueryModal
         isOpen={isModalOpen}
         onClose={handleCloseOptimizeModal}
+        onOpen={() => setIsModalOpen(true)}
         optimizeMode={optimizeMode}
         onOptimizeModeChange={setOptimizeMode}
         semanticPhase={semanticPhase}
@@ -1215,6 +1189,12 @@ export const SmartSQLEditor: React.FC<{
         requirementIsStale={requirementIsStale}
         onApplyRequirementCandidate={handleApplyRequirementCandidate}
         onDiscardRequirementCandidate={handleDiscardRequirementCandidate}
+      />
+
+      <FormatSqlPanel
+        sql={state.currentSql}
+        isFormatting={state.isFormatting}
+        onFormat={() => void handleFormatSQL()}
       />
 
       <div className="px-4">

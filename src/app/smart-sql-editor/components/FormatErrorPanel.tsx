@@ -254,9 +254,8 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     return t.formatErrorPanelOffsetValue.replace('{offset}', String(offset));
   };
 
-  // Collapsed: a slim tab docked to the right edge of the viewport, mirroring the SQL Explainer,
-  // so it overlays the page instead of participating in the editor flex layout (which was what
-  // broke the surrounding layout).
+  // Collapsed: a slim icon-only tab docked to the right edge; the label expands on hover. Positioned
+  // in a fixed vertical stack below the other right-edge tabs so the controls never overlap.
   if (!isOpen) {
     return (
       <button
@@ -264,10 +263,10 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         onClick={() => onToggle(true)}
         aria-label={t.formatErrorPanelOpen}
         aria-expanded={false}
-        className="fixed right-0 top-[calc(50%_+_4rem)] z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-lg border border-r-0 border-danger/40 bg-card px-2 py-3 text-danger shadow-lg transition-colors hover:bg-muted"
+        className="group fixed right-0 top-[calc(50%_+_8.25rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-danger/40 bg-card px-2.5 py-2 text-danger shadow-lg transition-all duration-200 group-hover:gap-2 hover:bg-muted hover:pr-3"
       >
-        <CircleAlert size={16} aria-hidden="true" />
-        <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">
+        <CircleAlert size={16} className="shrink-0" aria-hidden="true" />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
           {t.formatErrorPanelTitle}
         </span>
       </button>

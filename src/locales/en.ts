@@ -1268,6 +1268,8 @@ const en = {
   emptyQueryError: 'Query is empty. Please enter a valid SQL query to analyze.',
   smartEditorFormatting: 'Formatting...',
   smartEditorFormat: 'Format',
+  smartEditorFormatResultLabel: 'Result',
+  smartEditorEmptySqlHint: 'Nothing to format yet — type or load SQL.',
   smartEditorNoChangesToCompare: 'No changes to compare',
   smartEditorCompare: 'Compare',
   smartEditorEditorView: 'Editor View',

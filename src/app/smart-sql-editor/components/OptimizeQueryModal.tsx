@@ -32,6 +32,8 @@ interface OptimizeQueryModalProps {
   isOpen: boolean;
   /** Backdrop click / X / Escape — aborts an in-flight call but keeps the last result. */
   onClose: () => void;
+  /** Opens the panel from the collapsed right-edge tab. */
+  onOpen: () => void;
 
   optimizeMode: OptimizationMode;
   onOptimizeModeChange: (mode: OptimizationMode) => void;
@@ -90,6 +92,7 @@ interface OptimizeQueryModalProps {
 export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
   isOpen,
   onClose,
+  onOpen,
   optimizeMode,
   onOptimizeModeChange,
   semanticPhase,
@@ -155,7 +158,21 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
     onSubmitInstruction(localInstruction);
   }, [localInstruction, onInstructionDraftChange, onSubmitInstruction]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={t.smartEditorOptimizeModalTitle}
+        className="group fixed right-0 top-[calc(50%_+_5.5rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-primary bg-primary px-2.5 py-2 text-primary-foreground shadow-lg transition-all duration-200 group-hover:gap-2 hover:opacity-90 hover:pr-3"
+      >
+        <Sparkles size={16} className="shrink-0" aria-hidden="true" />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
+          {t.analyzeOptimizeButton}
+        </span>
+      </button>
+    );
+  }
 
   const hasUnappliedProposals =
     (optimizeResult?.proposals.length ?? 0) >
@@ -163,7 +180,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -171,7 +188,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         aria-modal="true"
         aria-labelledby="optimize-query-modal-heading"
         onClick={(event) => event.stopPropagation()}
-        className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl animate-slide-up"
+        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-gray-700 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
       >
         <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-5 py-4">
           <h2 id="optimize-query-modal-heading" className="flex items-center gap-2 text-sm font-semibold text-gray-100">

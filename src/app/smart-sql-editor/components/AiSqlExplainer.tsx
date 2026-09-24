@@ -648,15 +648,15 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
         onTryNow={handleTryNow}
       />
 
-      {/* Collapsed: a slim tab docked to the right edge of the viewport. */}
+      {/* Collapsed: a slim icon-only tab docked to the right edge; the label expands on hover. */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           aria-label={t.aiExplainerOpenPanel}
-          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-lg border border-r-0 border-gray-800 bg-gray-900 px-2 py-3 text-indigo-300 shadow-lg transition-colors hover:bg-gray-800"
+          className="group fixed right-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-gray-800 bg-gray-900 px-2.5 py-2 text-indigo-300 shadow-lg transition-all duration-200 group-hover:gap-2 hover:bg-gray-800 hover:pr-3"
         >
-          <Sparkles size={16} />
-          <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">
+          <Sparkles size={16} className="shrink-0" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
             {t.aiExplainerTitle}
           </span>
         </button>

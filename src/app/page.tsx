@@ -99,6 +99,11 @@ export default function HomePage() {
     router.push('/readme');
   };
 
+  const goToConfluence = () => {
+    beginNavigation('/confluence');
+    router.push('/confluence');
+  };
+
   return (
     <div id="top" className="relative min-h-screen bg-background overflow-hidden">
       {/* Grid pattern overlay */}
@@ -532,10 +537,18 @@ export default function HomePage() {
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">{t.homeDocsSectionDesc}</p>
               </div>
-              <div className="flex-shrink-0">
+              <div className="flex flex-shrink-0 flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={goToConfluence}
+                  className={`inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-accent px-6 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 ${FocusRing}`}
+                >
+                  <BookOpen className="w-5 h-5" />
+                  Confluence
+                  <ArrowUpRight className="w-5 h-5" />
+                </button>
                 <button
                   onClick={goToReadme}
-                  className={`inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-accent px-6 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 ${FocusRing}`}
+                  className={`inline-flex items-center gap-2 rounded-lg border border-border bg-card px-6 py-3 text-base font-semibold text-foreground transition-colors hover:bg-muted ${FocusRing}`}
                 >
                   <BookOpen className="w-5 h-5" />
                   {t.homeDocsSectionButton}
@@ -607,6 +620,13 @@ export default function HomePage() {
               {t.homeCopyrightText} <span className="text-primary" aria-hidden="true">✨</span> {t.homeForDevelopers}
             </p>
             <nav className="flex items-center gap-5 text-sm text-muted-foreground" aria-label={t.appName}>
+              <button
+                onClick={goToConfluence}
+                className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}
+              >
+                <BookOpen className="w-4 h-4" />
+                Confluence
+              </button>
               <button
                 onClick={goToReadme}
                 className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}

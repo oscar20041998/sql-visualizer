@@ -1269,6 +1269,8 @@ const vi = {
   emptyQueryError: 'Truy vấn trống. Vui lòng nhập hoặc dán SQL để phân tích.',
   smartEditorFormatting: 'Đang định dạng...',
   smartEditorFormat: 'Định dạng',
+  smartEditorFormatResultLabel: 'Kết quả',
+  smartEditorEmptySqlHint: 'Chưa có gì để định dạng — hãy nhập hoặc tải SQL.',
   smartEditorNoChangesToCompare: 'Không có thay đổi để so sánh',
   smartEditorCompare: 'So sánh',
   smartEditorEditorView: 'Chế độ xem trình soạn thảo',
