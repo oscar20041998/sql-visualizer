@@ -1291,6 +1291,55 @@ const en = {
   smartEditorNoChangesSummary: 'No changes from original',
   copiedToClipboard: 'Copied to clipboard',
 
+  // Smart Editor - Format Error Diagnostics panel (spec 012)
+  formatErrorPanelTitle: 'Format Error Report',
+  formatErrorPanelSubtitle: 'The formatter could not parse this query.',
+  formatErrorPanelOpen: 'Open format error report',
+  formatErrorPanelClose: 'Close format error report',
+  formatErrorPanelToggleCollapse: 'Collapse error report',
+  formatErrorPanelToggleExpand: 'Expand error report',
+  formatErrorPanelSeverity: 'Error',
+  formatErrorPanelDialectLabel: 'Dialect',
+  formatErrorPanelOccurredAtLabel: 'Reported at',
+  formatErrorPanelLocationLabel: 'Location',
+  formatErrorPanelLocationValue: 'Line {line}, column {column}',
+  formatErrorPanelOffsetValue: 'Character {offset}',
+  formatErrorPanelSnippetLabel: 'Context',
+  formatErrorPanelMessageLabel: 'Details',
+  formatErrorPanelEditorUnchanged: 'Your SQL was left unchanged.',
+  formatErrorPanelExplain: 'Explain with AI',
+  formatErrorPanelExplainRunning: 'Explaining…',
+  formatErrorPanelFix: 'Suggest a fix',
+  formatErrorPanelFixRunning: 'Generating a fix…',
+  formatErrorPanelExplainSectionTitle: 'AI explanation',
+  formatErrorPanelRootCauseLabel: 'Root cause',
+  formatErrorPanelEvidenceLabel: 'Grounded in',
+  formatErrorPanelFixSectionTitle: 'Proposed fix',
+  formatErrorPanelFixBeforeLabel: 'Before',
+  formatErrorPanelFixAfterLabel: 'After',
+  formatErrorPanelCopyFix: 'Copy',
+  formatErrorPanelCopyFixDone: 'Suggested fix copied to clipboard',
+  formatErrorPanelApplyFix: 'Apply fix',
+  formatErrorPanelDismissFix: 'Dismiss',
+  formatErrorPanelRetry: 'Retry',
+  formatErrorPanelLoading: 'Waiting for the local model…',
+  formatErrorPanelAiUnavailableTitle: 'Local AI is unavailable',
+  formatErrorPanelAiUnavailable:
+    'Could not reach the local Ollama model. Start Ollama, confirm the model configured in Settings is installed, then try again.',
+  formatErrorPanelAiErrorTitle: 'The AI request failed',
+  formatErrorPanelAiMalformed:
+    'The local model returned an unusable answer. Try again, or pick a stronger local model in Settings.',
+  formatErrorPanelStale:
+    'The SQL has changed since this fix was generated. Request a new fix to continue.',
+  formatErrorPanelInvalidFix:
+    'The proposed SQL still fails to format. The suggested fix was not applied — ask for another one.',
+  formatErrorPanelFixApplied: 'Suggested fix applied and formatted successfully',
+  formatErrorPanelFixDismissed: 'Suggested fix dismissed',
+  formatErrorPanelFixNoChange:
+    'The model returned the same SQL, so there is nothing to apply.',
+  formatErrorPanelEmptyQuery: 'There is no SQL to diagnose.',
+  formatErrorPanelResizeHandle: 'Resize the error report panel',
+
   // Guideline - AI Speech Section
   guidelineAiSpeechTitle: 'AI Text-to-Speech',
   guidelineAiSpeechSubtitle: 'Read optimization insights and query explanations aloud',
@@ -1350,6 +1399,24 @@ const en = {
     'Color selections are persisted to localStorage and restored on your next visit',
   guidelineAdvancedFeaturesTip4:
     'All components use CSS containment for optimal performance and faster rendering',
+
+  // Guideline - Format Error Diagnostics Section (spec 012)
+  guidelineFormatErrorTitle: 'Format Error Diagnostics with AI',
+  guidelineFormatErrorSubtitle:
+    'Persistent error panel with AI explanation and fix suggestions, running locally',
+  guidelineFormatErrorStep1Label: 'Trigger a format error',
+  guidelineFormatErrorStep1Desc:
+    'Open the Smart SQL Editor and paste SQL the formatter cannot parse, then click Format. Instead of a transient toast, a dedicated error report panel opens on the right and your SQL is left unchanged.',
+  guidelineFormatErrorStep2Label: 'Get an AI explanation',
+  guidelineFormatErrorStep2Desc:
+    'In the panel, click "Explain with AI" for a plain-language explanation of what the error is and its root cause, grounded in your actual SQL and the formatter\'s message.',
+  guidelineFormatErrorStep3Label: 'Review and apply a fix',
+  guidelineFormatErrorStep3Desc:
+    'Click "Suggest a fix" to see a minimal, semantics-preserving correction side-by-side with the original (Before / After). Review it, then either "Apply fix" or copy it to the clipboard. Dismissing leaves your SQL untouched.',
+  guidelineFormatErrorTip1:
+    'Runs entirely on local Ollama — your SQL never leaves your device for explanation or fix requests.',
+  guidelineFormatErrorTip2:
+    'If your SQL changes after a fix is generated, the proposal is flagged as stale so you can\'t accidentally apply it over newer edits.',
 
   // Home Page
   homeWelcomeTitle: 'Welcome to SQL Visualizer',

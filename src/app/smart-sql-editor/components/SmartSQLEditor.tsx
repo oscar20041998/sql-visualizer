@@ -46,6 +46,11 @@ import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
 import OptimizeQueryModal from './OptimizeQueryModal';
+import {
+  captureFormatError,
+  type FormatError,
+  type SqlFormatDialect,
+} from '@/lib/sql/formatError';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -55,6 +60,18 @@ function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' 
     oracle: 'plsql',
   };
   return dialectMap[dialect] || 'mysql';
+}
+
+/**
+ * Maps the app's dialect to the `FormatError` dialect label. `getFormatterLanguage` cannot be
+ * reversed (both `mysql` and any unknown dialect collapse to the formatter's `mysql`), so the
+ * active dialect is narrowed here and unknown values fall back to `mysql` — the same fallback the
+ * formatter itself uses.
+ */
+function toFormatDialect(dialect: string): SqlFormatDialect {
+  return dialect === 'postgresql' || dialect === 'sqlserver' || dialect === 'oracle'
+    ? dialect
+    : 'mysql';
 }
 
 /** Best-effort SQL formatting: falls back to the input unchanged if the formatter chokes on it. */
@@ -158,25 +175,49 @@ const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
   renderSideBySide: true,
 };
 
+/** Imperative surface `SmartSQLEditor` exposes to its owner via `apiRef`. */
+export interface SmartSQLEditorApi {
+  /** The editor's live SQL — the source of truth for the stale-proposal check (FR-016). */
+  getSql: () => string;
+  /** Replaces the editor SQL and mirrors the change into the owner's `onSqlChange` callback. */
+  setSql: (sql: string) => void;
+}
+
 export const SmartSQLEditor: React.FC<{
   initialSql?: string;
   /** Lets the page observe the live editor content (used by the AI SQL Explainer). */
   onSqlChange?: (sql: string) => void;
   onOptimizationResult?: (result: SqlOptimizationResult | null) => void;
+  /**
+   * Emits a structured diagnostic whenever Format fails, so the page can show the right-side
+   * error report instead of relying on a transient toast (spec 012, FR-002/FR-003). Format
+   * success emits nothing, leaving the existing success flow untouched (FR-001).
+   */
+  onFormatError?: (error: FormatError) => void;
   /** Line to reveal + briefly highlight once the editor is ready — fed by "go to line" links on the Metrics Dashboard. */
   jumpToLine?: number | null;
   /** Called once the jump has been applied, so the caller can clear its pending-jump state. */
   onJumpHandled?: () => void;
+  /**
+   * Imperative handle for the format-error panel's "Apply fix" action (spec 012, FR-010). Only
+   * the owner of the editor state can replace the SQL, so the page passes a ref down and the
+   * panel calls it after the user explicitly confirms.
+   */
+  apiRef?: React.MutableRefObject<SmartSQLEditorApi | null>;
 }> = ({
   initialSql = 'SELECT * FROM table_name LIMIT 10;',
   onSqlChange,
   onOptimizationResult,
+  onFormatError,
   jumpToLine,
   onJumpHandled,
+  apiRef,
 }) => {
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const jumpDecorationsRef = useRef<string[]>([]);
+  /** Mirror of `state.currentSql` so imperative callers read the latest SQL, not a stale closure. */
+  const currentSqlRef = useRef(initialSql);
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
@@ -388,8 +429,22 @@ export const SmartSQLEditor: React.FC<{
 
   // Publish the current SQL upward so sibling panels stay in sync with the editor.
   useEffect(() => {
+    currentSqlRef.current = state.currentSql;
     onSqlChange?.(state.currentSql);
   }, [state.currentSql, onSqlChange]);
+
+  // Imperative handle for the error panel's "Apply fix". `getSql` reads from live state (never a
+  // stale closure) so the panel's stale check compares against what the user actually sees.
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = {
+      getSql: () => currentSqlRef.current,
+      setSql: (sql: string) => setState((prev) => ({ ...prev, currentSql: sql })),
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef]);
 
   const revealAndHighlightLine = useCallback((line: number) => {
     const editor = editorRef.current;
@@ -456,10 +511,22 @@ export const SmartSQLEditor: React.FC<{
 
       toast.success(t.formattingSuccess);
     } catch (error) {
+      // Format failure: reset the button, keep the editor's SQL exactly as it was (FR-005), and
+      // hand the structured diagnostic to the page, which renders the right-side error report.
+      // When no panel is wired (e.g. the embedded Query Input tab), fall back to the legacy
+      // toast so the failure is never silent.
       setState((prev) => ({ ...prev, isFormatting: false }));
-      toast.error((error as Error)?.message || t.formattingError);
+      const formatError = captureFormatError(error, {
+        sourceSql: state.currentSql,
+        dialect: toFormatDialect(dialect),
+      });
+      if (onFormatError) {
+        onFormatError(formatError);
+      } else {
+        toast.error(formatError.message || t.formattingError);
+      }
     }
-  }, [state.currentSql, dialect, t]);
+  }, [state.currentSql, dialect, t, onFormatError]);
 
   const handleToggleDiffMode = useCallback(() => {
     setState((prev) => ({

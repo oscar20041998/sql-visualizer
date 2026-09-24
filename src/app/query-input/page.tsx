@@ -4,12 +4,24 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Braces, FileCode2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
+import SmartSQLEditor, {
+  type SmartSQLEditorApi,
+} from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
+import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
+import type { FormatError } from '@/lib/sql/formatError';
+import {
+  FormatAiError,
+  requestFormatExplanation,
+  requestFormatFix,
+  type FormatExplanation,
+} from '@/lib/ai/formatErrorAi';
+import type { AIModelConfig } from '@/lib/store';
 import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
 import { tryEmbedText } from '@/lib/ai/embeddingService';
@@ -95,6 +107,16 @@ const SAMPLE_MYBATIS = `<select id="findOrdersByCustomer" resultType="Order">
   ORDER BY o.created_at DESC
   LIMIT #{pageSize} OFFSET #{offset}
 </select>`;
+
+/** Formatter language for client-side validation that an AI fix actually formats. */
+function toFormatterLanguage(
+  dialect: FormatError['dialect']
+): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
+  if (dialect === 'postgresql') return 'postgresql';
+  if (dialect === 'sqlserver') return 'tsql';
+  if (dialect === 'oracle') return 'plsql';
+  return 'mysql';
+}
 
 export default function QueryInputContent() {
   const router = useRouter();
@@ -215,7 +237,8 @@ export default function QueryInputContent() {
     // characters) that the regex-based analyzer below would otherwise silently "succeed" on.
     const formatCheck = validateSqlFormat(sqlToAnalyze);
     if (!formatCheck.valid && formatCheck.issue) {
-      const reasonText = (t as Record<string, string>)[formatCheck.issue.reasonKey] || formatCheck.issue.reason;
+      const reasonText =
+        (t as Record<string, string>)[formatCheck.issue.reasonKey] || formatCheck.issue.reason;
       toast.warning(
         (t.sqlFormatIssueWarning || '')
           .replace('{reason}', reasonText)
@@ -355,6 +378,78 @@ export default function QueryInputContent() {
     null | import('@/lib/ai/aiService').SqlOptimizationResult
   >(null);
 
+  // Format-error report state for the smart-editor tab (spec 012). Lives here rather than in the
+  // panel so the report survives a close/reopen and stays in sync with the SQL the editor
+  // actually failed on (FR-004). The MyBatis/XML → smart-editor flow is the primary path this
+  // page exposes, so the panel must be wired here too — not only on the standalone editor page.
+  const [formatError, setFormatError] = useState<FormatError | null>(null);
+  const [isErrorPanelOpen, setIsErrorPanelOpen] = useState(false);
+  const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
+
+  /** A new failure replaces the previous report and forces the panel open (FR-003). */
+  const handleFormatError = useCallback((error: FormatError) => {
+    setFormatError(error);
+    setIsErrorPanelOpen(true);
+  }, []);
+
+  /** Local-Ollama-only Explain (FR-011 / FR-014). */
+  const handleRequestExplain = useCallback(
+    (error: FormatError): Promise<FormatExplanation> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      return requestFormatExplanation(error, localOnlyConfig, settings.locale);
+    },
+    [settings.aiConfig, settings.locale]
+  );
+
+  /** Local-Ollama-only Fix (FR-011 / FR-014), validated by re-running the formatter. */
+  const handleRequestFix = useCallback(
+    async (error: FormatError): Promise<string> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      const correctedSql = await requestFormatFix(error, localOnlyConfig);
+      try {
+        format(correctedSql, { language: toFormatterLanguage(error.dialect) });
+      } catch {
+        throw new FormatAiError({
+          kind: 'malformed',
+          message: 'The proposed SQL still fails to format.',
+          retryable: true,
+        });
+      }
+      return correctedSql;
+    },
+    [settings.aiConfig]
+  );
+
+  /** Applies a confirmed AI fix, re-formats it, and clears the report (FR-010). */
+  const handleApplyFormatFix = useCallback(
+    (sql: string) => {
+      const language = toFormatterLanguage(formatError?.dialect ?? 'mysql');
+      let applied = sql;
+      try {
+        applied = format(sql, { language });
+      } catch {
+        // Keep the user's confirmed proposal; the panel already validated a re-format.
+      }
+      editorApiRef.current?.setSql(applied);
+      setSmartEditorSql(applied);
+      setFormatError(null);
+      setIsErrorPanelOpen(false);
+      toast.success(t.formatErrorPanelFixApplied);
+    },
+    [formatError?.dialect, t]
+  );
+
+  /** Dismissing a proposal keeps the editor untouched (FR-010). */
+  const handleDismissFormatFix = useCallback(() => {
+    toast.info(t.formatErrorPanelFixDismissed);
+  }, [t]);
+
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
   if (!isAuthorized) return null;
@@ -396,21 +491,37 @@ export default function QueryInputContent() {
               aria-labelledby={`tab-${inputMode}`}
               className="mt-4 flex flex-col gap-4"
             >
-              <div className="flex min-h-[620px] flex-col">
-                <SmartSQLEditor
-                  initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
-                  jumpToLine={jumpLine}
-                  onJumpHandled={() => {
-                    setJumpLine(null);
-                    setPendingEditorJump(null);
-                  }}
-                  onSqlChange={(sql) => {
-                    smartEditorSqlRef.current = sql;
-                    setSmartEditorSql(sql);
-                    setOptimizationResult(null);
-                  }}
-                  onOptimizationResult={setOptimizationResult}
-                />
+              <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
+                <div className="flex min-h-[620px] flex-1 flex-col">
+                  <SmartSQLEditor
+                    initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
+                    jumpToLine={jumpLine}
+                    onJumpHandled={() => {
+                      setJumpLine(null);
+                      setPendingEditorJump(null);
+                    }}
+                    onSqlChange={(sql) => {
+                      smartEditorSqlRef.current = sql;
+                      setSmartEditorSql(sql);
+                      setOptimizationResult(null);
+                    }}
+                    onOptimizationResult={setOptimizationResult}
+                    onFormatError={handleFormatError}
+                    apiRef={editorApiRef}
+                  />
+                </div>
+                {formatError && (
+                  <FormatErrorPanel
+                    error={formatError}
+                    isOpen={isErrorPanelOpen}
+                    onToggle={setIsErrorPanelOpen}
+                    currentSql={smartEditorSql}
+                    onRequestExplain={handleRequestExplain}
+                    onRequestFix={handleRequestFix}
+                    onApplyFix={handleApplyFormatFix}
+                    onDismissFix={handleDismissFormatFix}
+                  />
+                )}
               </div>
 
               {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}

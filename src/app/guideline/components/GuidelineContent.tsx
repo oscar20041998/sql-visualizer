@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Sparkles,
   Database,
+  FileWarning,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -249,6 +250,28 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
         },
       ],
       tips: [{ text: t.guidelineDbAssistantTip1 }, { text: t.guidelineDbAssistantTip2 }],
+    },
+    {
+      id: 'format-error-diagnostics',
+      icon: FileWarning,
+      color: '#f43f5e',
+      title: t.guidelineFormatErrorTitle,
+      subtitle: t.guidelineFormatErrorSubtitle,
+      steps: [
+        {
+          label: t.guidelineFormatErrorStep1Label,
+          desc: t.guidelineFormatErrorStep1Desc,
+        },
+        {
+          label: t.guidelineFormatErrorStep2Label,
+          desc: t.guidelineFormatErrorStep2Desc,
+        },
+        {
+          label: t.guidelineFormatErrorStep3Label,
+          desc: t.guidelineFormatErrorStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineFormatErrorTip1 }, { text: t.guidelineFormatErrorTip2 }],
     },
     {
       id: 'tools',

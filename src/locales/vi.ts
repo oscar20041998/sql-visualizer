@@ -1292,6 +1292,55 @@ const vi = {
   smartEditorNoChangesSummary: 'Không có thay đổi từ gốc',
   copiedToClipboard: 'Đã sao chép vào bộ nhớ tạm',
 
+  // Smart Editor - Format Error Diagnostics panel (spec 012)
+  formatErrorPanelTitle: 'Báo cáo lỗi định dạng',
+  formatErrorPanelSubtitle: 'Trình định dạng không thể phân tích truy vấn này.',
+  formatErrorPanelOpen: 'Mở báo cáo lỗi định dạng',
+  formatErrorPanelClose: 'Đóng báo cáo lỗi định dạng',
+  formatErrorPanelToggleCollapse: 'Thu gọn báo cáo lỗi',
+  formatErrorPanelToggleExpand: 'Mở rộng báo cáo lỗi',
+  formatErrorPanelSeverity: 'Lỗi',
+  formatErrorPanelDialectLabel: 'Phương ngữ',
+  formatErrorPanelOccurredAtLabel: 'Thời điểm',
+  formatErrorPanelLocationLabel: 'Vị trí',
+  formatErrorPanelLocationValue: 'Dòng {line}, cột {column}',
+  formatErrorPanelOffsetValue: 'Ký tự {offset}',
+  formatErrorPanelSnippetLabel: 'Ngữ cảnh',
+  formatErrorPanelMessageLabel: 'Chi tiết',
+  formatErrorPanelEditorUnchanged: 'SQL của bạn được giữ nguyên.',
+  formatErrorPanelExplain: 'Giải thích bằng AI',
+  formatErrorPanelExplainRunning: 'Đang giải thích…',
+  formatErrorPanelFix: 'Đề xuất cách sửa',
+  formatErrorPanelFixRunning: 'Đang tạo cách sửa…',
+  formatErrorPanelExplainSectionTitle: 'Giải thích từ AI',
+  formatErrorPanelRootCauseLabel: 'Nguyên nhân gốc',
+  formatErrorPanelEvidenceLabel: 'Căn cứ',
+  formatErrorPanelFixSectionTitle: 'Cách sửa đề xuất',
+  formatErrorPanelFixBeforeLabel: 'Trước',
+  formatErrorPanelFixAfterLabel: 'Sau',
+  formatErrorPanelCopyFix: 'Sao chép',
+  formatErrorPanelCopyFixDone: 'Đã sao chép cách sửa được đề xuất',
+  formatErrorPanelApplyFix: 'Áp dụng cách sửa',
+  formatErrorPanelDismissFix: 'Bỏ qua',
+  formatErrorPanelRetry: 'Thử lại',
+  formatErrorPanelLoading: 'Đang chờ mô hình cục bộ…',
+  formatErrorPanelAiUnavailableTitle: 'AI cục bộ không khả dụng',
+  formatErrorPanelAiUnavailable:
+    'Không thể kết nối mô hình Ollama cục bộ. Hãy khởi động Ollama, kiểm tra mô hình đã cấu hình trong Cài đặt đã được cài đặt, rồi thử lại.',
+  formatErrorPanelAiErrorTitle: 'Yêu cầu AI thất bại',
+  formatErrorPanelAiMalformed:
+    'Mô hình cục bộ trả về kết quả không dùng được. Hãy thử lại, hoặc chọn một mô hình cục bộ mạnh hơn trong Cài đặt.',
+  formatErrorPanelStale:
+    'SQL đã thay đổi kể từ khi cách sửa này được tạo. Hãy yêu cầu cách sửa mới để tiếp tục.',
+  formatErrorPanelInvalidFix:
+    'SQL được đề xuất vẫn không định dạng được. Cách sửa đã không được áp dụng — hãy yêu cầu cách sửa khác.',
+  formatErrorPanelFixApplied: 'Đã áp dụng và định dạng thành công cách sửa được đề xuất',
+  formatErrorPanelFixDismissed: 'Đã bỏ qua cách sửa được đề xuất',
+  formatErrorPanelFixNoChange:
+    'Mô hình trả về đúng SQL cũ, nên không có gì để áp dụng.',
+  formatErrorPanelEmptyQuery: 'Không có SQL để chẩn đoán.',
+  formatErrorPanelResizeHandle: 'Thay đổi kích thước bảng báo cáo lỗi',
+
   // Guideline - AI Speech Section
   guidelineAiSpeechTitle: 'AI Chuyển văn bản thành giọng nói',
   guidelineAiSpeechSubtitle: 'Đọc to các thông tin tối ưu hóa và diễn giải truy vấn',
@@ -1351,6 +1400,24 @@ const vi = {
     'Lựa chọn màu được lưu vào localStorage và khôi phục khi bạn ghé thăm lần tới',
   guidelineAdvancedFeaturesTip4:
     'Tất cả các thành phần sử dụng sự chứa đựng CSS để có hiệu suất tối ưu và kết xuất nhanh hơn',
+
+  // Guideline - Format Error Diagnostics Section (spec 012)
+  guidelineFormatErrorTitle: 'Chẩn đoán lỗi định dạng bằng AI',
+  guidelineFormatErrorSubtitle:
+    'Bảng lỗi cố định kèm giải thích và đề xuất cách sửa bằng AI, chạy cục bộ',
+  guidelineFormatErrorStep1Label: 'Kích hoạt lỗi định dạng',
+  guidelineFormatErrorStep1Desc:
+    'Mở Smart SQL Editor và dán SQL mà trình định dạng không thể phân tích, rồi nhấn Format. Thay vì chỉ hiện toast thoáng qua, một bảng báo cáo lỗi chuyên dụng mở ra ở bên phải và SQL của bạn được giữ nguyên.',
+  guidelineFormatErrorStep2Label: 'Nhận giải thích từ AI',
+  guidelineFormatErrorStep2Desc:
+    'Trong bảng, nhấn "Giải thích bằng AI" để nhận lời giải thích dễ hiểu về lỗi là gì và nguyên nhân gốc, dựa trên chính SQL của bạn và thông báo của trình định dạng.',
+  guidelineFormatErrorStep3Label: 'Xem lại và áp dụng cách sửa',
+  guidelineFormatErrorStep3Desc:
+    'Nhấn "Đề xuất cách sửa" để xem bản sửa tối thiểu, giữ nguyên ngữ nghĩa ở dạng so sánh song song với bản gốc (Trước / Sau). Xem lại rồi chọn "Áp dụng cách sửa" hoặc sao chép vào clipboard. Bỏ qua sẽ giữ nguyên SQL của bạn.',
+  guidelineFormatErrorTip1:
+    'Chạy hoàn toàn trên Ollama cục bộ — SQL của bạn không bao giờ rời khỏi thiết bị khi giải thích hay đề xuất cách sửa.',
+  guidelineFormatErrorTip2:
+    'Nếu SQL của bạn thay đổi sau khi cách sửa được tạo, đề xuất sẽ bị đánh dấu là cũ (stale) để bạn không vô tình áp dụng lên các chỉnh sửa mới hơn.',
 
   // Home Page
   homeWelcomeTitle: 'Chào mừng đến SQL Visualizer',

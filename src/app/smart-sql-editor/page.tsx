@@ -1,11 +1,34 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { format } from 'sql-formatter';
+import SmartSQLEditor, {
+  type SmartSQLEditorApi,
+} from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
+import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import AppLayout from '@/components/AppLayout';
+import type { FormatError } from '@/lib/sql/formatError';
+import {
+  FormatAiError,
+  requestFormatExplanation,
+  requestFormatFix,
+  type FormatExplanation,
+} from '@/lib/ai/formatErrorAi';
+import type { AIModelConfig } from '@/lib/store';
+import { toast } from 'sonner';
+
+/** Formatter language for client-side validation that an AI fix actually formats. */
+function toFormatterLanguage(
+  dialect: FormatError['dialect']
+): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
+  if (dialect === 'postgresql') return 'postgresql';
+  if (dialect === 'sqlserver') return 'tsql';
+  if (dialect === 'oracle') return 'plsql';
+  return 'mysql';
+}
 
 const SAMPLE_QUERIES = {
   simple: 'SELECT id, name, email FROM users LIMIT 10;',
@@ -44,14 +67,102 @@ LIMIT 50;`,
 export default function SmartSQLEditorPage() {
   const [selectedQuery, setSelectedQuery] = useState<keyof typeof SAMPLE_QUERIES>('simple');
   const [currentSql, setCurrentSql] = useState<string>(SAMPLE_QUERIES.simple);
-  const [optimizationResult, setOptimizationResult] = useState<null | import('@/lib/ai/aiService').SqlOptimizationResult>(null);
+  const [optimizationResult, setOptimizationResult] = useState<
+    null | import('@/lib/ai/aiService').SqlOptimizationResult
+  >(null);
   const [hydrated, setHydrated] = useState(false);
+  // Format-error report state lives here rather than inside the panel so the error survives a
+  // close/reopen and is always in sync with the SQL the editor actually failed on (FR-004).
+  const [formatError, setFormatError] = useState<FormatError | null>(null);
+  const [isErrorPanelOpen, setIsErrorPanelOpen] = useState(false);
+  const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
   const settings = useAppStore((s) => s.settings);
   const t = getT(settings.locale);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  /** A new failure replaces the previous report and forces the panel open (FR-003, edge case). */
+  const handleFormatError = useCallback((error: FormatError) => {
+    setFormatError(error);
+    setIsErrorPanelOpen(true);
+  }, []);
+
+  /** Format success leaves the panel state untouched — there is simply nothing to report. */
+  const handleSqlChange = useCallback((sql: string) => {
+    setCurrentSql(sql);
+  }, []);
+
+  /**
+   * Local-Ollama-only Explain action (FR-011). The config is cloned with provider forced to
+   * `ollama` before the request leaves this page, so even a store that currently points at a
+   * cloud provider cannot route this feature's SQL off-device (FR-014).
+   */
+  const handleRequestExplain = useCallback(
+    (error: FormatError): Promise<FormatExplanation> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      return requestFormatExplanation(error, localOnlyConfig, settings.locale);
+    },
+    [settings.aiConfig, settings.locale]
+  );
+
+  /**
+   * Local-Ollama-only Fix action (FR-011 / FR-014). A proposed fix is validated by re-running the
+   * formatter: if it still fails, the promise rejects and the panel shows the invalid state
+   * (contract §3). The editor is never touched here — that happens only on Apply (FR-010).
+   */
+  const handleRequestFix = useCallback(
+    async (error: FormatError): Promise<string> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      const correctedSql = await requestFormatFix(error, localOnlyConfig);
+      try {
+        format(correctedSql, { language: toFormatterLanguage(error.dialect) });
+      } catch {
+        throw new FormatAiError({
+          kind: 'malformed',
+          message: 'The proposed SQL still fails to format.',
+          retryable: true,
+        });
+      }
+      return correctedSql;
+    },
+    [settings.aiConfig]
+  );
+
+  /**
+   * Applies a confirmed AI fix: replaces the editor SQL, re-formats it for consistency with the
+   * success flow, and clears the report. Falls back to the raw proposal when the final re-format
+   * unexpectedly fails, so a confirmed fix is never lost.
+   */
+  const handleApplyFormatFix = useCallback(
+    (sql: string) => {
+      const language = toFormatterLanguage(formatError?.dialect ?? 'mysql');
+      let applied = sql;
+      try {
+        applied = format(sql, { language });
+      } catch {
+        // Keep the user's confirmed proposal; the panel already validated a re-format.
+      }
+      editorApiRef.current?.setSql(applied);
+      setCurrentSql(applied);
+      setFormatError(null);
+      setIsErrorPanelOpen(false);
+      toast.success(t.formatErrorPanelFixApplied);
+    },
+    [formatError?.dialect, t]
+  );
+
+  /** Dismissing a proposal keeps the editor untouched (FR-010) and reports it via toast. */
+  const handleDismissFormatFix = useCallback(() => {
+    toast.info(t.formatErrorPanelFixDismissed);
+  }, [t]);
 
   // The chrome renders immediately; only the body waits for hydration, since its text comes
   // from locale settings held in persisted (localStorage) state.
@@ -79,10 +190,11 @@ export default function SmartSQLEditorPage() {
                 <button
                   key={key}
                   onClick={() => setSelectedQuery(key as keyof typeof SAMPLE_QUERIES)}
-                  className={`px-4 py-2 rounded font-medium transition ${selectedQuery === key
+                  className={`px-4 py-2 rounded font-medium transition ${
+                    selectedQuery === key
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'border border-border bg-card text-foreground hover:bg-muted'
-                    }`}
+                  }`}
                 >
                   {key === 'simple' && t.editorPageQuerySimple}
                   {key === 'withJoin' && t.editorPageQueryWithJoin}
@@ -109,13 +221,29 @@ export default function SmartSQLEditorPage() {
               </ul>
             </div>
 
-            {/* Editor */}
-            <div className="min-h-[620px] flex flex-col">
-              <SmartSQLEditor
-                initialSql={SAMPLE_QUERIES[selectedQuery]}
-                onSqlChange={setCurrentSql}
-                onOptimizationResult={setOptimizationResult}
-              />
+            {/* Editor + right-side format-error report (spec 012) */}
+            <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
+              <div className="flex min-h-[620px] flex-1 flex-col">
+                <SmartSQLEditor
+                  initialSql={SAMPLE_QUERIES[selectedQuery]}
+                  onSqlChange={handleSqlChange}
+                  onOptimizationResult={setOptimizationResult}
+                  onFormatError={handleFormatError}
+                  apiRef={editorApiRef}
+                />
+              </div>
+              {formatError && (
+                <FormatErrorPanel
+                  error={formatError}
+                  isOpen={isErrorPanelOpen}
+                  onToggle={setIsErrorPanelOpen}
+                  currentSql={currentSql}
+                  onRequestExplain={handleRequestExplain}
+                  onRequestFix={handleRequestFix}
+                  onApplyFix={handleApplyFormatFix}
+                  onDismissFix={handleDismissFormatFix}
+                />
+              )}
             </div>
 
             {/* SQL → natural language */}
@@ -154,7 +282,9 @@ export default function SmartSQLEditorPage() {
 
               {/* Features */}
               <div>
-                <h3 className="mb-3 text-lg font-bold text-foreground">{t.editorPageFeaturesTitle}</h3>
+                <h3 className="mb-3 text-lg font-bold text-foreground">
+                  {t.editorPageFeaturesTitle}
+                </h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="text-success">✓</span>
