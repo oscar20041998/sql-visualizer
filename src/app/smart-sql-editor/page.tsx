@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'sql-formatter';
 import SmartSQLEditor, {
   type SmartSQLEditorApi,
@@ -11,6 +11,9 @@ import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import AppLayout from '@/components/AppLayout';
 import type { FormatError } from '@/lib/sql/formatError';
+import { resolveErrorRegion, type CrossCheckPosition } from '@/lib/sql/formatErrorRegion';
+import { locateSyntaxError } from '@/lib/sql/dialectValidator';
+import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import {
   FormatAiError,
   requestFormatExplanation,
@@ -75,6 +78,23 @@ export default function SmartSQLEditorPage() {
   // close/reopen and is always in sync with the SQL the editor actually failed on (FR-004).
   const [formatError, setFormatError] = useState<FormatError | null>(null);
   const [isErrorPanelOpen, setIsErrorPanelOpen] = useState(false);
+  /**
+   * The cross-check parser's position for the error being shown, held beside the error so the two
+   * always belong together. Resolving it is asynchronous, so it cannot be a memo.
+   */
+  const [crossCheckPosition, setCrossCheckPosition] = useState<CrossCheckPosition | null>(null);
+  /**
+   * The erroneous region for the current error, resolved once per error and kept beside it, so the
+   * panel's display and the apply guard always describe the same range (FR-017). `null` when no
+   * position could be determined, which the panel reports and the guard refuses on (FR-020).
+   */
+  const formatErrorRegion = useMemo(
+    () =>
+      formatError
+        ? resolveErrorRegion(formatError, formatError.sourceSql, crossCheckPosition)
+        : null,
+    [formatError, crossCheckPosition]
+  );
   const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
   const settings = useAppStore((s) => s.settings);
   const t = getT(settings.locale);
@@ -83,8 +103,18 @@ export default function SmartSQLEditorPage() {
     setHydrated(true);
   }, []);
 
-  /** A new failure replaces the previous report and forces the panel open (FR-003, edge case). */
-  const handleFormatError = useCallback((error: FormatError) => {
+  /**
+   * A new failure replaces the previous report and forces the panel open (FR-003, edge case).
+   *
+   * When the formatter named no position, the cross-check parser is the only thing that can anchor
+   * a region (FR-019). The error and its position are set together after the await, so a position
+   * can never be shown against a different statement than the one it was measured on.
+   */
+  const handleFormatError = useCallback(async (error: FormatError) => {
+    const position = error.location
+      ? null
+      : await locateSyntaxError(error.sourceSql, error.dialect);
+    setCrossCheckPosition(position);
     setFormatError(error);
     setIsErrorPanelOpen(true);
   }, []);
@@ -137,26 +167,46 @@ export default function SmartSQLEditorPage() {
   );
 
   /**
-   * Applies a confirmed AI fix: replaces the editor SQL, re-formats it for consistency with the
-   * success flow, and clears the report. Falls back to the raw proposal when the final re-format
-   * unexpectedly fails, so a confirmed fix is never lost.
+   * Applies a confirmed AI fix. The guard decides: only a change contained in the captured erroneous
+   * region is spliced into the editor, so a model that rewrote more than the error is refused
+   * instead of replacing the document (FR-017 / FR-018). The spliced SQL is re-formatted for
+   * consistency with the success flow, falling back to the spliced text when that unexpectedly
+   * fails, so a confirmed fix is never lost.
    */
   const handleApplyFormatFix = useCallback(
-    (sql: string) => {
-      const language = toFormatterLanguage(formatError?.dialect ?? 'mysql');
-      let applied = sql;
+    (proposedSql: string) => {
+      const error = formatError;
+      if (!error) return;
+
+      const result = applyFormatFix({
+        snapshotSql: error.sourceSql,
+        currentSql,
+        proposedSql,
+        region: formatErrorRegion,
+      });
+      // Refused: nothing is written and no success is claimed. The panel surfaces the reason and
+      // offers a corrected proposal (FR-018, FR-020).
+      if (!result.ok) return;
+
+      const language = toFormatterLanguage(error.dialect);
+      // The formatter is a validity check here, not a rewriter: it decides whether the spliced
+      // statement parses, and the text committed is the spliced statement itself. Formatting the
+      // whole statement would restyle the lines around the error, which an apply must not touch
+      // (FR-017).
       try {
-        applied = format(sql, { language });
+        format(result.sql, { language });
       } catch {
-        // Keep the user's confirmed proposal; the panel already validated a re-format.
+        // The spliced statement is still unparseable. Committing it would put broken SQL in the
+        // editor, so nothing is written and the proposal counts as invalid (contract §4 / FR-010).
+        return;
       }
-      editorApiRef.current?.setSql(applied);
-      setCurrentSql(applied);
+      editorApiRef.current?.setSql(result.sql);
+      setCurrentSql(result.sql);
       setFormatError(null);
       setIsErrorPanelOpen(false);
       toast.success(t.formatErrorPanelFixApplied);
     },
-    [formatError?.dialect, t]
+    [formatError, formatErrorRegion, currentSql, t]
   );
 
   /** Dismissing a proposal keeps the editor untouched (FR-010) and reports it via toast. */
@@ -237,6 +287,7 @@ export default function SmartSQLEditorPage() {
                   error={formatError}
                   isOpen={isErrorPanelOpen}
                   onToggle={setIsErrorPanelOpen}
+                  region={formatErrorRegion}
                   currentSql={currentSql}
                   onRequestExplain={handleRequestExplain}
                   onRequestFix={handleRequestFix}

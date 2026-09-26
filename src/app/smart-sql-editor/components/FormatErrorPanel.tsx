@@ -12,7 +12,7 @@
  * explanation plus root cause; Fix renders a minimal correction that is applied only on explicit
  * confirmation, and is refused outright once the editor SQL has moved on (FR-010 / FR-016).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Bug,
@@ -31,6 +31,8 @@ import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
+import type { ErrorRegion } from '@/lib/sql/formatErrorRegion';
+import { applyFormatFix, extractChange } from '@/lib/sql/formatFixScope';
 import {
   FormatAiError,
   isStale,
@@ -43,6 +45,8 @@ export interface FormatErrorPanelProps {
   error: FormatError;
   isOpen: boolean;
   onToggle: (isOpen: boolean) => void;
+  /** The erroneous region the page resolved, or `null`/absent when none could be determined. */
+  region?: ErrorRegion | null;
   /**
    * Live editor SQL, used for the stale-proposal check (FR-016). Optional so the panel still
    * renders in isolation; when absent the stale gate is skipped.
@@ -129,6 +133,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   error: rawError,
   isOpen,
   onToggle,
+  region,
   currentSql,
   onRequestExplain,
   onRequestFix,
@@ -155,10 +160,23 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   /** The SQL the proposal was generated from — the basis of the stale comparison. */
   const [fixSnapshotSql, setFixSnapshotSql] = useState<string | null>(null);
   const [proposedSql, setProposedSql] = useState<string | null>(null);
+  /** Why the last Apply was refused; `null` while the proposal is simply not applied yet. */
+  const [refusalReason, setRefusalReason] = useState<'out-of-range' | null>(null);
+  /** The character range the last accepted apply actually wrote, for the audit line (FR-017). */
+  const [appliedRange, setAppliedRange] = useState<{
+    startOffset: number;
+    endOffset: number;
+  } | null>(null);
   const [fixPhase, setFixPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [fixFailure, setFixFailure] = useState<FormatAiFailureKind>('error');
   /** Brief "copied" feedback on the proposed-fix copy button, reset after a short delay. */
   const [fixCopied, setFixCopied] = useState(false);
+  /** The retry control a refusal points at, so focus lands where the user can act (FR-018). */
+  const refusalRetryRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (refusalReason) refusalRetryRef.current?.focus();
+  }, [refusalReason]);
 
   // A new format error invalidates every previous AI result, so nothing stale can be applied to
   // the wrong diagnostic (spec edge case: "the panel reopens/refreshes with the latest error").
@@ -172,6 +190,43 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   }, [error]);
 
   /** True once the editor SQL diverged from the SQL the proposal was built from (FR-016). */
+  /**
+   * The proposal's own delta against the SQL it was given, used to render the two diff sides so the
+   * changed run is marked on each of them (FR-010).
+   */
+  const proposalChange = useMemo(() => {
+    if (proposedSql === null || fixSnapshotSql === null) return null;
+    return extractChange(fixSnapshotSql, proposedSql);
+  }, [proposedSql, fixSnapshotSql]);
+
+  /**
+   * One side of the diff, with its changed run marked. `kind` selects which run of the change that
+   * side carries: the original shows what it loses, the proposal shows what it gains. The cut after
+   * the run is expressed in each side's own coordinates, because a replacement makes them differ.
+   */
+  const diffSide = (text: string | null, kind: 'removed' | 'added'): React.ReactNode => {
+    if (text === null || proposalChange === null) return text;
+    const run = kind === 'removed' ? proposalChange.originalFragment : proposalChange.replacement;
+    const tailStart =
+      kind === 'removed' ? proposalChange.endOffset : proposalChange.startOffset + run.length;
+    return (
+      <>
+        {text.slice(0, proposalChange.startOffset)}
+        <span
+          data-diff={kind}
+          className={
+            kind === 'removed'
+              ? 'rounded bg-danger/20 px-0.5 text-danger line-through'
+              : 'rounded bg-success/20 px-0.5 text-success'
+          }
+        >
+          {run}
+        </span>
+        {text.slice(tailStart)}
+      </>
+    );
+  };
+
   const proposalIsStale = useMemo(() => {
     if (proposedSql === null || fixSnapshotSql === null) return false;
     if (currentSql === undefined) return false;
@@ -210,11 +265,29 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     // Defence in depth: the Apply control is hidden while stale, and this guard makes applying a
     // stale proposal impossible even if some other path calls it (FR-016).
     if (!proposedSql || proposalIsStale) return;
+    // The panel asks the same guard the page does, so the verdict is shown where the user is
+    // looking instead of vanishing silently (FR-018). With no region there is nothing to bound the
+    // change against — that case is reported by its own state; the page's guard still refuses the
+    // write, so nothing unsafe reaches the editor.
+    if (region) {
+      const result = applyFormatFix({
+        snapshotSql: fixSnapshotSql ?? error.sourceSql,
+        currentSql: currentSql ?? fixSnapshotSql ?? error.sourceSql,
+        proposedSql,
+        region,
+      });
+      if (!result.ok) {
+        if (result.reason === 'out-of-range') setRefusalReason('out-of-range');
+        return;
+      }
+      setAppliedRange(result.appliedRange);
+    }
+    setRefusalReason(null);
     onApplyFix?.(proposedSql);
     setProposedSql(null);
     setFixSnapshotSql(null);
     setFixPhase('idle');
-  }, [proposedSql, proposalIsStale, onApplyFix]);
+  }, [proposedSql, proposalIsStale, fixSnapshotSql, error, currentSql, region, onApplyFix]);
 
   const handleDismissFix = useCallback(() => {
     setProposedSql(null);
@@ -254,8 +327,8 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     return t.formatErrorPanelOffsetValue.replace('{offset}', String(offset));
   };
 
-  // Collapsed: a slim icon-only tab docked to the right edge; the label expands on hover. Positioned
-  // in a fixed vertical stack below the other right-edge tabs so the controls never overlap.
+  // Collapsed: a slim icon-only tab docked to the right edge, sitting just below the Optimize tab so
+  // the two launchers read as one pair either side of the viewport's middle and never overlap.
   if (!isOpen) {
     return (
       <button
@@ -263,7 +336,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         onClick={() => onToggle(true)}
         aria-label={t.formatErrorPanelOpen}
         aria-expanded={false}
-        className="group fixed right-0 top-[calc(50%_+_8.25rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-danger/40 bg-card px-2.5 py-2 text-danger shadow-lg transition-all duration-200 group-hover:gap-2 hover:bg-muted hover:pr-3"
+        className="group fixed right-0 top-[calc(50%_+_1.5rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-danger/40 bg-card px-2.5 py-2 text-danger shadow-lg transition-all duration-200 group-hover:gap-2 hover:bg-muted hover:pr-3"
       >
         <CircleAlert size={16} className="shrink-0" aria-hidden="true" />
         <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
@@ -345,6 +418,21 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 {t.formatErrorPanelLocationLabel}
               </h3>
               <p className="font-mono text-xs text-foreground">{renderPosition()}</p>
+              {region && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{t.formatErrorRegionLabel}</span>{' '}
+                  <span className="font-mono">
+                    {region.startLine === region.endLine
+                      ? `${region.startLine}`
+                      : `${region.startLine}-${region.endLine}`}
+                  </span>{' '}
+                  <span>
+                    {region.source === 'ast-parser'
+                      ? t.formatErrorRegionSourceAstParser
+                      : t.formatErrorRegionSourceFormatter}
+                  </span>
+                </p>
+              )}
               {error.snippet && (
                 <div className="mt-2">
                   <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -481,7 +569,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                         {t.formatErrorPanelFixBeforeLabel}
                       </h4>
                       <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-2 font-mono text-xs text-foreground scrollbar-thin scrollbar-thumb-rounded">
-                        {fixSnapshotSql ?? error.sourceSql}
+                        {diffSide(fixSnapshotSql, 'removed')}
                       </pre>
                     </div>
                     <div>
@@ -505,20 +593,53 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                         </button>
                       </div>
                       <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-success/40 bg-success/5 p-2 font-mono text-xs text-foreground scrollbar-thin scrollbar-thumb-rounded">
-                        {proposedSql}
+                        {diffSide(proposedSql, 'added')}
                       </pre>
                     </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleApplyFix}
-                      className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Sparkles size={12} aria-hidden="true" />
-                      {t.formatErrorPanelApplyFix}
-                    </button>
+                    {refusalReason === 'out-of-range' ? (
+                      <>
+                        {/* Refused by the region guard: say so and offer another proposal (FR-018). */}
+                        <p
+                          role="alert"
+                          className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+                        >
+                          {t.formatErrorPanelFixOutOfRange}
+                        </p>
+                        <button
+                          type="button"
+                          ref={refusalRetryRef}
+                          onClick={handleFix}
+                          className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <RefreshCw size={12} aria-hidden="true" />
+                          {t.formatErrorPanelRetry}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {/* No region means nothing bounds the change: say so and disable Apply (FR-020). */}
+                        {!region && (
+                          <p
+                            role="alert"
+                            className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+                          >
+                            {t.formatErrorPanelFixNoRegion}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleApplyFix}
+                          disabled={!region}
+                          className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Sparkles size={12} aria-hidden="true" />
+                          {t.formatErrorPanelApplyFix}
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={handleDismissFix}
@@ -530,6 +651,13 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 </>
               )}
             </section>
+          )}
+
+          {/* The audit line outlives the proposal it describes: it records what was written (FR-017). */}
+          {appliedRange && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t.formatErrorPanelAppliedRange}: {appliedRange.startOffset}-{appliedRange.endOffset}
+            </p>
           )}
         </div>
       </aside>

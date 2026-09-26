@@ -164,7 +164,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         type="button"
         onClick={onOpen}
         aria-label={t.smartEditorOptimizeModalTitle}
-        className="group fixed right-0 top-[calc(50%_+_5.5rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-primary bg-primary px-2.5 py-2 text-primary-foreground shadow-lg transition-all duration-200 group-hover:gap-2 hover:opacity-90 hover:pr-3"
+        className="group fixed right-0 top-[calc(50%_-_1.5rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-primary bg-primary px-2.5 py-2 text-primary-foreground shadow-lg transition-all duration-200 group-hover:gap-2 hover:opacity-90 hover:pr-3"
       >
         <Sparkles size={16} className="shrink-0" aria-hidden="true" />
         <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">

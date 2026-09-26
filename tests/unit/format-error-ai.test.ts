@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildExplainFormatErrorPrompt,
+  buildFormatFixPrompt,
   describeAiFailure,
   FormatAiError,
   parseFormatExplanation,
   requestFormatExplanation,
+  requestFormatFix,
 } from '@/lib/ai/formatErrorAi';
 import {
   jsonResponse,
@@ -13,6 +15,28 @@ import {
   throwingFetch,
   withStubbedFetch,
 } from './helpers/format-error-fixtures';
+
+describe('buildFormatFixPrompt', () => {
+  it('confines the correction to the quoted region', () => {
+    // A two-line query whose second line is the erroneous region, so the region text also appears
+    // in the embedded SQL: only a labelled quote proves the region itself was sent.
+    const sourceSql = 'SELECT id\nFROM (;';
+    const error = makeFormatError({ sourceSql, location: { offset: 15, line: 2, column: 6 } });
+
+    const prompt = buildFormatFixPrompt(error, {
+      startOffset: 10,
+      endOffset: 17,
+      startLine: 2,
+      endLine: 2,
+      source: 'formatter',
+      snippet: 'FROM (;',
+      anchorOffset: 15,
+    });
+
+    expect(prompt).toMatch(/erroneous region[^\n]*FROM \(;/i);
+    expect(prompt).toMatch(/confine every change to it/i);
+  });
+});
 
 describe('buildExplainFormatErrorPrompt', () => {
   it('embeds the exact error message, the dialect and the failing SQL (grounding)', () => {
@@ -168,6 +192,21 @@ describe('requestFormatExplanation', () => {
     expect(result.evidence).toEqual(['SELECT * FROM (;']);
   });
 
+  it('rejects an explanation whose evidence quotes SQL the editor never held', async () => {
+    // The answer is well formed but describes a different query, so presenting it would show the
+    // user a diagnosis of SQL that was never in the editor (FR-008).
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The join is missing its ON clause.',
+        rootCause: 'A table is joined without a condition.',
+        evidence: ['SELECT id FROM orders LEFT JOIN'],
+      })) as unknown as typeof fetch;
+
+    await expect(
+      withStubbedFetch(fetchImpl, () => requestFormatExplanation(makeFormatError(), config))
+    ).rejects.toMatchObject({ kind: 'malformed', retryable: true });
+  });
+
   it('rejects with a described unavailable failure when the model is unreachable', async () => {
     await expect(
       withStubbedFetch(throwingFetch(), () => requestFormatExplanation(makeFormatError(), config))
@@ -192,3 +231,32 @@ describe('requestFormatExplanation', () => {
     ).rejects.toMatchObject({ kind: 'malformed' });
   });
 });
+
+describe('request shape (FR-021)', () => {
+  const config = makeOllamaConfig();
+
+  it('issues a single non-streaming request for each request', async () => {
+    // One body that answers both contracts, so the same stub serves either call.
+    const calls: Array<{ body: Record<string, unknown> }> = [];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      calls.push({ body: JSON.parse(String(init.body)) });
+      return jsonResponse({
+        explanation: 'Unclosed parenthesis.',
+        rootCause: 'The delimiter arrives mid-expression.',
+        evidence: ['SELECT * FROM (;'],
+        correctedSql: 'SELECT * FROM (1);',
+      });
+    }) as unknown as typeof fetch;
+
+    await withStubbedFetch(fetchImpl, () => requestFormatExplanation(makeFormatError(), config));
+    await withStubbedFetch(fetchImpl, () => requestFormatFix(makeFormatError(), config));
+
+    // A streamed response would arrive in parts the parser cannot read, so the contract asks for
+    // the whole answer in one response and both requests must say so explicitly.
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.body).toMatchObject({ stream: false });
+    }
+  });
+});
+

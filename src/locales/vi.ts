@@ -1302,6 +1302,9 @@ const vi = {
   formatErrorPanelToggleCollapse: 'Thu gọn báo cáo lỗi',
   formatErrorPanelToggleExpand: 'Mở rộng báo cáo lỗi',
   formatErrorPanelSeverity: 'Lỗi',
+  formatErrorRegionLabel: 'Vùng lỗi',
+  formatErrorRegionSourceFormatter: 'do trình định dạng báo',
+  formatErrorRegionSourceAstParser: 'do bộ phân tích kiểm chéo báo',
   formatErrorPanelDialectLabel: 'Phương ngữ',
   formatErrorPanelOccurredAtLabel: 'Thời điểm',
   formatErrorPanelLocationLabel: 'Vị trí',
@@ -1340,6 +1343,11 @@ const vi = {
   formatErrorPanelFixDismissed: 'Đã bỏ qua cách sửa được đề xuất',
   formatErrorPanelFixNoChange:
     'Mô hình trả về đúng SQL cũ, nên không có gì để áp dụng.',
+  formatErrorPanelFixOutOfRange:
+    'Bản sửa này vượt ra ngoài vị trí lỗi nên chưa được áp dụng. Hãy yêu cầu một bản sửa cục bộ hơn.',
+  formatErrorPanelAppliedRange: 'Phạm vi ký tự đã áp dụng',
+  formatErrorPanelFixNoRegion:
+    'Không xác định được vị trí lỗi, nên không thể áp dụng bản sửa một cách an toàn.',
   formatErrorPanelEmptyQuery: 'Không có SQL để chẩn đoán.',
   formatErrorPanelResizeHandle: 'Thay đổi kích thước bảng báo cáo lỗi',
 
@@ -1439,7 +1447,7 @@ const vi = {
   // Homepage statistics
   homeStatDialectsValue: '4',
   homeStatDialectsLabel: 'Phương ngữ SQL được hỗ trợ',
-  homeStatFeaturesValue: '5',
+  homeStatFeaturesValue: '12',
   homeStatFeaturesLabel: 'Khả năng phân tích',
   homeStatWorkflowValue: '3',
   homeStatWorkflowLabel: 'Quy trình có hướng dẫn',
@@ -1465,7 +1473,28 @@ const vi = {
     'Gợi ý được hỗ trợ bởi AI để tối ưu hóa truy vấn của bạn và cải thiện hiệu suất',
   homeAiExplainerTitle: 'AI Diễn Giải SQL',
   homeAiExplainerDesc:
-    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu.',
+    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu — kèm đọc thành giọng nói bằng bộ chuyển văn bản thành giọng nói tích hợp.',
+  homeMyBatisTitle: 'Chuẩn hóa MyBatis XML',
+  homeMyBatisDesc:
+    'Giải thế tham số, dynamic SQL và các include của MyBatis thành một câu lệnh hoàn chỉnh trước khi phân tích.',
+  homeCteAnalysisTitle: 'CTE & nguồn gốc trường',
+  homeCteAnalysisDesc:
+    'Mở rộng mọi CTE và subquery, truy vết từng trường dữ liệu đến từ đâu, và phát hiện CTE thừa hoặc CTE đệ quy.',
+  homeSmartEditorTitle: 'SQL Editor thông minh',
+  homeSmartEditorDesc:
+    'Định dạng và kiểm tra SQL ngay khi gõ, kèm lint, điểm độ phức tạp và trình diễn giải AI ngay cạnh trình soạn.',
+  homeFormatErrorTitle: 'Chẩn đoán lỗi bằng AI',
+  homeFormatErrorDesc:
+    'Biến lỗi cú pháp hoặc dialect thành giải thích dễ hiểu kèm đề xuất sửa từ AI, áp dụng chỉ một cú nhấp.',
+  homeDatabaseAssistantTitle: 'Trợ lý AI cho Database',
+  homeDatabaseAssistantDesc:
+    'Đặt câu hỏi về tài liệu database của bạn và nhận câu trả lời dựa trên tài liệu được truy xuất (RAG).',
+  homeQueryHistoryTitle: 'Lịch sử truy vấn & tìm kiếm ngữ nghĩa',
+  homeQueryHistoryDesc:
+    'Truy vấn đã phân tích được lưu phía server và tìm kiếm theo ý nghĩa, không chỉ theo từ khoá — mở lại hoặc xoá ngay.',
+  homeDocsConsultantTitle: 'Trợ lý tài liệu',
+  homeDocsConsultantDesc:
+    'Chat riêng cho dự án, trả lời dựa trên guideline và tài liệu kèm trích dẫn nguồn.',
   homeReadyToAnalyzeTitle: 'Sẵn sàng để phân tích?',
   homeReadyToAnalyzeDesc:
     'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
@@ -1483,6 +1512,11 @@ const vi = {
   homePreviewTables: 'bảng được ánh xạ',
   homePreviewRecommendation: 'Khuyến nghị',
   homePreviewRecommendationText: 'Xem lại thao tác sắp xếp cuối và xác nhận các chỉ mục hỗ trợ.',
+
+  // Documentation pages (README + Confluence)
+  backToHome: 'Về trang chủ',
+  confluenceFooterNote: 'SQL Visualizer — tài liệu tính năng',
+  readmeFooterNote: 'SQL Visualizer — README dự án',
 
   // Authentication Panel
   authWorkspaceAccessTitle: 'Truy cập không gian làm việc',

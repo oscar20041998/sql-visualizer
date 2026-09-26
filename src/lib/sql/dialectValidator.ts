@@ -137,6 +137,86 @@ async function crossCheckWithAst(
 }
 
 /**
+ * Grammars `node-sql-parser` actually ships. `oracle` is absent on purpose: neither v5.4.0 nor
+ * v4.18.0 has a PL-SQL grammar (both throw "plsql is not supported currently"), so Oracle is
+ * never given a parser position (FR-019).
+ */
+const CROSS_CHECK_GRAMMARS: Partial<
+  Record<SqlDialect, 'mysql' | 'postgresql' | 'transactsql'>
+> = {
+  mysql: 'mysql',
+  postgresql: 'postgresql',
+  sqlserver: 'transactsql',
+};
+
+/**
+ * Where a position came from. `ast-parser` is a real grammar's verdict; `heuristic` is a structural
+ * scan standing in for a grammar that does not exist, and the region and prompt say so (FR-019).
+ */
+export interface SyntaxErrorPosition {
+  offset: number;
+  line: number;
+  column: number;
+  source: 'ast-parser' | 'heuristic';
+}
+
+/**
+ * Finds the single unclosed `(` in `sql`, if there is exactly one and no stray `)`.
+ *
+ * This is a structural scan, not a parser. It claims a position only when the imbalance points at
+ * one character, and stays silent otherwise: a guessed position would anchor a correction to a line
+ * the user never broke, which is worse than admitting the position is unknown (FR-020).
+ */
+function scanForUnclosedParen(sql: string): SyntaxErrorPosition | null {
+  const openOffsets: number[] = [];
+  for (let index = 0; index < sql.length; index += 1) {
+    if (sql[index] === '(') {
+      openOffsets.push(index);
+    } else if (sql[index] === ')') {
+      // A ')' with nothing open points at no delimiter, so nothing here is certain.
+      if (openOffsets.length === 0) return null;
+      openOffsets.pop();
+    }
+  }
+  // Balanced (0) is not an error; more than one leftover '(' leaves several candidates.
+  if (openOffsets.length !== 1) return null;
+
+  const offset = openOffsets[0];
+  const lineStart = sql.lastIndexOf('\n', offset - 1) + 1;
+  return {
+    offset,
+    line: sql.slice(0, offset).split('\n').length,
+    column: offset - lineStart + 1,
+    source: 'heuristic',
+  };
+}
+
+/**
+ * Asks the cross-check parser where `sql` stops being valid, for the dialects that have a grammar.
+ * Resolves `null` when the statement parses, when the dialect has no grammar, or when the parser
+ * cannot run — a missing position must never become a fabricated one (FR-020).
+ */
+export async function locateSyntaxError(
+  sql: string,
+  dialect: SqlDialect
+): Promise<SyntaxErrorPosition | null> {
+  const grammar = CROSS_CHECK_GRAMMARS[dialect];
+  // Oracle has no grammar in any available version, so a labelled structural scan stands in for it.
+  if (!grammar) return dialect === 'oracle' ? scanForUnclosedParen(sql) : null;
+  try {
+    const { Parser } = await import('node-sql-parser');
+    new Parser().astify(sql, { database: grammar });
+    return null;
+  } catch (error) {
+    const start = (error as { location?: { start?: Omit<SyntaxErrorPosition, 'source'> } })
+      .location?.start;
+    return start
+      ? { offset: start.offset, line: start.line, column: start.column, source: 'ast-parser' }
+      : null;
+  }
+}
+
+/**
  * Checks whether `sql` looks like it was written for `selectedDialect`.
  * Returns any detected mismatches so the caller can warn the user before analysing.
  */

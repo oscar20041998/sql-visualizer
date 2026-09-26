@@ -11,6 +11,7 @@ import { generateWithAI } from './aiService';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale } from '@/lib/i18n';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
+import type { ErrorRegion } from '@/lib/sql/formatErrorRegion';
 
 /** How an AI request failed, so the panel can pick a message and a retry affordance. */
 export type FormatAiFailureKind = 'unavailable' | 'malformed' | 'error';
@@ -115,18 +116,27 @@ Both "explanation" and "rootCause" must be non-empty, and "evidence" must contai
  * Fix prompt (contract §3 / FR-015). The minimal-change constraint is stated as an explicit list so
  * a small local model cannot read it as "rewrite the query".
  */
-export function buildFormatFixPrompt(error: FormatError): string {
+export function buildFormatFixPrompt(error: FormatError, region?: ErrorRegion | null): string {
+  // When a region was resolved the prompt quotes it and names the confinement rule, so a small
+  // local model is told where the correction may happen instead of being trusted to stay there
+  // (FR-019). The guard enforces it either way; the prompt only reduces rejected proposals.
+  const regionBlock = region
+    ? `\nErroneous region (lines ${region.startLine}-${region.endLine}, from the ${region.source}): ${region.snippet}\n`
+    : '';
+  const confinementRule = region
+    ? '- Change ONLY the erroneous region quoted above. Every character you change must be inside it, and you must return the rest of the query byte for byte. Confine every change to it.\n'
+    : '';
+
   return `A SQL formatter failed to parse a query. Correct ONLY the syntax error so the formatter can parse it.
 
-${groundingBlock(error)}
-
+${groundingBlock(error)}${regionBlock}
 SQL that failed to format:
 \`\`\`sql
 ${fitSqlForPrompt(error.sourceSql)}
 \`\`\`
 
 Make the minimal correction:
-- Fix only the offending syntax. Change as few characters as possible.
+${confinementRule}- Fix only the offending syntax. Change as few characters as possible.
 - Do NOT change, add, or remove any clause, table, column, alias, join, filter, or expression.
 - Do NOT reorder anything. Keep the original statement order exactly.
 - Do NOT reformat, re-indent, or add comments. Do NOT change keywords to upper/lower case.
@@ -300,8 +310,22 @@ async function runRequest(
 }
 
 /**
+ * True when at least one evidence item quotes the captured SQL or the formatter's own message.
+ * Line breaks and indentation are ignored, because a model re-wraps a quote it read correctly, but
+ * wording it could only have invented is rejected (FR-008, contract §Explain).
+ */
+function isGroundedInError(explanation: FormatExplanation, error: FormatError): boolean {
+  const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
+  const sources = [normalize(error.sourceSql), normalize(error.message)];
+  return explanation.evidence.some((item) => {
+    const quoted = normalize(item);
+    return quoted.length > 0 && sources.some((source) => source.includes(quoted));
+  });
+}
+
+/**
  * Asks the local model to explain a format error. Rejects with a {@link FormatAiError} carrying a
- * renderable state — never resolves with a partial or empty explanation (FR-012).
+ * renderable state — never resolves with a partial, empty or ungrounded explanation (FR-012).
  */
 export async function requestFormatExplanation(
   error: FormatError,
@@ -314,7 +338,9 @@ export async function requestFormatExplanation(
     EXPLAIN_MAX_TOKENS
   );
   const parsed = parseFormatExplanation(raw);
-  if (!parsed) {
+  // A well-formed answer about SQL the editor never held is the one failure a structure check
+  // cannot see, and rendering it would put a fabricated diagnosis in front of the user.
+  if (!parsed || !isGroundedInError(parsed, error)) {
     throw new FormatAiError({
       kind: 'malformed',
       message:

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
+import ThemeProvider from '@/components/ThemeProvider';
+import LanguageThemeSwitch from '@/components/ui/LanguageThemeSwitch';
 import { getT } from '@/lib/i18n';
 import { isDemoAuthenticated } from '@/lib/demoAuth';
 import {
@@ -11,6 +13,11 @@ import {
   BarChart3,
   Network,
   Sparkles,
+  FileCode,
+  GitFork,
+  Code2,
+  History,
+  MessagesSquare,
   ArrowUpRight,
   ShieldAlert,
   Table2,
@@ -24,6 +31,13 @@ import {
 
 const FocusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
+/**
+ * Platform-wide capabilities that are not a feature card of their own. Deliberately
+ * language-neutral (locale pairs, theme modes, provider and engine names) so the row needs no
+ * translations.
+ */
+const PLATFORM_CHIPS = ['EN / VI', 'Light / Dark', 'Google + Microsoft OAuth', 'Piper TTS'];
 
 const FeatureCard = ({
   icon,
@@ -104,8 +118,12 @@ export default function HomePage() {
     router.push('/confluence');
   };
 
+  // ThemeProvider applies the selected light/dark theme to <html>; LanguageThemeSwitch (header)
+  // writes both preferences, and the selected language also picks the /confluence documentation
+  // variant.
   return (
     <div id="top" className="relative min-h-screen bg-background overflow-hidden">
+      <ThemeProvider />
       {/* Grid pattern overlay */}
       <div
         aria-hidden="true"
@@ -191,6 +209,7 @@ export default function HomePage() {
               </nav>
 
               <div className="flex items-center gap-3">
+                <LanguageThemeSwitch />
                 <button
                   onClick={handleGetStarted}
                   className={`hidden md:inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground bg-gradient-to-r from-primary to-accent shadow-md shadow-primary/20 transition-opacity hover:opacity-90 ${FocusRing}`}
@@ -491,29 +510,82 @@ export default function HomePage() {
               delay={100}
             />
             <FeatureCard
+              icon={<FileCode className="w-6 h-6" />}
+              title={t.homeMyBatisTitle}
+              description={t.homeMyBatisDesc}
+              delay={140}
+            />
+            <FeatureCard
+              icon={<GitFork className="w-6 h-6" />}
+              title={t.homeCteAnalysisTitle}
+              description={t.homeCteAnalysisDesc}
+              delay={180}
+            />
+            <FeatureCard
               icon={<Network className="w-6 h-6" />}
               title={t.homeRelationshipMappingTitle}
               description={t.homeRelationshipMappingDesc}
-              delay={150}
+              delay={220}
             />
             <FeatureCard
               icon={<BarChart3 className="w-6 h-6" />}
               title={t.homeMetricsDashboardTitle}
               description={t.homeMetricsDashboardDesc}
-              delay={200}
+              delay={260}
             />
             <FeatureCard
-              icon={<Zap className="w-6 h-6" />}
-              title={t.homeSmartRecommendationsTitle}
-              description={t.homeSmartRecommendationsDesc}
-              delay={250}
+              icon={<Code2 className="w-6 h-6" />}
+              title={t.homeSmartEditorTitle}
+              description={t.homeSmartEditorDesc}
+              delay={300}
             />
             <FeatureCard
               icon={<Sparkles className="w-6 h-6" />}
               title={t.homeAiExplainerTitle}
               description={t.homeAiExplainerDesc}
-              delay={300}
+              delay={340}
             />
+            <FeatureCard
+              icon={<Zap className="w-6 h-6" />}
+              title={t.homeSmartRecommendationsTitle}
+              description={t.homeSmartRecommendationsDesc}
+              delay={380}
+            />
+            <FeatureCard
+              icon={<ShieldAlert className="w-6 h-6" />}
+              title={t.homeFormatErrorTitle}
+              description={t.homeFormatErrorDesc}
+              delay={420}
+            />
+            <FeatureCard
+              icon={<MessagesSquare className="w-6 h-6" />}
+              title={t.homeDatabaseAssistantTitle}
+              description={t.homeDatabaseAssistantDesc}
+              delay={460}
+            />
+            <FeatureCard
+              icon={<History className="w-6 h-6" />}
+              title={t.homeQueryHistoryTitle}
+              description={t.homeQueryHistoryDesc}
+              delay={500}
+            />
+            <FeatureCard
+              icon={<BookOpen className="w-6 h-6" />}
+              title={t.homeDocsConsultantTitle}
+              description={t.homeDocsConsultantDesc}
+              delay={540}
+            />
+          </div>
+
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
+            {PLATFORM_CHIPS.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full border border-border/70 bg-card/60 px-4 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                {chip}
+              </span>
+            ))}
           </div>
         </section>
 

@@ -11,7 +11,14 @@ const COLOR_PRESETS: Record<string, { dark: string; light: string }> = {
   '#f472b6': { dark: '#f472b6', light: '#c5192d' }, // pink -> red
 };
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
+/**
+ * Applies the stored theme (and accent color) to <html> for the public pages that are not wrapped
+ * in AppLayout — currently the home page and the /confluence documentation page.
+ *
+ * It renders no markup of its own, so it can be placed anywhere in those pages' trees; it mirrors
+ * the effect AppLayout runs for post-login pages (see specs/006-login-ui-redesign, R2).
+ */
+export default function ThemeProvider({ children }: { children?: React.ReactNode }) {
   const { settings } = useAppStore();
 
   useEffect(() => {
@@ -21,11 +28,15 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     const colorMap = COLOR_PRESETS[selectedColor] || COLOR_PRESETS['#6ee7f7'];
     const primaryColor = isDark ? colorMap.dark : colorMap.light;
 
-    // Apply theme class
+    // Apply theme class. Both classes are set explicitly because Tailwind uses `darkMode: 'class'`:
+    // without the `dark` class the `dark:` utilities stay inactive, and without `light` the
+    // light tokens never override the dark ones declared on `:root`.
     if (isDark) {
+      root.classList.add('dark');
       root.classList.remove('light');
     } else {
       root.classList.add('light');
+      root.classList.remove('dark');
     }
 
     // Apply primary color

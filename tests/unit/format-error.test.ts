@@ -47,6 +47,16 @@ describe('captureFormatError', () => {
     expect(error.snippet).toBeTruthy();
   });
 
+  it('records the formatter as the location source when a position is derivable (FR-019)', () => {
+    const sql = 'SELECT *\nFROM users\nWHERE id = (;';
+    const thrown = new Error('Parse error at token: ;');
+    (thrown as Error & { offset?: number }).offset = sql.indexOf(';');
+
+    const error = captureFormatError(thrown, { sourceSql: sql, dialect: 'mysql' });
+
+    expect(error.locationSource).toBe('formatter');
+  });
+
   it('omits the location and the snippet when the formatter gives no usable position', () => {
     // A non-`Error` throw carries neither `offset` nor a parseable `line N column M`.
     const error = captureFormatError('formatter exploded', {
@@ -57,6 +67,16 @@ describe('captureFormatError', () => {
     expect(error.location).toBeUndefined();
     expect(error.snippet).toBeUndefined();
     expect(error.message).toBe('formatter exploded');
+  });
+
+  it('omits the location source together with the location when no position is derivable (FR-019)', () => {
+    const error = captureFormatError('formatter exploded', {
+      sourceSql: "SELECT * FROM users WHERE name = 'abc;",
+      dialect: 'mysql',
+    });
+
+    expect(error.location).toBeUndefined();
+    expect(error.locationSource).toBeUndefined();
   });
 
   it('never fabricates a location when the message has no line/column', () => {

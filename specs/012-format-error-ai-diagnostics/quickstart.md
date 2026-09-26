@@ -40,11 +40,13 @@ Navigate to the Smart SQL Editor.
 1. With an error open, click **Explain**.
 2. Expect: a loading state, then a plain-language explanation + root cause that references the actual SQL/error.
 
-### S5 — Fix with review-before-apply (FR-009/010/015, SC-005)
+### S5 — Fix with review-before-apply, applied only inside the error region (FR-009/010/015/017, SC-005)
 1. With an error open, click **Fix**.
-2. Expect: a side-by-side before/after diff of the corrected SQL.
-3. Click **Apply** → editor shows the corrected SQL and re-formatting succeeds.
-4. Repeat and **Dismiss** → the original SQL is untouched.
+2. Expect: a side-by-side before/after diff of the corrected SQL, and the panel naming the region it is allowed to change.
+3. Click **Apply**.
+4. Expect: **only** the erroneous region changed — diff the editor text against the pre-apply text and confirm every character outside the region is identical; the panel reports the applied range.
+5. Click **Format SQL** → it now succeeds.
+6. Repeat and **Dismiss** → the original SQL is untouched.
 
 ### S6 — Stale proposal (FR-016)
 1. Request a fix, then edit the SQL in the editor before applying.
@@ -54,3 +56,31 @@ Navigate to the Smart SQL Editor.
 1. Stop Ollama (or use an unreachable base URL).
 2. Request **Explain**/**Fix**.
 3. Expect: an actionable unavailable/retry state, no silent failure, no cloud fallback.
+
+### S8 — Proposal reaching beyond the region is rejected (FR-018)
+1. Request a fix where the model also reformats unrelated parts of the query (a local model that rewrites the whole file reproduces this; otherwise stub `aiService` in a test).
+2. Expect: the panel reports the proposal as out-of-range, **Apply** writes nothing, the editor stays byte-identical, and a "request a corrected proposal" affordance is offered.
+
+### S9 — Region resolved by the AST cross-check fallback (FR-019)
+1. Use a query whose formatter failure carries no usable position (e.g. an unterminated string literal) — the panel shows no line/column.
+2. Click **Fix**.
+3. Expect: the panel resolves a region from the AST cross-check parser, names it, and the request is grounded with the parser's findings.
+
+### S10 — No region can be determined (FR-020)
+1. Reproduce a failure where neither parser reports a position (unit test: a thrown non-`Error` value is the deterministic path).
+2. Click **Fix**.
+3. Expect: the panel states that the erroneous region cannot be determined, **Apply** is unavailable, **Explain** still works, and a new proposal can be requested.
+
+### S11 — One complete response, explicit loading states (FR-021)
+1. Request **Explain**/**Fix** and watch the panel.
+2. Expect: a loading state, then the complete result rendered at once; the page never reloads.
+
+### S12 — On-device request, no browser credential (FR-011/FR-014, SC-007)
+1. Inspect the network tab while requesting **Explain**/**Fix**.
+2. Expect: requests target the configured local Ollama endpoint only, no cloud host is contacted, and no credential is stored in or sent from the browser.
+
+## Measurements (SC-001 / SC-004 / SC-005)
+
+- **SC-001 (<1s to panel)**: time the Format click → panel open, excluding AI.
+- **SC-004 (<30s explanation)**: time **Explain** → rendered result on the local machine.
+- **SC-005 (≥70% of common syntax errors fixed by the first proposal)**: not automatable yet — a per-dialect fixture corpus plus a repeatable measurement task is carried into `/speckit-tasks`. Until that harness exists, record a manual spot-check and treat SC-005 as unverified.

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isDemoAuthenticated } from '@/lib/demoAuth';
 import SignInPage from '@/components/auth/SignInPage';
+import ThemeProvider from '@/components/ThemeProvider';
 
 /**
  * /login route (specs/006-login-ui-redesign, FR-012).
@@ -21,5 +22,10 @@ export default function LoginPage() {
   // Gate pattern from query-input: render nothing while redirecting.
   if (isDemoAuthenticated()) return null;
 
-  return <SignInPage />;
+  return (
+    <>
+      <ThemeProvider />
+      <SignInPage />
+    </>
+  );
 }

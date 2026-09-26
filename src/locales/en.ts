@@ -1301,6 +1301,9 @@ const en = {
   formatErrorPanelToggleCollapse: 'Collapse error report',
   formatErrorPanelToggleExpand: 'Expand error report',
   formatErrorPanelSeverity: 'Error',
+  formatErrorRegionLabel: 'Erroneous region',
+  formatErrorRegionSourceFormatter: 'reported by the formatter',
+  formatErrorRegionSourceAstParser: 'reported by the cross-check parser',
   formatErrorPanelDialectLabel: 'Dialect',
   formatErrorPanelOccurredAtLabel: 'Reported at',
   formatErrorPanelLocationLabel: 'Location',
@@ -1339,6 +1342,11 @@ const en = {
   formatErrorPanelFixDismissed: 'Suggested fix dismissed',
   formatErrorPanelFixNoChange:
     'The model returned the same SQL, so there is nothing to apply.',
+  formatErrorPanelFixOutOfRange:
+    'This correction reaches beyond the error location, so it was not applied. Ask for a more local one.',
+  formatErrorPanelAppliedRange: 'Applied character range',
+  formatErrorPanelFixNoRegion:
+    'No error location could be determined, so a correction cannot be applied safely.',
   formatErrorPanelEmptyQuery: 'There is no SQL to diagnose.',
   formatErrorPanelResizeHandle: 'Resize the error report panel',
 
@@ -1438,7 +1446,7 @@ const en = {
   // Homepage statistics
   homeStatDialectsValue: '4',
   homeStatDialectsLabel: 'SQL dialects supported',
-  homeStatFeaturesValue: '5',
+  homeStatFeaturesValue: '12',
   homeStatFeaturesLabel: 'Analysis capabilities',
   homeStatWorkflowValue: '3',
   homeStatWorkflowLabel: 'Step guided workflow',
@@ -1466,7 +1474,28 @@ const en = {
     'AI-powered suggestions to optimize your queries and improve performance',
   homeAiExplainerTitle: 'AI SQL Explainer',
   homeAiExplainerDesc:
-    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables.',
+    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables — and read any insight aloud with the built-in text-to-speech.',
+  homeMyBatisTitle: 'MyBatis XML Normalization',
+  homeMyBatisDesc:
+    'Resolve MyBatis parameters, dynamic SQL and includes into one executable statement before the analysis ever starts.',
+  homeCteAnalysisTitle: 'CTE & Field Origin',
+  homeCteAnalysisDesc:
+    'Unfold every CTE and subquery, trace where each field comes from, and spot unused or recursive CTEs.',
+  homeSmartEditorTitle: 'Smart SQL Editor',
+  homeSmartEditorDesc:
+    'Format and validate SQL while you type, with linting, complexity feedback and the AI explainer right next to the editor.',
+  homeFormatErrorTitle: 'AI Error Diagnostics',
+  homeFormatErrorDesc:
+    'Turn a syntax or dialect error into a plain explanation plus an AI-proposed fix you can apply in one click.',
+  homeDatabaseAssistantTitle: 'Database AI Assistant',
+  homeDatabaseAssistantDesc:
+    'Ask questions about your database manuals and get answers grounded in retrieved documentation (RAG).',
+  homeQueryHistoryTitle: 'Query History & Semantic Search',
+  homeQueryHistoryDesc:
+    'Analysed queries are stored server-side and searchable by meaning, not just keywords — reopen or remove them in one click.',
+  homeDocsConsultantTitle: 'Docs Consultant Chat',
+  homeDocsConsultantDesc:
+    'A project-specific chat that answers from the app guidelines and documentation, with the source passages attached.',
   homeReadyToAnalyzeTitle: 'Ready to analyze?',
   homeReadyToAnalyzeDesc:
     'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',
@@ -1484,6 +1513,11 @@ const en = {
   homePreviewTables: 'tables mapped',
   homePreviewRecommendation: 'Recommendation',
   homePreviewRecommendationText: 'Review the final sort operation and confirm supporting indexes.',
+
+  // Documentation pages (README + Confluence)
+  backToHome: 'Back to Home',
+  confluenceFooterNote: 'SQL Visualizer — feature documentation',
+  readmeFooterNote: 'SQL Visualizer — project README',
 
   // Authentication Panel
   authWorkspaceAccessTitle: 'Workspace access',

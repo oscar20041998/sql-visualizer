@@ -31,6 +31,12 @@ export interface FormatError {
   dialect: SqlFormatDialect;
   /** Absent when the formatter reported no usable position. */
   location?: FormatErrorLocation;
+  /**
+   * Which parser supplied `location` (FR-019). The formatter is the primary source; the AST
+   * cross-check parser fills in when it reports none. Absent exactly when `location` is, so a
+   * position is never attributed to a parser that did not produce it.
+   */
+  locationSource?: 'formatter' | 'ast-parser';
   /** SQL window around the location. Absent whenever `location` is absent. */
   snippet?: string;
   /** The full SQL that failed to format — the grounding source for the AI actions. */
@@ -104,7 +110,7 @@ function lineColumnFromOffset(source: string, offset: number): { line: number; c
 }
 
 /** Character index for a 1-based line/column pair, clamped into range. */
-function offsetFromLineColumn(source: string, line: number, column: number): number {
+export function offsetFromLineColumn(source: string, line: number, column: number): number {
   const lines = source.split('\n');
   const targetLine = Math.max(1, Math.min(line, lines.length));
   let offset = 0;
@@ -172,7 +178,7 @@ export function captureFormatError(
   return {
     message: toReadableMessage(readRawMessage(thrown)),
     dialect,
-    ...(hasLocation ? { location } : {}),
+    ...(hasLocation ? { location, locationSource: 'formatter' as const } : {}),
     ...(snippet ? { snippet } : {}),
     sourceSql,
     severity: 'error',

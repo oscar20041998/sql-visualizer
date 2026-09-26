@@ -64,6 +64,7 @@
     "marked": "^14.1.4",
     "monaco-editor": "^0.55.1",
     "next": "15.5.18",
+    "node-sql-parser": "^5.4.0",
     "react": "19.0.3",
     "react-dom": "19.0.3",
     "reactflow": "^11.11.4",
