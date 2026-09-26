@@ -19,7 +19,13 @@ import LanguageThemeSwitch from '@/components/ui/LanguageThemeSwitch';
  * signed-out visitors can leave the page and still theme/translate the public
  * shell (FR-008); it sits outside the form and brand columns.
  */
-export default function SignInPage() {
+interface SignInPageProps {
+  /** True when a guest session is still active, so the page offers to resume rather than sign in. */
+  showGuestResume?: boolean;
+  onResumeGuest?: () => void;
+}
+
+export default function SignInPage({ showGuestResume = false, onResumeGuest }: SignInPageProps) {
   const settings = useAppStore((state) => state.settings);
   const t = getT(settings.locale as 'en' | 'vi');
 
@@ -39,7 +45,26 @@ export default function SignInPage() {
       <div className="grid w-full max-w-5xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Sign-in form — first in DOM, first in tab order (FR-016) */}
         <div className="mx-auto flex w-full justify-center lg:justify-end">
-          <SignInPanel />
+          <div className="w-full">
+            {/* Guest access (specs/013-guest-access-mode, FR-020): a returning guest sees an offer
+                to continue rather than a bare signed-out form. */}
+            {showGuestResume && (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{t.guestAccessResumeTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t.guestAccessResumeBody}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onResumeGuest}
+                  className="flex-shrink-0 rounded-md bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {t.guestAccessResumeAction}
+                </button>
+              </div>
+            )}
+            <SignInPanel />
+          </div>
         </div>
 
         {/* Brand introduction — auxiliary, hidden below lg (FR-015) */}

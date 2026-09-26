@@ -6,7 +6,7 @@ import QueryInputPage from '@/app/query-input/page';
 import { getT } from '@/lib/i18n';
 import { setDemoAuthenticated } from '@/lib/demoAuth';
 import { useAppStore } from '@/lib/store';
-import { resetTestStorage } from '../utils/test-setup';
+import { resetTestStorage, signInAsDemoUser } from '../utils/test-setup';
 
 /** Component tests for specs/008-query-input-ux (US2 — T017/T018). */
 vi.mock('next/navigation', () => ({
@@ -77,9 +77,9 @@ async function renderWithXml(xml: string) {
   return t;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetTestStorage();
-  setDemoAuthenticated();
+  await signInAsDemoUser();
 });
 
 describe('Query Input parameter clarity (specs/008-query-input-ux T017 / US2)', () => {

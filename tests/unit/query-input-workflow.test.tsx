@@ -6,7 +6,7 @@ import QueryInputPage from '@/app/query-input/page';
 import { getT } from '@/lib/i18n';
 import { setDemoAuthenticated } from '@/lib/demoAuth';
 import { useAppStore } from '@/lib/store';
-import { resetTestStorage } from '../utils/test-setup';
+import { resetTestStorage, signInAsDemoUser } from '../utils/test-setup';
 
 /**
  * Component tests for specs/008-query-input-ux (US1 — T010/T011).
@@ -78,11 +78,11 @@ async function renderPage(locale: 'en' | 'vi' = 'en') {
   return t;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetTestStorage();
   pushMock.mockClear();
   replaceMock.mockClear();
-  setDemoAuthenticated();
+  await signInAsDemoUser();
 });
 
 describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)', () => {

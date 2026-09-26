@@ -11,6 +11,7 @@ import {
   redactSecrets,
   resolveAllowedBaseUrl,
 } from '@/lib/ai/aiRouteValidation';
+import { requireAiSession } from '@/lib/sessionCookie';
 
 interface GenerateRequestBody {
   provider?: string;
@@ -23,6 +24,14 @@ interface GenerateRequestBody {
 }
 
 export async function POST(request: Request) {
+  // Guest access gate (specs/013-guest-access-mode). Cloud providers only, so every accepted call
+  // costs the operator: refuse guests unconditionally, before the credential read (FR-022/23).
+  const refused = requireAiSession(request, {
+    route: '/api/ai/generate/stream',
+    alwaysRefuseGuest: true,
+  });
+  if (refused) return refused;
+
   let body: GenerateRequestBody;
   try {
     body = await request.json();

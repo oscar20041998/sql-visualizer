@@ -22,6 +22,8 @@ import type {
 } from '@/lib/ai/aiService';
 import type { SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
 import type { DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 /** Renders the raw streamed JSON as a short "waiting" message until real content has arrived. */
 function buildOptimizeProgressMessage(raw: string, waitingLabel: string): string {
@@ -136,6 +138,11 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 }) => {
   const settings = useAppStore((store) => store.settings);
   const t = getT(settings.locale);
+  // A guest sees the locked explanation INSIDE the optimize panel (specs/013 US2 / FR-015):
+  // the launcher tab, header and close affordance stay rendered so the lock is discoverable
+  // where the AI feature lives — only the body shows the lock instead of a form that would
+  // fail on submit (FR-013). Placed after every hook so the Rules of Hooks still hold.
+  const optimizeLocked = useCapabilityLock('optimize');
 
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [localInstruction, setLocalInstruction] = useState(instructionDraft);
@@ -206,7 +213,11 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-3">
-          {/* Mode toggle (spec 004): the existing safe optimize flow vs the new requirement-driven
+          {optimizeLocked ? (
+            <LockedFeatureNotice t={t} featureName={t.analyzeOptimizeTitle} />
+          ) : (
+            <>
+              {/* Mode toggle (spec 004): the existing safe optimize flow vs the new requirement-driven
            * flow that may change query semantics. Switching modes never clears the other mode's
            * in-progress/result state, so the user can flip back and forth without losing work. */}
           <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 p-1">
@@ -786,7 +797,6 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               )}
             </div>
           )}
-            </>
           )}
         </div>
       </div>

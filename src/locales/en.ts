@@ -1548,6 +1548,33 @@ const en = {
   authSocialUnavailable:
     '{provider} sign-in will be available when the authentication API is connected.',
   authSignInPrompt: 'Please sign in to open the query workspace.',
+
+  // Guest access (specs/013-guest-access-mode). The disclosure must name what is unavailable and
+  // state that AI on the visitor's own machine stays available — the restriction follows who pays.
+  guestAccessLink: "I don't have an account, but still want to use",
+  guestAccessDialogTitle: 'Continue without an account?',
+  guestAccessDialogIntro:
+    'You can use the SQL analysis tools straight away. A few AI-assisted features need an account, because they run on the operator’s shared capacity.',
+  guestAccessDialogUnavailableList:
+    'Unavailable without an account: AI Explain, AI Optimize, the Docs Consultant chat, the Database AI Assistant, AI requirement generation, and read-aloud.',
+  guestAccessDialogReason:
+    'These features run an AI model, so they are reserved for signed-in users.',
+  guestAccessDialogLocalAiNote:
+    'Everything else stays open: SQL analysis, the relationship graph, complexity metrics, CTE analysis and every export.',
+  guestAccessDialogConfirm: 'Continue as guest',
+  guestAccessDialogCancel: 'Cancel',
+  guestAccessDialogClose: 'Close',
+  // Locked-feature notice (US2). Rendered from local state, so it must read correctly on its own.
+  guestAccessLockedReason:
+    'This feature runs an AI model, so it is available to signed-in users only.',
+  guestAccessLockedLocalAiNote:
+    'The SQL analysis, relationship graph, complexity metrics, CTE analysis and all exports stay available to you.',
+  guestAccessLockedSignIn: 'Sign in to unlock',
+  guestAccessBadge: 'Guest',
+  guestAccessBadgeTitle: 'You are browsing as a guest. AI features are limited.',
+  guestAccessResumeTitle: 'You are still browsing as a guest',
+  guestAccessResumeBody: 'Continue where you left off, or sign in to unlock the AI features.',
+  guestAccessResumeAction: 'Continue as guest',
   authSocialLoginSuccess: 'Signed in via {provider} as {name}.',
   authSocialLoginCancelled: 'Authentication cancelled or rejected by the provider.',
   authSocialLoginFailed: 'Authentication failed: {error}.',

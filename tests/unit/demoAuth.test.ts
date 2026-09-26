@@ -7,6 +7,7 @@ import {
   DEMO_AUTH_STORAGE_KEY,
   SOCIAL_AUTH_STORAGE_KEY
 } from '@/lib/demoAuth';
+import { stubSessionEndpoint } from '../utils/test-setup';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -36,14 +37,26 @@ describe('demoAuth SessionManager', () => {
     expect(isDemoAuthenticated()).toBe(false);
   });
 
-  it('should return true when legacy admin is authenticated', () => {
-    setDemoAuthenticated();
+  it('should return true when legacy admin is authenticated', async () => {
+    stubSessionEndpoint(true);
+    await setDemoAuthenticated('test-password');
     expect(isDemoAuthenticated()).toBe(true);
   });
 
-  it('should return true when valid social session exists', () => {
+  // A rejected credential must not leave a local marker behind, or the interface would show a
+  // signed-in user that the server never agreed to.
+  it('does not mark the user signed in when the server refuses the credentials', async () => {
+    stubSessionEndpoint(false);
+    const granted = await setDemoAuthenticated('wrong-password');
+    expect(granted).toBe(false);
+    expect(isDemoAuthenticated()).toBe(false);
+    expect(localStorage.getItem(DEMO_AUTH_STORAGE_KEY)).toBeNull();
+  });
+
+  it('should return true when valid social session exists', async () => {
+    stubSessionEndpoint(true);
     const validExpiry = Date.now() + 3600 * 1000;
-    setSocialSession({
+    await setSocialSession({
       provider: 'google',
       displayName: 'Test User',
       email: 'test@example.com',
@@ -53,9 +66,10 @@ describe('demoAuth SessionManager', () => {
     expect(isDemoAuthenticated()).toBe(true);
   });
 
-  it('should return false when social session has expired', () => {
+  it('should return false when social session has expired', async () => {
+    stubSessionEndpoint(true);
     const expiredExpiry = Date.now() - 1000;
-    setSocialSession({
+    await setSocialSession({
       provider: 'google',
       displayName: 'Test User',
       email: 'test@example.com',
@@ -72,9 +86,10 @@ describe('demoAuth SessionManager', () => {
     expect(localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY)).toBeNull();
   });
 
-  it('should clear both sessions on clearDemoAuthenticated', () => {
-    setDemoAuthenticated();
-    setSocialSession({
+  it('should clear both sessions on clearDemoAuthenticated', async () => {
+    stubSessionEndpoint(true);
+    await setDemoAuthenticated('test-password');
+    await setSocialSession({
         provider: 'microsoft',
         displayName: 'Test User',
         email: 'test@example.com',

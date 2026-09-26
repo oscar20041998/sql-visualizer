@@ -317,6 +317,35 @@ Hệ thống hỗ trợ:
 
 Authorization được xử lý ở server boundary; việc chỉ ẩn UI không được xem là cơ chế authorization.
 
+### Guest Access (đang phát triển)
+
+Đang bổ sung luồng "tiếp tục dùng mà không cần tài khoản" để khách truy cập có thể đánh giá sản phẩm mà
+không cần credentials. Khách truy cập xác nhận một thông báo ngắn, trong đó nêu rõ những gì không
+dùng được và lý do, sau đó được cấp quyền với tư cách **guest** ẩn danh — được ghi nhận dưới dạng
+marker trên session hiện có chứ không phải một danh tính mới, và không mang theo email, tên hay token.
+
+Guest vẫn sử dụng được toàn bộ các tính năng không dùng AI: parse và format SQL, đồ thị quan hệ,
+chấm điểm độ phức tạp, metrics dashboard, phân tích CTE, và mọi định dạng export.
+
+Các tính năng dùng AI được dành riêng cho người đã đăng nhập:
+
+| Loại tính năng | Trải nghiệm của guest |
+|---|---|
+| Không dùng model (parse, chấm điểm, đồ thị, export) | Sử dụng được |
+| **Mọi** tính năng có dùng model, bất kể provider | Bị khoá, kèm giải thích và nút đăng nhập một chạm |
+| Chỉ riêng AI phân tích lỗi cú pháp | Sử dụng được — cố định chạy cục bộ nên không tốn chi phí |
+
+Dòng giữa là chủ ý. Model cục bộ là provider *mặc định*, nên nếu mở ngoại lệ cho nó thì gần như mọi
+tính năng AI vẫn mở với khách mới, trong khi trông như là đã bị hạn chế. Ngoại lệ duy nhất là con
+đường cố định chạy cục bộ nên không có chi phí nào cần bảo vệ.
+
+Mọi lần từ chối đều được kiểm soát ở server, trước khi tiêu thụ bất kỳ quota nào, và được ghi lại để
+operator tra cứu mà không lưu nội dung prompt hay credential.
+
+**Trạng thái: đang phát triển.** Phần giao diện đang được thực hiện; cơ chế kiểm soát ở server chưa
+được đưa vào, nên hiện các endpoint AI vẫn chấp nhận request không xác thực. Không nên xem tính năng
+này là đã hoàn thành, và không nên mở deployment công khai cho tới khi cơ chế kiểm soát hoàn tất.
+
 ---
 
 ## 5.14 Internationalization
@@ -459,6 +488,7 @@ Improved Query
 | MyBatis XML → SQL | Completed | Core |
 | AI Format Error Diagnostics | Completed | AI |
 | Google / Microsoft Login | Completed | Auth |
+| Guest Access (không cần tài khoản) | Đang phát triển | Auth |
 | Vietnamese / English | Completed | UX |
 | Text-to-Speech | Completed | AI |
 
@@ -477,6 +507,7 @@ Improved Query
 - [x] MyBatis normalization.
 - [x] AI format-error diagnostics.
 - [x] Google / Microsoft OAuth.
+- [ ] Guest access không cần tài khoản — đang phát triển, chưa có cơ chế kiểm soát ở server.
 - [x] Vietnamese / English internationalization.
 
 ---

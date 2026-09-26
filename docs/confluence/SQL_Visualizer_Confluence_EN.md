@@ -315,6 +315,36 @@ The system supports:
 
 Authorization is enforced at the server boundary; hiding UI elements alone is not considered an authorization mechanism.
 
+### Guest Access (planned)
+
+A "continue without an account" path is being added so a visitor can evaluate the product without
+credentials. A visitor confirms a short disclosure, which names exactly what is unavailable and why,
+and is then admitted as an anonymous **guest** — a marker on the existing session rather than a new
+identity, carrying no email, name or token.
+
+Guests retain every non-AI capability: SQL parsing and formatting, the relationship graph, complexity
+scoring, the metrics dashboard, CTE analysis, and all export formats.
+
+AI-backed features are reserved for signed-in users:
+
+| Capability type | Guest experience |
+|---|---|
+| No model involved (parsing, scoring, graph, exports) | Available |
+| **All** model-backed features, whatever provider is selected | Locked, with an explanation and a one-click sign-in path |
+| Format-error explain/fix only | Available — hard-wired to run locally, so it costs the operator nothing |
+
+The middle row is deliberate. A local model is the *default* provider, so carving out an exception for
+it would leave almost every AI feature open to a brand-new guest while appearing to restrict them. The
+single exception is the one path that is hard-wired to local inference and therefore has no cost to
+protect.
+
+Every refusal is enforced server-side, before any model capacity is consumed, and recorded for
+operator review without capturing prompt text or credentials.
+
+**Status: in development.** The interface portion is underway; server-side enforcement is not yet in
+place, so the AI endpoints currently accept unauthenticated callers. This capability must not be
+treated as delivered, and a public deployment should not be exposed until enforcement is complete.
+
 ---
 
 ## 5.14 Internationalization
@@ -457,6 +487,7 @@ Improved Query
 | MyBatis XML → SQL | Completed | Core |
 | AI Format Error Diagnostics | Completed | AI |
 | Google / Microsoft Login | Completed | Auth |
+| Guest Access (no account) | In development | Auth |
 | Vietnamese / English | Completed | UX |
 | Text-to-Speech | Completed | AI |
 
@@ -475,6 +506,7 @@ Improved Query
 - [x] MyBatis normalization.
 - [x] AI format-error diagnostics.
 - [x] Google / Microsoft OAuth.
+- [ ] Guest access without an account — in development, not yet enforced at the server boundary.
 - [x] Vietnamese / English internationalization.
 
 ---

@@ -6,6 +6,8 @@ import { AlertTriangle, Check, ChevronRight, Copy, MessageSquareText, RefreshCw,
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
 import { askFollowUp, type AIMessage } from '@/lib/ai/aiService';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 interface AiFollowUpChatProps {
   sql: string;
@@ -89,6 +91,11 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
   contextBrief,
   t,
 }) => {
+  // A guest reads the locked explanation INSIDE the chat card (specs/013 US2 / FR-015):
+  // the header stays rendered so the lock is discoverable where the AI feature lives,
+  // and only the thread/composer area shows the lock instead of a form that would
+  // fail on submit (FR-013).
+  const locked = useCapabilityLock('follow-up-chat');
   const [history, setHistory] = useState<AIMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -157,29 +164,12 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
 
   const suggestions = buildSuggestions(sql, t);
 
-  return (
-    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-300">
-              <MessageSquareText size={11} />
-            </span>
-            {t.aiChatTitle}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">{t.aiChatSubtitle}</p>
-        </div>
-        {history.length > 0 && (
-          <button
-            onClick={handleReset}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-300 transition-colors hover:bg-gray-700"
-          >
-            <Trash2 size={11} />
-            {t.aiChatReset}
-          </button>
-        )}
-      </div>
-
+  const chatBody = locked ? (
+    <div className="mt-3">
+      <LockedFeatureNotice t={t} featureName={t.aiChatTitle} />
+    </div>
+  ) : (
+    <>
       {/* Thread */}
       {history.length > 0 && (
         <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
@@ -259,6 +249,33 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
           <ChevronRight size={12} />
         </button>
       </form>
+    </>
+  );
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-300">
+              <MessageSquareText size={11} />
+            </span>
+            {t.aiChatTitle}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">{t.aiChatSubtitle}</p>
+        </div>
+        {history.length > 0 && (
+          <button
+            onClick={handleReset}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-300 transition-colors hover:bg-gray-700"
+          >
+            <Trash2 size={11} />
+            {t.aiChatReset}
+          </button>
+        )}
+      </div>
+
+      {chatBody}
     </div>
   );
 };

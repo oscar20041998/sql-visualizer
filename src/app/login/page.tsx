@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isDemoAuthenticated } from '@/lib/demoAuth';
+import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 import SignInPage from '@/components/auth/SignInPage';
 import ThemeProvider from '@/components/ThemeProvider';
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
   return (
     <>
       <ThemeProvider />
-      <SignInPage />
+      <SignInPage showGuestResume={isGuestSession()} onResumeGuest={() => router.push('/query-input')} />
     </>
   );
 }

@@ -17,6 +17,7 @@ import {
   type SpeechGender,
 } from '@/lib/ai/aiSpeech';
 import { resolveSpeechProvider, synthesize, SpeechEngineError } from '@/lib/ai/aiSpeechEngine';
+import { requireAiSession } from '@/lib/sessionCookie';
 import type { Locale } from '@/lib/i18n';
 
 // The Piper engine loads a native addon; the edge runtime cannot.
@@ -35,6 +36,16 @@ const ALLOWED_VOICES = new Set<string>(SPEECH_VOICES);
 const ALLOWED_GENDERS = new Set<string>(SPEECH_GENDERS);
 
 export async function POST(request: Request) {
+  // Guest access gate (specs/013-guest-access-mode). The speech engine is a server setting the
+  // caller cannot influence, so a guest is refused only when that engine costs the operator
+  // (research.md R4) — a local Piper voice stays open.
+  const usesSharedCapacity = resolveSpeechProvider() === 'openai';
+  const refused = requireAiSession(request, {
+    route: '/api/ai/speech',
+    alwaysRefuseGuest: usesSharedCapacity,
+  });
+  if (refused) return refused;
+
   let body: SpeechRequestBody;
   try {
     body = await request.json();

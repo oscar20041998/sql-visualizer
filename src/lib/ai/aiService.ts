@@ -16,6 +16,8 @@ import {
   truncateSqlForBudget,
 } from './aiTokens';
 import { fitContextBrief } from './aiSqlContext';
+import { getCapability, isLockedForGuest } from '../capabilities';
+import { isGuestSession } from '../demoAuth';
 
 export type { CloudProvider };
 
@@ -26,7 +28,9 @@ const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
 
 /** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
 const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `You translate SQL into plain business language for a reader who does not write SQL. Keep it concise, business-focused, and free of SQL jargon.
+  en: (
+    sql
+  ) => `You translate SQL into plain business language for a reader who does not write SQL. Keep it concise, business-focused, and free of SQL jargon.
 
 SQL query:
 \`\`\`sql
@@ -54,7 +58,9 @@ Rules:
 - Wrap every column or field name in single quotes (e.g. 'total_inbound_units') so it reads distinctly from the prose.
 - The "query_objective" section alone must measure between 500 and 1,000 characters — up to 1,500 for a complex query; keep every other section concise.
 - Do not invent business definitions the SQL or verified facts cannot support; state that a name or code's exact meaning is unknown when necessary.`,
-  vi: (sql) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt. Hãy viết ngắn gọn, tập trung vào nghiệp vụ và tránh thuật ngữ SQL.
+  vi: (
+    sql
+  ) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt. Hãy viết ngắn gọn, tập trung vào nghiệp vụ và tránh thuật ngữ SQL.
 
 Truy vấn SQL:
 \`\`\`sql
@@ -135,7 +141,10 @@ export interface AIBudgetReport {
   contextBriefDropped: boolean;
 }
 
-function resolveSystemPrompt(config: AIModelConfig, request: AIGenerateRequest): string | undefined {
+function resolveSystemPrompt(
+  config: AIModelConfig,
+  request: AIGenerateRequest
+): string | undefined {
   return request.systemPrompt?.trim() || config.systemPrompt?.trim() || undefined;
 }
 
@@ -154,14 +163,57 @@ function resolveMessages(config: AIModelConfig, request: AIGenerateRequest): AIM
   return systemPrompt ? [{ role: 'system', content: systemPrompt }, ...body] : body;
 }
 
+/**
+ * The server's refusal marker (see `refusalBody` in sessionCookie.ts). The route answers a refused
+ * caller with this code so the client can tell "you need an account" apart from a malformed request.
+ */
+const SESSION_REQUIRED_CODE = 'AI_SESSION_REQUIRED';
+
+/**
+ * Whether a failed response is the session gate rather than a genuine failure.
+ *
+ * This is the second line of defence, not the first: a guest is normally blocked before any request
+ * is made. It matters for the cases the early check cannot cover — a session that expired, a cookie
+ * that stopped verifying, or client state that disagrees with the server. Without it those surface as
+ * an opaque "HTTP 401" and the user concludes the feature is broken (FR-014).
+ */
+export function isSessionRequiredResponse(status: number, payload: unknown): boolean {
+  if (status !== 401) return false;
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    (payload as { code?: unknown }).code === SESSION_REQUIRED_CODE
+  );
+}
+
 /** Wraps fetch so network failures become AIServiceError while aborts stay recognizable to callers. */
-export async function safeFetch(url: string, init: RequestInit, unreachableMessage: string): Promise<Response> {
+export async function safeFetch(
+  url: string,
+  init: RequestInit,
+  unreachableMessage: string
+): Promise<Response> {
   try {
     return await fetch(url, init);
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') throw error;
     throw new AIServiceError(unreachableMessage);
   }
+}
+
+/**
+ * Reads a failed response, preferring the session refusal over the route's generic message.
+ *
+ * Always throws, so the caller cannot forget to handle it.
+ */
+export async function readFailure(response: Response, fallbackMessage: string): Promise<never> {
+  const payload = await response.json().catch(() => null);
+  if (isSessionRequiredResponse(response.status, payload)) {
+    throw new GuestNotEntitledError();
+  }
+  const detail = (payload as { error?: unknown } | null)?.error;
+  throw new AIServiceError(
+    typeof detail === 'string' && detail.trim() ? detail : fallbackMessage
+  );
 }
 
 /**
@@ -240,7 +292,9 @@ async function callOllama(baseUrlRaw: string, model: string, call: ProviderCall)
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new AIServiceError(`Ollama request failed (${response.status}): ${detail || response.statusText}`);
+    throw new AIServiceError(
+      `Ollama request failed (${response.status}): ${detail || response.statusText}`
+    );
   }
 
   const data = await response.json();
@@ -253,7 +307,10 @@ async function callOllama(baseUrlRaw: string, model: string, call: ProviderCall)
  * the full concatenated text once the stream ends. Shared by the direct Ollama call and the
  * cloud proxy, since the server normalises every provider's stream to this same shape.
  */
-async function consumeOpenAiDeltaStream(response: Response, onDelta: (text: string) => void): Promise<string> {
+async function consumeOpenAiDeltaStream(
+  response: Response,
+  onDelta: (text: string) => void
+): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) return '';
 
@@ -321,7 +378,9 @@ async function callOllamaStream(
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new AIServiceError(`Ollama request failed (${response.status}): ${detail || response.statusText}`);
+    throw new AIServiceError(
+      `Ollama request failed (${response.status}): ${detail || response.statusText}`
+    );
   }
 
   return consumeOpenAiDeltaStream(response, onDelta);
@@ -491,9 +550,7 @@ async function callGemini(
     }
 
     const data = await response.json();
-    return (
-      data.candidates?.[0]?.output ?? data.output?.[0]?.content?.[0]?.text ?? ''
-    ).toString();
+    return (data.candidates?.[0]?.output ?? data.output?.[0]?.content?.[0]?.text ?? '').toString();
   }
 
   const response = await safeFetch(
@@ -531,7 +588,9 @@ async function callGemini(
   }
 
   const data = await response.json();
-  return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
+  return (data.candidates?.[0]?.content?.parts ?? [])
+    .map((p: { text?: string }) => p.text ?? '')
+    .join('');
 }
 
 /**
@@ -540,7 +599,12 @@ async function callGemini(
  * that isn't the user's configured chat/embedding provider — e.g. the Database AI Assistant's
  * RAG index, which was built with a fixed local model regardless of AIModelConfig.
  */
-export async function callOllamaEmbed(baseUrlRaw: string, model: string, text: string, signal?: AbortSignal): Promise<number[]> {
+export async function callOllamaEmbed(
+  baseUrlRaw: string,
+  model: string,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
   if (!normalizeBaseUrl(baseUrlRaw)) throw new AIServiceError('Ollama base URL is not configured.');
   const url = `${normalizeBaseUrl(baseUrlRaw)}/api/embeddings`;
 
@@ -659,7 +723,9 @@ export async function embedWithCloudKey(
     case 'gemini':
       return callGeminiEmbed(apiKey, modelId, baseUrl, text, signal);
     case 'anthropic':
-      throw new AIServiceError('Anthropic has no embeddings API. Choose Ollama, OpenAI, or Gemini for this feature.');
+      throw new AIServiceError(
+        'Anthropic has no embeddings API. Choose Ollama, OpenAI, or Gemini for this feature.'
+      );
     default:
       throw new AIServiceError(`Unsupported AI provider: ${provider}`);
   }
@@ -673,12 +739,24 @@ export const AI_EMBED_PROXY_ENDPOINT = '/api/ai/embed';
  * exactly like {@link generateWithAI}: Ollama is called directly (local, no key), cloud
  * providers go through the server proxy so their key never reaches the browser.
  */
-export async function embedWithAI(config: AIModelConfig, text: string, signal?: AbortSignal): Promise<number[]> {
+export async function embedWithAI(
+  config: AIModelConfig,
+  text: string,
+  signal?: AbortSignal
+): Promise<number[]> {
+  assertGuestEntitled(config, 'ai-embedding');
   if (config.provider === 'ollama') {
-    return callOllamaEmbed(config.baseUrls?.ollama ?? '', DEFAULT_EMBEDDING_MODELS.ollama, text, signal);
+    return callOllamaEmbed(
+      config.baseUrls?.ollama ?? '',
+      DEFAULT_EMBEDDING_MODELS.ollama,
+      text,
+      signal
+    );
   }
   if (config.provider === 'anthropic') {
-    throw new AIServiceError('Anthropic has no embeddings API. Switch to Ollama, OpenAI, or Gemini in Settings to use semantic search.');
+    throw new AIServiceError(
+      'Anthropic has no embeddings API. Switch to Ollama, OpenAI, or Gemini in Settings to use semantic search.'
+    );
   }
 
   const modelId = DEFAULT_EMBEDDING_MODELS[config.provider];
@@ -703,7 +781,8 @@ export async function embedWithAI(config: AIModelConfig, text: string, signal?: 
     throw new AIServiceError(data?.error || `Embedding request failed (${response.status}).`);
   }
   const embedding = data?.embedding;
-  if (!Array.isArray(embedding)) throw new AIServiceError('The server returned no embedding vector.');
+  if (!Array.isArray(embedding))
+    throw new AIServiceError('The server returned no embedding vector.');
   return embedding;
 }
 
@@ -744,7 +823,9 @@ async function pumpSseFrames(
 const SSE_ENCODER = new TextEncoder();
 /** A stream frame in the OpenAI-delta shape every client-side consumer expects. */
 function encodeDeltaChunk(text: string): Uint8Array {
-  return SSE_ENCODER.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`);
+  return SSE_ENCODER.encode(
+    `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`
+  );
 }
 const SSE_DONE_CHUNK = SSE_ENCODER.encode('data: [DONE]\n\n');
 /** An already-closed stream, used when a provider claims success but sends no body. */
@@ -1018,7 +1099,10 @@ export const AI_PROXY_ENDPOINT = '/api/ai/generate';
 export const AI_PROXY_STREAM_ENDPOINT = '/api/ai/generate/stream';
 
 /** Posts to our own server, which attaches the provider key from its environment. */
-async function callCloudViaProxy(config: AIModelConfig, request: AIGenerateRequest): Promise<string> {
+async function callCloudViaProxy(
+  config: AIModelConfig,
+  request: AIGenerateRequest
+): Promise<string> {
   const call = toProviderCall(config, request);
   const response = await safeFetch(
     AI_PROXY_ENDPOINT,
@@ -1080,8 +1164,40 @@ async function callCloudViaProxyStream(
   return consumeOpenAiDeltaStream(response, onDelta);
 }
 
+// ─── Guest entitlement (specs/013-guest-access-mode) ────────────────────────────
+// A guest may use AI running on their own machine but not the operator's shared cloud capacity.
+// This is the single seam every AI call site funnels through, so a new feature cannot reach a
+// cloud provider while a guest is signed in by accident. The server refuses independently
+// (see src/app/api/ai/*); this is the early, friendly failure that avoids a wasted round trip
+// and lets the interface show the locked explanation instead of a generic error (FR-011, FR-013).
+
+/** Thrown when a guest attempts a capability that needs the operator's capacity. */
+export class GuestNotEntitledError extends AIServiceError {
+  constructor() {
+    super('This AI feature requires an account. Sign in to unlock it.');
+    this.name = 'GuestNotEntitledError';
+  }
+}
+
+function assertGuestEntitled(config: AIModelConfig, capabilityId: string): void {
+  if (typeof window === 'undefined') return; // Server-side: the route guard already refused.
+  if (!isGuestSession()) return;
+  const capability = getCapability(capabilityId);
+  // An unknown id must not silently allow a request; treat it as shared so the server still decides.
+  if (!capability) return;
+  // No early exit for a local provider: ollama is the default, so allowing it would leave nearly
+  // every AI feature open to a guest (see isLockedForGuest).
+  if (isLockedForGuest(capability, config)) {
+    throw new GuestNotEntitledError();
+  }
+}
+
 /** Routes a generation request to the provider configured in AIModelConfig. */
-export async function generateWithAI(config: AIModelConfig, request: AIGenerateRequest): Promise<string> {
+export async function generateWithAI(
+  config: AIModelConfig,
+  request: AIGenerateRequest
+): Promise<string> {
+  assertGuestEntitled(config, 'ai-generation');
   if (config.provider === 'ollama') {
     return callOllama(
       config.baseUrls?.ollama ?? '',
@@ -1101,6 +1217,7 @@ export async function streamWithAI(
   request: AIGenerateRequest,
   onDelta: (text: string) => void
 ): Promise<string> {
+  assertGuestEntitled(config, 'ai-generation');
   if (config.provider === 'ollama') {
     return callOllamaStream(
       config.baseUrls?.ollama ?? '',
@@ -1303,16 +1420,23 @@ export interface SqlSemanticBrief {
 }
 
 const SEMANTIC_BRIEF_PROMPT: Record<Locale, (sql: string, userInstruction?: string) => string> = {
-  en: (sql, userInstruction) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
+  en: (
+    sql,
+    userInstruction
+  ) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
 
 SQL:
 \`\`\`sql
 ${sql}
 \`\`\`
-${userInstruction ? `
+${
+  userInstruction
+    ? `
 The user has asked for this optimization goal, in their own words: "${userInstruction}"
 Keep this goal in mind while describing the query, but do not act on it yet — this step is read-only.
-` : ''}
+`
+    : ''
+}
 Return only a JSON object with exactly these keys:
 {
   "purpose": "Clearly and specifically explain what business purpose this query serves and what outcome it is intended to provide.",
@@ -1325,16 +1449,23 @@ Rules:
 - List every JOIN and every CTE-to-CTE dependency as a relationship, even ones that look removable.
 - Do not omit a filter just because it looks redundant — state what it does.
 - This is a read-only understanding step; "relationships" and "critical_filters" become the constraints a later optimization step must not violate.`,
-  vi: (sql, userInstruction) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
+  vi: (
+    sql,
+    userInstruction
+  ) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
 
 SQL:
 \`\`\`sql
 ${sql}
 \`\`\`
-${userInstruction ? `
+${
+  userInstruction
+    ? `
 Người dùng đã nêu mục tiêu tối ưu hóa sau, bằng lời của họ: "${userInstruction}"
 Hãy ghi nhớ mục tiêu này khi mô tả truy vấn, nhưng chưa hành động theo nó — bước này chỉ để hiểu, không thay đổi gì.
-` : ''}
+`
+    : ''
+}
 Chỉ trả về một đối tượng JSON với đúng các khóa sau:
 {
   "purpose": "Hãy giải thích chi tiết và cụ thể về mục đích kinh doanh của truy vấn này và kết quả mà nó hướng tới.",
@@ -1462,10 +1593,15 @@ export async function analyzeSqlSemantics({
 const MAX_SEMANTIC_CONSTRAINT_ITEMS = 6;
 const MAX_SEMANTIC_CONSTRAINT_LINE_CHARS = 140;
 
-export function formatSemanticBriefForOptimizePrompt(brief: SqlSemanticBrief, locale: Locale = 'en'): string {
+export function formatSemanticBriefForOptimizePrompt(
+  brief: SqlSemanticBrief,
+  locale: Locale = 'en'
+): string {
   if (!brief.structured) return '';
   const truncate = (text: string) =>
-    text.length > MAX_SEMANTIC_CONSTRAINT_LINE_CHARS ? `${text.slice(0, MAX_SEMANTIC_CONSTRAINT_LINE_CHARS)}…` : text;
+    text.length > MAX_SEMANTIC_CONSTRAINT_LINE_CHARS
+      ? `${text.slice(0, MAX_SEMANTIC_CONSTRAINT_LINE_CHARS)}…`
+      : text;
 
   const lines: string[] = [];
   const header =
@@ -1482,23 +1618,37 @@ export function formatSemanticBriefForOptimizePrompt(brief: SqlSemanticBrief, lo
   return lines.join('\n');
 }
 
-const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string, userInstruction?: string) => string> = {
-  en: (sql, userInstruction) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
-${userInstruction ? `
+const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<
+  Locale,
+  (sql: string, userInstruction?: string) => string
+> = {
+  en: (
+    sql,
+    userInstruction
+  ) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
+${
+  userInstruction
+    ? `
 The user additionally asked, in their own words: "${userInstruction}"
 Apply this instruction ONLY to the extent it does not change which rows, tables, joins, filters, or output columns the query returns:
 - If it can be fully satisfied without changing result semantics, apply it and set "instruction_status" to "applied".
 - If only part of it can be applied without changing semantics, apply that part only and set "instruction_status" to "partial", explaining in "instruction_note" what was left out and why.
 - If applying it would necessarily change the query's result semantics (e.g. it asks to drop a filter, change a JOIN's row inclusion, or remove an output column), do NOT apply that part — set "instruction_status" to "refused" and explain why in "instruction_note", proposing no change (or only a safe subset) instead.
-` : ''}
+`
+    : ''
+}
 Return only a JSON object with exactly these keys, in this order:
 {
   "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
   "suggestions": ["one specific improvement per issue actually fixed"],
   "proposals": [{"id": "unique-short-id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original to replace", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}],
-  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"${userInstruction ? `,
+  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"${
+    userInstruction
+      ? `,
   "instruction_status": "\"applied\", \"partial\", or \"refused\" — see rules above",
-  "instruction_note": "explanation shown to the user when instruction_status is not \"applied\""` : ''}
+  "instruction_note": "explanation shown to the user when instruction_status is not \"applied\""`
+      : ''
+  }
 }
 
 SQL:
@@ -1517,22 +1667,33 @@ Rules:
 - Each proposal must contain one exact, unique \`find\` snippet from the original and one narrow \`replace\` snippet. Never propose a full-query replacement.
 - Before returning a proposal, verify it preserves every table, join relationship, filter condition, output column, NULL rule and DISTINCT/GROUP BY behavior. If this cannot be proven from the query, do not propose the change; explain the uncertainty in "analysis".
 - If the query has no fixable issues, return an empty "proposals" array and explain why in "analysis".`,
-  vi: (sql, userInstruction) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
-${userInstruction ? `
+  vi: (
+    sql,
+    userInstruction
+  ) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
+${
+  userInstruction
+    ? `
 Người dùng cũng đã yêu cầu thêm, bằng lời của họ: "${userInstruction}"
 Chỉ áp dụng yêu cầu này trong phạm vi KHÔNG làm thay đổi những dòng, bảng, phép nối, điều kiện lọc hoặc cột đầu ra mà truy vấn trả về:
 - Nếu có thể đáp ứng đầy đủ mà không đổi ngữ nghĩa kết quả, hãy áp dụng và đặt "instruction_status" là "applied".
 - Nếu chỉ một phần có thể áp dụng mà không đổi ngữ nghĩa, chỉ áp dụng phần đó và đặt "instruction_status" là "partial", giải thích trong "instruction_note" phần nào đã bỏ qua và vì sao.
 - Nếu áp dụng yêu cầu chắc chắn sẽ làm thay đổi ngữ nghĩa kết quả (ví dụ yêu cầu bỏ một điều kiện lọc, đổi loại JOIN làm thay đổi số dòng, hoặc bỏ một cột đầu ra), KHÔNG áp dụng phần đó — đặt "instruction_status" là "refused" và giải thích lý do trong "instruction_note", chỉ đề xuất không thay đổi (hoặc một phần an toàn) thay vào đó.
-` : ''}
+`
+    : ''
+}
 Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
 {
   "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
   "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
   "proposals": [{"id": "ma-dinh-danh-ngan", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL duy nhất, chính xác trong bản gốc cần thay", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, JOIN và aggregate không thay đổi"}],
-  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"${userInstruction ? `,
+  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"${
+    userInstruction
+      ? `,
   "instruction_status": "\"applied\", \"partial\", hoặc \"refused\" — xem quy tắc ở trên",
-  "instruction_note": "giải thích hiển thị cho người dùng khi instruction_status không phải \"applied\""` : ''}
+  "instruction_note": "giải thích hiển thị cho người dùng khi instruction_status không phải \"applied\""`
+      : ''
+  }
 }
 
 SQL:
@@ -1682,7 +1843,8 @@ export function parseExplainerPayload(raw: string, knownSources?: string[]): Exp
   return {
     sections,
     raw,
-    structured: contentOk && !payloadHasBannedTopic(sections) && matchesParserSources(sections, knownSources),
+    structured:
+      contentOk && !payloadHasBannedTopic(sections) && matchesParserSources(sections, knownSources),
   };
 }
 
@@ -1777,11 +1939,20 @@ function payloadHasBannedTopic(sections: ExplainerSections): boolean {
 }
 
 /** Turns the model's raw answer into a {@link SqlExplanation}, shared by both explain calls. */
-function toSqlExplanation(raw: string, report: AIBudgetReport, knownSources?: string[]): SqlExplanation {
+function toSqlExplanation(
+  raw: string,
+  report: AIBudgetReport,
+  knownSources?: string[]
+): SqlExplanation {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const payload = parseExplainerPayload(raw, knownSources);
-  return { sections: payload.sections, raw: payload.raw, structured: payload.structured, budget: report };
+  return {
+    sections: payload.sections,
+    raw: payload.raw,
+    structured: payload.structured,
+    budget: report,
+  };
 }
 
 /**
@@ -1793,17 +1964,15 @@ function toSqlExplanation(raw: string, report: AIBudgetReport, knownSources?: st
  * and whatever had to be dropped is reported back in `budget` so the UI can say so.
  */
 export async function explainSqlStructured(
-  {
-    sql,
-    config,
-    locale = 'en',
-    contextBrief = '',
-    knownSources,
-    signal,
-  }: ExplainSqlOptions,
+  { sql, config, locale = 'en', contextBrief = '', knownSources, signal }: ExplainSqlOptions,
   generateFn: typeof generateWithAI = generateWithAI
 ): Promise<SqlExplanation> {
-  const { prompt, report, maxOutputTokens } = prepareExplainPrompt(sql, config, locale, contextBrief);
+  const { prompt, report, maxOutputTokens } = prepareExplainPrompt(
+    sql,
+    config,
+    locale,
+    contextBrief
+  );
 
   // FR-007 (per clarification): validate each attempt's human-readable length and
   // regenerate with a length-steering hint, up to 1 attempt + MAX_LENGTH_RETRIES
@@ -1841,7 +2010,12 @@ export async function explainSqlStructuredStream(
   { sql, config, locale = 'en', contextBrief = '', knownSources, signal }: ExplainSqlOptions,
   onDelta: (text: string) => void
 ): Promise<SqlExplanation> {
-  const { prompt, report, maxOutputTokens } = prepareExplainPrompt(sql, config, locale, contextBrief);
+  const { prompt, report, maxOutputTokens } = prepareExplainPrompt(
+    sql,
+    config,
+    locale,
+    contextBrief
+  );
 
   const raw = (
     await streamWithAI(
@@ -1927,13 +2101,19 @@ function dropPlaceholderEcho(text: string): string {
   return OPTIMIZE_PLACEHOLDER_ECHOES.has(text.trim().toLowerCase()) ? '' : text;
 }
 
-function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport): SqlOptimizationResult {
+function parseSqlOptimization(
+  sql: string,
+  raw: string,
+  report: AIBudgetReport
+): SqlOptimizationResult {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
   const optimizedSql = asText(parsed?.optimized_sql);
   const analysis = dropPlaceholderEcho(asText(parsed?.analysis));
-  const suggestions = asList(parsed?.suggestions).filter((item) => !OPTIMIZE_PLACEHOLDER_ECHOES.has(item.trim().toLowerCase()));
+  const suggestions = asList(parsed?.suggestions).filter(
+    (item) => !OPTIMIZE_PLACEHOLDER_ECHOES.has(item.trim().toLowerCase())
+  );
   const semanticImpact = dropPlaceholderEcho(asText(parsed?.semantic_impact));
   const proposals = Array.isArray(parsed?.proposals)
     ? parsed.proposals.flatMap((proposal, index) => {
@@ -1942,16 +2122,18 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
         const find = asExactText(entry.find);
         const replace = asExactText(entry.replace);
         if (!find || !replace || find === replace) return [];
-        return [{
-          id: asText(entry.id) || `proposal-${index + 1}`,
-          location: dropPlaceholderEcho(asText(entry.location)),
-          issue: dropPlaceholderEcho(asText(entry.issue)),
-          reason: dropPlaceholderEcho(asText(entry.reason)),
-          recommendation: dropPlaceholderEcho(asText(entry.recommendation)),
-          find,
-          replace,
-          semanticImpact: dropPlaceholderEcho(asText(entry.semantic_impact)),
-        }];
+        return [
+          {
+            id: asText(entry.id) || `proposal-${index + 1}`,
+            location: dropPlaceholderEcho(asText(entry.location)),
+            issue: dropPlaceholderEcho(asText(entry.issue)),
+            reason: dropPlaceholderEcho(asText(entry.reason)),
+            recommendation: dropPlaceholderEcho(asText(entry.recommendation)),
+            find,
+            replace,
+            semanticImpact: dropPlaceholderEcho(asText(entry.semantic_impact)),
+          },
+        ];
       })
     : [];
 
@@ -1970,7 +2152,9 @@ function parseSqlOptimization(sql: string, raw: string, report: AIBudgetReport):
 
   const instructionStatusRaw = asText(parsed.instruction_status).toLowerCase();
   const instructionStatus =
-    instructionStatusRaw === 'applied' || instructionStatusRaw === 'partial' || instructionStatusRaw === 'refused'
+    instructionStatusRaw === 'applied' ||
+    instructionStatusRaw === 'partial' ||
+    instructionStatusRaw === 'refused'
       ? instructionStatusRaw
       : undefined;
   const instructionNote = dropPlaceholderEcho(asText(parsed.instruction_note));
@@ -1997,7 +2181,13 @@ export async function optimizeSqlWithAI({
   userInstruction,
   signal,
 }: ExplainSqlOptions): Promise<SqlOptimizationResult> {
-  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief, userInstruction);
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    userInstruction
+  );
 
   const raw = (
     await generateWithAI(config, {
@@ -2021,7 +2211,13 @@ export async function optimizeSqlWithAIStream(
   { sql, config, locale = 'en', contextBrief = '', userInstruction, signal }: ExplainSqlOptions,
   onDelta: (text: string) => void
 ): Promise<SqlOptimizationResult> {
-  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(sql, config, locale, contextBrief, userInstruction);
+  const { prompt, report, maxOutputTokens } = prepareOptimizePrompt(
+    sql,
+    config,
+    locale,
+    contextBrief,
+    userInstruction
+  );
 
   const raw = (
     await streamWithAI(
@@ -2073,7 +2269,11 @@ const REQUIREMENT_CANDIDATE_PROMPT: Record<
   Locale,
   (sql: string, requirementText: string, hintedTables: string[]) => string
 > = {
-  en: (sql, requirementText, hintedTables) => `The user wants to add a new requirement to the following SQL query. Unlike a normal optimization pass, you MAY change which tables, joins, filters, or output columns the query uses if that is what the requirement needs — but only to satisfy the stated requirement, nothing else.
+  en: (
+    sql,
+    requirementText,
+    hintedTables
+  ) => `The user wants to add a new requirement to the following SQL query. Unlike a normal optimization pass, you MAY change which tables, joins, filters, or output columns the query uses if that is what the requirement needs — but only to satisfy the stated requirement, nothing else.
 
 SQL:
 \`\`\`sql
@@ -2095,7 +2295,11 @@ Rules:
 - Never invent a table or column name that does not appear in the SQL, the verified facts above, or the user's own hinted names — if you cannot resolve a needed reference, list it in "unresolved_references" and do not use it in "optimized_sql".
 - If the requirement cannot be satisfied at all without an unresolvable reference, return the original query unchanged in "optimized_sql" and explain why in "analysis".
 - "analysis" must clearly state which tables, joins, filters, or output columns were added, removed, or changed.`,
-  vi: (sql, requirementText, hintedTables) => `Người dùng muốn thêm một yêu cầu mới vào truy vấn SQL sau đây. Khác với một lượt tối ưu hóa thông thường, bạn ĐƯỢC PHÉP thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra của truy vấn nếu yêu cầu cần như vậy — nhưng chỉ để đáp ứng đúng yêu cầu đã nêu, không hơn.
+  vi: (
+    sql,
+    requirementText,
+    hintedTables
+  ) => `Người dùng muốn thêm một yêu cầu mới vào truy vấn SQL sau đây. Khác với một lượt tối ưu hóa thông thường, bạn ĐƯỢC PHÉP thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra của truy vấn nếu yêu cầu cần như vậy — nhưng chỉ để đáp ứng đúng yêu cầu đã nêu, không hơn.
 
 SQL:
 \`\`\`sql
@@ -2158,7 +2362,11 @@ function prepareRequirementCandidatePrompt(
 }
 
 /** Turns the model's raw answer into a {@link SqlRequirementCandidateResult}. */
-function parseRequirementCandidate(sql: string, raw: string, report: AIBudgetReport): SqlRequirementCandidateResult {
+function parseRequirementCandidate(
+  sql: string,
+  raw: string,
+  report: AIBudgetReport
+): SqlRequirementCandidateResult {
   if (!raw) throw new AIServiceError('The model returned an empty response. Try running it again.');
 
   const parsed = extractJsonObject(raw) as Record<string, unknown> | null;
@@ -2198,7 +2406,9 @@ export async function generateRequirementCandidate({
   contextBrief = '',
   requirementInput,
   signal,
-}: ExplainSqlOptions & { requirementInput: RequirementInput }): Promise<SqlRequirementCandidateResult> {
+}: ExplainSqlOptions & {
+  requirementInput: RequirementInput;
+}): Promise<SqlRequirementCandidateResult> {
   const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
     sql,
     config,
@@ -2221,7 +2431,14 @@ export async function generateRequirementCandidate({
 
 /** Streaming counterpart of {@link generateRequirementCandidate}. */
 export async function generateRequirementCandidateStream(
-  { sql, config, locale = 'en', contextBrief = '', requirementInput, signal }: ExplainSqlOptions & { requirementInput: RequirementInput },
+  {
+    sql,
+    config,
+    locale = 'en',
+    contextBrief = '',
+    requirementInput,
+    signal,
+  }: ExplainSqlOptions & { requirementInput: RequirementInput },
   onDelta: (text: string) => void
 ): Promise<SqlRequirementCandidateResult> {
   const { prompt, report, maxOutputTokens } = prepareRequirementCandidatePrompt(
@@ -2280,7 +2497,10 @@ export function countExactOccurrences(haystack: string, needle: string): number 
 }
 
 /** A proposal is only safely applicable when its `find` text matches the given SQL exactly once. */
-export function isProposalApplicable(sql: string, proposal: Pick<SqlOptimizationProposal, 'find'>): boolean {
+export function isProposalApplicable(
+  sql: string,
+  proposal: Pick<SqlOptimizationProposal, 'find'>
+): boolean {
   return countExactOccurrences(sql, proposal.find) === 1;
 }
 
@@ -2288,7 +2508,10 @@ const REPAIR_PROPOSALS_PROMPT: Record<
   Locale,
   (sql: string, invalid: { issue: string; find: string; occurrences: number }[]) => string
 > = {
-  en: (sql, invalid) => `You previously proposed targeted SQL edits for the query below, but some of them cannot be applied because their "find" text does not match the ORIGINAL query exactly once (occurrences=0 means it was not found at all; occurrences>1 means it matched more than once and is ambiguous — a repeated expression like an aggregate reused in HAVING/ORDER BY is a common cause).
+  en: (
+    sql,
+    invalid
+  ) => `You previously proposed targeted SQL edits for the query below, but some of them cannot be applied because their "find" text does not match the ORIGINAL query exactly once (occurrences=0 means it was not found at all; occurrences>1 means it matched more than once and is ambiguous — a repeated expression like an aggregate reused in HAVING/ORDER BY is a common cause).
 
 Re-emit ONLY the proposals listed below, corrected. Keep each one's original intent (the same issue/fix) — only correct "find"/"replace" so that:
 - "find" is copied character-for-character from the SQL below (same whitespace, casing, line breaks).
@@ -2305,7 +2528,10 @@ ${invalid.map((p, i) => `${i + 1}. issue: ${p.issue || '(none)'} | previous find
 
 Return only a JSON object with exactly this key:
 {"proposals": [{"id": "short id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}]}`,
-  vi: (sql, invalid) => `Bạn đã đề xuất các thay đổi SQL cục bộ cho truy vấn bên dưới, nhưng một số đề xuất không thể áp dụng vì đoạn "find" không khớp CHÍNH XÁC MỘT LẦN với truy vấn GỐC (occurrences=0 nghĩa là không tìm thấy; occurrences>1 nghĩa là khớp nhiều lần nên không rõ ràng — nguyên nhân thường gặp là một biểu thức lặp lại, ví dụ hàm aggregate được dùng lại ở HAVING/ORDER BY).
+  vi: (
+    sql,
+    invalid
+  ) => `Bạn đã đề xuất các thay đổi SQL cục bộ cho truy vấn bên dưới, nhưng một số đề xuất không thể áp dụng vì đoạn "find" không khớp CHÍNH XÁC MỘT LẦN với truy vấn GỐC (occurrences=0 nghĩa là không tìm thấy; occurrences>1 nghĩa là khớp nhiều lần nên không rõ ràng — nguyên nhân thường gặp là một biểu thức lặp lại, ví dụ hàm aggregate được dùng lại ở HAVING/ORDER BY).
 
 Chỉ trả lại các đề xuất được liệt kê bên dưới, đã sửa. Giữ nguyên mục đích ban đầu của từng đề xuất (cùng vấn đề/cách sửa) — chỉ sửa "find"/"replace" sao cho:
 - "find" được copy nguyên văn từng ký tự từ SQL bên dưới (giữ nguyên khoảng trắng, chữ hoa/thường, xuống dòng).
@@ -2466,7 +2692,10 @@ export async function askFollowUp({
   const historyBudget = Math.floor(available * HISTORY_BUDGET_RATIO);
   const anchorBudget = Math.max(128, available - historyBudget - estimateTokens(question) - 120);
 
-  const brief = fitContextBrief(contextBrief, Math.floor(anchorBudget * CONTEXT_BRIEF_BUDGET_RATIO));
+  const brief = fitContextBrief(
+    contextBrief,
+    Math.floor(anchorBudget * CONTEXT_BRIEF_BUDGET_RATIO)
+  );
   const fitted = truncateSqlForBudget(sql, Math.max(128, anchorBudget - estimateTokens(brief)));
 
   const anchor: AIMessage = {
@@ -2548,7 +2777,10 @@ export interface DocsConsultantAnswer {
 }
 
 /** Retrieval step: embeds the question server-side and returns the closest doc chunks as context. */
-async function fetchDocsContext(question: string, signal?: AbortSignal): Promise<DocsContextResponse> {
+async function fetchDocsContext(
+  question: string,
+  signal?: AbortSignal
+): Promise<DocsContextResponse> {
   const response = await safeFetch(
     '/api/ai/docs-context',
     {
@@ -2562,6 +2794,9 @@ async function fetchDocsContext(question: string, signal?: AbortSignal): Promise
 
   const data = await response.json().catch(() => null);
   if (!response.ok) {
+    // A guest is normally blocked before the request; this covers a session that expired or a
+    // cookie that stopped verifying, so it shows the locked explanation rather than "HTTP 401".
+    if (isSessionRequiredResponse(response.status, data)) throw new GuestNotEntitledError();
     throw new AIServiceError(data?.error || `Documentation search failed (${response.status}).`);
   }
   return { context: data?.context ?? '', sources: data?.sources ?? [] };

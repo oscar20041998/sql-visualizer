@@ -35,6 +35,9 @@ import { estimateTokens } from '@/lib/ai/aiTokens';
 import AiFeatureAnnouncement, { useAnnouncementVisibility } from './AiFeatureAnnouncement';
 import AiFollowUpChat from './AiFollowUpChat';
 import AiCteBatchPanel from './AiCteBatchPanel';
+import SidePanelTab from './SidePanelTab';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
@@ -364,10 +367,15 @@ interface AiSqlExplainerProps {
 export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizationResult }) => {
   const settings = useAppStore((store) => store.settings);
   const dialect = useAppStore((store) => store.dialect);
+  const locked = useCapabilityLock('sql-explainer');
   const t = getT(settings.locale);
   const aiConfig = settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig;
 
   const announcement = useAnnouncementVisibility();
+  // The announcement promotes the explainer feature; a guest cannot use it, so it must not
+  // offer "Try now". Its visibility hook was built around an auto-open-on-visit behavior, so
+  // we gate the render rather than the hook state to avoid altering its lifecycle.
+  const announcementOpen = announcement.isOpen && !locked;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
@@ -640,26 +648,31 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
   const canCopy = Boolean(lastDoneTurn);
 
+  // A guest reads the locked explanation INSIDE the explainer panel (specs/013 US2 / FR-015).
+  // We keep the launcher tab, the panel shell and the header rendered so the lock is
+  // discoverable where the AI feature lives — only the action area shows the lock instead
+  // of a form that would fail on submit. Placed after every hook so the Rules of Hooks hold.
+  const explainerLocked = locked;
+
   return (
     <>
       <AiFeatureAnnouncement
-        open={announcement.isOpen}
+        open={announcementOpen}
         onDismiss={announcement.dismiss}
         onTryNow={handleTryNow}
       />
 
-      {/* Collapsed: a slim icon-only tab docked to the right edge; the label expands on hover. */}
+      {/* Collapsed: the middle launcher in the right-edge rail (see SidePanelTab). */}
       {!isOpen && (
-        <button
+        <SidePanelTab
+          rank={1}
+          tone="neutral"
+          icon={<Sparkles size={16} className="shrink-0" aria-hidden="true" />}
+          label={t.aiExplainerTitle}
+          ariaLabel={t.aiExplainerOpenPanel}
+          ariaExpanded={false}
           onClick={() => setIsOpen(true)}
-          aria-label={t.aiExplainerOpenPanel}
-          className="group fixed right-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-gray-800 bg-gray-900 px-2.5 py-2 text-indigo-300 shadow-lg transition-all duration-200 group-hover:gap-2 hover:bg-gray-800 hover:pr-3"
-        >
-          <Sparkles size={16} className="shrink-0" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
-            {t.aiExplainerTitle}
-          </span>
-        </button>
+        />
       )}
 
       {isOpen && (
@@ -721,9 +734,12 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions — a guest sees the locked explanation INSIDE the panel (FR-015) instead
+         * of a run button that would fail (FR-013). */}
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          {isRunning ? (
+          {explainerLocked ? (
+            <LockedFeatureNotice t={t} featureName={t.aiExplainerTitle} />
+          ) : isRunning ? (
             <>
               <span className="flex items-center gap-2 rounded-lg border border-indigo-700/50 bg-indigo-950/40 px-3 py-1.5 text-xs font-medium text-indigo-200">
                 <RefreshCw size={12} className="animate-spin" />

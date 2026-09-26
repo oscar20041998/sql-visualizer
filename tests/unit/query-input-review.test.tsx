@@ -8,7 +8,7 @@ import LintingAlerts from '@/components/ui/LintingAlerts';
 import { getT } from '@/lib/i18n';
 import { setDemoAuthenticated } from '@/lib/demoAuth';
 import { useAppStore } from '@/lib/store';
-import { resetTestStorage } from '../utils/test-setup';
+import { resetTestStorage, signInAsDemoUser } from '../utils/test-setup';
 
 /** Component tests for specs/008-query-input-ux (US3 — T024/T025). */
 vi.mock('next/navigation', () => ({
@@ -65,9 +65,9 @@ async function renderPage() {
   return t;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetTestStorage();
-  setDemoAuthenticated();
+  await signInAsDemoUser();
   Object.defineProperty(window.navigator, 'clipboard', {
     value: { writeText: writeTextMock },
     configurable: true,

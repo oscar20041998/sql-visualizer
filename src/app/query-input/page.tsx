@@ -14,6 +14,7 @@ import SmartSQLEditor, {
 } from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
+import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import type { FormatError } from '@/lib/sql/formatError';
 import {
   FormatAiError,
@@ -35,7 +36,7 @@ import {
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
 import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
-import { isDemoAuthenticated } from '@/lib/demoAuth';
+import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -145,7 +146,9 @@ export default function QueryInputContent() {
   } = useAppStore();
 
   useEffect(() => {
-    if (!isDemoAuthenticated()) {
+    // A guest is admitted too (FR-008, task T019): they were promised the workspace when they
+    // confirmed the disclosure, and the AI routes refuse independently at the server boundary.
+    if (!isDemoAuthenticated() && !isGuestSession()) {
       router.replace('/login');
       return;
     }
@@ -456,6 +459,9 @@ export default function QueryInputContent() {
 
   return (
     <AppLayout>
+      {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
+       * into. It must sit above all three so they share one column. */}
+      <SidePanelRail>
       <div className="mx-auto max-w-screen-2xl space-y-6 px-6 py-8 lg:px-8 xl:px-10">
         <LoadingOverlay
           visible={isAnalyzing}
@@ -621,6 +627,7 @@ export default function QueryInputContent() {
           </>
         )}
       </div>
+      </SidePanelRail>
     </AppLayout>
   );
 }

@@ -8,10 +8,12 @@ import { getT } from '@/lib/i18n';
 import {
   setDemoAuthenticated,
   setSocialSession,
+  setGuestSession,
   type AuthUIState,
   type OAuthCallbackPayload,
 } from '@/lib/demoAuth';
 import { buildOAuthUrl, createOAuthState } from '@/lib/oauthUtils';
+import GuestAccessDialog from './GuestAccessDialog';
 import {
   ArrowUpRight,
   Eye,
@@ -44,7 +46,17 @@ export default function SignInPanel() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [authState, setAuthState] = useState<AuthUIState>('idle');
   const [authError, setAuthError] = useState('');
+  // Guest access (specs/013-guest-access-mode): the link opens a disclosure, and only confirming it
+  // starts a session — so dismissing must leave the visitor signed out with no partial state.
+  const [guestDialogOpen, setGuestDialogOpen] = useState(false);
   const pendingAuthRef = useRef<{ provider: 'google' | 'microsoft'; state: string } | null>(null);
+
+  const confirmGuestAccess = () => {
+    setGuestDialogOpen(false);
+    setGuestSession({ startedAt: Date.now(), locale: settings.locale });
+    beginNavigation('/query-input');
+    router.push('/query-input');
+  };
 
   const finishSocialLogin = async (
     provider: 'google' | 'microsoft',
@@ -78,7 +90,9 @@ export default function SignInPanel() {
       const displayName = profile?.name || profile?.displayName;
       const email = profile?.email || profile?.mail || profile?.userPrincipalName;
       if (!displayName || !email) throw new Error('profile unavailable');
-      setSocialSession({
+      // setSocialSession now resolves to whether the server verified the provider token, so the
+      // stored session and the session cookie cannot disagree.
+      const granted = await setSocialSession({
         provider,
         displayName,
         email,
@@ -86,6 +100,7 @@ export default function SignInPanel() {
         accessToken: payload.accessToken,
         expiry: Date.now() + (payload.expiresIn || 3600) * 1000,
       });
+      if (!granted) throw new Error('session not issued');
       setAuthState('idle');
       toast.success(
         t.authSocialLoginSuccess
@@ -156,10 +171,15 @@ export default function SignInPanel() {
     return () => window.removeEventListener('message', handleOAuthMessage);
   });
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  // The server verifies the credentials; this form no longer compares a hard-coded password, which
+  // was readable by anyone and did not protect the session cookie (research.md R6, R8).
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAuthState('authenticating');
+    setAuthError('');
 
-    if (username.trim() !== 'admin' || password !== '1234@') {
+    const granted = await setDemoAuthenticated(password);
+    if (!granted) {
       setAuthState('error');
       setAuthError(t.authLoginInvalidCredentials);
       toast.error(t.authLoginInvalidCredentials);
@@ -167,8 +187,6 @@ export default function SignInPanel() {
     }
 
     setAuthState('idle');
-    setAuthError('');
-    setDemoAuthenticated();
     toast.success(t.authLoginSuccess);
     beginNavigation('/query-input');
     router.push('/query-input');
@@ -404,6 +422,24 @@ export default function SignInPanel() {
         <ArrowUpRight size={13} aria-hidden="true" />
         {t.authSignInPrompt}
       </p>
+
+      {/* Guest access (specs/013-guest-access-mode). A button, not a link: it opens the disclosure
+          dialog in place rather than navigating, and dismissing leaves the visitor signed out. */}
+      <button
+        type="button"
+        onClick={() => setGuestDialogOpen(true)}
+        className="mt-4 w-full rounded-md border border-dashed border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {t.guestAccessLink}
+      </button>
+
+      {guestDialogOpen && (
+        <GuestAccessDialog
+          t={t}
+          onConfirm={confirmGuestAccess}
+          onDismiss={() => setGuestDialogOpen(false)}
+        />
+      )}
     </section>
   );
 }

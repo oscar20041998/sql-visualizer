@@ -8,6 +8,8 @@ import type { Locale, Translations } from '@/lib/i18n';
 import type { CTE } from '@/lib/sql/sqlAnalyzer';
 import { explainSqlStructured, type SqlExplanation } from '@/lib/ai/aiService';
 import { runBatch, type BatchItemState } from '@/lib/ai/aiQueue';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 interface AiCteBatchPanelProps {
   ctes: CTE[];
@@ -32,6 +34,10 @@ const STATUS_STYLES: Record<CteBatchState['status'], string> = {
  * full query would not fit — and gives a per-step reading of a long pipeline.
  */
 export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, locale, t }) => {
+  // A guest reads the locked explanation INSIDE the batch panel (specs/013 US2 / FR-015):
+  // the header stays so the lock is discoverable where the AI feature lives, and the list
+  // and run button are replaced so no request is attempted (FR-013).
+  const locked = useCapabilityLock('cte-batch');
   const [states, setStates] = useState<CteBatchState[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -94,48 +100,12 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
 
   const completed = states.filter((state) => state.status === 'done').length;
 
-  return (
-    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
-              <Layers size={11} />
-            </span>
-            {t.aiBatchTitle}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {t.aiBatchSubtitle
-              .replace('{count}', String(ctes.length))
-              .replace('{concurrency}', String(Math.max(1, config.batchConcurrency)))}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {states.length > 0 && (
-            <span className="font-mono text-[11px] text-gray-400">
-              {completed}/{states.length}
-            </span>
-          )}
-          {isRunning ? (
-            <button
-              onClick={cancel}
-              className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-200 transition-colors hover:bg-gray-700"
-            >
-              {t.aiBatchCancel}
-            </button>
-          ) : (
-            <button
-              onClick={run}
-              className="flex items-center gap-1.5 rounded-lg bg-cyan-700 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-cyan-600"
-            >
-              <Layers size={11} />
-              {states.length ? t.aiBatchRerun : t.aiBatchRun}
-            </button>
-          )}
-        </div>
-      </div>
-
+  const batchBody = locked ? (
+    <div className="mt-3">
+      <LockedFeatureNotice t={t} featureName={t.aiBatchTitle} />
+    </div>
+  ) : (
+    <>
       {states.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {states.map((state) => {
@@ -196,6 +166,54 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
           })}
         </ul>
       )}
+    </>
+  );
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
+              <Layers size={11} />
+            </span>
+            {t.aiBatchTitle}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {t.aiBatchSubtitle
+              .replace('{count}', String(ctes.length))
+              .replace('{concurrency}', String(Math.max(1, config.batchConcurrency)))}
+          </p>
+        </div>
+
+        {locked ? null : (
+        <div className="flex items-center gap-2">
+          {states.length > 0 && (
+            <span className="font-mono text-[11px] text-gray-400">
+              {completed}/{states.length}
+            </span>
+          )}
+          {isRunning ? (
+            <button
+              onClick={cancel}
+              className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-200 transition-colors hover:bg-gray-700"
+            >
+              {t.aiBatchCancel}
+            </button>
+          ) : (
+            <button
+              onClick={run}
+              className="flex items-center gap-1.5 rounded-lg bg-cyan-700 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-cyan-600"
+            >
+              <Layers size={11} />
+              {states.length ? t.aiBatchRerun : t.aiBatchRun}
+            </button>
+          )}
+        </div>
+        )}
+      </div>
+
+      {batchBody}
     </div>
   );
 };

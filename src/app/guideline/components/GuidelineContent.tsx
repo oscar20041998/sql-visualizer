@@ -27,6 +27,7 @@ import {
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
+import { getGuidelineAccent, type GraphTheme } from '@/app/common/colorConstant';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Section {
@@ -49,12 +50,12 @@ interface Tip {
 }
 
 // ─── Content Data ─────────────────────────────────────────────────────────────
-function createSections(t: ReturnType<typeof getT>): Section[] {
+function createSections(t: ReturnType<typeof getT>, theme: GraphTheme): Section[] {
   return [
     {
       id: 'query-input',
       icon: Code2,
-      color: '#6ee7f7',
+      color: getGuidelineAccent('cyan', theme),
       title: t.guidelineQueryInputTitle,
       subtitle: t.guidelineQueryInputSubtitle,
       steps: [
@@ -80,7 +81,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'graph-visualizer',
       icon: GitFork,
-      color: '#f59e0b',
+      color: getGuidelineAccent('amber', theme),
       title: t.guidelineGraphTitle,
       subtitle: t.guidelineGraphSubtitle,
       steps: [
@@ -106,7 +107,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'metrics-dashboard',
       icon: BarChart3,
-      color: '#10b981',
+      color: getGuidelineAccent('emerald', theme),
       title: t.guidelineMetricsTitle,
       subtitle: t.guidelineMetricsSubtitle,
       steps: [
@@ -132,7 +133,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'cte-analysis',
       icon: Layers,
-      color: '#a78bfa',
+      color: getGuidelineAccent('violet', theme),
       title: t.guidelineCTETitle,
       subtitle: t.guidelineCTESubtitle,
       steps: [
@@ -154,7 +155,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'settings',
       icon: Settings,
-      color: '#8b949e',
+      color: getGuidelineAccent('slate', theme),
       title: t.guidelineSettingsTitle,
       subtitle: t.guidelineSettingsSubtitle,
       steps: [
@@ -184,7 +185,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'ai-sql-explainer',
       icon: Sparkles,
-      color: '#818cf8',
+      color: getGuidelineAccent('indigo', theme),
       title: t.guidelineAiExplainerTitle,
       subtitle: t.guidelineAiExplainerSubtitle,
       steps: [
@@ -210,7 +211,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'ai-speech',
       icon: Layers,
-      color: '#f472b6',
+      color: getGuidelineAccent('pink', theme),
       title: t.guidelineAiSpeechTitle,
       subtitle: t.guidelineAiSpeechSubtitle,
       steps: [
@@ -232,7 +233,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'database-ai-assistant',
       icon: Database,
-      color: '#0ea5e9',
+      color: getGuidelineAccent('sky', theme),
       title: t.guidelineDbAssistantTitle,
       subtitle: t.guidelineDbAssistantSubtitle,
       steps: [
@@ -254,7 +255,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'format-error-diagnostics',
       icon: FileWarning,
-      color: '#f43f5e',
+      color: getGuidelineAccent('rose', theme),
       title: t.guidelineFormatErrorTitle,
       subtitle: t.guidelineFormatErrorSubtitle,
       steps: [
@@ -276,7 +277,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'tools',
       icon: Zap,
-      color: '#ef4444',
+      color: getGuidelineAccent('red', theme),
       title: t.guidelineToolsTitle,
       subtitle: t.guidelineToolsSubtitle,
       steps: [
@@ -317,7 +318,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'complexity-evaluation',
       icon: TrendingUp,
-      color: '#ef4444',
+      color: getGuidelineAccent('red', theme),
       title: t.guidelineComplexityEvaluationTitle,
       subtitle: t.guidelineComplexityEvaluationSubtitle,
       steps: [
@@ -356,7 +357,7 @@ function createSections(t: ReturnType<typeof getT>): Section[] {
     {
       id: 'advanced-features',
       icon: Lightbulb,
-      color: '#f59e0b',
+      color: getGuidelineAccent('amber', theme),
       title: t.guidelineAdvancedFeaturesTitle,
       subtitle: t.guidelineAdvancedFeaturesSubtitle,
       steps: [
@@ -477,46 +478,47 @@ function SectionCard({ section }: { section: Section }) {
 }
 
 // ─── Quick Reference ──────────────────────────────────────────────────────────
-function createQuickRef(t: ReturnType<typeof getT>) {
+function createQuickRef(t: ReturnType<typeof getT>, theme: GraphTheme) {
   return [
-    { icon: Code2, 
-      color: '#6ee7f7', 
-      label: t.guidelineQuickRefQueryInput, 
-      href: '/query-input' 
+    {
+      icon: Code2,
+      color: getGuidelineAccent('cyan', theme),
+      label: t.guidelineQuickRefQueryInput,
+      href: '/query-input',
     },
     {
       icon: GitFork,
-      color: '#f59e0b',
+      color: getGuidelineAccent('amber', theme),
       label: t.guidelineQuickRefGraph,
       href: '/relationship-graph-visualizer',
     },
     {
       icon: BarChart3,
-      color: '#10b981',
+      color: getGuidelineAccent('emerald', theme),
       label: t.guidelineQuickRefMetrics,
       href: '/sql-metrics-dashboard',
     },
     {
       icon: Layers,
-      color: '#a78bfa',
+      color: getGuidelineAccent('violet', theme),
       label: t.guidelineQuickRefCTE,
       href: '/cte-analysis',
     },
     {
       icon: Settings,
-      color: '#8b949e',
+      color: getGuidelineAccent('slate', theme),
       label: t.guidelineQuickRefSettings,
       href: '/settings-preferences',
     },
     {
       icon: Sparkles,
-      color: '#818cf8',
+      color: getGuidelineAccent('indigo', theme),
       label: t.guidelineQuickRefAiExplainer,
       href: '/smart-sql-editor',
     },
     {
       icon: Database,
-      color: '#0ea5e9',
+      color: getGuidelineAccent('sky', theme),
       label: t.guidelineQuickRefDbAssistant,
       href: '/database-ai-assistant',
     },
@@ -527,8 +529,9 @@ function createQuickRef(t: ReturnType<typeof getT>) {
 export default function GuidelineContent() {
   const { settings } = useAppStore();
   const t = getT(settings.locale);
-  const sections = createSections(t);
-  const quickRef = createQuickRef(t);
+  const theme: GraphTheme = settings.theme === 'light' ? 'light' : 'dark';
+  const sections = createSections(t, theme);
+  const quickRef = createQuickRef(t, theme);
 
   return (
     <div className="min-h-screen p-6 max-w-3xl mx-auto">
@@ -606,25 +609,25 @@ export default function GuidelineContent() {
           {[
             {
               icon: Moon,
-              color: '#a78bfa',
+              color: getGuidelineAccent('violet', theme),
               label: t.guidelineSidebarDarkLight,
               desc: t.guidelineSidebarDarkLightDesc,
             },
             {
               icon: Globe,
-              color: '#6ee7f7',
+              color: getGuidelineAccent('cyan', theme),
               label: t.guidelineSidebarLanguage,
               desc: t.guidelineSidebarLanguageDesc,
             },
             {
               icon: Copy,
-              color: '#10b981',
+              color: getGuidelineAccent('emerald', theme),
               label: t.guidelineSidebarCopyChart,
               desc: t.guidelineSidebarCopyChartDesc,
             },
             {
               icon: FileCode,
-              color: '#f59e0b',
+              color: getGuidelineAccent('amber', theme),
               label: t.guidelineSidebarExportCSV,
               desc: t.guidelineSidebarExportCSVDesc,
             },

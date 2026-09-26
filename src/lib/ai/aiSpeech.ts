@@ -5,6 +5,7 @@
 // OPENAI_API_KEY server-side — the same "no credential in the browser" rule as /api/ai/generate.
 import type { Locale, Translations } from '@/lib/i18n';
 import type { SqlExplanation } from './aiService';
+import { GuestNotEntitledError, isSessionRequiredResponse } from './aiService';
 
 /**
  * Chat models cannot speak: `/v1/chat/completions` has no audio output, so gpt-4o-mini is not an
@@ -160,7 +161,11 @@ export async function synthesizeSpeech({
     try {
       const payload = (await response.json()) as { error?: unknown };
       if (typeof payload.error === 'string' && payload.error.trim()) message = payload.error;
-    } catch {
+      // A guest is normally blocked before the request; this covers a session that expired, so the
+      // speech button explains itself instead of reporting an opaque 401.
+      if (isSessionRequiredResponse(response.status, payload)) throw new GuestNotEntitledError();
+    } catch (caught) {
+      if (caught instanceof GuestNotEntitledError) throw caught;
       /* keep the status-code message */
     }
     throw new Error(message);

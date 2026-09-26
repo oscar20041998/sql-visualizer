@@ -1545,6 +1545,33 @@ const vi = {
   authRegisterUnavailable: 'Đăng ký tài khoản sẽ khả dụng khi API xác thực được kết nối.',
   authSocialUnavailable: 'Đăng nhập bằng {provider} sẽ khả dụng khi API xác thực được kết nối.',
   authSignInPrompt: 'Vui lòng đăng nhập để mở không gian truy vấn.',
+
+  // Guest access (specs/013-guest-access-mode). Nội dung disclosure phải nêu rõ những gì không dùng
+  // được và cho biết AI chạy trên máy người dùng vẫn khả dụng — ràng buộc theo chi phí, không theo nhãn.
+  guestAccessLink: 'Tôi chưa có tài khoản, nhưng vẫn muốn sử dụng',
+  guestAccessDialogTitle: 'Tiếp tục mà không cần tài khoản?',
+  guestAccessDialogIntro:
+    'Bạn có thể dùng ngay các công cụ phân tích SQL. Một vài tính năng hỗ trợ bằng AI cần có tài khoản, vì chúng chạy trên tài nguyên dùng chung của nhà cung cấp.',
+  guestAccessDialogUnavailableList:
+    'Không dùng được khi chưa có tài khoản: AI Explain, AI Optimize, chat Docs Consultant, Database AI Assistant, sinh yêu cầu bằng AI, và đọc thành tiếng.',
+  guestAccessDialogReason:
+    'Các tính năng này cần chạy mô hình AI, nên dành riêng cho người đã đăng nhập.',
+  guestAccessDialogLocalAiNote:
+    'Những phần khác vẫn dùng được: phân tích SQL, đồ thị quan hệ, chỉ số độ phức tạp, phân tích CTE và mọi định dạng export.',
+  guestAccessDialogConfirm: 'Tiếp tục với tư cách khách',
+  guestAccessDialogCancel: 'Huỷ',
+  guestAccessDialogClose: 'Đóng',
+  // Locked-feature notice (US2).
+  guestAccessLockedReason:
+    'Tính năng này cần chạy mô hình AI, nên chỉ dành cho người đã đăng nhập.',
+  guestAccessLockedLocalAiNote:
+    'Phân tích SQL, đồ thị quan hệ, chỉ số độ phức tạp, phân tích CTE và mọi định dạng export vẫn dùng được.',
+  guestAccessLockedSignIn: 'Đăng nhập để mở khoá',
+  guestAccessBadge: 'Khách',
+  guestAccessBadgeTitle: 'Bạn đang xem với tư cách khách. Các tính năng AI bị giới hạn.',
+  guestAccessResumeTitle: 'Bạn vẫn đang xem với tư cách khách',
+  guestAccessResumeBody: 'Tiếp tục từ chỗ đã dừng, hoặc đăng nhập để mở các tính năng AI.',
+  guestAccessResumeAction: 'Tiếp tục với tư cách khách',
   authSocialLoginSuccess: 'Đã đăng nhập bằng {provider} với tài khoản {name}.',
   authSocialLoginCancelled: 'Đã hủy hoặc bị nhà cung cấp từ chối xác thực.',
   authSocialLoginFailed: 'Xác thực thất bại: {error}.',

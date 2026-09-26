@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import { getSocialSession, isDemoAuthenticated, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import { getSocialSession, isDemoAuthenticated, isGuestSession, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
 import { getT } from '@/lib/i18n';
 
 interface AppLayoutProps {
@@ -62,7 +62,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     const hadStoredSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
     const staleSession = hadStoredSession && !getSocialSession();
-    if (!isDemoAuthenticated() || staleSession) {
+    // A guest is admitted too (FR-008, task T019): the workspace shell is what they were promised
+    // on confirming the disclosure, and the AI routes refuse independently at the server boundary.
+    // Only a signed-out visitor with no guest marker is bounced to /login.
+    if ((!isDemoAuthenticated() && !isGuestSession()) || staleSession) {
       if (staleSession) {
         toast.info(getT(locale).authSessionExpiredMessage);
       }

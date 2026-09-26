@@ -27,6 +27,8 @@ import {
   type AIProvider,
 } from '@/lib/ai/aiProviders';
 import { DEFAULT_SPEECH_GENDER } from '@/lib/ai/aiSpeech';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -276,6 +278,11 @@ export default function SettingsContent() {
     ai: t.settingsAI,
   };
 
+  // Declared after the labels so the notice has its i18n string; the hook itself only needs the id.
+  // `sql-explainer` is representative: if a guest may not configure that, configuring any provider
+  // is pointless (specs/013 US2).
+  const isAiLocked = useCapabilityLock('sql-explainer');
+
   // Fill in translated labels for options
   const layoutOptionsTranslated = [
     { value: 'dagre' as const, label: t.layoutDagre },
@@ -463,6 +470,22 @@ export default function SettingsContent() {
               {/* AI Model Configuration */}
               {activeCategory === 'ai' && (
                 <div>
+                  {/*
+                    A guest cannot reach any AI feature, so configuring a provider would be
+                    meaningless — worse, it invites them to paste a credential for something that will
+                    still be refused. The non-AI settings above stay fully available.
+                  */}
+                  {isAiLocked && (
+                    <div className="mb-4">
+                      <LockedFeatureNotice t={t} featureName={t.settingsAI} />
+                    </div>
+                  )}
+                  {/* fieldset rather than per-input disabled: one wrapper keeps every control inert. */}
+                  <fieldset
+                    disabled={isAiLocked}
+                    aria-disabled={isAiLocked}
+                    className={isAiLocked ? 'opacity-60' : undefined}
+                  >
                   <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
                     <SelectDropdown
                       value={aiDraft.provider}
@@ -697,6 +720,7 @@ export default function SettingsContent() {
                       {t.aiConfigSave}
                     </button>
                   </div>
+                  </fieldset>
                 </div>
               )}
             </div>

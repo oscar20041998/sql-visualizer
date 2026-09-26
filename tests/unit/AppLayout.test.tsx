@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import AppLayout from '@/components/AppLayout';
-import { setDemoAuthenticated, setSocialSession, DEMO_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
-import { resetTestStorage } from '../utils/test-setup';
+import { setSocialSession, DEMO_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import { resetTestStorage, signInAsDemoUser, signInAsSocialUser } from '../utils/test-setup';
 
 const replaceMock = vi.fn();
 
@@ -29,8 +29,8 @@ describe('AppLayout auth gate (signed-out users cannot reach dashboard pages)', 
     expect(replaceMock).toHaveBeenCalledWith('/login');
   });
 
-  it('renders protected content when a demo session exists', () => {
-    setDemoAuthenticated();
+  it('renders protected content when a demo session exists', async () => {
+    await signInAsDemoUser();
 
     render(<AppLayout><div>protected content</div></AppLayout>);
 
@@ -38,14 +38,8 @@ describe('AppLayout auth gate (signed-out users cannot reach dashboard pages)', 
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it('renders protected content when a valid social session exists', () => {
-    setSocialSession({
-      provider: 'google',
-      displayName: 'Test User',
-      email: 'test@example.com',
-      accessToken: 'token',
-      expiry: Date.now() + 60_000,
-    });
+  it('renders protected content when a valid social session exists', async () => {
+    await signInAsSocialUser({ expiry: Date.now() + 60_000 });
 
     render(<AppLayout><div>protected content</div></AppLayout>);
 

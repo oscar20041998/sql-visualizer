@@ -7,6 +7,7 @@ import SmartSQLEditor, {
 } from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
+import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import AppLayout from '@/components/AppLayout';
@@ -220,7 +221,10 @@ export default function SmartSQLEditorPage() {
 
   return (
     <AppLayout>
-      <div className="smart-sql-editor-theme flex flex-col bg-background">
+      {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
+       * into. It must sit above all three so they share one column. */}
+      <SidePanelRail>
+        <div className="smart-sql-editor-theme flex flex-col bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card p-6 shadow-sm">
           <div className="max-w-7xl mx-auto">
@@ -376,7 +380,8 @@ export default function SmartSQLEditorPage() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </SidePanelRail>
     </AppLayout>
   );
 }

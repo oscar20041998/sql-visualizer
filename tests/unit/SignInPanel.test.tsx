@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import SignInPanel from '@/components/auth/SignInPanel';
 import { isDemoAuthenticated } from '@/lib/demoAuth';
-import { resetTestStorage } from '../utils/test-setup';
+import { resetTestStorage, stubSessionEndpoint } from '../utils/test-setup';
 
 // jsdom renders outside the App Router context, so the router hook is mocked.
 const pushMock = vi.fn();
@@ -62,28 +62,32 @@ describe('SignInPanel (specs/006-login-ui-redesign T016 regression guard)', () =
 });
 
 describe('SignInPanel interaction states (T029)', () => {
-  it('surfaces a visible alert when credentials are invalid', () => {
+  // The server now decides whether a credential is valid, so these two cases model its answers
+  // rather than a password comparison that used to live in the browser.
+  it('surfaces a visible alert when the server rejects the credentials', async () => {
+    stubSessionEndpoint(false);
     render(<SignInPanel />);
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'wrong' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
     fireEvent.click(screen.getByRole('button', { name: 'Login' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       'Use the temporary administrator account to continue.'
     );
     expect(isDemoAuthenticated()).toBe(false);
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it('signs in with the temporary administrator credentials and navigates to the workspace', () => {
+  it('signs in when the server issues a session, and navigates to the workspace', async () => {
+    stubSessionEndpoint(true);
     render(<SignInPanel />);
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'admin' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: '1234@' } });
     fireEvent.click(screen.getByRole('button', { name: 'Login' }));
 
-    expect(isDemoAuthenticated()).toBe(true);
+    await vi.waitFor(() => expect(isDemoAuthenticated()).toBe(true));
     expect(pushMock).toHaveBeenCalledWith('/query-input');
   });
 

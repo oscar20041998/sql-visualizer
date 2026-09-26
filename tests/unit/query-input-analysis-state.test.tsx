@@ -7,7 +7,7 @@ import { getT } from '@/lib/i18n';
 import { setDemoAuthenticated } from '@/lib/demoAuth';
 import { useAppStore } from '@/lib/store';
 import { makeAnalysisResult } from '../utils/dashboardFixtures';
-import { resetTestStorage } from '../utils/test-setup';
+import { resetTestStorage, signInAsDemoUser } from '../utils/test-setup';
 
 /**
  * Analysis-state contract for the real analysis entry point
@@ -113,12 +113,12 @@ async function renderPage() {
   return t;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetTestStorage();
   pushMock.mockClear();
   replaceMock.mockClear();
   analyzeSqlMock.mockReset();
-  setDemoAuthenticated();
+  await signInAsDemoUser();
 });
 
 describe('Query Input publishes analysis state for the dashboard (FR-016)', () => {

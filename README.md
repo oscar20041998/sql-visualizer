@@ -26,6 +26,11 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 ### Authentication
 
 - **Login / Register** - Demo credential gate (`admin` / `1234@`) plus Google/Microsoft sign-in buttons on the landing page before the query workspace is accessible
+- **Guest Access (in progress)** - A "continue without an account" path that admits a visitor as an anonymous guest for evaluation. Guests get every non-AI capability: SQL parsing and formatting, the relationship graph, complexity scoring, the metrics dashboard, CTE analysis, and all exports. **AI-backed features are reserved for signed-in users** — including ones that would run against a locally configured model, since `ollama` is the default provider and an exception for it would leave nearly every AI feature open. The only AI path left open is the format-error explain/fix, which is hard-wired to run locally and therefore costs the operator nothing. Spec: [`specs/013-guest-access-mode/`](./specs/013-guest-access-mode/). **Not yet shipped** — see the status note below.
+
+> **Guest access status:** in development (1 of 74 tracked behaviors implemented). The server-side
+> enforcement that protects shared AI capacity is not in place yet, so the AI routes currently
+> accept unauthenticated callers. Do not expose a public deployment until that is finished.
 
 ### Technical Stack
 

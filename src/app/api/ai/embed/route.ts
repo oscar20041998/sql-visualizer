@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { AIServiceError, embedWithCloudKey } from '@/lib/ai/aiService';
 import { ENV_VAR_BY_PROVIDER } from '@/lib/ai/aiProviders';
 import { isCloudProvider, redactSecrets, resolveAllowedBaseUrl } from '@/lib/ai/aiRouteValidation';
+import { requireAiSession } from '@/lib/sessionCookie';
 
 interface EmbedRequestBody {
   provider?: string;
@@ -15,6 +16,14 @@ interface EmbedRequestBody {
 }
 
 export async function POST(request: Request) {
+  // Guest access gate (specs/013-guest-access-mode). Cloud providers only (isCloudProvider below),
+  // so every accepted call bills the operator: refuse guests unconditionally (FR-022/23).
+  const refused = requireAiSession(request, {
+    route: '/api/ai/embed',
+    alwaysRefuseGuest: true,
+  });
+  if (refused) return refused;
+
   let body: EmbedRequestBody;
   try {
     body = await request.json();
