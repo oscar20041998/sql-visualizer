@@ -6,7 +6,7 @@
 
 ---
 
-## 1. Executive Summary
+## 1. Tóm tắt điều hành
 
 **SQL Visualizer** là một nền tảng phân tích SQL trên nền web, được thiết kế để hỗ trợ lập trình viên và đội kỹ thuật hiểu sâu hơn về cách một truy vấn được hình thành, các thành phần dữ liệu liên quan và những điểm có thể ảnh hưởng đến chất lượng cũng như hiệu năng.
 
@@ -25,9 +25,9 @@ SQL Visualizer hướng tới việc rút ngắn khoảng cách giữa **SQL com
 
 ---
 
-## 2. Product Vision
+## 2. Tầm nhìn sản phẩm
 
-### From SQL Code to SQL Intelligence
+### Từ mã SQL đến trí tuệ SQL
 
 Một truy vấn SQL phức tạp thường chứa nhiều lớp logic: JOIN, CTE, subquery, window function, filter và các phép biến đổi dữ liệu. Khi tất cả được thể hiện dưới dạng text, việc hiểu toàn bộ luồng dữ liệu có thể mất nhiều thời gian.
 
@@ -44,7 +44,7 @@ SQL Visualizer chuyển truy vấn từ một **text-based artifact** thành m�
 
 ## 3. Người dùng mục tiêu
 
-| Persona | Nhu cầu chính | Giá trị từ SQL Visualizer |
+| Đối tượng | Nhu cầu chính | Giá trị từ SQL Visualizer |
 |---|---|---|
 | **Backend Developer** | Hiểu, debug và tối ưu SQL | Phân tích cấu trúc, metrics, AI Explainer, AI Optimize |
 | **Senior Developer / Tech Lead** | Review chất lượng và độ phức tạp SQL | Relationship Graph, CTE Analysis, scoring và before/after comparison |
@@ -54,37 +54,37 @@ SQL Visualizer chuyển truy vấn từ một **text-based artifact** thành m�
 
 ---
 
-## 4. Product Capability Map
+## 4. Bản đồ năng lực sản phẩm
 
 SQL Visualizer được tổ chức thành các nhóm capability chính:
 
-### A. SQL Understanding
+### A. Hiểu SQL
 - Query Input & Analysis
 - CTE Analysis
 - Field Origin Mapping
 - MyBatis XML → SQL Normalization
 - Smart SQL Editor
 
-### B. SQL Visualization
+### B. Trực quan hóa SQL
 - Relationship Graph
 - Interactive table relationships
 - JOIN condition analysis
 - Mermaid / image export
 
-### C. SQL Quality & Complexity
+### C. Chất lượng & độ phức tạp của SQL
 - Complexity Score 0–100
 - Query metrics
 - Source-line mapping
 - Real-time analysis
 
-### D. AI Intelligence
+### D. Trí tuệ AI
 - AI SQL Explainer
 - AI Query Optimizer
 - Database AI Assistant
 - AI Format Error Diagnostics
 - Docs Consultant Chat
 
-### E. Productivity
+### E. Năng suất
 - Query History
 - Semantic Search
 - Multilingual UI
@@ -92,9 +92,9 @@ SQL Visualizer được tổ chức thành các nhóm capability chính:
 
 ---
 
-# 5. Detailed Functional Capabilities
+# 5. Năng lực chức năng chi tiết
 
-## 5.1 Query Input & SQL Analysis
+## 5.1 Nhập truy vấn & phân tích SQL
 
 Cho phép người dùng nhập trực tiếp SQL hoặc cung cấp truy vấn từ file MyBatis XML.
 
@@ -110,7 +110,7 @@ Cho phép người dùng nhập trực tiếp SQL hoặc cung cấp truy vấn t
 
 ---
 
-## 5.2 Relationship Graph Visualizer
+## 5.2 Biểu đồ quan hệ (Relationship Graph)
 
 Biến quan hệ giữa các bảng trong một truy vấn thành **đồ thị tương tác**, giúp người dùng nhanh chóng hình dung data flow.
 
@@ -127,11 +127,11 @@ Biến quan hệ giữa các bảng trong một truy vấn thành **đồ thị 
 
 ---
 
-## 5.3 Metrics Dashboard
+## 5.3 Bảng chỉ số (Metrics Dashboard)
 
 Metrics Dashboard cung cấp một góc nhìn định lượng về độ phức tạp của SQL.
 
-### Complexity Score
+### Điểm độ phức tạp (Complexity Score)
 
 Truy vấn được đánh giá trên thang **0–100**, kết hợp với các chỉ số như:
 
@@ -154,7 +154,7 @@ Mức độ phức tạp được phân loại thành:
 
 ---
 
-## 5.4 CTE Analysis & Field Origin
+## 5.4 Phân tích CTE & nguồn gốc trường
 
 Tính năng này tập trung vào việc trả lời hai câu hỏi quan trọng:
 
@@ -172,7 +172,7 @@ Tính năng này tập trung vào việc trả lời hai câu hỏi quan trọng
 
 ---
 
-## 5.5 Smart SQL Editor
+## 5.5 Soạn thảo SQL thông minh (Smart SQL Editor)
 
 Smart SQL Editor sử dụng **Monaco Editor**, mang lại trải nghiệm tương tự VS Code.
 
@@ -188,7 +188,7 @@ Smart SQL Editor sử dụng **Monaco Editor**, mang lại trải nghiệm tươ
 
 ---
 
-## 5.6 AI SQL Explainer
+## 5.6 AI diễn giải SQL (AI SQL Explainer)
 
 AI SQL Explainer chuyển SQL thành một phần giải thích có cấu trúc bằng ngôn ngữ tự nhiên.
 
@@ -207,13 +207,13 @@ Hỗ trợ:
 
 ---
 
-## 5.7 AI Query Optimization
+## 5.7 Tối ưu hóa truy vấn bằng AI
 
 AI Optimize hỗ trợ người dùng đánh giá và cải thiện SQL theo hướng có kiểm soát.
 
-### Optimization flow
+### Luồng tối ưu hóa
 
-**Static Analysis → Semantic Review → Optimization Suggestions → Rewritten Query → Before/After Comparison → User Confirmation**
+**Phân tích tĩnh → Rà soát ngữ nghĩa → Đề xuất tối ưu → Truy vấn viết lại → So sánh trước/sau → Người dùng xác nhận**
 
 ### Nguyên tắc thiết kế
 
@@ -226,7 +226,7 @@ AI Optimize hỗ trợ người dùng đánh giá và cải thiện SQL theo hư
 
 ---
 
-## 5.8 Database AI Assistant
+## 5.8 Trợ lý AI cơ sở dữ liệu (Database AI Assistant)
 
 Database AI Assistant cung cấp một conversational interface cho các câu hỏi liên quan đến database.
 
@@ -251,19 +251,19 @@ Mỗi câu trả lời có thể hiển thị source label tương ứng.
 
 ---
 
-## 5.9 Docs Consultant Chat
+## 5.9 Chat tư vấn tài liệu (Docs Consultant Chat)
 
 Docs Consultant Chat sử dụng RAG trên chính tài liệu tính năng của ứng dụng.
 
 ### Luồng xử lý
 
-**Question → Embedding → Relevant Document Retrieval → Context-aware Answer → Citation**
+**Câu hỏi → Embedding → Truy xuất tài liệu liên quan → Câu trả lời theo ngữ cảnh → Trích dẫn nguồn**
 
 Mục tiêu là giúp người dùng tìm hiểu cách sử dụng SQL Visualizer mà không cần tự tìm kiếm thủ công trong toàn bộ tài liệu.
 
 ---
 
-## 5.10 Query History & Semantic Search
+## 5.10 Lịch sử truy vấn & tìm kiếm ngữ nghĩa
 
 SQL Visualizer lưu lại các truy vấn đã được phân tích ở phía server.
 
@@ -273,7 +273,7 @@ Người dùng có thể tìm kiếm theo **semantic meaning**, thay vì chỉ d
 
 ---
 
-## 5.11 MyBatis XML → SQL Normalization
+## 5.11 Chuẩn hóa MyBatis XML → SQL
 
 Tính năng chuẩn hóa MyBatis chuyển dynamic SQL thành SQL thuần để có thể tiếp tục phân tích.
 
@@ -289,7 +289,7 @@ Sau khi chuẩn hóa, SQL có thể được đưa tiếp vào các bước phâ
 
 ---
 
-## 5.12 AI Format Error Diagnostics
+## 5.12 Chẩn đoán lỗi định dạng bằng AI
 
 Khi SQL formatting gặp lỗi, hệ thống hiển thị một **diagnostic panel** ở cạnh phải thay vì chỉ sử dụng toast message.
 
@@ -305,7 +305,7 @@ AI có thể:
 
 ---
 
-## 5.13 Authentication & Authorization
+## 5.13 Xác thực & phân quyền
 
 Hệ thống hỗ trợ:
 
@@ -317,7 +317,7 @@ Hệ thống hỗ trợ:
 
 Authorization được xử lý ở server boundary; việc chỉ ẩn UI không được xem là cơ chế authorization.
 
-### Guest Access (đang phát triển)
+### Truy cập với tư cách khách (Guest Access — đang phát triển)
 
 Đang bổ sung luồng "tiếp tục dùng mà không cần tài khoản" để khách truy cập có thể đánh giá sản phẩm mà
 không cần credentials. Khách truy cập xác nhận một thông báo ngắn, trong đó nêu rõ những gì không
@@ -348,7 +348,7 @@ này là đã hoàn thành, và không nên mở deployment công khai cho tới
 
 ---
 
-## 5.14 Internationalization
+## 5.14 Đa ngôn ngữ
 
 SQL Visualizer hỗ trợ:
 
@@ -359,7 +359,7 @@ Ngôn ngữ được chuyển đổi tức thời và lựa chọn của ngườ
 
 ---
 
-## 5.15 Text-to-Speech
+## 5.15 Đọc nội dung bằng giọng nói (Text-to-Speech)
 
 Cho phép đọc thành tiếng các nội dung giải thích hoặc đề xuất từ AI.
 
@@ -370,21 +370,21 @@ Cơ chế sử dụng:
 
 ---
 
-# 6. Technical Architecture
+# 6. Kiến trúc kỹ thuật
 
-## 6.1 Frontend
+## 6.1 Lớp giao diện (Frontend)
 
-| Layer | Technology |
+| Lớp | Công nghệ |
 |---|---|
-| Framework | Next.js 15 — App Router |
-| UI | React 19, Tailwind CSS |
-| State Management | Zustand |
-| SQL Editor | Monaco Editor |
-| Visualization | ReactFlow |
-| SQL Parser | dt-sql-parser |
-| Testing | Vitest |
+| Nền tảng (Framework) | Next.js 15 — App Router |
+| Giao diện (UI) | React 19, Tailwind CSS |
+| Quản lý trạng thái | Zustand |
+| Trình soạn thảo SQL | Monaco Editor |
+| Trực quan hóa | ReactFlow |
+| Trình phân tích cú pháp SQL | dt-sql-parser |
+| Kiểm thử | Vitest |
 
-## 6.2 AI & Backend
+## 6.2 AI & lớp máy chủ (Backend)
 
 SQL Visualizer được thiết kế theo hướng AI-provider agnostic:
 
@@ -395,17 +395,17 @@ SQL Visualizer được thiết kế theo hướng AI-provider agnostic:
 
 Các cloud AI provider được sử dụng thông qua proxy server để credential không bị expose trên browser.
 
-### RAG Architecture
+### Kiến trúc RAG
 
-**Documents → Embeddings → Vector Store → Retrieval → LLM → Source-aware Response**
+**Tài liệu → Embedding → Kho vector → Truy xuất → LLM → Câu trả lời kèm nguồn**
 
-### History Storage
+### Lưu trữ lịch sử
 
 Query history được lưu phía server với nền tảng lưu trữ Excel theo tài liệu hiện tại.
 
 ---
 
-# 7. Security & Privacy
+# 7. Bảo mật & quyền riêng tư
 
 Security được xem là một phần của architecture, không chỉ là một UI capability.
 
@@ -419,31 +419,31 @@ Security được xem là một phần của architecture, không chỉ là mộ
 
 ---
 
-# 8. Business Value
+# 8. Giá trị kinh doanh
 
 SQL Visualizer mang lại giá trị ở nhiều lớp:
 
-### 8.1 Engineering Productivity
+### 8.1 Năng suất kỹ thuật
 Giảm thời gian cần thiết để đọc, phân tích và hiểu SQL phức tạp.
 
-### 8.2 SQL Quality
+### 8.2 Chất lượng SQL
 Cung cấp metrics, visualization và AI-assisted analysis để hỗ trợ nâng cao chất lượng truy vấn.
 
-### 8.3 Performance Awareness
+### 8.3 Nhận thức về hiệu năng
 Giúp đội kỹ thuật nhận diện các điểm cần xem xét về hiệu năng và cung cấp các đề xuất tối ưu hóa có thể so sánh trước/sau.
 
-### 8.4 Knowledge Enablement
+### 8.4 Phổ cập kiến thức
 Biến SQL và database knowledge thành thông tin dễ tiếp cận hơn thông qua natural-language explanation và RAG.
 
-### 8.5 Security & Deployment Flexibility
+### 8.5 Bảo mật & linh hoạt trong triển khai
 Cho phép lựa chọn AI local hoặc cloud tùy theo yêu cầu về bảo mật và chính sách triển khai.
 
-### 8.6 Global Accessibility
+### 8.6 Khả năng tiếp cận toàn cầu
 Hỗ trợ song ngữ Việt/Anh để mở rộng khả năng tiếp cận cho người dùng quốc tế.
 
 ---
 
-# 9. End-to-End User Journey
+# 9. Hành trình người dùng đầu-cuối
 
 ```text
 SQL / MyBatis XML
@@ -471,59 +471,59 @@ Improved Query
 
 ---
 
-# 10. Product Status
+# 10. Trạng thái sản phẩm
 
-| Capability | Status | Category |
+| Năng lực | Trạng thái | Nhóm |
 |---|---|---|
-| Query Input & Analysis | Completed | Core |
-| Relationship Graph | Completed | Core |
-| Metrics Dashboard | Completed | Core |
-| CTE & Field Origin Analysis | Completed | Core |
-| Smart SQL Editor | Completed | Core |
-| AI SQL Explainer | Completed | AI |
-| AI Query Optimization | Completed | AI |
-| Database AI Assistant | Completed | AI |
-| Docs Consultant Chat | Completed | AI |
-| Query History & Semantic Search | Completed | AI |
-| MyBatis XML → SQL | Completed | Core |
-| AI Format Error Diagnostics | Completed | AI |
-| Google / Microsoft Login | Completed | Auth |
-| Guest Access (không cần tài khoản) | Đang phát triển | Auth |
-| Vietnamese / English | Completed | UX |
-| Text-to-Speech | Completed | AI |
+| Nhập truy vấn & phân tích SQL | Hoàn thành | Cốt lõi |
+| Biểu đồ quan hệ | Hoàn thành | Cốt lõi |
+| Bảng chỉ số | Hoàn thành | Cốt lõi |
+| Phân tích CTE & nguồn gốc trường | Hoàn thành | Cốt lõi |
+| Soạn thảo SQL thông minh | Hoàn thành | Cốt lõi |
+| AI diễn giải SQL | Hoàn thành | AI |
+| Tối ưu hóa truy vấn bằng AI | Hoàn thành | AI |
+| Trợ lý AI cơ sở dữ liệu | Hoàn thành | AI |
+| Chat tư vấn tài liệu | Hoàn thành | AI |
+| Lịch sử truy vấn & tìm kiếm ngữ nghĩa | Hoàn thành | AI |
+| Chuẩn hóa MyBatis XML → SQL | Hoàn thành | Cốt lõi |
+| Chẩn đoán lỗi định dạng bằng AI | Hoàn thành | AI |
+| Đăng nhập Google / Microsoft | Hoàn thành | Xác thực |
+| Truy cập khách (không cần tài khoản) | Đang phát triển | Xác thực |
+| Tiếng Việt / Tiếng Anh | Hoàn thành | UX |
+| Đọc nội dung bằng giọng nói (Text-to-Speech) | Hoàn thành | AI |
 
 ---
 
-# 11. Current Roadmap / Delivered Scope
+# 11. Lộ trình hiện tại / Phạm vi đã hoàn thành
 
-- [x] Core SQL analysis.
-- [x] Relationship visualization.
-- [x] Metrics and complexity scoring.
-- [x] CTE and field-origin analysis.
-- [x] Smart SQL Editor.
-- [x] AI Explainer.
-- [x] AI Optimization.
-- [x] Database AI Assistant with RAG.
-- [x] MyBatis normalization.
-- [x] AI format-error diagnostics.
-- [x] Google / Microsoft OAuth.
-- [ ] Guest access không cần tài khoản — đang phát triển, chưa có cơ chế kiểm soát ở server.
-- [x] Vietnamese / English internationalization.
-
----
-
-## 12. Closing Perspective
-
-SQL Visualizer is not simply a SQL editor or query formatter.
-
-It is positioned as a **SQL Intelligence Platform** that connects four layers of engineering work:
-
-> **Understand → Visualize → Analyze → Improve**
-
-By bringing structural analysis, visualization, measurable complexity, natural-language explanation and AI-assisted optimization into one workflow, SQL Visualizer creates a more transparent way for engineering teams to work with complex SQL.
-
-> **The objective is simple: make complex SQL easier to understand, easier to review, and easier to improve — while keeping the developer in control of every change.**
+- [x] Phân tích SQL cốt lõi.
+- [x] Trực quan hóa quan hệ bảng.
+- [x] Chỉ số và chấm điểm độ phức tạp.
+- [x] Phân tích CTE và nguồn gốc trường.
+- [x] Soạn thảo SQL thông minh (Smart SQL Editor).
+- [x] AI diễn giải SQL.
+- [x] Tối ưu hóa bằng AI.
+- [x] Trợ lý AI cơ sở dữ liệu với RAG.
+- [x] Chuẩn hóa MyBatis.
+- [x] Chẩn đoán lỗi định dạng bằng AI.
+- [x] OAuth Google / Microsoft.
+- [ ] Truy cập khách không cần tài khoản — đang phát triển, chưa có cơ chế kiểm soát ở server.
+- [x] Đa ngôn ngữ Tiếng Việt / Tiếng Anh.
 
 ---
 
-*Source: Internal SQL Visualizer feature documentation. Technical details and delivered scope are based on the supplied product document.*
+## 12. Góc nhìn tổng kết
+
+SQL Visualizer không đơn thuần là một trình soạn thảo SQL hay công cụ định dạng truy vấn.
+
+Sản phẩm được định vị là một **nền tảng trí tuệ SQL (SQL Intelligence Platform)** kết nối bốn lớp công việc kỹ thuật:
+
+> **Hiểu → Trực quan hóa → Phân tích → Cải thiện**
+
+Bằng cách đưa phân tích cấu trúc, trực quan hóa, độ phức tạp đo lường được, giải thích bằng ngôn ngữ tự nhiên và tối ưu hóa với sự hỗ trợ của AI vào cùng một quy trình, SQL Visualizer tạo ra một cách làm việc minh bạch hơn cho các đội kỹ thuật khi xử lý SQL phức tạp.
+
+> **Mục tiêu rất đơn giản: làm cho SQL phức tạp dễ hiểu hơn, dễ review hơn và dễ cải thiện hơn — trong khi lập trình viên vẫn nắm quyền kiểm soát mọi thay đổi.**
+
+---
+
+*Nguồn: Tài liệu tính năng nội bộ của SQL Visualizer. Các chi tiết kỹ thuật và phạm vi đã hoàn thành dựa trên tài liệu sản phẩm được cung cấp.*

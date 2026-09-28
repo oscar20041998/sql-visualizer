@@ -24,6 +24,7 @@ import type { SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
 import type { DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
 import { useCapabilityLock } from '@/lib/useCapabilityLock';
+import SidePanelTab from '@/app/smart-sql-editor/components/SidePanelTab';
 
 /** Renders the raw streamed JSON as a short "waiting" message until real content has arrived. */
 function buildOptimizeProgressMessage(raw: string, waitingLabel: string): string {
@@ -138,14 +139,15 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 }) => {
   const settings = useAppStore((store) => store.settings);
   const t = getT(settings.locale);
+
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [localInstruction, setLocalInstruction] = useState(instructionDraft);
+
   // A guest sees the locked explanation INSIDE the optimize panel (specs/013 US2 / FR-015):
   // the launcher tab, header and close affordance stay rendered so the lock is discoverable
   // where the AI feature lives — only the body shows the lock instead of a form that would
   // fail on submit (FR-013). Placed after every hook so the Rules of Hooks still hold.
   const optimizeLocked = useCapabilityLock('optimize');
-
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [localInstruction, setLocalInstruction] = useState(instructionDraft);
 
   useEffect(() => setLocalInstruction(instructionDraft), [instructionDraft]);
 
@@ -166,18 +168,19 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
   }, [localInstruction, onInstructionDraftChange, onSubmitInstruction]);
 
   if (!isOpen) {
+    // The collapsed launcher must portal into the page's SidePanelRail (rank 0, primary tone) so the
+    // Optimize, Explainer and Format-error tabs pack into one column. A hand-rolled `fixed right-0`
+    // button here used to sit outside the rail with its own hard-coded offset, so it still overlapped
+    // the other launchers — the exact defect the rail exists to remove.
     return (
-      <button
-        type="button"
+      <SidePanelTab
+        rank={0}
+        tone="primary"
+        icon={<Sparkles size={16} className="shrink-0" aria-hidden="true" />}
+        label={t.analyzeOptimizeButton}
+        ariaLabel={t.smartEditorOptimizeModalTitle}
         onClick={onOpen}
-        aria-label={t.smartEditorOptimizeModalTitle}
-        className="group fixed right-0 top-[calc(50%_-_1.5rem)] z-40 flex -translate-y-1/2 items-center gap-0 rounded-l-lg border border-r-0 border-primary bg-primary px-2.5 py-2 text-primary-foreground shadow-lg transition-all duration-200 group-hover:gap-2 hover:opacity-90 hover:pr-3"
-      >
-        <Sparkles size={16} className="shrink-0" aria-hidden="true" />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
-          {t.analyzeOptimizeButton}
-        </span>
-      </button>
+      />
     );
   }
 
@@ -195,32 +198,36 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         aria-modal="true"
         aria-labelledby="optimize-query-modal-heading"
         onClick={(event) => event.stopPropagation()}
-        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-gray-700 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
+        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl animate-slide-in-right sm:max-w-2xl"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-5 py-4">
-          <h2 id="optimize-query-modal-heading" className="flex items-center gap-2 text-sm font-semibold text-gray-100">
-            <Sparkles size={14} className="text-indigo-300" />
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4">
+          <h2 id="optimize-query-modal-heading" className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Sparkles size={16} className="text-primary" />
             {t.smartEditorOptimizeModalTitle}
           </h2>
           <button
             ref={closeButtonRef}
             onClick={onClose}
             aria-label={t.smartEditorOptimizeModalClose}
-            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-200"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X size={16} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-3">
+          {/* Guest access (specs/013 US2 / FR-013, FR-015): the modal chrome — launcher tab,
+              header and close affordance — stays rendered so the lock is discoverable where the
+              AI feature lives; only the body is replaced, so a guest never reaches a form that
+              would be refused on submit. */}
           {optimizeLocked ? (
             <LockedFeatureNotice t={t} featureName={t.analyzeOptimizeTitle} />
           ) : (
             <>
-              {/* Mode toggle (spec 004): the existing safe optimize flow vs the new requirement-driven
+          {/* Mode toggle (spec 004): the existing safe optimize flow vs the new requirement-driven
            * flow that may change query semantics. Switching modes never clears the other mode's
            * in-progress/result state, so the user can flip back and forth without losing work. */}
-          <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-950 p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
             <button
               type="button"
               onClick={() => onOptimizeModeChange('instruction')}
@@ -228,8 +235,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               disabled={semanticPhase === 'running' || optimizePhase === 'streaming' || requirementPhase === 'streaming'}
               className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 optimizeMode !== 'requirement'
-                  ? 'bg-indigo-500/20 text-indigo-200'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'bg-card text-foreground font-semibold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {t.smartEditorModeOptimizeLabel}
@@ -241,8 +248,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               disabled={semanticPhase === 'running' || optimizePhase === 'streaming' || requirementPhase === 'streaming'}
               className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 optimizeMode === 'requirement'
-                  ? 'bg-indigo-500/20 text-indigo-200'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'bg-card text-foreground font-semibold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {t.smartEditorModeRequirementLabel}
@@ -252,7 +259,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
           {optimizeMode === 'requirement' ? (
             <div className="space-y-3">
               <div className="space-y-2">
-                <label htmlFor="requirement-text-input" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <label htmlFor="requirement-text-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t.smartEditorRequirementLabel}
                 </label>
                 <textarea
@@ -262,9 +269,9 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   placeholder={t.smartEditorRequirementPlaceholder}
                   rows={3}
                   disabled={requirementPhase === 'streaming'}
-                  className="w-full resize-none rounded-lg border border-gray-800 bg-gray-950 p-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                  className="w-full resize-none rounded-lg border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-60"
                 />
-                <label htmlFor="requirement-hinted-tables-input" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <label htmlFor="requirement-hinted-tables-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t.smartEditorRequirementHintedTablesLabel}
                 </label>
                 <input
@@ -274,22 +281,22 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   onChange={(event) => onRequirementHintedTablesDraftChange(event.target.value)}
                   placeholder={t.smartEditorRequirementHintedTablesPlaceholder}
                   disabled={requirementPhase === 'streaming'}
-                  className="w-full rounded-lg border border-gray-800 bg-gray-950 p-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                  className="w-full rounded-lg border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-60"
                 />
                 <button
                   onClick={onSubmitRequirement}
                   disabled={requirementPhase === 'streaming'}
-                  className="rounded-md border border-indigo-500/60 bg-indigo-500/15 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t.smartEditorRequirementSubmit}
                 </button>
               </div>
 
               {requirementPhase !== 'idle' && (
-                <div className="rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
+                <div className="rounded-lg border border-border bg-muted/30 p-3 scrollbar-thin">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
-                      <Sparkles size={12} className={requirementPhase === 'streaming' ? 'animate-pulse' : ''} />
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                      <Sparkles size={12} className={requirementPhase === 'streaming' ? 'animate-pulse text-primary' : 'text-primary'} />
                       {requirementPhase === 'streaming'
                         ? t.smartEditorRequirementProgressTitle
                         : requirementPhase === 'error'
@@ -299,7 +306,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     {requirementPhase !== 'streaming' && (
                       <button
                         onClick={onDiscardRequirementCandidate}
-                        className="text-gray-500 transition-colors hover:text-gray-300"
+                        className="text-muted-foreground transition-colors hover:text-foreground"
                         aria-label={t.smartEditorReset}
                       >
                         <X size={14} />
@@ -308,21 +315,21 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   </div>
 
                   {requirementPhase === 'streaming' && (
-                    <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                    <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-foreground">
                       {buildOptimizeProgressMessage(requirementStreamRaw, t.smartEditorRequirementWaitingLabel)}
-                      <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+                      <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-primary align-middle" />
                     </p>
                   )}
 
                   {requirementPhase === 'error' && requirementError && (
-                    <p className="mt-2 text-xs text-red-300">{requirementError}</p>
+                    <p className="mt-2 text-xs text-danger">{requirementError}</p>
                   )}
 
                   {requirementPhase === 'done' && requirementResult && (
                     <div className="mt-2 space-y-2">
                       {requirementIsStale && (
-                        <div className="rounded-lg border border-yellow-800/60 bg-yellow-950/20 p-3">
-                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-yellow-300">
+                        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-warning">
                             <AlertTriangle size={13} />
                             {t.smartEditorRequirementStaleNotice}
                           </p>
@@ -330,16 +337,16 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                       )}
 
                       {requirementResult.unresolvedReferences.length > 0 && (
-                        <div className="rounded-lg border border-yellow-800/60 bg-yellow-950/20 p-3">
-                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-yellow-300">
+                        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-warning">
                             <AlertTriangle size={13} />
                             {t.smartEditorRequirementUnresolvedTitle}
                           </p>
-                          <p className="mt-1.5 text-xs text-yellow-100">{t.smartEditorRequirementUnresolvedNote}</p>
+                          <p className="mt-1.5 text-xs text-foreground">{t.smartEditorRequirementUnresolvedNote}</p>
                           <ul className="mt-2 space-y-1">
                             {requirementResult.unresolvedReferences.map((ref, index) => (
-                              <li key={`requirement-unresolved-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-yellow-100">
-                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-yellow-400" />
+                              <li key={`requirement-unresolved-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning" />
                                 {ref}
                               </li>
                             ))}
@@ -351,13 +358,13 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                         <div
                           className={`rounded-lg border p-3 ${
                             requirementChangeSummary.isSemanticChange
-                              ? 'border-red-800/60 bg-red-950/30'
-                              : 'border-gray-800 bg-gray-900/60'
+                              ? 'border-danger/40 bg-danger/10'
+                              : 'border-border bg-muted/40'
                           }`}
                         >
                           <p
                             className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wide ${
-                              requirementChangeSummary.isSemanticChange ? 'text-red-300' : 'text-gray-400'
+                              requirementChangeSummary.isSemanticChange ? 'text-danger' : 'text-muted-foreground'
                             }`}
                           >
                             {requirementChangeSummary.isSemanticChange && <AlertTriangle size={13} />}
@@ -367,10 +374,10 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                           </p>
                           {requirementChangeSummary.isSemanticChange && (
                             <>
-                              <p className="mt-1.5 text-sm leading-relaxed text-red-200">
+                              <p className="mt-1.5 text-sm leading-relaxed text-foreground">
                                 {t.smartEditorRequirementSemanticChangeNote}
                               </p>
-                              <ul className="mt-2 space-y-1 text-sm leading-relaxed text-red-200">
+                              <ul className="mt-2 space-y-1 text-sm leading-relaxed text-foreground">
                                 {requirementChangeSummary.addedTables.length > 0 && (
                                   <li>{t.smartEditorRequirementAddedTables.replace('{items}', requirementChangeSummary.addedTables.join(', '))}</li>
                                 )}
@@ -396,16 +403,16 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                         </div>
                       )}
 
-                      <p className="text-sm leading-relaxed text-gray-200">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t.smartEditorRequirementAnalysisLabel}: </span>
+                      <p className="text-sm leading-relaxed text-foreground">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.smartEditorRequirementAnalysisLabel}: </span>
                         {requirementResult.analysis || t.aiExplainerNoContent}
                       </p>
 
-                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-3 font-mono text-[11px] leading-relaxed text-foreground scrollbar-thin">
                         {requirementResult.optimizedSql}
                       </pre>
 
-                      <div className="flex items-center gap-2 border-t border-gray-800 pt-3">
+                      <div className="flex items-center gap-2 border-t border-border pt-3">
                         <button
                           onClick={onApplyRequirementCandidate}
                           disabled={requirementIsStale}
@@ -430,7 +437,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
           {/* Natural-language instruction: optional, folded into both the semantic-brief step and
            * the optimize step as an explicit "must not change semantics" constraint. */}
           <div className="space-y-2">
-            <label htmlFor="optimize-instruction-input" className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <label htmlFor="optimize-instruction-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t.smartEditorInstructionLabel}
             </label>
             <textarea
@@ -440,12 +447,12 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               placeholder={t.smartEditorInstructionPlaceholder}
               rows={2}
               disabled={semanticPhase === 'running' || optimizePhase === 'streaming'}
-              className="w-full resize-none rounded-lg border border-gray-800 bg-gray-950 p-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full resize-none rounded-lg border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-60"
             />
             <button
               onClick={handleInstructionSubmit}
               disabled={semanticPhase === 'running' || optimizePhase === 'streaming'}
-              className="rounded-md border border-indigo-500/60 bg-indigo-500/15 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t.smartEditorInstructionSubmit}
             </button>
@@ -453,14 +460,14 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 
           {/* Step 1: model's own understanding of the query, reviewed before any rewrite runs */}
           {semanticPhase !== 'idle' && (
-            <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 scrollbar-thin">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 scrollbar-thin">
               <div className="flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={onToggleSemanticDetail}
                   disabled={!semanticBrief}
                   aria-expanded={isSemanticDetailExpanded}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold uppercase tracking-wide text-amber-300 disabled:cursor-default"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold uppercase tracking-wide text-warning disabled:cursor-default"
                 >
                   <Sparkles size={12} className={semanticPhase === 'running' ? 'animate-pulse' : ''} />
                   <span className="min-w-0 flex-1 truncate">
@@ -480,7 +487,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                 {(semanticPhase === 'ready' || semanticPhase === 'error') && (
                   <button
                     onClick={onCancelSemanticReview}
-                    className="text-gray-500 transition-colors hover:text-gray-300"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
                     aria-label={t.smartEditorReset}
                   >
                     <X size={14} />
@@ -489,7 +496,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               </div>
 
               {semanticPhase === 'error' && semanticError && (
-                <p className="mt-2 text-xs text-red-300">{semanticError}</p>
+                <p className="mt-2 text-xs text-danger">{semanticError}</p>
               )}
 
               {(semanticPhase === 'ready' || semanticPhase === 'confirmed') && semanticBrief && isSemanticDetailExpanded && (
@@ -497,19 +504,19 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   {semanticBrief.structured ? (
                     <>
                       {semanticBrief.purpose && (
-                        <p className="text-sm leading-relaxed text-gray-200">{semanticBrief.purpose}</p>
+                        <p className="text-sm leading-relaxed text-foreground">{semanticBrief.purpose}</p>
                       )}
                       {semanticBrief.relationships.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             {t.smartEditorSemanticRelationshipsLabel}
                           </p>
-                          <ul className="mt-1 space-y-1 text-sm text-gray-200">
+                          <ul className="mt-1 space-y-1 text-sm text-foreground">
                             {semanticBrief.relationships.map((rel, index) => (
                               <li key={`semantic-rel-${index}`} className="flex items-start gap-2">
-                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning" />
                                 <span>
-                                  {rel.tables && <span className="font-semibold text-amber-200">{rel.tables}: </span>}
+                                  {rel.tables && <span className="font-semibold text-warning">{rel.tables}: </span>}
                                   {rel.description}
                                 </span>
                               </li>
@@ -519,13 +526,13 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                       )}
                       {semanticBrief.criticalFilters.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             {t.smartEditorSemanticFiltersLabel}
                           </p>
-                          <ul className="mt-1 space-y-1 text-sm text-gray-200">
+                          <ul className="mt-1 space-y-1 text-sm text-foreground">
                             {semanticBrief.criticalFilters.map((filter, index) => (
                               <li key={`semantic-filter-${index}`} className="flex items-start gap-2">
-                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning" />
                                 {filter}
                               </li>
                             ))}
@@ -534,13 +541,13 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                       )}
                       {semanticBrief.risks.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             {t.smartEditorSemanticRisksLabel}
                           </p>
-                          <ul className="mt-1 space-y-1 text-sm text-gray-200">
+                          <ul className="mt-1 space-y-1 text-sm text-foreground">
                             {semanticBrief.risks.map((risk, index) => (
                               <li key={`semantic-risk-${index}`} className="flex items-start gap-2">
-                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-danger" />
                                 {risk}
                               </li>
                             ))}
@@ -549,7 +556,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                       )}
                     </>
                   ) : (
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-3 font-mono text-[11px] leading-relaxed text-foreground scrollbar-thin">
                       {semanticBrief.raw}
                     </pre>
                   )}
@@ -562,7 +569,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={onConfirmSemanticReview}
-                        className="rounded-md border border-amber-500/60 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
+                        className="rounded-md border border-warning/60 bg-warning/15 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/25"
                       >
                         {t.smartEditorSemanticConfirmButton}
                       </button>
@@ -575,7 +582,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     </div>
                   )}
                   {semanticPhase === 'confirmed' && (
-                    <p className="text-xs font-medium text-amber-300/80">{t.smartEditorSemanticConfirmedLabel}</p>
+                    <p className="text-xs font-medium text-warning">{t.smartEditorSemanticConfirmedLabel}</p>
                   )}
                 </div>
               )}
@@ -584,10 +591,10 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 
           {/* AI Optimize progress / results — live stream while running, structured summary once done */}
           {optimizePhase !== 'idle' && (
-            <div className="rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 scrollbar-thin">
               <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
-                  <Sparkles size={12} className={optimizePhase === 'streaming' ? 'animate-pulse' : ''} />
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                  <Sparkles size={12} className={optimizePhase === 'streaming' ? 'animate-pulse text-primary' : 'text-primary'} />
                   {optimizePhase === 'streaming'
                     ? t.smartEditorOptimizeProgressTitle
                     : optimizePhase === 'error'
@@ -599,7 +606,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
                       <button
                         onClick={onSpeech}
-                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-indigo-300 transition-colors hover:bg-indigo-400/10 hover:text-indigo-200 disabled:cursor-wait disabled:opacity-70"
+                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-primary transition-colors hover:bg-primary/10 hover:text-primary disabled:cursor-wait disabled:opacity-70"
                         aria-label={speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop}
                         title={speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop}
                       >
@@ -617,7 +624,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     )}
                     <button
                       onClick={onDismissResults}
-                      className="text-gray-500 transition-colors hover:text-gray-300"
+                      className="text-muted-foreground transition-colors hover:text-foreground"
                       aria-label={t.smartEditorReset}
                     >
                       <X size={14} />
@@ -627,22 +634,22 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               </div>
 
               {optimizePhase === 'streaming' && (
-                <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-foreground">
                   {buildOptimizeProgressMessage(optimizeStreamRaw, t.smartEditorOptimizeWaitingLabel)}
-                  <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+                  <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-primary align-middle" />
                 </p>
               )}
 
               {optimizePhase === 'error' && optimizeError && (
-                <p className="mt-2 text-xs text-red-300">{optimizeError}</p>
+                <p className="mt-2 text-xs text-danger">{optimizeError}</p>
               )}
 
               {optimizePhase === 'done' && optimizeResult && !optimizeResult.structured && (
                 <div className="mt-2 space-y-2">
-                  <p className="text-xs leading-relaxed text-yellow-300/90">
+                  <p className="text-xs leading-relaxed text-warning">
                     {t.smartEditorOptimizeUnstructuredNotice}
                   </p>
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/50 p-3 font-mono text-[11px] leading-relaxed text-foreground scrollbar-thin">
                     {optimizeResult.raw}
                   </pre>
                 </div>
@@ -651,8 +658,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
                 <div className="mt-2 space-y-2">
                   {structuralWarnings.length > 0 && (
-                    <div className="rounded-lg border border-red-800/60 bg-red-950/30 p-3">
-                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-red-300">
+                    <div className="rounded-lg border border-danger/40 bg-danger/10 p-3">
+                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-danger">
                         <AlertTriangle size={13} />
                         {t.smartEditorOptimizeRegressionTitle}
                       </p>
@@ -660,9 +667,9 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                         {structuralWarnings.map((warning, index) => (
                           <li
                             key={`smart-optimize-regression-${index}`}
-                            className="flex items-start gap-2 text-sm leading-relaxed text-red-200"
+                            className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
                           >
-                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-danger" />
                             {warning}
                           </li>
                         ))}
@@ -671,43 +678,43 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   )}
 
                   {optimizeResult.instructionStatus && optimizeResult.instructionStatus !== 'applied' && (
-                    <div className="rounded-lg border border-yellow-800/60 bg-yellow-950/20 p-3">
-                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-yellow-300">
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-warning">
                         <AlertTriangle size={13} />
                         {t.smartEditorInstructionRefusedTitle}
                       </p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-yellow-100">
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground">
                         {optimizeResult.instructionNote || t.smartEditorInstructionRefusedNote}
                       </p>
                     </div>
                   )}
 
-                  <p className="text-sm leading-relaxed text-gray-200">
+                  <p className="text-sm leading-relaxed text-foreground">
                     {optimizeResult.analysis || t.aiExplainerNoContent}
                   </p>
                   {optimizeResult.semanticImpact && (
-                    <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {t.smartEditorOptimizeSemanticImpactLabel}
                       </p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-gray-200">
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground">
                         {optimizeResult.semanticImpact}
                       </p>
                     </div>
                   )}
                   {optimizeResult.proposals.length === 0 && (
-                    <p className="text-xs italic text-gray-400">{t.smartEditorOptimizeNoProposals}</p>
+                    <p className="text-xs italic text-muted-foreground">{t.smartEditorOptimizeNoProposals}</p>
                   )}
                   {optimizeResult.proposals.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {t.smartEditorOptimizeProposalsLabel}
                       </p>
                       {optimizeResult.proposals.map((proposal) => {
                         const isApplied = appliedProposalIds.includes(proposal.id);
                         const isExpanded = expandedProposalIds.has(proposal.id);
                         return (
-                          <div key={proposal.id} className="rounded-lg border border-indigo-800/50 bg-gray-900/60 p-3">
+                          <div key={proposal.id} className="rounded-lg border border-border bg-muted/40 p-3">
                             <div className="flex items-start justify-between gap-3">
                               <button
                                 type="button"
@@ -716,32 +723,32 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                                 className="flex min-w-0 flex-1 items-start gap-2 text-left"
                               >
                                 {isExpanded ? (
-                                  <ChevronUp size={16} className="mt-0.5 flex-shrink-0 text-indigo-300" />
+                                  <ChevronUp size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
                                 ) : (
-                                  <ChevronDown size={16} className="mt-0.5 flex-shrink-0 text-indigo-300" />
+                                  <ChevronDown size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
                                 )}
-                                <span className="min-w-0 truncate text-sm font-semibold text-indigo-200">
+                                <span className="min-w-0 truncate text-sm font-semibold text-foreground">
                                   {proposal.issue || t.smartEditorOptimizeProposalsLabel}
                                 </span>
                               </button>
                               <button
                                 onClick={() => onApplyProposal(proposal)}
                                 disabled={isApplied}
-                                className="flex-shrink-0 rounded-md border border-indigo-500/50 px-2 py-1 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/15 disabled:cursor-default disabled:border-success/40 disabled:text-success"
+                                className="flex-shrink-0 rounded-md border border-primary/50 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-default disabled:border-success/40 disabled:text-success"
                               >
                                 {isApplied ? t.smartEditorOptimizeProposalAppliedLabel : t.smartEditorOptimizeProposalApply}
                               </button>
                             </div>
                             {isExpanded && (
-                              <div className="mt-2 space-y-1 text-sm leading-relaxed text-gray-200">
-                                {proposal.location && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalLocation}: </span>{proposal.location}</p>}
-                                {proposal.reason && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalReason}: </span>{proposal.reason}</p>}
-                                {proposal.recommendation && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalRecommendation}: </span>{proposal.recommendation}</p>}
-                                {proposal.semanticImpact && <p><span className="text-gray-400">{t.smartEditorOptimizeSemanticImpactLabel}: </span>{proposal.semanticImpact}</p>}
-                                <pre className="mt-2 max-h-28 overflow-auto rounded border border-gray-800 bg-gray-950 p-2 text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
+                              <div className="mt-2 space-y-1 text-sm leading-relaxed text-foreground">
+                                {proposal.location && <p><span className="text-muted-foreground">{t.smartEditorOptimizeProposalLocation}: </span>{proposal.location}</p>}
+                                {proposal.reason && <p><span className="text-muted-foreground">{t.smartEditorOptimizeProposalReason}: </span>{proposal.reason}</p>}
+                                {proposal.recommendation && <p><span className="text-muted-foreground">{t.smartEditorOptimizeProposalRecommendation}: </span>{proposal.recommendation}</p>}
+                                {proposal.semanticImpact && <p><span className="text-muted-foreground">{t.smartEditorOptimizeSemanticImpactLabel}: </span>{proposal.semanticImpact}</p>}
+                                <pre className="mt-2 max-h-28 overflow-auto rounded border border-border bg-muted/60 p-2 text-[11px] leading-relaxed text-foreground scrollbar-thin">
                                   <code>{proposal.find}</code>
                                 </pre>
-                                <pre className="mt-1 max-h-28 overflow-auto rounded border border-indigo-900/50 bg-indigo-950/20 p-2 text-[11px] leading-relaxed text-indigo-100 scrollbar-thin">
+                                <pre className="mt-1 max-h-28 overflow-auto rounded border border-primary/40 bg-primary/10 p-2 text-[11px] leading-relaxed text-foreground scrollbar-thin">
                                   <code>{proposal.replace}</code>
                                 </pre>
                               </div>
@@ -753,13 +760,13 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   )}
                   {optimizeResult.suggestions.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {t.performanceNotesLabel}
                       </p>
-                      <ul className="mt-1 space-y-1 text-sm text-gray-200">
+                      <ul className="mt-1 space-y-1 text-sm text-foreground">
                         {optimizeResult.suggestions.map((suggestion, index) => (
                           <li key={`smart-optimize-suggestion-${index}`} className="flex items-start gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
+                            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />
                             {suggestion}
                           </li>
                         ))}
@@ -767,7 +774,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                     </div>
                   )}
                   {knowledgeSources.length > 0 && (
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[11px] text-muted-foreground">
                       {t.smartEditorOptimizeGroundedIn.replace(
                         '{sources}',
                         Array.from(new Set(knowledgeSources.map((source) => source.sourceFile))).join(', ')
@@ -778,7 +785,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
                   {/* Session-level confirmation gate: nothing above ever touches the editor by
                    * itself — the user must explicitly Apply (or Discard) the whole session here,
                    * right next to any regression warnings, before anything lands in the editor. */}
-                  <div className="flex items-center gap-2 border-t border-gray-800 pt-3">
+                  <div className="flex items-center gap-2 border-t border-border pt-3">
                     <button
                       onClick={onSessionApply}
                       disabled={!hasUnappliedProposals}
@@ -797,6 +804,9 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
               )}
             </div>
           )}
+            </>
+          )}
+            </>
           )}
         </div>
       </div>

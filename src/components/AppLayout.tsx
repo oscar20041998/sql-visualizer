@@ -54,6 +54,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const accentColor = useAppStore((s) => s.settings.accentColor);
   const navigationTarget = useAppStore((s) => s.navigationTarget);
   const completeNavigation = useAppStore((s) => s.completeNavigation);
+  const cancelNavigation = useAppStore((s) => s.cancelNavigation);
   // null = unknown (SSR/pre-hydration), true = signed in. Mirrors the
   // query-input gate pattern: render nothing until the check completes,
   // so protected content never flashes for signed-out visitors.
@@ -94,11 +95,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
     root.style.setProperty('--primary-foreground', theme === 'dark' ? '#0d1117' : '#ffffff');
   }, [theme, accentColor]);
 
+  // Settles an in-progress route change so the loading overlay cannot outlive it.
+  //
+  // The overlay is driven by `navigationTarget`, and the store's `completeNavigation` refuses to
+  // clear it unless the target equals the current path. That is only safe when every caller of
+  // `beginNavigation` lives under this layout — but the public pages set it too (the home page and
+  // `/login` both call `beginNavigation` before pushing), and those routes render no AppLayout at
+  // all. A target set there was therefore never cleared, leaving `navigationTarget` non-null after
+  // the user reached a workspace page. The overlay renders `fixed inset-0 z-50`, so it silently
+  // swallowed every click and no navigation worked again — the reported "cannot change page".
+  //
+  // Two things are needed, and both are here: the target must be settled once the path actually
+  // moves (first branch), and a target that can never match — a leftover pointing somewhere else —
+  // must be dropped rather than held forever (second branch).
   useEffect(() => {
-    if (navigationTarget !== pathname) return;
-    const frame = requestAnimationFrame(() => completeNavigation(pathname));
+    if (navigationTarget === null) return;
+    // The destination is reached: settle the normal way so the indicator reflects a real arrival.
+    if (navigationTarget === pathname) {
+      const frame = requestAnimationFrame(() => completeNavigation(pathname));
+      return () => cancelAnimationFrame(frame);
+    }
+    // A target we are no longer heading to — set by a page outside this shell — would otherwise
+    // hold the overlay open forever. Give the route change one frame to land, then drop it.
+    const frame = requestAnimationFrame(() => cancelNavigation());
     return () => cancelAnimationFrame(frame);
-  }, [completeNavigation, navigationTarget, pathname]);
+  }, [cancelNavigation, completeNavigation, navigationTarget, pathname]);
 
   // Auth gate: signed-out users never see protected content (not even a
   // flash) — nothing renders until the check passes, mirroring query-input.

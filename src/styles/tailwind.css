@@ -280,6 +280,8 @@
     border-color: var(--border) !important;
   }
 
+  .smart-sql-editor-theme .text-white,
+  .smart-sql-editor-theme .text-gray-100,
   .smart-sql-editor-theme .text-gray-200,
   .smart-sql-editor-theme .text-gray-300 {
     color: var(--foreground) !important;

@@ -1236,9 +1236,9 @@ export const SmartSQLEditor: React.FC<{
          * into content that is about to be replaced by the streamed result. */}
         {state.isOptimizing && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-[2px]">
-            <div className="flex items-center gap-3 rounded-lg border border-indigo-800/40 bg-indigo-950/80 px-4 py-3 shadow-lg">
-              <RefreshCw size={16} className="animate-spin text-indigo-300" />
-              <span className="text-sm font-medium text-indigo-200">
+            <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-card px-4 py-3 shadow-lg">
+              <RefreshCw size={16} className="animate-spin text-primary" />
+              <span className="text-sm font-medium text-foreground">
                 {t.smartEditorEditorLockedNotice}
               </span>
             </div>

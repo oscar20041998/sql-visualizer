@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SignInPanel from '@/components/auth/SignInPanel';
 import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -200,5 +200,74 @@ describe('U48/U49 — the workspace auth gate admits a guest', () => {
 
     expect(await screen.findByText('protected content')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalledWith('/login');
+  });
+});
+
+/**
+ * Regression: a guest could not change page at all.
+ *
+ * `navigationTarget` drives the full-screen LoadingOverlay, and `completeNavigation` only clears a
+ * target that equals the current path. The public pages (home, `/login`) set the target too but
+ * render no AppLayout, so their target was never settled; once the guest reached the workspace the
+ * overlay stayed up and swallowed every click. The layout must drop a target it is no longer
+ * heading to.
+ */
+describe('navigation recovery — a stale navigation target cannot block the shell', () => {
+  it('drops a target that does not match the current path instead of holding the overlay', async () => {
+    stubSessionEndpoint();
+    const { setGuestSession: startGuest } = await import('@/lib/demoAuth');
+    const { default: AppLayout } = await import('@/components/AppLayout');
+    startGuest({ startedAt: Date.now(), locale: 'en' });
+    // Exactly what the home page leaves behind when it sends a visitor to /login.
+    useAppStore.setState({ navigationTarget: '/login' });
+
+    render(
+      <AppLayout>
+        <div>protected content</div>
+      </AppLayout>
+    );
+
+    expect(await screen.findByText('protected content')).toBeInTheDocument();
+    await waitFor(() => expect(useAppStore.getState().navigationTarget).toBeNull());
+  });
+
+  it('settles a target that matches the current path', async () => {
+    stubSessionEndpoint();
+    const { setGuestSession: startGuest } = await import('@/lib/demoAuth');
+    const { default: AppLayout } = await import('@/components/AppLayout');
+    startGuest({ startedAt: Date.now(), locale: 'en' });
+    // The Sidebar sets this before pushing, so arriving at the page must settle it (not drop it).
+    useAppStore.setState({ navigationTarget: '/query-input' });
+
+    render(
+      <AppLayout>
+        <div>protected content</div>
+      </AppLayout>
+    );
+
+    expect(await screen.findByText('protected content')).toBeInTheDocument();
+    await waitFor(() => expect(useAppStore.getState().navigationTarget).toBeNull());
+  });
+});
+
+/**
+ * Regression: the home page's primary call to action tested `isDemoAuthenticated()` alone, which
+ * deliberately excludes guests, so a guest who had already confirmed the disclosure was sent back
+ * to `/login` — the same predicate mismatch that made the workspace unreachable (FR-008).
+ */
+describe('U50 — the home call to action admits a guest', () => {
+  it('sends a guest to the workspace rather than the sign-in page', async () => {
+    stubSessionEndpoint();
+    const { setGuestSession: startGuest } = await import('@/lib/demoAuth');
+    const { default: HomePage } = await import('@/app/page');
+    startGuest({ startedAt: Date.now(), locale: 'en' });
+    push.mockClear();
+    useAppStore.setState({ navigationTarget: null });
+
+    render(<HomePage />);
+    // The label is reused by the header CTA and the mobile menu, so take the first (header) one.
+    const ctas = screen.getAllByRole('button', { name: new RegExp(t.homeGetStartedButton, 'i') });
+    fireEvent.click(ctas[0]);
+    expect(push).toHaveBeenCalledWith('/query-input');
   });
 });

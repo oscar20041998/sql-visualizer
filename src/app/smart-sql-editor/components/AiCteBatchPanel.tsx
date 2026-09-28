@@ -21,11 +21,11 @@ interface AiCteBatchPanelProps {
 type CteBatchState = BatchItemState<CTE, SqlExplanation>;
 
 const STATUS_STYLES: Record<CteBatchState['status'], string> = {
-  pending: 'border-gray-700 bg-gray-900 text-gray-500',
-  running: 'border-indigo-700/50 bg-indigo-950/30 text-indigo-200',
-  done: 'border-emerald-800/50 bg-emerald-950/20 text-emerald-200',
-  error: 'border-red-900/60 bg-red-950/30 text-red-200',
-  cancelled: 'border-gray-700 bg-gray-900 text-gray-500',
+  pending: 'border-border bg-muted text-muted-foreground',
+  running: 'border-primary/50 bg-primary/10 text-primary',
+  done: 'border-success/40 bg-success/10 text-success',
+  error: 'border-danger/40 bg-danger/10 text-danger',
+  cancelled: 'border-border bg-muted text-muted-foreground',
 };
 
 /**
@@ -134,8 +134,8 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
                 </button>
 
                 {isOpen && state.result && (
-                  <div className="mt-1.5 ml-6 space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-2.5">
-                    <p className="text-sm leading-relaxed text-gray-200">
+                  <div className="mt-1.5 ml-6 space-y-2 rounded-lg border border-border bg-muted/40 p-2.5">
+                    <p className="text-sm leading-relaxed text-foreground">
                       {state.result.structured ? state.result.sections.query_objective : state.result.raw}
                     </p>
                     {state.result.structured && state.result.sections.filter_categories.length > 0 && (
@@ -144,9 +144,9 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
                           category.items.map((filter, filterIndex) => (
                             <li
                               key={`cte-filter-${state.index}-${categoryIndex}-${filterIndex}`}
-                              className="flex items-start gap-2 text-xs leading-relaxed text-gray-300"
+                              className="flex items-start gap-2 text-xs leading-relaxed text-foreground"
                             >
-                              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-amber-400/70" />
+                              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-warning" />
                               {filter}
                             </li>
                           ))
@@ -157,7 +157,7 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
                 )}
 
                 {isOpen && state.error && (
-                  <p className="mt-1.5 ml-6 rounded-lg border border-red-900/60 bg-red-950/30 px-2.5 py-2 text-xs text-red-300">
+                  <p className="mt-1.5 ml-6 rounded-lg border border-danger/40 bg-danger/10 px-2.5 py-2 text-xs text-danger">
                     {state.error}
                   </p>
                 )}
@@ -170,16 +170,16 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
   );
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
+    <div className="rounded-lg border border-border bg-muted/40 p-3.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
               <Layers size={11} />
             </span>
             {t.aiBatchTitle}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             {t.aiBatchSubtitle
               .replace('{count}', String(ctes.length))
               .replace('{concurrency}', String(Math.max(1, config.batchConcurrency)))}
@@ -189,21 +189,21 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
         {locked ? null : (
         <div className="flex items-center gap-2">
           {states.length > 0 && (
-            <span className="font-mono text-[11px] text-gray-400">
+            <span className="font-mono text-[11px] text-muted-foreground">
               {completed}/{states.length}
             </span>
           )}
           {isRunning ? (
             <button
               onClick={cancel}
-              className="rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-200 transition-colors hover:bg-gray-700"
+              className="rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-secondary"
             >
               {t.aiBatchCancel}
             </button>
           ) : (
             <button
               onClick={run}
-              className="flex items-center gap-1.5 rounded-lg bg-cyan-700 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-cyan-600"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Layers size={11} />
               {states.length ? t.aiBatchRerun : t.aiBatchRun}

@@ -123,6 +123,14 @@ interface AppState {
   setAnalysisError: (message: string | null) => void;
   beginNavigation: (target: string) => void;
   completeNavigation: (pathname: string) => void;
+  /**
+   * Drops an in-progress navigation whatever its target.
+   *
+   * `completeNavigation` only settles a target that matches the current path, so a target set by a
+   * page outside the workspace shell (the home page, `/login`) could never match and left the
+   * loading overlay up permanently. This is the escape hatch for that case.
+   */
+  cancelNavigation: () => void;
   setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
@@ -203,6 +211,7 @@ export const useAppStore = create<AppState>()(
       beginNavigation: (target) => set({ navigationTarget: target }),
       completeNavigation: (pathname) =>
         set((state) => (state.navigationTarget === pathname ? { navigationTarget: null } : {})),
+      cancelNavigation: () => set({ navigationTarget: null }),
       setInputMode: (m) => set({ inputMode: m }),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
       setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),

@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import ThemeProvider from '@/components/ThemeProvider';
 import LanguageThemeSwitch from '@/components/ui/LanguageThemeSwitch';
 import { getT } from '@/lib/i18n';
-import { isDemoAuthenticated } from '@/lib/demoAuth';
+import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 import {
   Database,
   Zap,
@@ -93,7 +93,10 @@ export default function HomePage() {
   const t = getT(settings.locale as 'en' | 'vi');
 
   const handleGetStarted = () => {
-    if (isDemoAuthenticated()) {
+    // A guest also belongs in the workspace (specs/013 FR-008): they confirmed the disclosure and
+    // hold a session, so sending them to /login would strand them on a page they cannot pass —
+    // the same predicate mismatch that made the workspace unreachable for guests.
+    if (isDemoAuthenticated() || isGuestSession()) {
       beginNavigation('/query-input');
       router.push('/query-input');
       return;
