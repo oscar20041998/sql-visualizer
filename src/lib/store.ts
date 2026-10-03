@@ -10,8 +10,10 @@ import type { DocSource } from './ai/aiService';
 // their real values; re-exported here for the client code that already imports from the store.
 import {
   DEFAULT_BASE_URLS,
+  DEFAULT_CHAT_MODELS,
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_OLLAMA_MODEL,
   type AIProvider,
 } from './ai/aiProviders';
 
@@ -155,8 +157,9 @@ interface AppState {
 export const DEFAULT_AI_CONFIG: AIModelConfig = {
   provider: 'ollama',
   baseUrls: { ...DEFAULT_BASE_URLS },
-  ollamaModel: 'qwen2.5-coder:7b',
-  modelId: 'gpt-4o',
+  ollamaModel: DEFAULT_OLLAMA_MODEL,
+  // Cloud providers only; switching provider rewrites this to that provider's own default.
+  modelId: DEFAULT_CHAT_MODELS.openai,
   temperature: 0.1,
   systemPrompt:
     'You are a SQL expert assistant. Explain SQL queries in plain, clear language: describe the purpose, tables involved, joins, filters, and the expected result set.',
@@ -259,7 +262,8 @@ export const useAppStore = create<AppState>()(
       // local Ollama model so existing browsers do not keep an unusable empty model name.
       version: 7,
       migrate: (persistedState) => {
-        const { analysisResult: _drop, ...rest } = (persistedState as Record<string, unknown>) || {};
+        const { analysisResult: _drop, ...rest } =
+          (persistedState as Record<string, unknown>) || {};
         const state = rest as { settings?: Partial<AppSettings> };
         if (state.settings) {
           // Older builds kept the provider API key in localStorage, a single Ollama base URL,
@@ -283,7 +287,7 @@ export const useAppStore = create<AppState>()(
           // A scalar budget belonged to whichever provider was selected at the time; every other
           // provider takes the new default rather than inheriting an unrelated number.
           const activeProvider = persistedAiConfig.provider ?? DEFAULT_AI_CONFIG.provider;
-          const legacyBudget = <T,>(value: unknown, defaults: Record<AIProvider, T>) =>
+          const legacyBudget = <T>(value: unknown, defaults: Record<AIProvider, T>) =>
             typeof value === 'number' ? { ...defaults, [activeProvider]: value } : defaults;
 
           state.settings = {

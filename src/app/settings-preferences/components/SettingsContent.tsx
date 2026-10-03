@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Settings,
   Palette,
@@ -15,16 +15,19 @@ import {
   ChevronDown,
   ShieldCheck,
 } from 'lucide-react';
+import ModelCombobox from './ModelCombobox';
 import { toast } from 'sonner';
 import { useAppStore, type AppSettings, type AIModelConfig, DEFAULT_SETTINGS } from '@/lib/store';
 import {
-  CONTEXT_TOKENS_RANGE,
   DEFAULT_BASE_URLS,
+  DEFAULT_CHAT_MODELS,
+  RETIRED_GEMINI_MODELS,
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_OLLAMA_MODEL,
   ENV_VAR_BY_PROVIDER,
-  MAX_OUTPUT_TOKENS_RANGE,
   type AIProvider,
+  type CloudProvider,
 } from '@/lib/ai/aiProviders';
 import { DEFAULT_SPEECH_GENDER } from '@/lib/ai/aiSpeech';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
@@ -202,11 +205,24 @@ const EDGE_OPTIONS = [
   { value: 'step' as const, label: '' },
 ];
 
-const FALLBACK_CHAT_MODELS: Record<Exclude<AIProvider, 'ollama'>, string[]> = {
+/**
+ * Offered when the provider's model list could not be fetched. The first entry is the provider's
+ * default (DEFAULT_CHAT_MODELS), so a failed request still lands on a model that works.
+ */
+const FALLBACK_CHAT_MODELS: Record<CloudProvider, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5', 'gpt-5-mini'],
   anthropic: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022'],
-  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+  gemini: ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'],
 };
+
+const CONTEXT_TOKEN_PRESETS: Record<AIProvider, number[]> = {
+  ollama: [2048, 4096, 8192, 16384, 32768, 65536],
+  openai: [8192, 16384, 32768, 65536, 128000, 200000, 400000],
+  anthropic: [8192, 16384, 32768, 65536, 100000, 200000],
+  gemini: [8192, 16384, 32768, 65536, 128000, 256000, 512000, 1000000],
+};
+
+const MAX_OUTPUT_TOKEN_PRESETS = [128, 256, 512, 1024, 1200, 2048, 4096, 8192, 12288, 16384];
 
 export default function SettingsContent() {
   const { settings, updateSettings } = useAppStore();
@@ -223,7 +239,9 @@ export default function SettingsContent() {
    * keystroke would fire a toast per letter and persist half-typed values.
    */
   const [aiDraft, setAiDraft] = useState<AIModelConfig>(savedAiConfig);
-  const [isCustomModel, setIsCustomModel] = useState(false);
+  // Model IDs added by hand this session. They are held apart from `availableModels` so a provider
+  // refresh does not silently drop them, and so the picker stays a single control.
+  const [customModels, setCustomModels] = useState<string[]>([]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -234,6 +252,19 @@ export default function SettingsContent() {
   useEffect(() => {
     setAiDraft(savedAiConfig);
   }, [savedAiConfig]);
+
+  // A config saved before a model was retired still names that model, and every request then fails
+  // with a provider error the user cannot act on. Repair the stored value once on read so an
+  // existing profile recovers without a manual re-pick.
+  useEffect(() => {
+    const storedModel = savedAiConfig.modelId;
+    if (
+      savedAiConfig.provider === 'gemini' &&
+      RETIRED_GEMINI_MODELS.some((pattern) => pattern.test(storedModel))
+    ) {
+      updateSettings({ aiConfig: { ...savedAiConfig, modelId: DEFAULT_CHAT_MODELS.gemini } });
+    }
+  }, [savedAiConfig, updateSettings]);
 
   useEffect(() => {
     if (activeCategory !== 'ai') return;
@@ -286,11 +317,8 @@ export default function SettingsContent() {
             setAvailableModels(models);
             setModelsLoaded(true);
             if (models.length > 0) {
-              const preferredModel = aiDraft.provider === 'openai'
-                ? 'gpt-4o'
-                : aiDraft.provider === 'gemini'
-                  ? 'gemini-2.5-flash'
-                  : '';
+              // Prefer the provider's curated default; fall back to whatever it returned first.
+              const preferredModel = DEFAULT_CHAT_MODELS[aiDraft.provider];
               const fallbackModel = models.includes(preferredModel) ? preferredModel : models[0];
               setAiDraft((prev) =>
                 prev.provider === aiDraft.provider &&
@@ -422,14 +450,46 @@ export default function SettingsContent() {
     { value: 'anthropic', label: t.aiProviderAnthropic },
     { value: 'gemini', label: t.aiProviderGemini },
   ];
-  const modelOptions = aiDraft.provider === 'ollama'
-    ? []
-    : [...new Set([
-        ...(availableModels.length > 0
-          ? availableModels
-          : FALLBACK_CHAT_MODELS[aiDraft.provider]),
-        ...(aiDraft.modelId && !availableModels.includes(aiDraft.modelId) ? [aiDraft.modelId] : []),
-      ])];
+  /** Registers a hand-typed model ID so it stays selectable in the combobox. */
+  const addCustomModel = useCallback(
+    (modelId: string) => {
+      setCustomModels((previous) =>
+        previous.includes(modelId) ? previous : [...previous, modelId]
+      );
+      updateAI('modelId', modelId);
+    },
+    [updateAI]
+  );
+
+  const modelOptions =
+    aiDraft.provider === 'ollama'
+      ? []
+      : [
+          ...new Set([
+            ...(availableModels.length > 0
+              ? availableModels
+              : FALLBACK_CHAT_MODELS[aiDraft.provider]),
+            ...customModels,
+            ...(aiDraft.modelId && !availableModels.includes(aiDraft.modelId)
+              ? [aiDraft.modelId]
+              : []),
+          ]),
+        ];
+  const formatTokenCount = (value: number) =>
+    `${value.toLocaleString(settings.locale === 'vi' ? 'vi-VN' : 'en-US')} ${t.aiTokenUnit}`;
+  const contextTokenOptions = [
+    ...new Set([
+      ...CONTEXT_TOKEN_PRESETS[aiDraft.provider],
+      aiDraft.contextTokens[aiDraft.provider],
+    ]),
+  ]
+    .sort((a, b) => a - b)
+    .map((value) => ({ value: String(value), label: formatTokenCount(value) }));
+  const maxOutputTokenOptions = [
+    ...new Set([...MAX_OUTPUT_TOKEN_PRESETS, aiDraft.maxOutputTokens[aiDraft.provider]]),
+  ]
+    .sort((a, b) => a - b)
+    .map((value) => ({ value: String(value), label: formatTokenCount(value) }));
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
@@ -459,10 +519,11 @@ export default function SettingsContent() {
               <button
                 key={`settings-cat-${key}`}
                 onClick={() => setActiveCategory(key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${activeCategory === key
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                  activeCategory === key
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
+                }`}
               >
                 <Icon size={16} className="flex-shrink-0" />
                 {categoryLabels[key]}
@@ -485,6 +546,9 @@ export default function SettingsContent() {
               <h2 className="text-sm font-semibold text-foreground">
                 {categoryLabels[activeCategory]}
               </h2>
+              {activeCategory === 'ai' && (
+                <p className="mt-1 text-xs text-muted-foreground">{t.aiConfigSubtitle}</p>
+              )}
             </div>
             <div className="px-6">
               {/* Appearance */}
@@ -523,20 +587,22 @@ export default function SettingsContent() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => update('locale', 'en')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'en'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                          settings.locale === 'en'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                          }`}
+                        }`}
                       >
                         <span>🇺🇸</span>
                         {t.languageEnglish}
                       </button>
                       <button
                         onClick={() => update('locale', 'vi')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${settings.locale === 'vi'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                          settings.locale === 'vi'
                             ? 'bg-primary/10 text-primary border-primary/30'
                             : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                          }`}
+                        }`}
                       >
                         <span>🇻🇳</span>
                         {t.languageVietnamese}
@@ -611,98 +677,94 @@ export default function SettingsContent() {
                     aria-disabled={isAiLocked}
                     className={isAiLocked ? 'opacity-60' : undefined}
                   >
-                  <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
-                    <SelectDropdown
-                      value={aiDraft.provider}
-                      options={aiProviderOptionsTranslated}
-                      onChange={(provider) => {
-                        updateAI('provider', provider);
-                        setIsCustomModel(false);
-                        if (provider !== aiDraft.provider && provider !== 'ollama') {
-                          updateAI('modelId', FALLBACK_CHAT_MODELS[provider][0]);
-                        }
-                      }}
-                    />
-                  </SettingRow>
-
-                  {/* Every provider has its own base URL, all kept so switching does not lose them. */}
-                  <SettingRow
-                    label={t.aiBaseUrl}
-                    hint={
-                      aiDraft.provider === 'ollama' ? t.aiBaseUrlHint : t.aiBaseUrlCloudHint
-                    }
-                  >
-                    <ResettableField
-                      isModified={
-                        aiDraft.baseUrls[aiDraft.provider] !== DEFAULT_BASE_URLS[aiDraft.provider]
-                      }
-                      onReset={() =>
-                        updateBaseUrl(aiDraft.provider, DEFAULT_BASE_URLS[aiDraft.provider])
-                      }
-                      resetTitle={t.aiBaseUrlReset}
-                    >
-                      <input
-                        type="text"
-                        value={aiDraft.baseUrls[aiDraft.provider] ?? ''}
-                        onChange={(e) => updateBaseUrl(aiDraft.provider, e.target.value)}
-                        placeholder={DEFAULT_BASE_URLS[aiDraft.provider]}
-                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[260px] focus:outline-none focus:ring-2 focus:ring-ring"
+                    <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
+                      <SelectDropdown
+                        value={aiDraft.provider}
+                        options={aiProviderOptionsTranslated}
+                        onChange={(provider) => {
+                          updateAI('provider', provider);
+                          // Model IDs are provider-specific, so a switch discards the hand-added ones.
+                          setCustomModels([]);
+                          // Model IDs are provider-specific, so a switch resets to that
+                          // provider's default rather than carrying the previous one over.
+                          if (provider !== aiDraft.provider) {
+                            if (provider === 'ollama') {
+                              // Ollama reads ollamaModel, not modelId (see aiService.callProvider).
+                              updateAI('ollamaModel', DEFAULT_OLLAMA_MODEL);
+                            } else {
+                              updateAI('modelId', DEFAULT_CHAT_MODELS[provider]);
+                            }
+                          }
+                        }}
                       />
-                    </ResettableField>
-                  </SettingRow>
+                    </SettingRow>
 
-                  {aiDraft.provider === 'ollama' ? (
-                    <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
-                      <div className="min-w-[220px]">
+                    {/* Every provider has its own base URL, all kept so switching does not lose them. */}
+                    <SettingRow
+                      label={t.aiBaseUrl}
+                      hint={aiDraft.provider === 'ollama' ? t.aiBaseUrlHint : t.aiBaseUrlCloudHint}
+                    >
+                      <ResettableField
+                        isModified={
+                          aiDraft.baseUrls[aiDraft.provider] !== DEFAULT_BASE_URLS[aiDraft.provider]
+                        }
+                        onReset={() =>
+                          updateBaseUrl(aiDraft.provider, DEFAULT_BASE_URLS[aiDraft.provider])
+                        }
+                        resetTitle={t.aiBaseUrlReset}
+                      >
                         <input
                           type="text"
-                          value={aiDraft.ollamaModel}
-                          onChange={(e) => updateAI('ollamaModel', e.target.value)}
-                          placeholder="llama3"
-                          className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${!aiDraft.ollamaModel.trim() ? 'border-rose-500 focus:border-rose-500' : 'border-border'
-                            }`}
+                          value={aiDraft.baseUrls[aiDraft.provider] ?? ''}
+                          onChange={(e) => updateBaseUrl(aiDraft.provider, e.target.value)}
+                          placeholder={DEFAULT_BASE_URLS[aiDraft.provider]}
+                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[260px] focus:outline-none focus:ring-2 focus:ring-ring"
                         />
-                        {!aiDraft.ollamaModel.trim() && (
-                          <p className="mt-2 text-xs text-rose-500">{t.aiLocalModelRequired}</p>
-                        )}
-                      </div>
+                      </ResettableField>
                     </SettingRow>
-                  ) : (
-                    <>
-                      <SettingRow label={t.aiModelId} hint={t.aiModelIdHint}>
-                        <div className="min-w-[260px]">
-                          <select
-                            value={isCustomModel ? '__custom__' : aiDraft.modelId || modelOptions[0] || ''}
-                            onChange={(e) => {
-                              if (e.target.value === '__custom__') {
-                                setIsCustomModel(true);
-                                updateAI('modelId', '');
-                              } else {
-                                setIsCustomModel(false);
-                                updateAI('modelId', e.target.value);
-                              }
-                            }}
-                            className="w-full px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {modelOptions.map((model) => (
-                              <option key={model} value={model}>{model}</option>
-                            ))}
-                            <option value="__custom__">{t.aiModelCustom}</option>
-                          </select>
-                          {isCustomModel && (
-                            <input
-                              type="text"
-                              value={aiDraft.modelId}
-                              onChange={(e) => updateAI('modelId', e.target.value)}
-                              placeholder={aiDraft.provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o'}
-                              className="w-full px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
+
+                    {aiDraft.provider === 'ollama' ? (
+                      <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
+                        <div className="min-w-[220px]">
+                          <input
+                            type="text"
+                            value={aiDraft.ollamaModel}
+                            onChange={(e) => updateAI('ollamaModel', e.target.value)}
+                            placeholder="llama3"
+                            className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                              !aiDraft.ollamaModel.trim()
+                                ? 'border-rose-500 focus:border-rose-500'
+                                : 'border-border'
+                            }`}
+                          />
+                          {!aiDraft.ollamaModel.trim() && (
+                            <p className="mt-2 text-xs text-rose-500">{t.aiLocalModelRequired}</p>
                           )}
+                        </div>
+                      </SettingRow>
+                    ) : (
+                      <>
+                        <SettingRow label={t.aiModelId} hint={t.aiModelIdHint}>
+                          <ModelCombobox
+                            value={aiDraft.modelId || modelOptions[0] || ''}
+                            options={modelOptions}
+                            onChange={(modelId) => updateAI('modelId', modelId)}
+                            onAddCustom={addCustomModel}
+                            disabled={isAiLocked}
+                            labels={{
+                              searchPlaceholder: t.aiModelSearch,
+                              noResults: t.aiModelsNoneAvailable,
+                              addCustom: t.aiModelAdd,
+                              triggerLabel: t.aiModelId,
+                            }}
+                          />
                           <div className="mt-1.5 flex min-h-5 items-center gap-2 text-xs text-muted-foreground">
                             {isLoadingModels && <span aria-live="polite">{t.aiModelsLoading}</span>}
                             {!isLoadingModels && modelLoadError && (
                               <>
-                                <span className="text-rose-500" title={modelLoadError}>{modelLoadError}</span>
+                                <span className="text-rose-500" title={modelLoadError}>
+                                  {modelLoadError}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => setModelLoadAttempt((attempt) => attempt + 1)}
@@ -712,185 +774,165 @@ export default function SettingsContent() {
                                 </button>
                               </>
                             )}
-                            {!isLoadingModels && !modelLoadError && modelsLoaded && availableModels.length === 0 && (
-                              <span>{t.aiModelsNoneAvailable}</span>
-                            )}
+                            {!isLoadingModels &&
+                              !modelLoadError &&
+                              modelsLoaded &&
+                              availableModels.length === 0 && (
+                                <span>{t.aiModelsNoneAvailable}</span>
+                              )}
                           </div>
+                        </SettingRow>
+
+                        {/* Replaces the old API Key input: credentials live in .env, server-side. */}
+                        <div className="py-4 border-t border-border">
+                          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <ShieldCheck size={14} className="text-primary" />
+                            {t.aiServerKeyTitle}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            {t.aiServerKeyHint}
+                          </p>
+                          <code className="mt-2 inline-block rounded bg-muted px-2 py-1 font-mono text-xs text-foreground">
+                            {ENV_VAR_BY_PROVIDER[
+                              aiDraft.provider as keyof typeof ENV_VAR_BY_PROVIDER
+                            ] ?? ''}
+                          </code>
                         </div>
-                      </SettingRow>
+                      </>
+                    )}
 
-                      {/* Replaces the old API Key input: credentials live in .env, server-side. */}
-                      <div className="py-4 border-t border-border">
-                        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <ShieldCheck size={14} className="text-primary" />
-                          {t.aiServerKeyTitle}
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          {t.aiServerKeyHint}
-                        </p>
-                        <code className="mt-2 inline-block rounded bg-muted px-2 py-1 font-mono text-xs text-foreground">
-                          {ENV_VAR_BY_PROVIDER[aiDraft.provider as keyof typeof ENV_VAR_BY_PROVIDER] ?? ''}
-                        </code>
+                    <SettingRow label={t.aiTemperature} hint={t.aiTemperatureHint}>
+                      <div className="flex items-center gap-3 min-w-[200px]">
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          value={aiDraft.temperature}
+                          onChange={(e) => updateAI('temperature', parseFloat(e.target.value))}
+                          className="w-36 accent-primary"
+                        />
+                        <span className="text-xs font-mono text-muted-foreground w-8 text-right">
+                          {aiDraft.temperature.toFixed(1)}
+                        </span>
                       </div>
-                    </>
-                  )}
+                    </SettingRow>
 
-                  <SettingRow label={t.aiTemperature} hint={t.aiTemperatureHint}>
-                    <div className="flex items-center gap-3 min-w-[200px]">
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        value={aiDraft.temperature}
-                        onChange={(e) => updateAI('temperature', parseFloat(e.target.value))}
-                        className="w-36 accent-primary"
-                      />
-                      <span className="text-xs font-mono text-muted-foreground w-8 text-right">
-                        {aiDraft.temperature.toFixed(1)}
-                      </span>
-                    </div>
-                  </SettingRow>
-
-                  <SettingRow label={t.aiContextTokens} hint={t.aiContextTokensHint}>
-                    <ResettableField
-                      isModified={
-                        aiDraft.contextTokens[aiDraft.provider] !==
-                        DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
-                      }
-                      onReset={() =>
-                        updateProviderNumber(
-                          'contextTokens',
-                          aiDraft.provider,
+                    <SettingRow label={t.aiContextTokens} hint={t.aiContextTokensHint}>
+                      <ResettableField
+                        isModified={
+                          aiDraft.contextTokens[aiDraft.provider] !==
                           DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
-                        )
-                      }
-                      resetTitle={t.aiBaseUrlReset}
-                    >
-                      <input
-                        type="number"
-                        min={CONTEXT_TOKENS_RANGE.min}
-                        max={CONTEXT_TOKENS_RANGE.max}
-                        step={512}
-                        value={aiDraft.contextTokens[aiDraft.provider]}
-                        onChange={(e) =>
+                        }
+                        onReset={() =>
                           updateProviderNumber(
                             'contextTokens',
                             aiDraft.provider,
-                            clampNumber(
-                              e.target.value,
-                              CONTEXT_TOKENS_RANGE.min,
-                              CONTEXT_TOKENS_RANGE.max,
-                              DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
-                            )
+                            DEFAULT_CONTEXT_TOKENS[aiDraft.provider]
                           )
                         }
-                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </ResettableField>
-                  </SettingRow>
+                        resetTitle={t.aiBaseUrlReset}
+                      >
+                        <SelectDropdown
+                          value={String(aiDraft.contextTokens[aiDraft.provider])}
+                          options={contextTokenOptions}
+                          onChange={(value) =>
+                            updateProviderNumber('contextTokens', aiDraft.provider, Number(value))
+                          }
+                        />
+                      </ResettableField>
+                    </SettingRow>
 
-                  <SettingRow label={t.aiMaxOutputTokens} hint={t.aiMaxOutputTokensHint}>
-                    <ResettableField
-                      isModified={
-                        aiDraft.maxOutputTokens[aiDraft.provider] !==
-                        DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
-                      }
-                      onReset={() =>
-                        updateProviderNumber(
-                          'maxOutputTokens',
-                          aiDraft.provider,
+                    <SettingRow label={t.aiMaxOutputTokens} hint={t.aiMaxOutputTokensHint}>
+                      <ResettableField
+                        isModified={
+                          aiDraft.maxOutputTokens[aiDraft.provider] !==
                           DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
-                        )
-                      }
-                      resetTitle={t.aiBaseUrlReset}
-                    >
-                      <input
-                        type="number"
-                        min={MAX_OUTPUT_TOKENS_RANGE.min}
-                        max={MAX_OUTPUT_TOKENS_RANGE.max}
-                        step={128}
-                        value={aiDraft.maxOutputTokens[aiDraft.provider]}
-                        onChange={(e) =>
+                        }
+                        onReset={() =>
                           updateProviderNumber(
                             'maxOutputTokens',
                             aiDraft.provider,
-                            clampNumber(
-                              e.target.value,
-                              MAX_OUTPUT_TOKENS_RANGE.min,
-                              MAX_OUTPUT_TOKENS_RANGE.max,
-                              DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
-                            )
+                            DEFAULT_MAX_OUTPUT_TOKENS[aiDraft.provider]
                           )
                         }
-                        className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </ResettableField>
-                  </SettingRow>
+                        resetTitle={t.aiBaseUrlReset}
+                      >
+                        <SelectDropdown
+                          value={String(aiDraft.maxOutputTokens[aiDraft.provider])}
+                          options={maxOutputTokenOptions}
+                          onChange={(value) =>
+                            updateProviderNumber('maxOutputTokens', aiDraft.provider, Number(value))
+                          }
+                        />
+                      </ResettableField>
+                    </SettingRow>
 
-                  <SettingRow label={t.aiBatchConcurrency} hint={t.aiBatchConcurrencyHint}>
-                    <div className="flex items-center gap-3 min-w-[200px]">
-                      <input
-                        type="range"
-                        min={1}
-                        max={6}
-                        step={1}
-                        value={aiDraft.batchConcurrency}
-                        onChange={(e) =>
-                          updateAI('batchConcurrency', clampNumber(e.target.value, 1, 6, 2))
-                        }
-                        className="w-36 accent-primary"
+                    <SettingRow label={t.aiBatchConcurrency} hint={t.aiBatchConcurrencyHint}>
+                      <div className="flex items-center gap-3 min-w-[200px]">
+                        <input
+                          type="range"
+                          min={1}
+                          max={6}
+                          step={1}
+                          value={aiDraft.batchConcurrency}
+                          onChange={(e) =>
+                            updateAI('batchConcurrency', clampNumber(e.target.value, 1, 6, 2))
+                          }
+                          className="w-36 accent-primary"
+                        />
+                        <span className="text-xs font-mono text-muted-foreground w-8 text-right">
+                          {aiDraft.batchConcurrency}
+                        </span>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={t.aiVoiceGenderLabel} hint={t.aiVoiceGenderHint}>
+                      <SelectDropdown
+                        value={aiDraft.speechVoiceGender ?? DEFAULT_SPEECH_GENDER}
+                        options={[
+                          { value: 'female' as const, label: t.aiVoiceGenderFemale },
+                          { value: 'male' as const, label: t.aiVoiceGenderMale },
+                        ]}
+                        onChange={(value) => updateAI('speechVoiceGender', value)}
                       />
-                      <span className="text-xs font-mono text-muted-foreground w-8 text-right">
-                        {aiDraft.batchConcurrency}
-                      </span>
+                    </SettingRow>
+
+                    <div className="py-4">
+                      <p className="text-sm font-medium text-foreground mb-0.5">
+                        {t.aiSystemPrompt}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-2">{t.aiSystemPromptHint}</p>
+                      <textarea
+                        value={aiDraft.systemPrompt}
+                        onChange={(e) => updateAI('systemPrompt', e.target.value)}
+                        rows={4}
+                        placeholder={t.aiSystemPromptPlaceholder}
+                        className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      />
                     </div>
-                  </SettingRow>
 
-                  <SettingRow label={t.aiVoiceGenderLabel} hint={t.aiVoiceGenderHint}>
-                    <SelectDropdown
-                      value={aiDraft.speechVoiceGender ?? DEFAULT_SPEECH_GENDER}
-                      options={[
-                        { value: 'female' as const, label: t.aiVoiceGenderFemale },
-                        { value: 'male' as const, label: t.aiVoiceGenderMale },
-                      ]}
-                      onChange={(value) => updateAI('speechVoiceGender', value)}
-                    />
-                  </SettingRow>
-
-                  <div className="py-4">
-                    <p className="text-sm font-medium text-foreground mb-0.5">{t.aiSystemPrompt}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{t.aiSystemPromptHint}</p>
-                    <textarea
-                      value={aiDraft.systemPrompt}
-                      onChange={(e) => updateAI('systemPrompt', e.target.value)}
-                      rows={4}
-                      placeholder={t.aiSystemPromptPlaceholder}
-                      className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                    />
-                  </div>
-
-                  {/* Explicit commit for this section; nothing above takes effect until saved. */}
-                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border py-4">
-                    <span className="mr-auto text-xs text-muted-foreground">
-                      {isAiDirty ? t.aiConfigUnsaved : t.aiConfigUpToDate}
-                    </span>
-                    <button
-                      onClick={discardAiConfig}
-                      disabled={!isAiDirty}
-                      className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {t.aiConfigDiscard}
-                    </button>
-                    <button
-                      onClick={saveAiConfig}
-                      disabled={!isAiDirty || !isAiConfigValid}
-                      className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Check size={14} />
-                      {t.aiConfigSave}
-                    </button>
-                  </div>
+                    {/* Explicit commit for this section; nothing above takes effect until saved. */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border py-4">
+                      <span className="mr-auto text-xs text-muted-foreground">
+                        {isAiDirty ? t.aiConfigUnsaved : t.aiConfigUpToDate}
+                      </span>
+                      <button
+                        onClick={discardAiConfig}
+                        disabled={!isAiDirty}
+                        className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {t.aiConfigDiscard}
+                      </button>
+                      <button
+                        onClick={saveAiConfig}
+                        disabled={!isAiDirty || !isAiConfigValid}
+                        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Check size={14} />
+                        {t.aiConfigSave}
+                      </button>
+                    </div>
                   </fieldset>
                 </div>
               )}
