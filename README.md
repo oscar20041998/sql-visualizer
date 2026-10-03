@@ -1,6 +1,6 @@
 # SQL Visualizer
 
-**📚 Languages:** English | [Tiếng Việt](./README_VI.md)
+**📚 Languages:** [English] | Tiếng Việt
 
 A comprehensive SQL analysis and visualization tool built with Next.js 15, React 19, and TypeScript. Analyze query complexity, visualize table relationships, explore CTEs, and deep-dive into JOIN conditions across multiple SQL dialects.
 
