@@ -62,6 +62,7 @@
     "dt-sql-parser": "^4.3.1",
     "lucide-react": "^1.7.0",
     "marked": "^14.1.4",
+    "mermaid": "^12.1.0",
     "monaco-editor": "^0.55.1",
     "next": "15.5.18",
     "node-sql-parser": "^5.4.0",

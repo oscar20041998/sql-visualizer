@@ -9,6 +9,14 @@
 import type { AnalysisResult } from '../sqlAnalyzer';
 import type { LintingIssue } from '../complexityScorer';
 import { resolveCapabilities, type DashboardSection } from './capability';
+// Read only — the dashboard adapter stays a pure function of its input (U18 / FR-026). The
+// analyzer's real vocabulary and extraction caps describe the engine that produced the numbers,
+// so they are reported rather than re-parsed or hard-coded.
+import {
+  SQL_ANALYZER_LIMITS,
+  SQL_KEYWORDS,
+  SQL_REGEX_PATTERNS,
+} from '../../../app/common/sqlAnalyzerUtils';
 import type {
   ComplexityContributor,
   DashboardContext,
@@ -126,6 +134,17 @@ export function buildDashboardData(
     capabilities.findings = 'partial';
   }
 
+  // Real AST statistics, supplied precomputed by the caller. This adapter stays parser-free, so it
+  // can only pass the value through — the AST either exists upstream or it does not (FR-005).
+  const astStatistics = context.astStatistics ?? null;
+
+  // Advanced capability is resolved per analysed statement (FR-007): it is fully supported only
+  // when this query's AST statistics were actually computed, and partial otherwise. The static map
+  // deliberately keeps the pessimistic default, because most statements never supply statistics.
+  if (astStatistics) {
+    capabilities.advanced = 'supported';
+  }
+
   const lintingIssues: LintingIssue[] = detailed ? [...detailed.lintingIssues] : [];
   if (context.inputMode === 'mybatis' && context.mybatisFindings) {
     lintingIssues.push(...context.mybatisFindings);
@@ -192,6 +211,21 @@ export function buildDashboardData(
       maxScorePossible: detailed ? detailed.maxScorePossible : null,
       percentageOfMax: detailed ? detailed.percentageOfMax : null,
       ruleIds: [...new Set(lintingIssues.map((issue) => issue.rule))],
+      parser: {
+        engine: 'regex',
+        dialect: analysis.dialect,
+        keywordCount: SQL_KEYWORDS.size,
+        patternCount: Object.keys(SQL_REGEX_PATTERNS).length,
+        limits: {
+          maxColumns: SQL_ANALYZER_LIMITS.MAX_COLUMNS,
+          maxCteFieldReferences: SQL_ANALYZER_LIMITS.MAX_CTE_FIELD_REFERENCES,
+        },
+      },
+      // Computed upstream (caller → DashboardContext) and carried through untouched; `null` when
+      // the statement could not be AST-parsed, which is the default for Oracle and for SQL the
+      // strict parser rejects (FR-004, FR-006).
+      astStatistics,
+      astStatisticsAvailable: astStatistics !== null,
     },
   };
 }

@@ -553,7 +553,7 @@ export default function GraphVisualizerContent() {
                 <select
                   value={relationshipFilter}
                   onChange={(e) => setRelationshipFilter(e.target.value as RelationshipFilterMode)}
-                  className="px-2 py-1 rounded-md bg-muted border border-border text-foreground font-mono"
+                  className="select-control select-control-sm font-mono"
                 >
                   <option value="all">{t.graphFilterAll}</option>
                   <option value="cte">{t.graphFilterCte}</option>

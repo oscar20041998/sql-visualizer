@@ -19,13 +19,17 @@ import { parseMapperXml, resolveStatement } from './mybatis/conversion';
 import { collectConditionalParams, collectRawText, collectReferencePaths } from './mybatis/mapperModel';
 import { normaliseSqlText } from './mybatis/renderer';
 
-// Import dt-sql-parser for AST-based SQL parsing with dialect support
-let parser: any = null;
-try {
-  parser = require('dt-sql-parser');
-} catch (e) {
-  console.warn('dt-sql-parser not available, using regex-based parsing');
-}
+// Parsing engine: regex, not AST.
+//
+// This block used to `require('dt-sql-parser')` into a module-level `parser` that nothing ever
+// read, and logged "dt-sql-parser not available, using regex-based parsing" whenever that require
+// threw — a message wrong twice over: the package is installed, and the analyzer never used an AST
+// to begin with. That misleading warning is what made the Advanced Details panel look as though the
+// parser were missing, when in truth no parser is in this path.
+//
+// Real AST statistics are tracked as a separate phase. A working AST pipeline already exists in
+// `src/lib/codegen/parseSql.ts` (node-sql-parser), and `dt-sql-parser` is still loaded lazily by
+// `dialectValidator.ts` for its dialect cross-check.
 
 export type SqlDialect = 'mysql' | 'postgresql' | 'sqlserver' | 'oracle';
 

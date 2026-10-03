@@ -23,6 +23,7 @@ import {
   Sparkles,
   Database,
   FileWarning,
+  History,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -77,6 +78,28 @@ function createSections(t: ReturnType<typeof getT>, theme: GraphTheme): Section[
         },
       ],
       tips: [{ text: t.guidelineQueryInputTip1 }, { text: t.guidelineQueryInputTip2 }],
+    },
+    {
+      id: 'sql-code-generator',
+      icon: FileCode,
+      color: getGuidelineAccent('teal', theme),
+      title: t.guidelineCodeGenTitle,
+      subtitle: t.guidelineCodeGenSubtitle,
+      steps: [
+        {
+          label: t.guidelineCodeGenStep1Label,
+          desc: t.guidelineCodeGenStep1Desc,
+        },
+        {
+          label: t.guidelineCodeGenStep2Label,
+          desc: t.guidelineCodeGenStep2Desc,
+        },
+        {
+          label: t.guidelineCodeGenStep3Label,
+          desc: t.guidelineCodeGenStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineCodeGenTip1 }, { text: t.guidelineCodeGenTip2 }],
     },
     {
       id: 'graph-visualizer',
@@ -251,6 +274,28 @@ function createSections(t: ReturnType<typeof getT>, theme: GraphTheme): Section[
         },
       ],
       tips: [{ text: t.guidelineDbAssistantTip1 }, { text: t.guidelineDbAssistantTip2 }],
+    },
+    {
+      id: 'db-assistant-chat-history',
+      icon: History,
+      color: getGuidelineAccent('indigo', theme),
+      title: t.guidelineChatHistoryTitle,
+      subtitle: t.guidelineChatHistorySubtitle,
+      steps: [
+        {
+          label: t.guidelineChatHistoryStep1Label,
+          desc: t.guidelineChatHistoryStep1Desc,
+        },
+        {
+          label: t.guidelineChatHistoryStep2Label,
+          desc: t.guidelineChatHistoryStep2Desc,
+        },
+        {
+          label: t.guidelineChatHistoryStep3Label,
+          desc: t.guidelineChatHistoryStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineChatHistoryTip1 }, { text: t.guidelineChatHistoryTip2 }],
     },
     {
       id: 'format-error-diagnostics',
@@ -522,6 +567,18 @@ function createQuickRef(t: ReturnType<typeof getT>, theme: GraphTheme) {
       label: t.guidelineQuickRefDbAssistant,
       href: '/database-ai-assistant',
     },
+    {
+      icon: History,
+      color: getGuidelineAccent('indigo', theme),
+      label: t.guidelineQuickRefChatHistory,
+      href: '/database-ai-assistant',
+    },
+    {
+      icon: FileCode,
+      color: getGuidelineAccent('teal', theme),
+      label: t.guidelineQuickRefCodeGen,
+      href: '/query-input',
+    },
   ];
 }
 
@@ -553,7 +610,7 @@ export default function GuidelineContent() {
             const ItemIcon = item.icon;
             return (
               <a
-                key={item.href}
+                key={`${item.href}-${item.label}`}
                 href={item.href}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:opacity-80"
                 style={{

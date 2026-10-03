@@ -85,6 +85,8 @@ interface AppState {
   dialect: SqlDialect;
   rawSql: string;
   myBatisXml: string;
+  codeGeneratorSql: string;
+  codeGeneratorInitialSql: string | null;
   resolvedSql: string;
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
@@ -94,7 +96,7 @@ interface AppState {
   analysisError: string | null;
   /** Target path for an in-progress client-side route change. Never persisted. */
   navigationTarget: string | null;
-  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
+  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator';
   selectedNodeId: string | null;
   /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
    *  page to load the analyzed SQL and reveal/highlight the target line, then cleared. */
@@ -116,6 +118,8 @@ interface AppState {
   setDialect: (d: SqlDialect) => void;
   setRawSql: (s: string) => void;
   setMyBatisXml: (s: string) => void;
+  setCodeGeneratorSql: (s: string) => void;
+  setCodeGeneratorInitialSql: (s: string) => void;
   setResolvedSql: (s: string) => void;
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
@@ -131,7 +135,7 @@ interface AppState {
    * loading overlay up permanently. This is the escape hatch for that case.
    */
   cancelNavigation: () => void;
-  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
+  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator') => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
   setChatIsOpen: (open: boolean) => void;
@@ -184,6 +188,8 @@ export const useAppStore = create<AppState>()(
       dialect: 'mysql',
       rawSql: '',
       myBatisXml: '',
+      codeGeneratorSql: '',
+      codeGeneratorInitialSql: null,
       resolvedSql: '',
       myBatisParams: {},
       analysisResult: null,
@@ -203,6 +209,8 @@ export const useAppStore = create<AppState>()(
       setDialect: (d) => set({ dialect: d }),
       setRawSql: (s) => set({ rawSql: s }),
       setMyBatisXml: (s) => set({ myBatisXml: s }),
+      setCodeGeneratorSql: (s) => set({ codeGeneratorSql: s }),
+      setCodeGeneratorInitialSql: (s) => set({ codeGeneratorInitialSql: s }),
       setResolvedSql: (s) => set({ resolvedSql: s }),
       setMyBatisParams: (p) => set({ myBatisParams: p }),
       setAnalysisResult: (r) => set({ analysisResult: r, analysisError: null }),
@@ -234,6 +242,8 @@ export const useAppStore = create<AppState>()(
         set({
           rawSql: '',
           myBatisXml: '',
+          codeGeneratorSql: '',
+          codeGeneratorInitialSql: null,
           resolvedSql: '',
           myBatisParams: {},
           analysisResult: null,

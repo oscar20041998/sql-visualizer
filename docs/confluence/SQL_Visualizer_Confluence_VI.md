@@ -87,6 +87,8 @@ SQL Visualizer được tổ chức thành các nhóm capability chính:
 ### E. Năng suất
 - Query History
 - Semantic Search
+- Lịch sử cuộc trò chuyện Database AI Assistant
+- SQL → Trình sinh mã (Code Generator)
 - Multilingual UI
 - Text-to-Speech
 
@@ -370,6 +372,93 @@ Cơ chế sử dụng:
 
 ---
 
+## 5.16 Lịch sử cuộc trò chuyện Database AI Assistant (Chat History)
+
+Lịch sử cuộc trò chuyện (Chat History) cung cấp một hệ thống quản lý cuộc trò chuyện liên tục cho Database AI Assistant, cho phép người dùng duy trì nhiều cuộc trò chuyện, tìm kiếm các thảo luận trước đây và quản lý thư viện cuộc trò chuyện một cách hiệu quả.
+
+### Khả năng chính
+
+- **Persistence của Cuộc trò chuyện**: Cuộc trò chuyện được tự động lưu vào browser localStorage với identity-based partitioning, đảm bảo dữ liệu người dùng được lưu trữ một cách an toàn và độc lập.
+- **Nhiều cuộc trò chuyện**: Người dùng có thể tạo và duy trì nhiều cuộc trò chuyện riêng biệt, mỗi cuộc có lịch sử và ngữ cảnh của riêng nó.
+- **Quản lý cuộc trò chuyện**: 
+  - Tạo cuộc trò chuyện mới
+  - Tìm kiếm cuộc trò chuyện theo tiêu đề và nội dung tin nhắn người dùng
+  - Đổi tên cuộc trò chuyện với tiêu đề tùy chỉnh
+  - Xóa từng cuộc trò chuyện
+  - Xóa toàn bộ lịch sử cuộc trò chuyện cùng lúc
+- **Nhóm theo tính gần đây**: Cuộc trò chuyện tự động được nhóm theo tính gần đây (Hôm nay, Hôm qua, 7 ngày trước, Cũ hơn) để dễ điều hướng.
+- **Lưu trữ dựa trên Identity**: Cuộc trò chuyện được phân chia an toàn theo identity của người dùng:
+  - Người dùng social login (Google, Microsoft OAuth): Phân chia theo provider và email hash
+  - Người dùng Demo: Phân chia theo fixed demo key
+  - Người dùng Guest: Không có persistence (storage bị vô hiệu)
+- **Khả năng phục hồi lỗi**:
+  - Xử lý nhẹ nhàng khi storage không khả dụng (private browsing, quota exceeded)
+  - Tự động phục hồi corruption (dữ liệu không hợp lệ bị loại bỏ, dữ liệu hợp lệ được bảo toàn)
+  - Thông báo lỗi không chặn để tránh gián đoạn quy trình người dùng
+- **Quốc tế hóa**: Hỗ trợ đa ngôn ngữ hoàn chỉnh (Tiếng Anh, Tiếng Việt) với thuật ngữ nhất quán trên tất cả các UI elements
+
+### Giao diện người dùng
+
+Bảng Chat History có sẵn trong Database AI Assistant:
+
+**Desktop (≥1024px)**:
+- Sidebar liên tục ở bên trái
+- Hiển thị danh sách cuộc trò chuyện, tìm kiếm và các điều khiển quản lý
+- Thay đổi hiển thị mà không mất đi ngữ cảnh cuộc trò chuyện
+
+**Mobile (<1024px)**:
+- Collapsible drawer overlay
+- Truy cập qua nút toggle trong header
+- Layout được tối ưu cho tương tác touch
+
+### Triển khai kỹ thuật
+
+- **Lưu trữ**: Synchronous browser localStorage API với FNV-1a 32-bit hashing cho partitioning
+- **Quản lý trạng thái**: Zustand store cho lifecycle management và real-time UI synchronization
+- **Loại an toàn**: Full TypeScript strict mode compliance với runtime validation guards
+- **Xử lý lỗi**: Error-as-values pattern (không bao giờ throw; tất cả lỗi được trả về dưới dạng typed unions)
+- **Kỷ luật viết**: Một lần storage write per cuộc trò chuyện transition (create, send, complete, rename, delete, clear); không có write nào trong quá trình streaming
+
+### Yêu cầu truy cập
+
+- **Khả dụng cho**: Người dùng được xác thực (social login hoặc demo) và guests (với read-only access)
+- **Lưu trữ cục bộ**: Trên thiết bị của người dùng qua browser localStorage
+- **Server-side**: Không có lưu trữ cuộc trò chuyện server-side; tất cả lịch sử lưu lại trên thiết bị client
+
+### Lợi ích
+
+- **Continuity**: Người dùng có thể tiếp tục cuộc trò chuyện bất kỳ lúc nào mà không mất ngữ cảnh
+- **Tổ chức**: Tìm kiếm cuộc trò chuyện và nhóm giúp người dùng tìm thấy các thảo luận liên quan nhanh chóng
+- **Hiệu quả**: Giảm lặp lại các truy vấn cơ sở dữ liệu tương tự và giải thích
+- **Privacy**: Tất cả lịch sử cuộc trò chuyện ở lại trên thiết bị của người dùng; không có cloud sync hoặc tracking
+
+---
+
+## 5.17 SQL → Trình sinh mã (Code Generator)
+
+Trình sinh mã SQL → Code Generator chuyển SQL thành mã tầng ứng dụng. Nó được cung cấp dưới dạng một tab phương thức nhập riêng trên trang Nhập truy vấn hiện có (cùng với Dán SQL, MyBatis và Smart Editor), chứ không phải một route tách biệt.
+
+### Khả năng chính
+
+- **Phân loại SQL**: mỗi câu lệnh được phân loại là định nghĩa bảng, `SELECT` dạng entity, DTO, tổng hợp, JOIN hay câu lệnh DML, và đầu ra được đề xuất dựa trên phân loại đó.
+- **Sinh Entity**: một câu `CREATE TABLE` trở thành entity Java/JPA với các chú thích `@Entity`, `@Table`, `@Id` và `@Column`, giữ nguyên khả năng null, và các quan hệ được suy luận từ khóa chính/khóa ngoại.
+- **Sinh DTO / projection**: một câu `SELECT` trở thành lớp DTO/projection với tên thuộc tính dẫn xuất từ cột và bí danh, bao gồm cả các trường tổng hợp được gán kiểu phù hợp.
+- **Ánh xạ kiểu và đặt tên**: kiểu dữ liệu SQL được ánh xạ sang kiểu của ngôn ngữ đích qua một bảng ánh xạ tập trung, và tên thuộc tính theo chiến lược có thể chọn (camelCase, PascalCase, hoặc giữ nguyên tên SQL).
+- **Tùy chọn có thể cấu hình**: loại đầu ra (Entity, DTO / Projection, hoặc Tự động), bao gồm quan hệ, Lombok, chú thích validation và các tùy chọn khác được chọn trước khi sinh mã.
+- **Xem trước và xuất**: mã sinh ra hiển thị trong trình soạn thảo có tô màu cú pháp, cho phép sao chép vào clipboard và tải về dưới dạng tệp `.java`.
+- **Chẩn đoán thay vì đoán mò**: SQL chưa hỗ trợ hoặc mơ hồ sẽ tạo ra cảnh báo có thể xử lý, và mọi giả định (chẳng hạn bản số của quan hệ) đều được ghi lại thay vì âm thầm áp dụng.
+
+### Phạm vi và lộ trình
+
+- **Hiện có sẵn**: Java / JPA (Hibernate).
+- **Kế hoạch**: C# / EF Core, Python / SQLAlchemy, TypeScript / TypeORM, Go / GORM và Kotlin / JPA được liệt kê là các đích kế hoạch và được đánh dấu rõ ràng trong giao diện là chưa được hỗ trợ.
+
+### Cơ chế sinh lại mã
+
+Việc sinh lại mã sẽ thay thế kết quả trước đó — theo mô hình xem trước thời gian thực thay vì lưu lịch sử các phiên bản — và thao tác **Reset** khôi phục đầu vào SQL ban đầu và xóa kết quả đã sinh. Tab giữ bản nháp SQL riêng, nên khi chuyển đổi giữa các phương thức nhập sẽ không bao giờ ghi đè nội dung của các tab khác.
+
+---
+
 # 6. Kiến trúc kỹ thuật
 
 ## 6.1 Lớp giao diện (Frontend)
@@ -402,6 +491,12 @@ Các cloud AI provider được sử dụng thông qua proxy server để creden
 ### Lưu trữ lịch sử
 
 Query history được lưu phía server với nền tảng lưu trữ Excel theo tài liệu hiện tại.
+
+Database AI Assistant giữ **lịch sử hội thoại ở phía client**, trong `localStorage` của trình duyệt,
+với một khóa cho mỗi danh tính đã đăng nhập; không có nội dung cuộc trò chuyện nào được lưu phía
+server, và khách không có lịch sử lưu sẵn theo thiết kế. Lịch sử lưu phía server là một lựa chọn trong
+tương lai đã được ghi nhận, nằm sau cùng một hợp đồng lưu trữ, nên bản thân trợ lý không cần thay đổi
+để áp dụng nó.
 
 ---
 
@@ -485,6 +580,8 @@ Improved Query
 | Trợ lý AI cơ sở dữ liệu | Hoàn thành | AI |
 | Chat tư vấn tài liệu | Hoàn thành | AI |
 | Lịch sử truy vấn & tìm kiếm ngữ nghĩa | Hoàn thành | AI |
+| Lịch sử cuộc trò chuyện Database AI Assistant | Hoàn thành | AI |
+| SQL → Trình sinh mã (Java/JPA) | Hoàn thành | Năng suất |
 | Chuẩn hóa MyBatis XML → SQL | Hoàn thành | Cốt lõi |
 | Chẩn đoán lỗi định dạng bằng AI | Hoàn thành | AI |
 | Đăng nhập Google / Microsoft | Hoàn thành | Xác thực |
@@ -504,6 +601,8 @@ Improved Query
 - [x] AI diễn giải SQL.
 - [x] Tối ưu hóa bằng AI.
 - [x] Trợ lý AI cơ sở dữ liệu với RAG.
+- [x] Lịch sử cuộc trò chuyện Database AI Assistant (bền vững, theo danh tính).
+- [x] SQL → Trình sinh mã (entity và DTO Java/JPA; các ngôn ngữ khác đang trong kế hoạch).
 - [x] Chuẩn hóa MyBatis.
 - [x] Chẩn đoán lỗi định dạng bằng AI.
 - [x] OAuth Google / Microsoft.

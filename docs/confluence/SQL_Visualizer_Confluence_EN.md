@@ -87,6 +87,8 @@ SQL Visualizer is organized around five major capability areas:
 ### E. Productivity
 - Query History
 - Semantic Search
+- Database AI Assistant Chat History
+- SQL → Code Generator
 - Multilingual UI
 - Text-to-Speech
 
@@ -369,6 +371,93 @@ Supported mechanisms include:
 
 ---
 
+## 5.16 Database AI Assistant Chat History
+
+Chat History provides a persistent conversation management system for the Database AI Assistant, allowing users to maintain multiple conversations, search through previous discussions, and manage their conversation library efficiently.
+
+### Key Capabilities
+
+- **Conversation Persistence**: Conversations are automatically saved to browser localStorage with identity-based partitioning, ensuring user data is stored securely and independently.
+- **Multiple Conversations**: Users can create and maintain multiple separate conversations, each with its own message history and context.
+- **Conversation Management**: 
+  - Create new conversations
+  - Search conversations by title and user message content
+  - Rename conversations with custom titles
+  - Delete individual conversations
+  - Clear all conversation history at once
+- **Recency Grouping**: Conversations are automatically grouped by recency (Today, Yesterday, Previous 7 Days, Older) for faster navigation.
+- **Identity-Based Storage**: Conversations are securely partitioned by user identity:
+  - Social login users (Google, Microsoft OAuth): Partitioned by provider and email hash
+  - Demo users: Partitioned by fixed demo key
+  - Guest users: No persistence (storage disabled)
+- **Error Resilience**:
+  - Graceful handling of storage unavailability (private browsing, quota exceeded)
+  - Automatic corruption recovery (invalid data dropped, valid data preserved)
+  - Non-blocking error notifications to avoid disrupting user workflow
+- **Localization**: Full multilingual support (English, Vietnamese) with consistent terminology across all UI elements
+
+### User Interface
+
+The Chat History panel is available in the Database AI Assistant:
+
+**Desktop (≥1024px)**: 
+- Persistent sidebar on the left
+- Shows conversation list, search, and management controls
+- Toggle visibility without losing conversation context
+
+**Mobile (<1024px)**:
+- Collapsible drawer overlay
+- Accessible via toggle button in the header
+- Optimized layout for touch interaction
+
+### Technical Implementation
+
+- **Storage**: Synchronous browser localStorage API with FNV-1a 32-bit hashing for partitioning
+- **State Management**: Zustand store for lifecycle management and real-time UI synchronization
+- **Type Safety**: Full TypeScript strict mode compliance with runtime validation guards
+- **Error Handling**: Error-as-values pattern (never throws; all errors returned as typed unions)
+- **Write Discipline**: One storage write per conversation transition (create, send, complete, rename, delete, clear); zero writes during streaming
+
+### Access Requirements
+
+- **Available to**: Authenticated users (social login or demo) and guests (with read-only access)
+- **Stored locally**: On user's device via browser localStorage
+- **Server-side**: No server-side conversation storage; all history remains on the client device
+
+### Benefits
+
+- **Continuity**: Users can pick up conversations at any time without losing context
+- **Organization**: Conversation search and grouping help users find relevant discussions quickly
+- **Efficiency**: Reduced repetition of similar database queries and explanations
+- **Privacy**: All conversation history stays on the user's device; no cloud sync or tracking
+
+---
+
+## 5.17 SQL → Code Generator
+
+The SQL → Code Generator turns SQL into application-layer code. It is exposed as its own input-method tab on the existing Query Input page (alongside SQL paste, MyBatis and Smart Editor) rather than as a separate route.
+
+### Key Capabilities
+
+- **SQL classification**: every statement is classified as a table definition, an entity-like `SELECT`, a DTO, an aggregation, a JOIN or a DML statement, and the recommended output follows from that classification.
+- **Entity generation**: a `CREATE TABLE` becomes a Java/JPA entity with `@Entity`, `@Table`, `@Id` and `@Column` annotations, nullability preserved, and relationships inferred from primary and foreign keys.
+- **DTO / projection generation**: a `SELECT` becomes a DTO/projection class whose property names derive from columns and aliases, including aggregation fields typed appropriately.
+- **Type mapping and naming**: SQL types map to the target language's types through a centralised mapping, and property names follow a selectable strategy (camelCase, PascalCase, or the original SQL names).
+- **Configurable options**: output type (Entity, DTO / Projection, or Auto), relationship inclusion, Lombok, validation annotations and other toggles are chosen before generation.
+- **Preview and export**: generated code is shown in a syntax-highlighted editor with copy-to-clipboard and download as a `.java` file.
+- **Diagnostics over guesses**: unsupported or ambiguous SQL produces an actionable warning, and every assumption (such as relationship cardinality) is documented rather than silently applied.
+
+### Scope and Roadmap
+
+- **Available now**: Java / JPA (Hibernate).
+- **Planned**: C# / EF Core, Python / SQLAlchemy, TypeScript / TypeORM, Go / GORM and Kotlin / JPA are listed as planned targets and are clearly marked in the interface as not yet supported.
+
+### Regeneration Model
+
+Regeneration replaces the previous output — a real-time preview paradigm rather than a history of versions — and a **Reset** action restores the initial SQL input and clears the generated result. The tab keeps its own SQL draft, so switching between input methods never overwrites the other tabs' text.
+
+---
+
 # 6. Technical Architecture
 
 ## 6.1 Frontend
@@ -401,6 +490,11 @@ Cloud AI providers are accessed through a proxy server so credentials are not ex
 ### History Storage
 
 Query history is stored server-side using an Excel-based storage layer according to the current product documentation.
+
+The Database AI Assistant keeps its **chat history on the client**, in the browser's `localStorage`,
+under one key per signed-in identity; no conversation content is stored server-side, and guests keep no
+stored history by design. A server-backed history is a documented future option behind the same storage
+contract, so the assistant itself does not need to change to adopt it.
 
 ---
 
@@ -484,6 +578,8 @@ Improved Query
 | Database AI Assistant | Completed | AI |
 | Docs Consultant Chat | Completed | AI |
 | Query History & Semantic Search | Completed | AI |
+| Database AI Assistant Chat History | Completed | AI |
+| SQL → Code Generator (Java/JPA) | Completed | Productivity |
 | MyBatis XML → SQL | Completed | Core |
 | AI Format Error Diagnostics | Completed | AI |
 | Google / Microsoft Login | Completed | Auth |
@@ -503,6 +599,8 @@ Improved Query
 - [x] AI Explainer.
 - [x] AI Optimization.
 - [x] Database AI Assistant with RAG.
+- [x] Database AI Assistant chat history (persistent, per-identity).
+- [x] SQL → Code Generator (Java/JPA entities and DTOs; further languages planned).
 - [x] MyBatis normalization.
 - [x] AI format-error diagnostics.
 - [x] Google / Microsoft OAuth.

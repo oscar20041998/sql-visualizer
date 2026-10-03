@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildDashboardData } from '@/lib/sql/dashboard/buildDashboardData';
 import type { DashboardContext } from '@/lib/sql/dashboard/types';
+import type { AstStatistics } from '@/lib/codegen/model';
+import {
+  SQL_ANALYZER_LIMITS,
+  SQL_KEYWORDS,
+  SQL_REGEX_PATTERNS,
+} from '@/app/common/sqlAnalyzerUtils';
 import { makeAnalysisResult, makeDetailedComplexity } from '../utils/dashboardFixtures';
 import { resetTestStorage } from '../utils/test-setup';
 
@@ -137,6 +143,32 @@ describe('dashboard data adapter (specs/010-sql-intelligence-dashboard T010 / U1
     }
   });
 
+  it('reports real parser/analyzer metadata and keeps AST statistics flagged as unavailable (FR-027)', () => {
+    const data = buildDashboardData(makeAnalysisResult(), CONTEXT);
+
+    // Reported from the constants that actually drive the analyzer — never invented numbers.
+    expect(data.advanced.parser).toEqual({
+      engine: 'regex',
+      dialect: 'mysql',
+      keywordCount: SQL_KEYWORDS.size,
+      patternCount: Object.keys(SQL_REGEX_PATTERNS).length,
+      limits: {
+        maxColumns: SQL_ANALYZER_LIMITS.MAX_COLUMNS,
+        maxCteFieldReferences: SQL_ANALYZER_LIMITS.MAX_CTE_FIELD_REFERENCES,
+      },
+    });
+
+    // Without AST statistics the one gap stays stated and the section stays partial.
+    expect(data.advanced.astStatistics).toBeNull();
+    expect(data.advanced.astStatisticsAvailable).toBe(false);
+    expect(data.capabilities.advanced).toBe('partial');
+
+    // Deterministic: the same analysis yields the same metadata (U18 / FR-026).
+    expect(buildDashboardData(makeAnalysisResult(), CONTEXT).advanced.parser).toEqual(
+      data.advanced.parser
+    );
+  });
+
   it('emits tabs only for non-unsupported sections, dependencies partial (U21)', () => {
     const data = buildDashboardData(makeAnalysisResult(), CONTEXT);
 
@@ -163,5 +195,77 @@ describe('dashboard data adapter (specs/010-sql-intelligence-dashboard T010 / U1
     const advancedKeys = data.structure.advanced.flatMap((group) => group.metricKeys);
     expect(advancedKeys).toContain('windowFunctions');
     expect(Object.keys(data.dependencies).sort()).toEqual(['capability', 'direct']);
+  });
+});
+
+/** specs/016-ast-statistics — the adapter carries caller-supplied AST statistics (U11, U12). */
+describe('dashboard AST statistics projection (specs/016-ast-statistics)', () => {
+  const STATS: AstStatistics = {
+    totalNodeCount: 24,
+    nodeCountsByType: { select: 2, column_ref: 9, aggr_func: 1 },
+    statementKind: 'select',
+    cteCount: 1,
+    cteNestingDepth: 1,
+    subqueryDepth: 2,
+    operatorCounts: { '=': 3 },
+    functionCounts: { SUM: 1 },
+  };
+
+  it('projects supplied statistics verbatim without parsing any SQL (U11, FR-005)', () => {
+    const data = buildDashboardData(makeAnalysisResult(), { ...CONTEXT, astStatistics: STATS });
+
+    // Passed through untouched — the adapter never derives or recomputes these values.
+    expect(data.advanced.astStatistics).toEqual(STATS);
+    expect(data.advanced.astStatisticsAvailable).toBe(true);
+  });
+
+  it('marks advanced capability supported only for a statement that has statistics (U11, FR-007)', () => {
+    const data = buildDashboardData(makeAnalysisResult(), { ...CONTEXT, astStatistics: STATS });
+
+    expect(data.capabilities.advanced).toBe('supported');
+  });
+
+  it('keeps advanced partial and AST rows absent when statistics are not supplied (U12, FR-004)', () => {
+    const omitted = buildDashboardData(makeAnalysisResult(), CONTEXT);
+    const explicitNull = buildDashboardData(makeAnalysisResult(), {
+      ...CONTEXT,
+      astStatistics: null,
+    });
+
+    // Both "not requested" and "not available" are the same honest state.
+    [omitted, explicitNull].forEach((data) => {
+      expect(data.advanced.astStatistics).toBeNull();
+      expect(data.advanced.astStatisticsAvailable).toBe(false);
+      expect(data.capabilities.advanced).toBe('partial');
+    });
+  });
+
+  it('never re-parses: supplying statistics leaves the analysis-derived sections identical (FR-005)', () => {
+    const withoutStats = buildDashboardData(makeAnalysisResult(), CONTEXT);
+    const withStats = buildDashboardData(makeAnalysisResult(), {
+      ...CONTEXT,
+      astStatistics: STATS,
+    });
+
+    // Only the AST block and the advanced capability may differ.
+    expect({
+      ...withStats,
+      advanced: withoutStats.advanced,
+      capabilities: withoutStats.capabilities,
+    }).toEqual(withoutStats);
+  });
+
+  it('is deterministic for the same supplied statistics (U18 / FR-026)', () => {
+    const first = buildDashboardData(makeAnalysisResult(), { ...CONTEXT, astStatistics: STATS });
+    const second = buildDashboardData(makeAnalysisResult(), { ...CONTEXT, astStatistics: STATS });
+
+    expect(first).toEqual(second);
+  });
+
+  it('keeps parser metadata describing the regex engine even when an AST was parsed (FR-007)', () => {
+    const data = buildDashboardData(makeAnalysisResult(), { ...CONTEXT, astStatistics: STATS });
+
+    // The engine field describes the existing analyzer metrics, which are still regex-derived.
+    expect(data.advanced.parser.engine).toBe('regex');
   });
 });

@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart3, AlertTriangle, Layers, Download } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import { analyzeSql } from '@/lib/sql/sqlAnalyzer';
+import { parseSql } from '@/lib/codegen/parseSql';
 import { buildDashboardData } from '@/lib/sql/dashboard/buildDashboardData';
 import AnalysisHealthSummary from './AnalysisHealthSummary';
 import AdvancedDetails from './AdvancedDetails';
@@ -59,6 +60,28 @@ export default function MetricsDashboardContent() {
       setIsAnalyzing(false);
     }
   };
+
+  /**
+   * Real AST statistics for the analysed SQL, computed here — upstream of the pure adapter —
+   * through the existing `parseSql` pipeline (specs/016-ast-statistics FR-002 / FR-005).
+   *
+   * `analysisResult.rawSql` is the SQL actually analysed, so MyBatis/XML input is described by its
+   * resolved SQL rather than by the XML text (I3). Memoised on that SQL and dialect so the AST pass
+   * runs once per input and statistics can never outlive the query they describe (U16). `parseSql`
+   * returns `null` for dialects without a grammar (Oracle) and for SQL it cannot parse, which is
+   * precisely the unavailable state the section renders — it never blocks the dashboard.
+   *
+   * Declared above the early returns below because it is a hook: it must run on every render of
+   * this component, including the loading and error states that return before any analysis exists.
+   */
+  const astStatistics = useMemo(
+    () =>
+      analysisResult === null
+        ? null
+        : parseSql(analysisResult.rawSql, analysisResult.dialect, { statistics: true })
+            .astStatistics,
+    [analysisResult]
+  );
 
   if (isAnalyzing) {
     return (
@@ -131,7 +154,8 @@ export default function MetricsDashboardContent() {
   const data = buildDashboardData(analysisResult, {
     locale: settings.locale,
     aiAvailable: false,
-    inputMode,
+    inputMode: inputMode === 'code-generator' ? 'sql' : inputMode,
+    astStatistics,
   });
   const isHighRisk =
     data.health.complexity.level === 'HIGH' || data.health.complexity.level === 'SUPER_HIGH';

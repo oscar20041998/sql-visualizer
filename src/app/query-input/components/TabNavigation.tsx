@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { Code2, BookOpen, FileCode2, Wand2 } from 'lucide-react';
 
-export type QueryInputMode = 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
+export type QueryInputMode = 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator';
 
 interface TabNavigationProps {
   inputMode: QueryInputMode;
@@ -26,6 +26,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
     { value: 'import-xml', label: t.tabImportMyBatis, icon: <FileCode2 size={14} aria-hidden /> },
     { value: 'mybatis', label: t.tabMyBatisContent, icon: <BookOpen size={14} aria-hidden /> },
     { value: 'smart-editor', label: t.tabSmartEditor, icon: <Wand2 size={14} aria-hidden /> },
+    { value: 'code-generator', label: t.tabCodeGenerator, icon: <Code2 size={14} aria-hidden /> },
   ];
 
   const activateTab = (index: number) => {

@@ -26,6 +26,54 @@ const en = {
   tabMyBatisContent: 'Paste your XML content',
   tabImportMyBatis: 'Import MyBatis (XML) file',
   tabSmartEditor: 'Smart Editor',
+  tabCodeGenerator: 'SQL → Code Generator',
+  generatorLanguage: 'Language',
+  generatorSqlInput: 'SQL for code generation',
+  generatorGenerate: 'Generate',
+  generatorRegenerate: 'Regenerate',
+  generatorReset: 'Reset',
+  generatorGeneratedCode: 'Generated Java code',
+  generatorDiagnostics: 'Generation diagnostics',
+  generatorClassification: 'SQL classification',
+  generatorClassifiedAs: 'Classified as',
+  generatorRecommendedOutput: 'Recommended output',
+  generatorNoOutput: 'Unavailable',
+  generatorChoiceRequired: 'Review the SQL shape before choosing an output.',
+  'generatorClass_table-definition': 'Table definition',
+  'generatorClass_select-entity-like': 'Entity-like SELECT',
+  'generatorClass_select-dto': 'DTO SELECT',
+  'generatorClass_select-aggregation': 'Aggregate SELECT',
+  'generatorClass_select-join': 'Joined SELECT',
+  generatorClass_insert: 'INSERT statement',
+  generatorClass_update: 'UPDATE statement',
+  generatorClass_delete: 'DELETE statement',
+  generatorClass_unknown: 'Unknown statement',
+  generatorCopy: 'Copy',
+  generatorDownload: 'Download',
+  generatorCopied: 'Generated source copied.',
+  generatorCopyFailed: 'Could not copy generated source.',
+  generatorDownloaded: 'Java file downloaded.',
+  generatorFramework: 'Framework',
+  generatorFrameworkJpa: 'JPA / Hibernate',
+  generatorOutputType: 'Output type',
+  generatorNamingStrategy: 'Naming strategy',
+  generatorLombok: 'Use Lombok accessors',
+  generatorRelationships: 'Include explicit FK relationships',
+  generatorValidation: 'Schema-backed validation annotations',
+  generatorMyBatisMapper: 'Generate MyBatis @Mapper interface',
+  generatorOutputFiles: 'Generated Java files',
+  generatorAuto: 'Auto',
+  generatorEntity: 'Entity',
+  generatorDto: 'DTO / Projection',
+  generatorJavaJpa: 'Java / JPA',
+  generatorPlannedCsharp: 'C# / EF Core (planned)',
+  generatorPlannedPython: 'Python / SQLAlchemy (planned)',
+  generatorPlannedTypescript: 'TypeScript / TypeORM (planned)',
+  generatorPlannedGo: 'Go / GORM (planned)',
+  generatorPlannedKotlin: 'Kotlin / JPA (planned)',
+  generatorNamingCamelCase: 'camelCase',
+  generatorNamingPascalCase: 'PascalCase',
+  generatorNamingPreserve: 'Preserve SQL names',
   dialectLabel: 'SQL Dialect',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -54,6 +102,7 @@ const en = {
   parameterValuePrefix: 'value for',
   analyzeButton: 'Analyze Query',
   analyzing: 'Analyzing...',
+  routeLoading: 'Loading page',
   parsingSQL: 'Parsing SQL structure...',
   analysisCompleteMessage: 'Analysis complete — {tables} tables, {joins} joins detected',
   parseErrorMessage: 'Failed to parse query. Check SQL syntax.',
@@ -694,6 +743,8 @@ const en = {
   guidelineQuickRefSettings: 'Settings',
   guidelineQuickRefAiExplainer: 'AI SQL Explainer',
   guidelineQuickRefDbAssistant: 'Database AI Assistant',
+  guidelineQuickRefChatHistory: 'Chat History',
+  guidelineQuickRefCodeGen: 'SQL → Code Generator',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Dark / Light toggle',
@@ -733,7 +784,25 @@ const en = {
   analysisAdvancedDenominator: 'Dynamic denominator',
   analysisAdvancedPercentage: 'Share of denominator',
   analysisAdvancedRuleIds: 'Rule identifiers',
-  analysisAdvancedUnavailable: 'AST statistics and parser metadata: not available yet',
+  analysisAdvancedScoring: 'Scoring',
+  analysisAdvancedParserMeta: 'Parser & analyzer metadata',
+  analysisAdvancedEngine: 'Parse engine',
+  analysisAdvancedDialect: 'Dialect',
+  analysisAdvancedKeywords: 'Keywords in engine',
+  analysisAdvancedPatterns: 'Regex patterns',
+  analysisAdvancedMaxColumns: 'Max columns extracted',
+  analysisAdvancedMaxCteRefs: 'Max CTE field references',
+  analysisAdvancedAstUnavailable:
+    'AST statistics are unavailable for this statement — no parseable AST was produced for its dialect.',
+  analysisAdvancedAst: 'AST structure',
+  analysisAdvancedAstNodes: 'AST nodes',
+  analysisAdvancedAstStatementKind: 'Parsed statement kind',
+  analysisAdvancedAstCteCount: 'CTE declarations',
+  analysisAdvancedAstCteDepth: 'Max CTE nesting depth',
+  analysisAdvancedAstSubqueryDepth: 'Max subquery depth',
+  analysisAdvancedAstNodeTypes: 'Node counts by type',
+  analysisAdvancedAstOperators: 'Operator occurrences',
+  analysisAdvancedAstFunctions: 'Function occurrences',
   complexityProgressBar: 'Progress',
   complexityKeywordsAndClauses: 'Keywords & Clauses',
   complexitySelectFields: 'SELECT Fields',
@@ -1340,8 +1409,7 @@ const en = {
     'The proposed SQL still fails to format. The suggested fix was not applied — ask for another one.',
   formatErrorPanelFixApplied: 'Suggested fix applied and formatted successfully',
   formatErrorPanelFixDismissed: 'Suggested fix dismissed',
-  formatErrorPanelFixNoChange:
-    'The model returned the same SQL, so there is nothing to apply.',
+  formatErrorPanelFixNoChange: 'The model returned the same SQL, so there is nothing to apply.',
   formatErrorPanelFixOutOfRange:
     'This correction reaches beyond the error location, so it was not applied. Ask for a more local one.',
   formatErrorPanelAppliedRange: 'Applied character range',
@@ -1384,6 +1452,25 @@ const en = {
     'Grounding requires Ollama running locally with the "all-minilm" embedding model pulled, independent of which provider you use to generate answers.',
   guidelineDbAssistantTip2:
     'Without grounding, the assistant still answers from general model knowledge — nothing breaks, the Sources row is simply omitted.',
+
+  // Guideline - Database AI Assistant Chat History Section (spec 014)
+  guidelineChatHistoryTitle: 'Database AI Assistant Chat History',
+  guidelineChatHistorySubtitle:
+    'Persistent, multi-conversation history you can search, rename and manage',
+  guidelineChatHistoryStep1Label: 'Conversations survive a reload',
+  guidelineChatHistoryStep1Desc:
+    'Ask the Database AI Assistant a question, then reload the page, navigate to another page and back, or restart the browser. The same conversation returns exactly where you left it — questions, answers and source labels intact — with nothing re-asked.',
+  guidelineChatHistoryStep2Label: 'Browse and search the sidebar',
+  guidelineChatHistoryStep2Desc:
+    'Open the history panel to see every saved conversation grouped by recency (Today, Yesterday, Previous 7 days, Older). Search by conversation title or by the text of the questions you asked to jump straight back to a topic.',
+  guidelineChatHistoryStep3Label: 'Rename, delete or clear',
+  guidelineChatHistoryStep3Desc:
+    'Give a conversation a clearer title, delete a single conversation, or clear the whole history. Every change is saved immediately, and New chat starts a fresh conversation without losing the previous ones.',
+  guidelineChatHistoryTip1:
+    'History is stored on your device and partitioned per signed-in identity — each account only ever sees its own conversations.',
+  guidelineChatHistoryTip2:
+    'Guests and signed-out visitors have no stored history by design: the panel stays present but empty until you sign in and save a conversation.',
+
   guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',
   guidelineAdvancedFeaturesSubtitle: 'New pagination, search, and customization capabilities',
   guidelineAdvancedFeaturesStep1Label: 'Main Query Fields Table with Pagination',
@@ -1426,7 +1513,24 @@ const en = {
   guidelineFormatErrorTip1:
     'Runs entirely on local Ollama — your SQL never leaves your device for explanation or fix requests.',
   guidelineFormatErrorTip2:
-    'If your SQL changes after a fix is generated, the proposal is flagged as stale so you can\'t accidentally apply it over newer edits.',
+    "If your SQL changes after a fix is generated, the proposal is flagged as stale so you can't accidentally apply it over newer edits.",
+
+  // Guideline - SQL → Code Generator Section (spec 015)
+  guidelineCodeGenTitle: 'SQL → Code Generator',
+  guidelineCodeGenSubtitle: 'Turn SQL tables and queries into Java/JPA code without manual mapping',
+  guidelineCodeGenStep1Label: 'Open the SQL → Code Generator tab',
+  guidelineCodeGenStep1Desc:
+    'On the Query Input page, switch to the SQL → Code Generator tab. It has its own SQL box, so your text in the SQL paste, MyBatis and Smart Editor tabs is left untouched.',
+  guidelineCodeGenStep2Label: 'Choose the target and options',
+  guidelineCodeGenStep2Desc:
+    'Java / JPA is the supported target today; C#, Python, TypeScript, Go and Kotlin are listed as planned. Pick the output type (Entity, DTO / Projection or Auto), the naming strategy, and whether to include relationships, Lombok or validation annotations.',
+  guidelineCodeGenStep3Label: 'Generate, then preview, copy or download',
+  guidelineCodeGenStep3Desc:
+    'Paste a CREATE TABLE to get an entity or a SELECT to get a DTO, then click Generate. The result appears in a syntax-highlighted preview together with the detected SQL classification and any warnings. Copy it or download it as a .java file; Reset restores the initial input and clears the result.',
+  guidelineCodeGenTip1:
+    'The system classifies your SQL (table definition, entity-like select, DTO, aggregation, JOIN, DML) and recommends the right output — it warns instead of silently generating incorrect code.',
+  guidelineCodeGenTip2:
+    'Relationship cardinality cannot always be inferred from SQL alone, so the generator documents its assumptions and marks planned languages as not yet supported.',
 
   // Home Page
   homeWelcomeTitle: 'Welcome to SQL Visualizer',
@@ -1584,8 +1688,10 @@ const en = {
   signInBrandTitle: 'SQL Visualizer',
   signInBrandTagline:
     'Inspect query structure, identify cost drivers, and improve the final statement with evidence — from SQL text to a clear next step.',
-  signInBrandFeatureAnalysis: 'Trace CTEs, field origins, joins, nested queries, and table relationships.',
-  signInBrandFeatureScoring: 'Use exact scoring factors and linting findings to focus your next change.',
+  signInBrandFeatureAnalysis:
+    'Trace CTEs, field origins, joins, nested queries, and table relationships.',
+  signInBrandFeatureScoring:
+    'Use exact scoring factors and linting findings to focus your next change.',
 
   homeWorkflowEyebrow: 'Workflow',
   homeWorkflowTitle: 'From SQL text to a clear next step',
@@ -1810,6 +1916,28 @@ const en = {
   dbAssistantErrorGeneric: 'Something went wrong. Please try again.',
   dbAssistantDisclaimer:
     'Answers are AI-generated and may be incorrect — verify anything critical before relying on it.',
+
+  // Database Assistant Conversation History
+  dbAssistantHistoryTitle: 'Conversations',
+  dbAssistantHistoryNewChat: 'New chat',
+  dbAssistantHistorySearch: 'Search conversations...',
+  dbAssistantHistoryEmpty: 'No conversations yet. Start a new chat!',
+  dbAssistantHistoryNoMatch: 'No conversations match your search',
+  dbAssistantHistoryToday: 'Today',
+  dbAssistantHistoryYesterday: 'Yesterday',
+  dbAssistantHistoryPreviousSevenDays: 'Previous 7 days',
+  dbAssistantHistoryOlder: 'Older',
+  dbAssistantHistoryRename: 'Rename',
+  dbAssistantHistoryDelete: 'Delete',
+  dbAssistantHistoryClearAll: 'Clear all',
+  dbAssistantHistoryClearAllConfirm: 'Are you sure you want to delete all conversations?',
+  dbAssistantHistoryDeleteConfirm: 'Delete this conversation?',
+  dbAssistantHistoryStorageUnavailable: 'Conversations will not be saved',
+  dbAssistantHistoryToggle: 'Toggle history',
+  dbAssistantHistoryCollapse: 'Collapse history panel',
+  dbAssistantHistoryExpand: 'Expand history panel',
+  dbAssistantHistoryResize: 'Resize history panel',
+  dbAssistantHistoryGuestNotice: 'Sign in to save and revisit your conversations across sessions.',
 } as const;
 
 export default en;

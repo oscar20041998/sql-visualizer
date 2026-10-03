@@ -10,6 +10,7 @@ import type { AIMessage } from '@/lib/ai/aiService';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
 import { getCapability, isLockedForGuest } from '@/lib/capabilities';
 import { isGuestSession } from '@/lib/demoAuth';
+import { DatabaseAssistantHistoryPanel } from './DatabaseAssistantHistoryPanel';
 
 const CODE_FENCE_RE = /```(\w+)?\n?([\s\S]*?)```/g;
 
@@ -297,60 +298,66 @@ export default function DatabaseAIAssistantContent() {
         </div>
       )}
       {!(isGuest && isLockedForGuest(getCapability('database-assistant')!, aiConfig)) && (
-        <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-3xl flex-col px-5 py-8 sm:px-8">
-          <header className="flex items-center justify-between pb-6">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Database size={16} />
-              </span>
-              <div>
-                <h1 className="text-base font-semibold text-foreground">
-                  {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {aiConfig.provider} · {modelLabel}
-                </p>
-              </div>
-            </div>
-            {turns.length > 0 && (
-              <button
-                onClick={handleNewChat}
-                title={t.dbAssistantNewChat}
-                aria-label={t.dbAssistantNewChat}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </header>
+        <div className="flex h-full min-h-0 flex-col lg:flex-row lg:items-stretch">
+          {/* `items-stretch` plus the panel's own viewport height lets the sidebar fill the column. */}
+          {/* History Panel: owns its own responsive layout (sidebar on lg, drawer below) */}
+          <DatabaseAssistantHistoryPanel />
 
-          <section className="flex flex-1 flex-col">
-            <div className="flex-1 space-y-6 overflow-y-auto pb-6 scrollbar-thin">
-              {turns.length === 0 && (
-                <div className="flex min-h-[45vh] flex-col items-center justify-center gap-5 text-center">
-                  <Database size={30} className="text-primary" />
-                  <div>
-                    <p className="text-xl font-medium text-foreground">{t.dbAssistantEmptyTitle}</p>
-                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                      {t.dbAssistantEmptySubtitle}
-                    </p>
-                  </div>
-                  <div className="w-full max-w-2xl">
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {suggestions.map((suggestion, index) => (
-                        <button
-                          key={`db-suggestion-${index}`}
-                          onClick={() => ask(suggestion)}
-                          disabled={isAsking}
-                          className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
+          {/* The chat column keeps the viewport height so the assistant still fills the page on its own. */}
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-5 py-8 sm:px-8 lg:max-w-none">
+            <header className="flex items-center justify-between pb-6">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Database size={16} />
+                </span>
+                <div>
+                  <h1 className="text-base font-semibold text-foreground">
+                    {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    {aiConfig.provider} · {modelLabel}
+                  </p>
+                </div>
+              </div>
+              {turns.length > 0 && (
+                <button
+                  onClick={handleNewChat}
+                  title={t.dbAssistantNewChat}
+                  aria-label={t.dbAssistantNewChat}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </header>
+
+            <section className="flex flex-1 flex-col">
+              <div className="flex-1 space-y-6 overflow-y-auto pb-6 scrollbar-thin">
+                {turns.length === 0 && (
+                  <div className="flex min-h-[45vh] flex-col items-center justify-center gap-5 text-center">
+                    <Database size={30} className="text-primary" />
+                    <div>
+                      <p className="text-xl font-medium text-foreground">{t.dbAssistantEmptyTitle}</p>
+                      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                        {t.dbAssistantEmptySubtitle}
+                      </p>
+                    </div>
+                    <div className="w-full max-w-2xl">
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion, index) => (
+                          <button
+                            key={`db-suggestion-${index}`}
+                            onClick={() => ask(suggestion)}
+                            disabled={isAsking}
+                            className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {turns.map((turn) => (
                 <div
@@ -433,49 +440,50 @@ export default function DatabaseAIAssistantContent() {
               )}
 
               <div ref={endRef} />
-            </div>
+              </div>
 
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void ask(question);
-              }}
-              className="flex items-center gap-2 rounded-3xl border border-border bg-muted/50 p-2 shadow-sm focus-within:border-primary/50 focus-within:bg-card"
-            >
-              <input
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                placeholder={t.dbAssistantPlaceholder}
-                disabled={isAsking}
-                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
-              />
-              {isAsking ? (
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  title={t.dbAssistantStop}
-                  aria-label={t.dbAssistantStop}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85"
-                >
-                  <Square size={13} fill="currentColor" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!question.trim()}
-                  title={t.dbAssistantSend}
-                  aria-label={t.dbAssistantSend}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Send size={15} />
-                </button>
-              )}
-            </form>
-          </section>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void ask(question);
+                }}
+                className="flex items-center gap-2 rounded-3xl border border-border bg-muted/50 p-2 shadow-sm focus-within:border-primary/50 focus-within:bg-card"
+              >
+                <input
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  placeholder={t.dbAssistantPlaceholder}
+                  disabled={isAsking}
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
+                />
+                {isAsking ? (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    title={t.dbAssistantStop}
+                    aria-label={t.dbAssistantStop}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85"
+                  >
+                    <Square size={13} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!question.trim()}
+                    title={t.dbAssistantSend}
+                    aria-label={t.dbAssistantSend}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send size={15} />
+                  </button>
+                )}
+              </form>
+            </section>
 
-          <p className="pt-4 text-center text-[11px] text-muted-foreground">
-            {t.dbAssistantDisclaimer}
-          </p>
+            <p className="pt-4 text-center text-[11px] text-muted-foreground">
+              {t.dbAssistantDisclaimer}
+            </p>
+          </div>
         </div>
       )}
     </>

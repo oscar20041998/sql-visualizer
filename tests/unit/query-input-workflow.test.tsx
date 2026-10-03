@@ -159,7 +159,7 @@ describe('Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)', 
     const tabs = screen.getAllByRole('tab');
 
     expect(tablist).toContainElement(tabs[0]);
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
     expect(screen.getByRole('tab', { name: t.tabPasteSQL })).toHaveAttribute(
       'aria-selected',
       'true'

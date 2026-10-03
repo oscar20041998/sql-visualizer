@@ -1,5 +1,7 @@
 # SQL Visualizer
 
+**📚 Languages:** English | [Tiếng Việt](./README_VI.md)
+
 A comprehensive SQL analysis and visualization tool built with Next.js 15, React 19, and TypeScript. Analyze query complexity, visualize table relationships, explore CTEs, and deep-dive into JOIN conditions across multiple SQL dialects.
 
 ## 🚀 Features
@@ -13,12 +15,17 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **CTE Analysis** - Explore Common Table Expressions and field origins with visual tree structure, including per-CTE nested subquery detection with accurate nesting depth
 - **Smart SQL Editor** - Multi-dialect Monaco-based query editor with formatting, original-vs-edited diff view, and real-time analysis
 
+### Code Generation
+
+- **SQL → Code Generator** - Convert SQL into application-layer code. A `CREATE TABLE` becomes a Java/JPA entity (with `@Entity`, `@Table`, `@Id`, `@Column` and inferred relationships) and a `SELECT` becomes a DTO/projection class, driven by automatic SQL classification, SQL-to-language type mapping, and a configurable naming strategy. Generated code appears in a syntax-highlighted preview you can copy or download, and every assumption or unsupported construct is reported as a warning rather than silently guessed
+
 ### AI-Powered Features
 
 - **AI SQL Explainer** - Turns a query into a structured, plain-language explanation (objective, filters, output, referenced tables)
 - **AI Optimize** - Streams optimization suggestions and a rewritten query, grounded in the local parser's verified facts (tables, joins, CTE graph)
 - **Docs Consultant Chat** - RAG-style chat over the app's own feature docs (embeds the question, retrieves the closest doc chunks, answers with citations)
 - **Database AI Assistant** - General database chat for SQL, schema design, indexes, transactions, and performance. When its local RAG index is available, answers are grounded in relevant excerpts from official SQL Server, MySQL, PostgreSQL, and Oracle manuals, with source labels shown below the answer
+- **Database AI Assistant Chat History** - Persistent, multi-conversation history for the Database AI Assistant. Conversations survive a page reload, navigating away, and a browser restart, are titled automatically from the first question, grouped by recency, and can be searched, renamed, deleted or cleared. History is stored on the device and partitioned per signed-in identity; guests keep no stored history by design
 - **Query History with Semantic Search** - Every analyzed query is saved (server-side Excel-backed store) and searchable by meaning, not just substring, via embeddings
 - **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini) proxied through the app server so credentials never reach the browser
 - **Text-to-Speech** - Reads AI explanations/optimization notes aloud (browser speech synthesis, with optional Piper local voices)
@@ -105,7 +112,39 @@ flowchart TD
     G --> I["generateWithAI() — Ollama direct or /api/ai/generate proxy"]
     H --> I
     I --> J["Answer streamed into the conversation"]
-    J --> K["Conversation state lives in the Zustand store<br/>survives navigating to another page"]
+    J --> K["Conversation state lives in the Zustand store<br/>survives navigating to another page<br/>and is persisted per identity (see Chat History)"]
+```
+
+### Database AI Assistant Chat History
+
+```mermaid
+flowchart TD
+    A["Question sent in the Database AI Assistant"] --> B["Answer completes<br/>(streaming fragments are never persisted)"]
+    B --> C["Exactly one write per transition:<br/>create / send / complete / rename / delete / clear"]
+    C --> D["History storage contract<br/>one localStorage key per signed-in identity"]
+    D --> E["Zustand store slice — single source of truth"]
+    E --> F["History sidebar: search, rename, delete, clear, New chat"]
+    E --> G["Reload / navigate away / restart browser"]
+    G --> H["Last active conversation restored<br/>messages, order and source labels intact"]
+    D --> I{"Storage unavailable or full?"}
+    I -->|Yes| J["Session continues in memory<br/>one non-blocking notice — history is never truncated"]
+    I -->|No| F
+```
+
+### SQL → Code Generator
+
+```mermaid
+flowchart TD
+    A["SQL in the SQL → Code Generator tab"] --> B["parseSql() — AST from the multi-dialect parser"]
+    B --> C["classifySql()<br/>TABLE_DEFINITION / ENTITY_LIKE / DTO / AGGREGATION / DML / UNKNOWN"]
+    C --> D{"Recommended output"}
+    D -->|Entity| E["Entity renderer<br/>@Entity / @Table / @Id / @Column + relationships"]
+    D -->|DTO / Projection| F["DTO renderer<br/>alias-derived fields + mapped types"]
+    D -->|Unsupported| G["No guessed code<br/>actionable diagnostics only"]
+    E --> H["Syntax-highlighted preview<br/>+ assumptions and warnings"]
+    F --> H
+    H --> I["Copy to clipboard or download as .java"]
+    H --> J["Reset restores initial input and clears output"]
 ```
 
 ### Query History Semantic Search
@@ -237,8 +276,8 @@ sql-visualizer/
 │   │   ├── api/ai/                 # Server routes proxying AI generate/embed/speech/retrieval
 │   │   │   ├── database-knowledge-context/ # RAG retrieval over the official database manuals
 │   │   │   └── docs-context/        # RAG retrieval over SQL Visualizer feature docs
-│   │   ├── database-ai-assistant/  # General database Q&A chat with RAG source citations
-│   │   ├── query-input/            # SQL input and parameter configuration
+│   │   ├── database-ai-assistant/  # General database Q&A chat with RAG citations + persistent chat history
+│   │   ├── query-input/            # SQL input, parameters + the SQL → Code Generator tab
 │   │   ├── relationship-graph-visualizer/  # Graph visualization and JOIN analysis
 │   │   ├── cte-analysis/           # CTE exploration and analysis
 │   │   ├── sql-metrics-dashboard/  # Complexity metrics, scoring, and line-jump detail views
@@ -262,6 +301,7 @@ sql-visualizer/
 │   │   │   ├── aiSpeech.ts / aiSpeechEngine.ts # Text-to-speech playback
 │   │   │   ├── aiTokens.ts        # Token estimation helpers
 │   │   │   ├── databaseAssistant.ts # Database AI Assistant chat and RAG orchestration
+│   │   │   ├── databaseAssistant/  # Chat-history storage contract + per-identity persistence helpers
 │   │   │   ├── databaseKnowledgeStore.ts # Server-only nearest-neighbor search over the manual corpus
 │   │   │   ├── data/               # Local git-ignored RAG index generated from the official manuals
 │   │   │   ├── embeddingService.ts # Client helpers for semantic search embeddings
@@ -272,6 +312,8 @@ sql-visualizer/
 │   │   │   ├── complexityScorer.ts # Complexity calculation logic
 │   │   │   ├── dialectValidator.ts # Multi-dialect SQL validation
 │   │   │   └── dialectValidator.test.ts
+│   │   ├── codegen/                # SQL → Code Generator (parser, classifier, type mapping, renderers)
+│   │   ├── conversationHistoryStore.ts # Chat-history persistence (per-identity localStorage)
 │   │   ├── logging/                # Logging utilities
 │   │   │   ├── logger.ts
 │   │   │   ├── logger-setup.ts
@@ -309,13 +351,13 @@ sql-visualizer/
 ## 🎯 Key Pages
 
 - **Dashboard** (`/`) - Overview and quick access to all analysis tools
-- **Query Input** (`/query-input`) - Paste SQL, configure parameters, select dialect
+- **Query Input** (`/query-input`) - Paste SQL, configure parameters, select dialect, or generate Java/JPA code from SQL in the **SQL → Code Generator** tab
 - **Relationship Graph** (`/relationship-graph-visualizer`) - Visualize tables, JOINs, and deep-dive JOIN analysis
 - **CTE Analysis** (`/cte-analysis`) - Explore CTEs and field data flow
 - **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores, breakdowns, and jump from any metric/subquery to its line in the editor
 - **Smart SQL Editor** (`/smart-sql-editor`) - Format, diff, and AI-explain/optimize SQL in a full Monaco editor
 - **Guideline** (`/guideline`) - Feature documentation plus the AI Docs Consultant chat
-- **Database AI Assistant** (`/database-ai-assistant`) - Ask general database questions, with optional grounding in official SQL Server, MySQL, PostgreSQL, and Oracle manuals
+- **Database AI Assistant** (`/database-ai-assistant`) - Ask general database questions, with optional grounding in official SQL Server, MySQL, PostgreSQL, and Oracle manuals. Conversations are kept in a persistent, searchable history sidebar
 - **Settings** (`/settings-preferences`) - Configure theme, language, AI provider, and analysis options
 
 ## 🎨 Styling & Theming

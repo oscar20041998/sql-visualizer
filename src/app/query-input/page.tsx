@@ -49,6 +49,7 @@ import { PreviewPanel } from './components/PreviewPanel';
 import { BottomAnalytics } from './components/BottomAnalytics';
 import { EmptyStateTips } from './components/EmptyStateTips';
 import { QueryInputPanel } from './components/QueryInputPanel';
+import { CodeGeneratorPanel } from './components/CodeGeneratorPanel';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -127,6 +128,7 @@ export default function QueryInputContent() {
     dialect,
     rawSql,
     myBatisXml,
+    codeGeneratorInitialSql,
     resolvedSql,
     myBatisParams,
     inputMode,
@@ -135,6 +137,8 @@ export default function QueryInputContent() {
     setDialect,
     setRawSql,
     setMyBatisXml,
+    setCodeGeneratorSql,
+    setCodeGeneratorInitialSql,
     setResolvedSql,
     setMyBatisParams,
     setAnalysisResult,
@@ -354,12 +358,29 @@ export default function QueryInputContent() {
   }, [inputMode, setRawSql, setMyBatisXml]);
 
   const handleTabChange = (newMode: QueryInputMode) => {
+    if (newMode === 'code-generator' && codeGeneratorInitialSql === null) {
+      const initialSql =
+        inputMode === 'sql'
+          ? rawSql
+          : inputMode === 'mybatis' || inputMode === 'import-xml'
+            ? resolvedSql
+            : inputMode === 'smart-editor'
+              ? smartEditorSqlRef.current
+              : '';
+      setCodeGeneratorInitialSql(initialSql);
+      setCodeGeneratorSql(initialSql);
+    }
     setInputMode(newMode);
     // Switching tabs manually means the pending jump no longer applies to what's shown.
     setJumpSql(null);
   };
 
-  const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
+  const currentSql =
+    inputMode === 'smart-editor' || inputMode === 'code-generator'
+      ? ''
+      : inputMode === 'sql'
+        ? rawSql
+        : resolvedSql;
 
   // A "go to line" link from the Metrics Dashboard/Graph Visualizer lands here: captured once on
   // mount, it switches to the Smart Editor tab, loads the analyzed SQL instead of the current
@@ -536,8 +557,22 @@ export default function QueryInputContent() {
           </div>
         )}
 
+        {inputMode === 'code-generator' && (
+          <div className="space-y-4">
+            <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="space-y-4"
+            >
+              <CodeGeneratorPanel dialect={dialect} t={t} initialSql={codeGeneratorInitialSql ?? ''} />
+            </div>
+          </div>
+        )}
+
         {/* Regular SQL/MyBatis Input */}
-        {inputMode !== 'smart-editor' && (
+        {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && (
           <>
             {/* Tabs - Full Width */}
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />

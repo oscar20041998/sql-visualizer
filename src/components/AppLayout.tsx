@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
-import LoadingOverlay from '@/components/ui/LoadingOverlay';
+import RouteProgressBar from '@/components/ui/RouteProgressBar';
 import { getSocialSession, isDemoAuthenticated, isGuestSession, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
 import { getT } from '@/lib/i18n';
 
@@ -59,6 +59,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // query-input gate pattern: render nothing until the check completes,
   // so protected content never flashes for signed-out visitors.
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  // A browser back/forward navigation runs no in-app handler, so nothing calls `beginNavigation`
+  // and the store never learns about it. `popstate` is the signal that such a navigation started;
+  // the pathname effect below retires it once the route has actually moved.
+  const [isRestoringHistory, setIsRestoringHistory] = useState(false);
+
+  useEffect(() => {
+    const handlePopState = () => setIsRestoringHistory(true);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    setIsRestoringHistory(false);
+  }, [pathname]);
 
   useEffect(() => {
     const hadStoredSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
@@ -128,7 +142,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
-      <LoadingOverlay visible={navigationTarget !== null} title="Loading..." />
+      <RouteProgressBar active={navigationTarget !== null || isRestoringHistory} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">
           <div className="min-h-full grid-bg">{children}</div>

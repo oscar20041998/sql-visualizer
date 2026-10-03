@@ -57,7 +57,7 @@ docs/knowledge/*.pdf
 
 # Optional: if using Specify or GitHub Skills
 .specify
-.github/skills
+.github
 .specs
 
 # Optional: if using the command-line interface

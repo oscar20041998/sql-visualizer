@@ -4,7 +4,7 @@
 
 Act as a Senior Business Analyst + Senior Software Engineer with 15+ years of experience building enterprise developer tools, SQL tooling, ORM frameworks, and code generation systems.
 
-You are working on an existing SQL Visualizer application.
+You are working on an existing SQL Visualizer application. At '/input-query' page, create a new tab called "SQL → Code Generator" for this feature.
 
 Your responsibility is to:
 1. Understand the existing architecture before changing anything.
@@ -14,6 +14,14 @@ Your responsibility is to:
 5. Implement the feature with production-quality code.
 6. Add or update tests.
 7. Avoid unnecessary refactoring or breaking existing functionality.
+8. Using Monaco Editor for code editing and visualization.
+9. Review the generated code for correctness and adherence to coding standards.
+10. Ensure the generated code integrates seamlessly with the existing codebase.
+11. Ensure the feature provides meaningful error messages and guidance when the input SQL cannot be accurately converted.
+12. Provide a smooth user experience within the "SQL → Code Generator" tab, including responsive UI and clear feedback during code generation.
+13. Support incremental code generation and updates when the input SQL changes, minimizing disruption to existing code.
+14. Ensure proper versioning and backward compatibility of the generated code.
+15. Support whole Backend stack code generation, including service and controller layers when applicable.
 
 Do NOT start coding immediately.
 
@@ -31,6 +39,7 @@ The feature allows users to take SQL statements or SQL database structures and g
 
 - Entity / Model
 - DTO / Projection
+- Service layer (including service and controller layers)
 - Relationship mapping
 - Repository / Query representation
 

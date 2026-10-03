@@ -44,7 +44,10 @@ const QUERY_CAPABILITIES: Record<DashboardSection, CapabilityStatus> = {
   // cycles are not computed by the analyzer yet (FR-015 "where supported").
   dependencies: 'partial',
   ai: 'supported',
-  advanced: 'supported',
+  // Raw score, denominator, percentage, rule identifiers and parser/analyzer metadata all exist;
+  // AST statistics do not. That is the definition of a partial section, and the UI says so
+  // rather than pretending the whole section is supported.
+  advanced: 'partial',
 };
 
 const ALL_UNSUPPORTED: Record<DashboardSection, CapabilityStatus> = {
