@@ -28,7 +28,7 @@ import {
 } from '@/lib/ai/aiProviders';
 import { DEFAULT_SPEECH_GENDER } from '@/lib/ai/aiSpeech';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
-import { useCapabilityLock } from '@/lib/useCapabilityLock';
+import { isCapabilityLockedForGuest, useCapabilityLock } from '@/lib/useCapabilityLock';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -202,6 +202,12 @@ const EDGE_OPTIONS = [
   { value: 'step' as const, label: '' },
 ];
 
+const FALLBACK_CHAT_MODELS: Record<Exclude<AIProvider, 'ollama'>, string[]> = {
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5', 'gpt-5-mini'],
+  anthropic: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+};
+
 export default function SettingsContent() {
   const { settings, updateSettings } = useAppStore();
   const t = getT(settings.locale);
@@ -217,11 +223,109 @@ export default function SettingsContent() {
    * keystroke would fire a toast per letter and persist half-typed values.
    */
   const [aiDraft, setAiDraft] = useState<AIModelConfig>(savedAiConfig);
+  const [isCustomModel, setIsCustomModel] = useState(false);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [modelLoadError, setModelLoadError] = useState('');
+  const [modelLoadAttempt, setModelLoadAttempt] = useState(0);
 
   // Re-sync when the stored config changes from elsewhere (Reset to defaults, another tab).
   useEffect(() => {
     setAiDraft(savedAiConfig);
   }, [savedAiConfig]);
+
+  useEffect(() => {
+    if (activeCategory !== 'ai') return;
+
+    if (isCapabilityLockedForGuest('sql-explainer')) {
+      setAvailableModels([]);
+      setModelsLoaded(false);
+      setModelLoadError('');
+      setIsLoadingModels(false);
+      return;
+    }
+
+    if (aiDraft.provider === 'ollama') {
+      setAvailableModels([]);
+      setModelsLoaded(false);
+      setModelLoadError('');
+      return;
+    }
+
+    const controller = new AbortController();
+    setAvailableModels([]);
+    setModelsLoaded(false);
+    setModelLoadError('');
+    setIsLoadingModels(true);
+
+    const timeoutId = window.setTimeout(() => {
+      fetch('/api/ai/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: aiDraft.provider,
+          baseUrl: aiDraft.baseUrls[aiDraft.provider],
+        }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            if (payload?.code === 'AI_SESSION_REQUIRED') {
+              throw new Error(t.aiModelsSignInRequired);
+            }
+            throw new Error(payload?.error || `Model listing failed (${response.status}).`);
+          }
+          return Array.isArray(payload?.models)
+            ? payload.models.filter((model: unknown): model is string => typeof model === 'string')
+            : [];
+        })
+        .then((models: string[]) => {
+          if (!controller.signal.aborted) {
+            setAvailableModels(models);
+            setModelsLoaded(true);
+            if (models.length > 0) {
+              const preferredModel = aiDraft.provider === 'openai'
+                ? 'gpt-4o'
+                : aiDraft.provider === 'gemini'
+                  ? 'gemini-2.5-flash'
+                  : '';
+              const fallbackModel = models.includes(preferredModel) ? preferredModel : models[0];
+              setAiDraft((prev) =>
+                prev.provider === aiDraft.provider &&
+                (!prev.modelId.trim() ||
+                  (aiDraft.provider !== 'ollama' &&
+                    FALLBACK_CHAT_MODELS[aiDraft.provider].includes(prev.modelId) &&
+                    !models.includes(prev.modelId)))
+                  ? { ...prev, modelId: fallbackModel }
+                  : prev
+              );
+            }
+          }
+        })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setModelLoadError(error instanceof Error ? error.message : t.aiModelsLoadFailed);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setIsLoadingModels(false);
+        });
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [
+    activeCategory,
+    aiDraft.provider,
+    aiDraft.baseUrls,
+    modelLoadAttempt,
+    t.aiModelsLoadFailed,
+    t.aiModelsSignInRequired,
+  ]);
 
   const isAiDirty = useMemo(
     () => JSON.stringify(aiDraft) !== JSON.stringify(savedAiConfig),
@@ -318,6 +422,14 @@ export default function SettingsContent() {
     { value: 'anthropic', label: t.aiProviderAnthropic },
     { value: 'gemini', label: t.aiProviderGemini },
   ];
+  const modelOptions = aiDraft.provider === 'ollama'
+    ? []
+    : [...new Set([
+        ...(availableModels.length > 0
+          ? availableModels
+          : FALLBACK_CHAT_MODELS[aiDraft.provider]),
+        ...(aiDraft.modelId && !availableModels.includes(aiDraft.modelId) ? [aiDraft.modelId] : []),
+      ])];
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
@@ -503,7 +615,13 @@ export default function SettingsContent() {
                     <SelectDropdown
                       value={aiDraft.provider}
                       options={aiProviderOptionsTranslated}
-                      onChange={(v) => updateAI('provider', v)}
+                      onChange={(provider) => {
+                        updateAI('provider', provider);
+                        setIsCustomModel(false);
+                        if (provider !== aiDraft.provider && provider !== 'ollama') {
+                          updateAI('modelId', FALLBACK_CHAT_MODELS[provider][0]);
+                        }
+                      }}
                     />
                   </SettingRow>
 
@@ -552,13 +670,53 @@ export default function SettingsContent() {
                   ) : (
                     <>
                       <SettingRow label={t.aiModelId} hint={t.aiModelIdHint}>
-                        <input
-                          type="text"
-                          value={aiDraft.modelId}
-                          onChange={(e) => updateAI('modelId', e.target.value)}
-                          placeholder="gpt-4o"
-                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[220px] focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
+                        <div className="min-w-[260px]">
+                          <select
+                            value={isCustomModel ? '__custom__' : aiDraft.modelId || modelOptions[0] || ''}
+                            onChange={(e) => {
+                              if (e.target.value === '__custom__') {
+                                setIsCustomModel(true);
+                                updateAI('modelId', '');
+                              } else {
+                                setIsCustomModel(false);
+                                updateAI('modelId', e.target.value);
+                              }
+                            }}
+                            className="w-full px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            {modelOptions.map((model) => (
+                              <option key={model} value={model}>{model}</option>
+                            ))}
+                            <option value="__custom__">{t.aiModelCustom}</option>
+                          </select>
+                          {isCustomModel && (
+                            <input
+                              type="text"
+                              value={aiDraft.modelId}
+                              onChange={(e) => updateAI('modelId', e.target.value)}
+                              placeholder={aiDraft.provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o'}
+                              className="w-full px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                          )}
+                          <div className="mt-1.5 flex min-h-5 items-center gap-2 text-xs text-muted-foreground">
+                            {isLoadingModels && <span aria-live="polite">{t.aiModelsLoading}</span>}
+                            {!isLoadingModels && modelLoadError && (
+                              <>
+                                <span className="text-rose-500" title={modelLoadError}>{modelLoadError}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setModelLoadAttempt((attempt) => attempt + 1)}
+                                  className="underline underline-offset-2 hover:text-foreground"
+                                >
+                                  {t.aiModelsRetry}
+                                </button>
+                              </>
+                            )}
+                            {!isLoadingModels && !modelLoadError && modelsLoaded && availableModels.length === 0 && (
+                              <span>{t.aiModelsNoneAvailable}</span>
+                            )}
+                          </div>
+                        </div>
                       </SettingRow>
 
                       {/* Replaces the old API Key input: credentials live in .env, server-side. */}

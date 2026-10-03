@@ -404,7 +404,7 @@ async function callOpenAI(
       body: JSON.stringify({
         model: modelId,
         temperature: call.temperature,
-        ...(call.maxTokens ? { max_tokens: call.maxTokens } : {}),
+        ...openAiTokenLimit(modelId, call.maxTokens),
         ...(call.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         messages: call.messages,
       }),
@@ -421,6 +421,13 @@ async function callOpenAI(
 
   const data = await response.json();
   return data.choices?.[0]?.message?.content ?? '';
+}
+
+function openAiTokenLimit(modelId: string, maxTokens?: number): Record<string, number> {
+  if (!maxTokens) return {};
+  return modelId.toLowerCase().startsWith('gpt-5')
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens };
 }
 
 /** Embeddings are OpenAI-only here, so this has no per-provider dispatch — just the one endpoint. */
@@ -816,7 +823,7 @@ async function callOpenAIStream(
         model: modelId,
         temperature: call.temperature,
         stream: true,
-        ...(call.maxTokens ? { max_tokens: call.maxTokens } : {}),
+        ...openAiTokenLimit(modelId, call.maxTokens),
         ...(call.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         messages: call.messages,
       }),
