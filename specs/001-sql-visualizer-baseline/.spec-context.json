@@ -1,0 +1,95 @@
+{
+  "workflow": "companion",
+  "specName": "sql visualizer baseline",
+  "branch": "develop",
+  "currentStep": "specify",
+  "status": "specified",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-07T06:49:45.416Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-07T06:51:16.301Z"
+    }
+  ],
+  "telemetryInstanceId": "fd2bc041-eab9-49e2-a0a3-0bda538bbd44",
+  "coverage": {
+    "FR-001": {
+      "title": "Accept pasted SQL or MyBatis XML with explicit dialect selection"
+    },
+    "FR-002": {
+      "title": "Compute and display complexity score (0-100) with breakdown"
+    },
+    "FR-003": {
+      "title": "Visualize table relationships and JOINs as interactive graph"
+    },
+    "FR-004": {
+      "title": "Break down JOIN conditions by columns and operators"
+    },
+    "FR-005": {
+      "title": "Display CTEs as tree with field origins and nesting depth"
+    },
+    "FR-006": {
+      "title": "Jump from metric card/subquery entry to source line in editor"
+    },
+    "FR-007": {
+      "title": "Provide multi-dialect editor with formatting and diff view"
+    },
+    "FR-008": {
+      "title": "Generate structured plain-language query explanation, streamed"
+    },
+    "FR-009": {
+      "title": "Fall back to unstructured notice+raw answer on invalid AI JSON"
+    },
+    "FR-010": {
+      "title": "Generate optimization suggestions and rewritten query"
+    },
+    "FR-011": {
+      "title": "Support follow-up questions with pinned original query context"
+    },
+    "FR-012": {
+      "title": "Support local (Ollama) and cloud AI providers with server-side credentials"
+    },
+    "FR-013": {
+      "title": "Save every analyzed query with embedding to history store"
+    },
+    "FR-014": {
+      "title": "Support semantic search over query history"
+    },
+    "FR-015": {
+      "title": "Answer general database questions grounded in vendor manuals"
+    },
+    "FR-016": {
+      "title": "Answer app-feature questions grounded in app docs with citations"
+    },
+    "FR-017": {
+      "title": "Offer read-aloud of AI-generated text"
+    },
+    "FR-018": {
+      "title": "Require authentication before granting workspace access"
+    },
+    "FR-019": {
+      "title": "Deny workspace access on failed/absent authentication"
+    }
+  },
+  "size": "oversized",
+  "context": [
+    "area: src (Next.js app - query workspace, AI features, auth)",
+    "constraint: baseline captured from README; no new behavior invented"
+  ],
+  "intent": "Document the existing SQL Visualizer application's shipped capabilities as a baseline for future incremental specs",
+  "classification": {
+    "projectedFiles": 40,
+    "projectedTasks": 30,
+    "scopeSignal": "larger",
+    "verdict": "oversized"
+  }
+}

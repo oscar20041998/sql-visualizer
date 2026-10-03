@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -19,12 +19,13 @@ import {
   Loader,
   ChevronLeft,
   LogOut,
+  UserRound,
   Sparkles,
   Database,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import { clearDemoAuthenticated } from '@/lib/demoAuth';
+import { clearDemoAuthenticated, getSocialSession, isGuestSession, type UserSession } from '@/lib/demoAuth';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
 
@@ -55,17 +56,26 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { settings, updateSettings, analysisResult, navigationTarget, beginNavigation } = useAppStore();
+  const { settings, updateSettings, analysisResult, navigationTarget, beginNavigation } =
+    useAppStore();
+  const [socialSession, setSocialSession] = useState<UserSession | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const t = getT(settings.locale);
+
+  useEffect(() => {
+    setSocialSession(getSocialSession());
+    setIsGuest(isGuestSession());
+  }, []);
 
   const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
   const toggleLocale = () => updateSettings({ locale: settings.locale === 'en' ? 'vi' : 'en' });
 
   const handleSignOut = () => {
     clearDemoAuthenticated();
-    toast.success(t.signOutSuccess);
-    beginNavigation('/');
-    router.push('/');
+    setSocialSession(null);
+    toast.success(t.authSignOutSuccess);
+    beginNavigation('/login');
+    router.push('/login');
   };
 
   return (
@@ -180,6 +190,58 @@ export default function Sidebar() {
 
       {/* Bottom Controls */}
       <div className="border-t border-border p-2 space-y-1">
+        {/* Guest access (specs/013-guest-access-mode, FR-010): a guest is not a social session,
+            so the avatar block above stays empty — this badge is what tells them why some
+            features are unavailable. */}
+        {isGuest && (
+          <div
+            title={t.guestAccessBadgeTitle}
+            className={`mb-2 flex items-center gap-2 rounded-md border border-dashed border-border px-2 py-2 ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <UserRound
+              size={16}
+              aria-hidden="true"
+              className="flex-shrink-0 text-muted-foreground"
+            />
+            {!isCollapsed && (
+              <span className="truncate text-xs font-medium text-muted-foreground">
+                {t.guestAccessBadge}
+              </span>
+            )}
+          </div>
+        )}
+        {socialSession && (
+          <div
+            className={`mb-2 flex items-center gap-2 px-2 py-2 ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            {socialSession.avatarUrl ? (
+              <img
+                src={socialSession.avatarUrl}
+                alt=""
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                {socialSession.displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            {!isCollapsed && (
+              <div className="min-w-0 leading-tight">
+                <div className="flex items-center gap-1 text-xs font-semibold text-foreground">
+                  <span className="truncate">{socialSession.displayName}</span>
+                  <span className="flex-shrink-0 text-[9px] text-primary">
+                    {socialSession.provider === 'google' ? 'G' : 'MS'}
+                  </span>
+                </div>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {socialSession.email}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
@@ -216,7 +278,6 @@ export default function Sidebar() {
           {!isCollapsed && <span className="truncate">{t.signOut}</span>}
         </button>
       </div>
-
     </aside>
   );
 }

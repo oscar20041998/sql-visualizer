@@ -85,13 +85,18 @@ interface AppState {
   dialect: SqlDialect;
   rawSql: string;
   myBatisXml: string;
+  codeGeneratorSql: string;
+  codeGeneratorInitialSql: string | null;
   resolvedSql: string;
   myBatisParams: Record<string, string>;
   analysisResult: AnalysisResult | null;
   isAnalyzing: boolean;
+  /** Last analysis failure message, or null. The dashboard shows it with a retry that
+   *  re-runs the analysis of the current SQL (specs/010 FR-016). */
+  analysisError: string | null;
   /** Target path for an in-progress client-side route change. Never persisted. */
   navigationTarget: string | null;
-  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor';
+  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator';
   selectedNodeId: string | null;
   /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
    *  page to load the analyzed SQL and reveal/highlight the target line, then cleared. */
@@ -113,13 +118,24 @@ interface AppState {
   setDialect: (d: SqlDialect) => void;
   setRawSql: (s: string) => void;
   setMyBatisXml: (s: string) => void;
+  setCodeGeneratorSql: (s: string) => void;
+  setCodeGeneratorInitialSql: (s: string) => void;
   setResolvedSql: (s: string) => void;
   setMyBatisParams: (p: Record<string, string>) => void;
   setAnalysisResult: (r: AnalysisResult | null) => void;
   setIsAnalyzing: (v: boolean) => void;
+  setAnalysisError: (message: string | null) => void;
   beginNavigation: (target: string) => void;
   completeNavigation: (pathname: string) => void;
-  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => void;
+  /**
+   * Drops an in-progress navigation whatever its target.
+   *
+   * `completeNavigation` only settles a target that matches the current path, so a target set by a
+   * page outside the workspace shell (the home page, `/login`) could never match and left the
+   * loading overlay up permanently. This is the escape hatch for that case.
+   */
+  cancelNavigation: () => void;
+  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator') => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
   setChatIsOpen: (open: boolean) => void;
@@ -172,10 +188,13 @@ export const useAppStore = create<AppState>()(
       dialect: 'mysql',
       rawSql: '',
       myBatisXml: '',
+      codeGeneratorSql: '',
+      codeGeneratorInitialSql: null,
       resolvedSql: '',
       myBatisParams: {},
       analysisResult: null,
       isAnalyzing: false,
+      analysisError: null,
       navigationTarget: null,
       inputMode: 'sql',
       selectedNodeId: null,
@@ -190,13 +209,17 @@ export const useAppStore = create<AppState>()(
       setDialect: (d) => set({ dialect: d }),
       setRawSql: (s) => set({ rawSql: s }),
       setMyBatisXml: (s) => set({ myBatisXml: s }),
+      setCodeGeneratorSql: (s) => set({ codeGeneratorSql: s }),
+      setCodeGeneratorInitialSql: (s) => set({ codeGeneratorInitialSql: s }),
       setResolvedSql: (s) => set({ resolvedSql: s }),
       setMyBatisParams: (p) => set({ myBatisParams: p }),
-      setAnalysisResult: (r) => set({ analysisResult: r }),
+      setAnalysisResult: (r) => set({ analysisResult: r, analysisError: null }),
       setIsAnalyzing: (v) => set({ isAnalyzing: v }),
+      setAnalysisError: (message) => set({ analysisError: message }),
       beginNavigation: (target) => set({ navigationTarget: target }),
       completeNavigation: (pathname) =>
         set((state) => (state.navigationTarget === pathname ? { navigationTarget: null } : {})),
+      cancelNavigation: () => set({ navigationTarget: null }),
       setInputMode: (m) => set({ inputMode: m }),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
       setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),
@@ -219,6 +242,8 @@ export const useAppStore = create<AppState>()(
         set({
           rawSql: '',
           myBatisXml: '',
+          codeGeneratorSql: '',
+          codeGeneratorInitialSql: null,
           resolvedSql: '',
           myBatisParams: {},
           analysisResult: null,

@@ -35,6 +35,9 @@ import { estimateTokens } from '@/lib/ai/aiTokens';
 import AiFeatureAnnouncement, { useAnnouncementVisibility } from './AiFeatureAnnouncement';
 import AiFollowUpChat from './AiFollowUpChat';
 import AiCteBatchPanel from './AiCteBatchPanel';
+import SidePanelTab from './SidePanelTab';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
@@ -44,18 +47,45 @@ function formatSeconds(ms: number): string {
 function toPlainText(explanation: SqlExplanation, t: Translations): string {
   if (!explanation.structured) return explanation.raw;
 
-  const blocks = [`${t.aiExplainerObjective}\n${explanation.objective}`];
-  if (explanation.filters.length) {
-    blocks.push(`${t.aiExplainerFilters}\n${explanation.filters.map((f) => `- ${f}`).join('\n')}`);
+  const { sections } = explanation;
+  const blocks = [`${t.aiExplainerObjective}\n${sections.query_objective}`];
+  blocks.push(`${t.aiExplainerOutput}\n${sections.result_bullets.map((bullet) => `- ${bullet}`).join('\n')}`);
+  blocks.push(`${t.aiExplainerGrain}\n${sections.report_grain}`);
+  if (sections.filter_categories.length) {
+    blocks.push(
+      `${t.aiExplainerFilters}\n${sections.filter_categories
+        .map((category) => `${category.category}\n${category.items.map((item) => `- ${item}`).join('\n')}`)
+        .join('\n')}`
+    );
+  } else {
+    blocks.push(`${t.aiExplainerFilters}\n${t.aiExplainerNoFilters}`);
   }
-  if (explanation.output) blocks.push(`${t.aiExplainerOutput}\n${explanation.output}`);
-  if (explanation.fieldMeanings.length) {
-    blocks.push(`${t.aiExplainerFieldMeanings}\n${explanation.fieldMeanings.map((field) => `- ${field}`).join('\n')}`);
-  }
-  if (explanation.tables.length) {
-    blocks.push(`${t.aiExplainerTables}\n${explanation.tables.join(', ')}`);
+  if (sections.data_sources.length) {
+    blocks.push(
+      `${t.aiExplainerTables}\n${sections.data_sources.map((source) => `${source.name} — ${source.purpose}`).join(', ')}`
+    );
   }
   return blocks.join('\n\n');
+}
+
+/**
+ * Renders the identifiers inside a bullet — single-quoted/backticked names and
+ * bare snake_case column/table names — in the same monospace accent as the Data
+ * Sources section, so a column name reads distinctly from the prose around it.
+ */
+function renderHighlighted(text: string): React.ReactNode {
+  const parts = text.split(/(`[^`]+`|'[^']+'|\b[a-zA-Z_][a-zA-Z0-9]*_[a-zA-Z0-9]*\b)/g);
+  return parts.map((part, index) => {
+    const isIdentifier =
+      part.startsWith('`') || part.startsWith("'") || (part.length > 0 && part.includes('_'));
+    return isIdentifier ? (
+      <code key={index} className="rounded bg-emerald-500/10 px-1 font-mono text-[0.9em] text-emerald-300">
+        {part}
+      </code>
+    ) : (
+      <span key={index}>{part}</span>
+    );
+  });
 }
 
 /** One exchange in the chat thread: the query that was sent, and the assistant's answer. */
@@ -67,26 +97,6 @@ interface ExplainTurn {
   explanation: SqlExplanation | null;
   error: string | null;
   durationMs: number;
-}
-
-function buildSections(explanation: SqlExplanation, t: Translations) {
-  if (!explanation.structured) return [];
-  return [
-    {
-      key: 'objective',
-      icon: Target,
-      title: t.aiExplainerObjective,
-      accent: 'text-indigo-300 bg-indigo-500/15',
-      body: explanation.objective || t.aiExplainerNoContent,
-    },
-    {
-      key: 'output',
-      icon: MessageSquareText,
-      title: t.aiExplainerOutput,
-      accent: 'text-sky-300 bg-sky-500/15',
-      body: explanation.output || t.aiExplainerNoContent,
-    },
-  ];
 }
 
 /** Undoes the small set of JSON escapes that can appear inside a still-streaming string value. */
@@ -128,11 +138,9 @@ function extractPartialArray(buffer: string, key: string): string[] {
 function parsePartialExplanation(raw: string) {
   const withoutFence = raw.replace(/```(?:json)?/gi, '');
   return {
-    objective: extractPartialString(withoutFence, 'objective'),
-    output: extractPartialString(withoutFence, 'output'),
-    filters: extractPartialArray(withoutFence, 'filters'),
-    fieldMeanings: extractPartialArray(withoutFence, 'field_meanings'),
-    tables: extractPartialArray(withoutFence, 'tables'),
+    query_objective: extractPartialString(withoutFence, 'query_objective'),
+    result_bullets: extractPartialArray(withoutFence, 'result_bullets'),
+    report_grain: extractPartialString(withoutFence, 'report_grain'),
   };
 }
 
@@ -143,25 +151,24 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
 
   if (turn.status === 'error') {
     return (
-      <div className="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2">
-        <p className="flex items-center gap-2 text-sm font-semibold text-red-200">
+      <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2">
+        <p className="flex items-center gap-2 text-sm font-semibold text-danger">
           <AlertTriangle size={13} />
           {t.aiExplainerErrorTitle}
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-red-300/90">{turn.error}</p>
+        <p className="mt-1 text-xs leading-relaxed text-foreground">{turn.error}</p>
       </div>
     );
   }
 
   if (turn.status === 'streaming') {
     const partial = parsePartialExplanation(turn.streamingRaw);
-    const hasContent =
-      partial.objective || partial.output || partial.filters.length || partial.fieldMeanings.length || partial.tables.length;
+    const hasContent = partial.query_objective || partial.result_bullets.length || partial.report_grain;
 
     if (!hasContent) {
       return (
-        <p className="flex items-center gap-2 text-sm leading-relaxed text-gray-400">
-          <RefreshCw size={13} className="animate-spin text-indigo-400" />
+        <p className="flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
+          <RefreshCw size={13} className="animate-spin text-primary" />
           {t.aiExplainerDrafting}
         </p>
       );
@@ -169,89 +176,49 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
 
     return (
       <div className="space-y-3">
-        {partial.objective && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/15 text-indigo-300">
+        {partial.query_objective && (
+          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
                 <Target size={11} />
               </span>
               {t.aiExplainerObjective}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-200">
-              {partial.objective}
-              <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              {partial.query_objective}
+              <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-primary align-middle" />
             </p>
           </div>
         )}
 
-        {partial.filters.length > 0 && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
-                <Filter size={11} />
-              </span>
-              {t.aiExplainerFilters}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {partial.filters.map((filter, index) => (
-                <li key={`streaming-filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                  {filter}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {partial.output && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-300">
+        {partial.result_bullets.length > 0 && (
+          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-400">
                 <MessageSquareText size={11} />
               </span>
               {t.aiExplainerOutput}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-200">{partial.output}</p>
-          </div>
-        )}
-
-        {partial.fieldMeanings.length > 0 && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
-                <MessageSquareText size={11} />
-              </span>
-              {t.aiExplainerFieldMeanings}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {partial.fieldMeanings.map((field, index) => (
-                <li key={`streaming-field-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                  {field}
+            <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin">
+              {partial.result_bullets.map((bullet, index) => (
+                <li key={`streaming-result-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+                  {renderHighlighted(bullet)}
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {partial.tables.length > 0 && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
-                <Database size={11} />
+        {partial.report_grain && (
+          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-400">
+                <ShieldCheck size={11} />
               </span>
-              {t.aiExplainerTables}
+              {t.aiExplainerGrain}
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {partial.tables.map((table, index) => (
-                <span
-                  key={`streaming-table-${index}`}
-                  className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
-                >
-                  {table}
-                </span>
-              ))}
-            </div>
+            <p className="mt-2 text-sm leading-relaxed text-foreground">{partial.report_grain}</p>
           </div>
         )}
       </div>
@@ -264,18 +231,18 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
   if (!explanation.structured) {
     return (
       <div>
-        <p className="mb-2 text-xs text-gray-500">{t.aiExplainerUnstructuredNotice}</p>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{explanation.raw}</p>
+        <p className="mb-2 text-xs text-muted-foreground">{t.aiExplainerUnstructuredNotice}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{explanation.raw}</p>
       </div>
     );
   }
 
-  const sections = buildSections(explanation, t);
+  const { sections } = explanation;
 
   return (
     <div className="space-y-3">
       {(explanation.budget.sqlTruncated || explanation.budget.contextBriefDropped) && (
-        <div className="rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3 py-2 text-xs leading-relaxed text-yellow-200">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-foreground">
           {explanation.budget.sqlTruncated && (
             <p>{t.aiContextTruncatedNotice.replace('{lines}', String(explanation.budget.omittedSqlLines))}</p>
           )}
@@ -283,88 +250,102 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         </div>
       )}
 
-      {sections.map(({ key, icon: Icon, title, accent, body }) => (
-        <div key={key} className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className={`flex h-5 w-5 items-center justify-center rounded ${accent}`}>
-              <Icon size={11} />
-            </span>
-            {title}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-gray-200">{body}</p>
-        </div>
-      ))}
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
+            <Target size={11} />
+          </span>
+          {t.aiExplainerObjective}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-foreground">{sections.query_objective || t.aiExplainerNoContent}</p>
+      </div>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-300">
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-400">
+            <MessageSquareText size={11} />
+          </span>
+          {t.aiExplainerOutput}
+        </p>
+        <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+          {sections.result_bullets.map((bullet, index) => (
+            <li key={`result-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+              {renderHighlighted(bullet)}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-400">
+            <ShieldCheck size={11} />
+          </span>
+          {t.aiExplainerGrain}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-foreground">{sections.report_grain || t.aiExplainerNoContent}</p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-400">
             <Filter size={11} />
           </span>
           {t.aiExplainerFilters}
         </p>
-        {explanation.filters.length ? (
-          <ul className="mt-2 space-y-1.5">
-            {explanation.filters.map((filter, index) => (
-              <li key={`filter-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                {filter}
-              </li>
+        {sections.filter_categories.length ? (
+          <div className="mt-2 space-y-3">
+            {sections.filter_categories.map((category, categoryIndex) => (
+              <div key={`filter-category-${categoryIndex}`}>
+                {category.category && <p className="text-xs font-semibold text-muted-foreground">{category.category}</p>}
+                <ul className="mt-1 space-y-1.5">
+                  {category.items.map((item, itemIndex) => (
+                    <li key={`filter-${categoryIndex}-${itemIndex}`} className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
-          <p className="mt-2 text-sm text-gray-400">{t.aiExplainerNoFilters}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t.aiExplainerNoFilters}</p>
         )}
       </div>
 
-      {explanation.fieldMeanings.length > 0 && (
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-cyan-500/15 text-cyan-300">
-              <MessageSquareText size={11} />
-            </span>
-            {t.aiExplainerFieldMeanings}
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {explanation.fieldMeanings.map((field, index) => (
-              <li key={`field-meaning-${index}`} className="flex items-start gap-2 text-sm leading-relaxed text-gray-200">
-                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-400/70" />
-                {field}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {explanation.tables.length > 0 && (
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-300">
-              <Database size={11} />
-            </span>
-            {t.aiExplainerTables}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {explanation.tables.map((table, index) => (
-              <span
-                key={`table-${index}`}
-                className="rounded border border-gray-700 bg-gray-950 px-2 py-0.5 font-mono text-xs text-gray-300"
-              >
-                {table}
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-400">
+            <Database size={11} />
+          </span>
+          {t.aiExplainerTables}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {sections.data_sources.map((source, index) => (
+            <span
+              key={`source-${index}`}
+              className="inline-flex flex-col rounded border border-border bg-muted/60 px-2.5 py-1 text-xs"
+            >
+              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{source.name}</span>
+              <span className={source.purpose === 'unknown' ? 'italic text-muted-foreground/70' : 'text-muted-foreground'}>
+                {source.purpose}
               </span>
-            ))}
-          </div>
+            </span>
+          ))}
         </div>
-      )}
+      </div>
 
       <button
         onClick={() => setShowRaw((prev) => !prev)}
-        className="flex items-center gap-1.5 text-[11px] text-gray-500 transition-colors hover:text-gray-300"
+        className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronDown size={11} className={`transition-transform ${showRaw ? 'rotate-180' : ''}`} />
         {showRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
       </button>
       {showRaw && (
-        <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-400">
+        <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground">
           {explanation.raw}
         </pre>
       )}
@@ -386,10 +367,15 @@ interface AiSqlExplainerProps {
 export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizationResult }) => {
   const settings = useAppStore((store) => store.settings);
   const dialect = useAppStore((store) => store.dialect);
+  const locked = useCapabilityLock('sql-explainer');
   const t = getT(settings.locale);
   const aiConfig = settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig;
 
   const announcement = useAnnouncementVisibility();
+  // The announcement promotes the explainer feature; a guest cannot use it, so it must not
+  // offer "Try now". Its visibility hook was built around an auto-open-on-visit behavior, so
+  // we gate the render rather than the hook state to avoid altering its lifecycle.
+  const announcementOpen = announcement.isOpen && !locked;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
@@ -486,12 +472,17 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
       setAnalysis(parsed);
       setContextBrief(brief);
 
+      const knownSources = parsed
+        ? [...parsed.tables.map((table) => table.name), ...parsed.ctes.map((cte) => cte.name)]
+        : undefined;
+
       const result = await explainSqlStructuredStream(
         {
           sql: query,
           config: aiConfig,
           locale: settings.locale,
           contextBrief: brief,
+          knownSources,
           signal: controller.signal,
         },
         (delta) => {
@@ -657,26 +648,31 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
   const canCopy = Boolean(lastDoneTurn);
 
+  // A guest reads the locked explanation INSIDE the explainer panel (specs/013 US2 / FR-015).
+  // We keep the launcher tab, the panel shell and the header rendered so the lock is
+  // discoverable where the AI feature lives — only the action area shows the lock instead
+  // of a form that would fail on submit. Placed after every hook so the Rules of Hooks hold.
+  const explainerLocked = locked;
+
   return (
     <>
       <AiFeatureAnnouncement
-        open={announcement.isOpen}
+        open={announcementOpen}
         onDismiss={announcement.dismiss}
         onTryNow={handleTryNow}
       />
 
-      {/* Collapsed: a slim tab docked to the right edge of the viewport. */}
+      {/* Collapsed: the middle launcher in the right-edge rail (see SidePanelTab). */}
       {!isOpen && (
-        <button
+        <SidePanelTab
+          rank={1}
+          tone="neutral"
+          icon={<Sparkles size={16} className="shrink-0" aria-hidden="true" />}
+          label={t.aiExplainerTitle}
+          ariaLabel={t.aiExplainerOpenPanel}
+          ariaExpanded={false}
           onClick={() => setIsOpen(true)}
-          aria-label={t.aiExplainerOpenPanel}
-          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-lg border border-r-0 border-gray-800 bg-gray-900 px-2 py-3 text-indigo-300 shadow-lg transition-colors hover:bg-gray-800"
-        >
-          <Sparkles size={16} />
-          <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">
-            {t.aiExplainerTitle}
-          </span>
-        </button>
+        />
       )}
 
       {isOpen && (
@@ -687,35 +683,35 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           <div
             ref={containerRef}
             onClick={(event) => event.stopPropagation()}
-            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-gray-800 bg-gray-900 shadow-2xl animate-slide-in-right sm:max-w-2xl"
+            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl animate-slide-in-right sm:max-w-2xl"
           >
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-800 px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-card px-4 py-3">
           <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Sparkles size={16} className="text-indigo-400" />
+            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Sparkles size={16} className="text-primary" />
               {t.aiExplainerTitle}
             </h2>
-            <p className="mt-0.5 text-xs text-gray-400">{t.aiExplainerSubtitle}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.aiExplainerSubtitle}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${isLocalProvider
-                  ? 'border-emerald-800/60 bg-emerald-950/50 text-emerald-300'
-                  : 'border-gray-700 bg-gray-800 text-gray-300'
+                  ? 'border-success/50 bg-success/10 text-success'
+                  : 'border-border bg-muted text-muted-foreground'
                 }`}
               title={isLocalProvider ? t.aiExplainerLocalBadgeHint : t.aiExplainerCloudBadgeHint}
             >
               <ShieldCheck size={11} />
               {isLocalProvider ? t.aiExplainerLocalBadge : t.aiExplainerCloudBadge}
             </span>
-            <span className="rounded-full border border-gray-700 bg-gray-800 px-2.5 py-1 font-mono text-[11px] text-gray-300">
+            <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono text-[11px] text-foreground">
               {modelLabel || t.aiExplainerNoModel}
             </span>
             <Link
               href="/settings-preferences"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
             >
               <Settings size={11} />
               {t.aiExplainerOpenSettings}
@@ -723,7 +719,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             {/* Reopens the release note after it has been dismissed. */}
             <button
               onClick={announcement.open}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-800/60 bg-indigo-950/40 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition-colors hover:bg-indigo-950/70 hover:text-indigo-200"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
             >
               <Sparkles size={11} />
               {t.aiAnnounceReopen}
@@ -731,25 +727,28 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             <button
               onClick={() => setIsOpen(false)}
               aria-label={t.aiExplainerClosePanel}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
             >
               <X size={14} />
             </button>
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions — a guest sees the locked explanation INSIDE the panel (FR-015) instead
+         * of a run button that would fail (FR-013). */}
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          {isRunning ? (
+          {explainerLocked ? (
+            <LockedFeatureNotice t={t} featureName={t.aiExplainerTitle} />
+          ) : isRunning ? (
             <>
-              <span className="flex items-center gap-2 rounded-lg border border-indigo-700/50 bg-indigo-950/40 px-3 py-1.5 text-xs font-medium text-indigo-200">
+              <span className="flex items-center gap-2 rounded-lg border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
                 <RefreshCw size={12} className="animate-spin" />
                 {t.aiExplainerRunning}
-                <span className="font-mono text-indigo-400">{formatSeconds(elapsedMs)}</span>
+                <span className="font-mono text-primary">{formatSeconds(elapsedMs)}</span>
               </span>
               <button
                 onClick={handleCancel}
-                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
               >
                 {t.aiExplainerCancel}
               </button>
@@ -758,7 +757,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             <button
               onClick={runExplain}
               disabled={!sql.trim()}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles size={12} />
               {turns.length ? t.aiExplainerRerunButton : t.aiExplainerRunButton}
@@ -768,7 +767,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           {canCopy && !isRunning && (
             <button
               onClick={handleCopy}
-              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
             >
               {copied ? <Check size={12} /> : <Copy size={12} />}
               {copied ? t.aiExplainerCopiedShort : t.aiExplainerCopy}
@@ -783,8 +782,8 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               aria-label={speechState === 'playing' ? t.aiExplainerSpeakStop : t.aiExplainerSpeakHint}
               className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                 speechState === 'idle'
-                  ? 'border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700'
-                  : 'border-indigo-700/50 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-950/70'
+                  ? 'border-border bg-card text-foreground hover:bg-secondary'
+                  : 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/20'
               }`}
             >
               {speechState === 'loading' ? (
@@ -803,7 +802,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           )}
 
           {lastTurn?.status === 'done' && lastTurn.durationMs > 0 && !isRunning && (
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] text-muted-foreground">
               {t.aiExplainerGeneratedIn} <span className="font-mono">{formatSeconds(lastTurn.durationMs)}</span>
             </span>
           )}
@@ -811,7 +810,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           {/* Context-window meter: makes the token cost of the query visible up front. */}
           {sql.trim() && (
             <span
-              className={`ml-auto font-mono text-[11px] ${preflight.overflows ? 'text-yellow-300' : 'text-gray-500'
+              className={`ml-auto font-mono text-[11px] ${preflight.overflows ? 'text-warning' : 'text-muted-foreground'
                 }`}
               title={t.aiContextMeterHint}
             >
@@ -824,50 +823,50 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
         <div className="flex-1 overflow-y-auto scrollbar-thin px-4 pb-4">
           {/* Pre-flight overflow warning: Ollama truncates overflow silently. */}
           {preflight.overflows && !isRunning && (
-            <div className="mb-3 rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3.5 py-3">
-              <p className="flex items-center gap-2 text-sm font-semibold text-yellow-200">
+            <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3.5 py-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-warning">
                 <AlertTriangle size={14} />
                 {t.aiContextOverflowTitle}
               </p>
-              <p className="mt-1.5 text-xs leading-relaxed text-yellow-200/90">
+              <p className="mt-1.5 text-xs leading-relaxed text-foreground">
                 {t.aiContextOverflowBody
                   .replace('{needed}', String(preflight.needsTokens))
                   .replace('{budget}', String(preflight.promptTokens))
                   .replace('{context}', String(preflight.contextTokens))}
               </p>
-              <p className="mt-2 text-xs leading-relaxed text-yellow-200/70">
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {t.aiContextOverflowFix}
               </p>
             </div>
           )}
 
           {isStale && !isRunning && (
-            <div className="mb-3 rounded-lg border border-yellow-800/50 bg-yellow-950/30 px-3 py-2 text-xs text-yellow-200">
+            <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
               {t.aiExplainerStaleWarning}
             </div>
           )}
 
           {contextBrief && !isRunning && (
-            <p className="mb-3 text-[11px] text-gray-500">{t.aiContextBriefUsed}</p>
+            <p className="mb-3 text-[11px] text-muted-foreground">{t.aiContextBriefUsed}</p>
           )}
 
           {optimizationResult && !isRunning && (
-            <div className="mb-3 rounded-lg border border-sky-800 bg-sky-950/20 p-3.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+            <div className="mb-3 rounded-lg border border-border bg-muted/40 p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                 {t.optimizationResultsTitle}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-200">
+              <p className="mt-2 text-sm leading-relaxed text-foreground">
                 {optimizationResult.analysis || t.aiExplainerNoContent}
               </p>
               {optimizationResult.suggestions.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t.performanceNotesLabel}
                   </p>
-                  <ul className="mt-2 space-y-1 text-sm text-gray-200">
+                  <ul className="mt-2 space-y-1 text-sm text-foreground">
                     {optimizationResult.suggestions.map((suggestion, index) => (
                       <li key={`opt-suggestion-${index}`} className="flex items-start gap-2">
-                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-400" />
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
                         {suggestion}
                       </li>
                     ))}
@@ -878,10 +877,10 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
           )}
 
           {turns.length === 0 && !isRunning && (
-            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-800/30 px-4 py-6 text-center">
-              <Sparkles size={18} className="mx-auto text-indigo-400/70" />
-              <p className="mt-2 text-sm text-gray-300">{t.aiExplainerEmptyStateTitle}</p>
-              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+              <Sparkles size={18} className="mx-auto text-primary/70" />
+              <p className="mt-2 text-sm text-foreground">{t.aiExplainerEmptyStateTitle}</p>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
                 {t.aiExplainerEmptyStateHint}
               </p>
             </div>
@@ -892,29 +891,29 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
             <div className="space-y-3">
               {turns.map((turn) => (
                 <div key={turn.id} className="space-y-2">
-                  <div className="ml-6 flex items-start gap-2 rounded-lg border border-indigo-800/40 bg-indigo-950/30 px-3 py-2">
-                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-semibold text-indigo-300">
+                  <div className="ml-6 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2">
+                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary">
                       {t.aiChatRoleYou}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm text-gray-200">{t.aiExplainerRunButton}</p>
-                      <p className="mt-1 truncate font-mono text-[11px] text-gray-500">{turn.sql}</p>
+                      <p className="text-sm text-foreground">{t.aiExplainerRunButton}</p>
+                      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{turn.sql}</p>
                     </div>
                   </div>
 
-                  <div className="mr-6 rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-700 text-[10px] text-gray-300">
+                  <div className="mr-6 rounded-lg border border-border bg-muted/40 p-3.5">
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] text-foreground">
                         {t.aiChatRoleAssistant}
                       </span>
                       {turn.status === 'streaming' && (
-                        <span className="flex items-center gap-1 normal-case text-indigo-300">
+                        <span className="flex items-center gap-1 normal-case text-primary">
                           <RefreshCw size={10} className="animate-spin" />
                           {t.aiExplainerRunning}
                         </span>
                       )}
                       {turn.status === 'done' && turn.durationMs > 0 && (
-                        <span className="normal-case text-gray-500">
+                        <span className="normal-case text-muted-foreground">
                           {t.aiExplainerGeneratedIn}{' '}
                           <span className="font-mono">{formatSeconds(turn.durationMs)}</span>
                         </span>

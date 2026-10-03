@@ -2,24 +2,15 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Bot,
-  Database,
-  Send,
-  Loader2,
-  Trash2,
-  Copy,
-  Check,
-  Square,
-  User,
-} from 'lucide-react';
+import { Bot, Database, Send, Loader2, Trash2, Copy, Check, Square, User } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import {
-  streamDatabaseAssistant,
-  suggestFollowUpQuestions,
-} from '@/lib/ai/databaseAssistant';
+import { streamDatabaseAssistant, suggestFollowUpQuestions } from '@/lib/ai/databaseAssistant';
 import type { AIMessage } from '@/lib/ai/aiService';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { getCapability, isLockedForGuest } from '@/lib/capabilities';
+import { isGuestSession } from '@/lib/demoAuth';
+import { DatabaseAssistantHistoryPanel } from './DatabaseAssistantHistoryPanel';
 
 const CODE_FENCE_RE = /```(\w+)?\n?([\s\S]*?)```/g;
 
@@ -35,9 +26,20 @@ function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[
     const token = match[0];
     const tokenKey = `${keyPrefix}-${key++}`;
     if (token.startsWith('**')) {
-      parts.push(<strong key={tokenKey} className="font-semibold text-foreground">{token.slice(2, -2)}</strong>);
+      parts.push(
+        <strong key={tokenKey} className="font-semibold text-foreground">
+          {token.slice(2, -2)}
+        </strong>
+      );
     } else if (token.startsWith('`')) {
-      parts.push(<code key={tokenKey} className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary">{token.slice(1, -1)}</code>);
+      parts.push(
+        <code
+          key={tokenKey}
+          className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
     } else {
       parts.push(<em key={tokenKey}>{token.slice(1, -1)}</em>);
     }
@@ -53,10 +55,19 @@ function MarkdownText({ content }: { content: string }) {
       {content.split('\n').map((line, index) => {
         const heading = /^(#{1,6})\s+(.+)$/.exec(line);
         if (heading) {
-          const headingClass = heading[1].length === 1 ? 'text-base' : heading[1].length === 2 ? 'text-sm' : 'text-xs';
-          return <p key={index} className={`${headingClass} font-semibold text-primary`}>{renderInlineMarkdown(heading[2], `heading-${index}`)}</p>;
+          const headingClass =
+            heading[1].length === 1 ? 'text-base' : heading[1].length === 2 ? 'text-sm' : 'text-xs';
+          return (
+            <p key={index} className={`${headingClass} font-semibold text-primary`}>
+              {renderInlineMarkdown(heading[2], `heading-${index}`)}
+            </p>
+          );
         }
-        return line ? <p key={index}>{renderInlineMarkdown(line, `line-${index}`)}</p> : <div key={index} className="h-1" />;
+        return line ? (
+          <p key={index}>{renderInlineMarkdown(line, `line-${index}`)}</p>
+        ) : (
+          <div key={index} className="h-1" />
+        );
       })}
     </div>
   );
@@ -89,14 +100,20 @@ function MessageContent({ content }: { content: string }) {
     lastIndex = CODE_FENCE_RE.lastIndex;
   }
   if (lastIndex < content.length) {
-    parts.push(
-      <MarkdownText key={key++} content={content.slice(lastIndex)} />
-    );
+    parts.push(<MarkdownText key={key++} content={content.slice(lastIndex)} />);
   }
   return <div className="space-y-2">{parts}</div>;
 }
 
-function CopyButton({ text, label, labelCopied }: { text: string; label: string; labelCopied: string }) {
+function CopyButton({
+  text,
+  label,
+  labelCopied,
+}: {
+  text: string;
+  label: string;
+  labelCopied: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -126,6 +143,14 @@ export default function DatabaseAIAssistantContent() {
   const resetDatabaseAssistantChat = useAppStore((state) => state.resetDatabaseAssistantChat);
   const t = getT(settings.locale);
   const aiConfig = settings.aiConfig;
+
+  // Guest access (specs/013-guest-access-mode, US2). The answer step follows the user's provider,
+  // so a guest on a cloud provider is refused while one on their own Ollama is not. Read after
+  // mount because the guest marker lives in browser storage.
+  const [isGuest, setIsGuest] = useState(false);
+  useEffect(() => {
+    setIsGuest(isGuestSession());
+  }, []);
 
   const [isAsking, setIsAsking] = useState(false);
   const [followUps, setFollowUps] = useState<string[]>([]);
@@ -180,7 +205,10 @@ export default function DatabaseAIAssistantContent() {
       abortRef.current = controller;
 
       const priorTurns = turns;
-      const history: AIMessage[] = priorTurns.map((turn) => ({ role: turn.role, content: turn.content }));
+      const history: AIMessage[] = priorTurns.map((turn) => ({
+        role: turn.role,
+        content: turn.content,
+      }));
 
       idRef.current += 1;
       const userId = `db-assistant-${idRef.current}`;
@@ -197,7 +225,13 @@ export default function DatabaseAIAssistantContent() {
 
       try {
         const { answer, sources } = await streamDatabaseAssistant(
-          { question: trimmed, config: aiConfig, locale: settings.locale, history, signal: controller.signal },
+          {
+            question: trimmed,
+            config: aiConfig,
+            locale: settings.locale,
+            history,
+            signal: controller.signal,
+          },
           (delta) => {
             setTurns((prev) =>
               prev.map((turn) =>
@@ -209,7 +243,9 @@ export default function DatabaseAIAssistantContent() {
         if (controller.signal.aborted) return;
         setTurns((prev) =>
           prev.map((turn) =>
-            turn.id === assistantId ? { ...turn, content: answer, sources, isStreaming: false } : turn
+            turn.id === assistantId
+              ? { ...turn, content: answer, sources, isStreaming: false }
+              : turn
           )
         );
         void generateFollowUps(trimmed, answer);
@@ -255,167 +291,201 @@ export default function DatabaseAIAssistantContent() {
   ];
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-3xl flex-col px-5 py-8 sm:px-8">
-      <header className="flex items-center justify-between pb-6">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Database size={16} />
-          </span>
-          <div>
-            <h1 className="text-base font-semibold text-foreground">
-              {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
-            </h1>
-            <p className="text-xs text-muted-foreground">{aiConfig.provider} · {modelLabel}</p>
-          </div>
+    <>
+      {isGuest && isLockedForGuest(getCapability('database-assistant')!, aiConfig) && (
+        <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-3xl flex-col justify-center px-5 py-8 sm:px-8">
+          <LockedFeatureNotice t={t} featureName={t.navDatabaseAssistant} />
         </div>
-          {turns.length > 0 && (
-            <button
-              onClick={handleNewChat}
-              title={t.dbAssistantNewChat}
-              aria-label={t.dbAssistantNewChat}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Trash2 size={16} />
-            </button>
-          )}
-      </header>
+      )}
+      {!(isGuest && isLockedForGuest(getCapability('database-assistant')!, aiConfig)) && (
+        <div className="flex h-full min-h-0 flex-col lg:flex-row lg:items-stretch">
+          {/* `items-stretch` plus the panel's own viewport height lets the sidebar fill the column. */}
+          {/* History Panel: owns its own responsive layout (sidebar on lg, drawer below) */}
+          <DatabaseAssistantHistoryPanel />
 
-      <section className="flex flex-1 flex-col">
-        <div className="flex-1 space-y-6 overflow-y-auto pb-6 scrollbar-thin">
-          {turns.length === 0 && (
-            <div className="flex min-h-[45vh] flex-col items-center justify-center gap-5 text-center">
-              <Database size={30} className="text-primary" />
-              <div>
-                <p className="text-xl font-medium text-foreground">{t.dbAssistantEmptyTitle}</p>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t.dbAssistantEmptySubtitle}</p>
+          {/* The chat column keeps the viewport height so the assistant still fills the page on its own. */}
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-5 py-8 sm:px-8 lg:max-w-none">
+            <header className="flex items-center justify-between pb-6">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Database size={16} />
+                </span>
+                <div>
+                  <h1 className="text-base font-semibold text-foreground">
+                    {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    {aiConfig.provider} · {modelLabel}
+                  </p>
+                </div>
               </div>
-              <div className="w-full max-w-2xl">
-                <div className="flex flex-wrap justify-center gap-2">
-                  {suggestions.map((suggestion, index) => (
+              {turns.length > 0 && (
+                <button
+                  onClick={handleNewChat}
+                  title={t.dbAssistantNewChat}
+                  aria-label={t.dbAssistantNewChat}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </header>
+
+            <section className="flex flex-1 flex-col">
+              <div className="flex-1 space-y-6 overflow-y-auto pb-6 scrollbar-thin">
+                {turns.length === 0 && (
+                  <div className="flex min-h-[45vh] flex-col items-center justify-center gap-5 text-center">
+                    <Database size={30} className="text-primary" />
+                    <div>
+                      <p className="text-xl font-medium text-foreground">{t.dbAssistantEmptyTitle}</p>
+                      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                        {t.dbAssistantEmptySubtitle}
+                      </p>
+                    </div>
+                    <div className="w-full max-w-2xl">
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {suggestions.map((suggestion, index) => (
+                          <button
+                            key={`db-suggestion-${index}`}
+                            onClick={() => ask(suggestion)}
+                            disabled={isAsking}
+                            className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              {turns.map((turn) => (
+                <div
+                  key={turn.id}
+                  className={`group flex items-start gap-3 ${turn.role === 'user' ? 'flex-row-reverse' : ''}`}
+                >
+                  <span
+                    className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+                      turn.role === 'user'
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-primary/10 text-primary'
+                    }`}
+                  >
+                    {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
+                  </span>
+                  <div
+                    className={`max-w-[86%] px-1 py-1.5 ${
+                      turn.role === 'user'
+                        ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
+                        : 'text-sm text-foreground'
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      {turn.role === 'assistant' && (
+                        <CopyButton
+                          text={turn.content}
+                          label={t.dbAssistantCopy}
+                          labelCopied={t.dbAssistantCopied}
+                        />
+                      )}
+                    </div>
+                    {turn.content ? (
+                      turn.role === 'assistant' ? (
+                        <MessageContent content={turn.content} />
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
+                      )
+                    ) : (
+                      <Loader2 size={15} className="animate-spin text-muted-foreground" />
+                    )}
+                    {turn.isStreaming && turn.content && (
+                      <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />
+                    )}
+                    {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
+                        <span className="text-[10px] text-muted-foreground">
+                          {t.dbAssistantSourcesLabel}:
+                        </span>
+                        {turn.sources.map((source, sourceIndex) => (
+                          <span
+                            key={`db-source-${turn.id}-${sourceIndex}`}
+                            className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
+                            title={[source.section, source.pageAnchor].filter(Boolean).join(' — ')}
+                          >
+                            {source.sourceFile}
+                            {source.section ? ` · ${source.section}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {!isAsking && followUps.length > 0 && (
+                <div className="ml-9 flex flex-wrap items-center gap-2">
+                  <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t.dbAssistantFollowUpsLabel}
+                  </span>
+                  {followUps.map((suggestion, index) => (
                     <button
-                      key={`db-suggestion-${index}`}
+                      key={`db-followup-${turns.length}-${index}`}
                       onClick={() => ask(suggestion)}
-                      disabled={isAsking}
-                      className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
                     >
                       {suggestion}
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {turns.map((turn) => (
-            <div
-              key={turn.id}
-              className={`group flex items-start gap-3 ${turn.role === 'user' ? 'flex-row-reverse' : ''}`}
-            >
-              <span
-                className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
-                  turn.role === 'user' ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'
-                }`}
+              <div ref={endRef} />
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void ask(question);
+                }}
+                className="flex items-center gap-2 rounded-3xl border border-border bg-muted/50 p-2 shadow-sm focus-within:border-primary/50 focus-within:bg-card"
               >
-                {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
-              </span>
-              <div
-                className={`max-w-[86%] px-1 py-1.5 ${
-                  turn.role === 'user'
-                    ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
-                    : 'text-sm text-foreground'
-                }`}
-              >
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  {turn.role === 'assistant' && (
-                    <CopyButton text={turn.content} label={t.dbAssistantCopy} labelCopied={t.dbAssistantCopied} />
-                  )}
-                </div>
-                {turn.content ? (
-                  turn.role === 'assistant' ? (
-                    <MessageContent content={turn.content} />
-                  ) : (
-                    <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
-                  )
-                ) : <Loader2 size={15} className="animate-spin text-muted-foreground" />}
-                {turn.isStreaming && turn.content && <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />}
-                {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
-                    <span className="text-[10px] text-muted-foreground">{t.dbAssistantSourcesLabel}:</span>
-                    {turn.sources.map((source, sourceIndex) => (
-                      <span
-                        key={`db-source-${turn.id}-${sourceIndex}`}
-                        className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
-                        title={[source.section, source.pageAnchor].filter(Boolean).join(' — ')}
-                      >
-                        {source.sourceFile}
-                        {source.section ? ` · ${source.section}` : ''}
-                      </span>
-                    ))}
-                  </div>
+                <input
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  placeholder={t.dbAssistantPlaceholder}
+                  disabled={isAsking}
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
+                />
+                {isAsking ? (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    title={t.dbAssistantStop}
+                    aria-label={t.dbAssistantStop}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85"
+                  >
+                    <Square size={13} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!question.trim()}
+                    title={t.dbAssistantSend}
+                    aria-label={t.dbAssistantSend}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send size={15} />
+                  </button>
                 )}
-              </div>
-            </div>
-          ))}
+              </form>
+            </section>
 
-          {!isAsking && followUps.length > 0 && (
-            <div className="ml-9 flex flex-wrap items-center gap-2">
-              <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t.dbAssistantFollowUpsLabel}
-              </span>
-              {followUps.map((suggestion, index) => (
-                <button
-                  key={`db-followup-${turns.length}-${index}`}
-                  onClick={() => ask(suggestion)}
-                  className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div ref={endRef} />
+            <p className="pt-4 text-center text-[11px] text-muted-foreground">
+              {t.dbAssistantDisclaimer}
+            </p>
+          </div>
         </div>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void ask(question);
-          }}
-          className="flex items-center gap-2 rounded-3xl border border-border bg-muted/50 p-2 shadow-sm focus-within:border-primary/50 focus-within:bg-card"
-        >
-          <input
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder={t.dbAssistantPlaceholder}
-            disabled={isAsking}
-            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
-          />
-          {isAsking ? (
-            <button
-              type="button"
-              onClick={handleStop}
-              title={t.dbAssistantStop}
-              aria-label={t.dbAssistantStop}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85"
-            >
-              <Square size={13} fill="currentColor" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!question.trim()}
-              title={t.dbAssistantSend}
-              aria-label={t.dbAssistantSend}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Send size={15} />
-            </button>
-          )}
-        </form>
-      </section>
-
-      <p className="pt-4 text-center text-[11px] text-muted-foreground">{t.dbAssistantDisclaimer}</p>
-    </div>
+      )}
+    </>
   );
 }

@@ -10,6 +10,7 @@ import { DEFAULT_BASE_URLS, DEFAULT_EMBEDDING_MODEL } from '@/lib/ai/aiProviders
 import { AIServiceError, generateEmbeddingsWithCloudKey } from '@/lib/ai/aiService';
 import { parseEmbedInput, redactSecrets } from '@/lib/ai/aiRouteValidation';
 import { buildDocsContext, findNClosest, type DocChunk } from '@/lib/ai/vectorStore';
+import { requireAiSession } from '@/lib/sessionCookie';
 import docsIndex from '@/lib/ai/docsIndex.json';
 
 const MAX_QUESTION_LENGTH = 2000;
@@ -20,6 +21,15 @@ interface DocsContextRequestBody {
 }
 
 export async function POST(request: Request) {
+  // This route embeds the question with the operator's OpenAI key and the caller cannot redirect
+  // it, so it costs shared capacity even when the guest runs their own model (research.md R3).
+  // A guest is therefore refused unconditionally here (FR-022).
+  const refused = requireAiSession(request, {
+    route: '/api/ai/docs-context',
+    alwaysRefuseGuest: true,
+  });
+  if (refused) return refused;
+
   let body: DocsContextRequestBody;
   try {
     body = await request.json();

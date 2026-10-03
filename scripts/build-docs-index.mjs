@@ -35,11 +35,11 @@ const GUIDELINE_SECTIONS = [
   'AdvancedFeatures',
 ];
 
-/** No dotenv dependency: this script runs outside the Next.js server, which loads .env itself. */
+/** No dotenv dependency: this script runs outside Next.js and reads the project-root .env.local. */
 function loadEnvFile() {
   let content;
   try {
-    content = readFileSync(path.join(ROOT, '.env'), 'utf8');
+    content = readFileSync(path.join(ROOT, '.env.local'), 'utf8');
   } catch {
     return;
   }
@@ -190,7 +190,7 @@ async function main() {
 
   if (!apiKey) {
     console.error(
-      'OPENAI_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set. Add a real key to .env before running this script.'
+      'OPENAI_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set. Add a real key to the project-root .env.local before running this script.'
     );
     process.exitCode = 1;
     return;

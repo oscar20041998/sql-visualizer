@@ -1,5 +1,16 @@
 declare module 'vitest' {
-  export const describe: (...args: any[]) => any;
-  export const it: (...args: any[]) => any;
-  export const expect: (...args: any[]) => any;
+  export const describe: any;
+  export const it: any;
+  export const test: any;
+  export const expect: any;
+  export const beforeAll: any;
+  export const afterAll: any;
+  export const beforeEach: any;
+  export const afterEach: any;
+  export const onTestFinished: any;
+  export const onTestFailed: any;
+  export const suite: any;
+  export const vi: any;
+  export const vitest: any;
 }
+

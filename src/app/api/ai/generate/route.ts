@@ -14,6 +14,7 @@ import {
   redactSecrets,
   resolveAllowedBaseUrl,
 } from '@/lib/ai/aiRouteValidation';
+import { requireAiSession } from '@/lib/sessionCookie';
 
 interface GenerateRequestBody {
   provider?: string;
@@ -26,6 +27,15 @@ interface GenerateRequestBody {
 }
 
 export async function POST(request: Request) {
+  // Guest access gate (specs/013-guest-access-mode). This route only accepts cloud providers —
+  // ollama is rejected by isCloudProvider below — so every call that gets past here spends the
+  // operator's capacity. A guest is therefore refused unconditionally (FR-022).
+  const refused = requireAiSession(request, {
+    route: '/api/ai/generate',
+    alwaysRefuseGuest: true,
+  });
+  if (refused) return refused;
+
   let body: GenerateRequestBody;
   try {
     body = await request.json();

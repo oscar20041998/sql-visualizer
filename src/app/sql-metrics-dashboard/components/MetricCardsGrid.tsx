@@ -24,7 +24,7 @@ interface MetricCardsGridProps {
   t: ReturnType<typeof getT>;
 }
 
-type DetailMetricKey = keyof MetricDetailsReport;
+type DetailMetricKey = Exclude<keyof MetricDetailsReport, 'subqueries'>;
 
 function MetricCard({
   label,

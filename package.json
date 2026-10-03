@@ -61,14 +61,16 @@
     "@xyflow/react": "12.11.1",
     "dt-sql-parser": "^4.3.1",
     "lucide-react": "^1.7.0",
+    "marked": "^14.1.4",
+    "mermaid": "^12.1.0",
     "monaco-editor": "^0.55.1",
     "next": "15.5.18",
+    "node-sql-parser": "^5.4.0",
     "react": "19.0.3",
     "react-dom": "19.0.3",
     "reactflow": "^11.11.4",
     "recharts": "^2.15.2",
     "sherpa-onnx-node": "^1.13.4",
-
     "sonner": "^1.7.4",
     "sql-formatter": "^15.8.2",
     "xlsx": "^0.18.5",
@@ -77,6 +79,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@netlify/plugin-nextjs": "^5.11.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "19.0.3",
     "@types/react-dom": "19.0.3",
@@ -87,11 +92,13 @@
     "eslint-config-next": "^15.2.4",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
+    "jsdom": "^30.0.1",
     "postcss": "8.4.8",
     "prettier": "^3.5.3",
     "tailwindcss": "3.4.6",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "vitest-axe": "^0.1.0"
   }
 }

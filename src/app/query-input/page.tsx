@@ -2,13 +2,27 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { Braces, FileCode2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import SmartSQLEditor from '@/app/smart-sql-editor/components/SmartSQLEditor';
+import SmartSQLEditor, {
+  type SmartSQLEditorApi,
+} from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
+import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
+import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
+import type { FormatError } from '@/lib/sql/formatError';
+import {
+  FormatAiError,
+  requestFormatExplanation,
+  requestFormatFix,
+  type FormatExplanation,
+} from '@/lib/ai/formatErrorAi';
+import type { AIModelConfig } from '@/lib/store';
 import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
 import { tryEmbedText } from '@/lib/ai/embeddingService';
@@ -22,11 +36,11 @@ import {
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
 import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
-import { isDemoAuthenticated } from '@/lib/demoAuth';
+import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 
 // Import sub-components
 import { Header } from './components/Header';
-import { TabNavigation } from './components/TabNavigation';
+import { TabNavigation, type QueryInputMode } from './components/TabNavigation';
 import { SqlInputPanel } from './components/SqlInputPanel';
 import { MyBatisPanel } from './components/MyBatisPanel';
 import { ParameterConfig } from './components/ParameterConfig';
@@ -34,6 +48,8 @@ import { ActionButtons } from './components/ActionButtons';
 import { PreviewPanel } from './components/PreviewPanel';
 import { BottomAnalytics } from './components/BottomAnalytics';
 import { EmptyStateTips } from './components/EmptyStateTips';
+import { QueryInputPanel } from './components/QueryInputPanel';
+import { CodeGeneratorPanel } from './components/CodeGeneratorPanel';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -94,6 +110,16 @@ const SAMPLE_MYBATIS = `<select id="findOrdersByCustomer" resultType="Order">
   LIMIT #{pageSize} OFFSET #{offset}
 </select>`;
 
+/** Formatter language for client-side validation that an AI fix actually formats. */
+function toFormatterLanguage(
+  dialect: FormatError['dialect']
+): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
+  if (dialect === 'postgresql') return 'postgresql';
+  if (dialect === 'sqlserver') return 'tsql';
+  if (dialect === 'oracle') return 'plsql';
+  return 'mysql';
+}
+
 export default function QueryInputContent() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -102,6 +128,7 @@ export default function QueryInputContent() {
     dialect,
     rawSql,
     myBatisXml,
+    codeGeneratorInitialSql,
     resolvedSql,
     myBatisParams,
     inputMode,
@@ -110,18 +137,23 @@ export default function QueryInputContent() {
     setDialect,
     setRawSql,
     setMyBatisXml,
+    setCodeGeneratorSql,
+    setCodeGeneratorInitialSql,
     setResolvedSql,
     setMyBatisParams,
     setAnalysisResult,
     setIsAnalyzing,
+    setAnalysisError,
     beginNavigation,
     setInputMode,
     setPendingEditorJump,
   } = useAppStore();
 
   useEffect(() => {
-    if (!isDemoAuthenticated()) {
-      router.replace('/');
+    // A guest is admitted too (FR-008, task T019): they were promised the workspace when they
+    // confirmed the disclosure, and the AI routes refuse independently at the server boundary.
+    if (!isDemoAuthenticated() && !isGuestSession()) {
+      router.replace('/login');
       return;
     }
 
@@ -131,7 +163,11 @@ export default function QueryInputContent() {
   const t = getT(settings.locale);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
+  // Display-only metadata for the XML that currently backs the MyBatis input; the parsed
+  // content still lives in the store, so this adds no new state semantics.
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const analysisRunRef = useRef(0);
 
   // Detect params when MyBatis XML changes
   useEffect(() => {
@@ -173,13 +209,24 @@ export default function QueryInputContent() {
   const handleXmlFileImport = useCallback(
     (content: string, fileName: string) => {
       setMyBatisXml(content);
+      setImportedFileName(fileName);
       // Auto-switch to XML content tab after import
       if (inputMode !== 'mybatis') {
         setInputMode('mybatis');
       }
     },
-    [inputMode, setMyBatisXml, setInputMode]
+    [inputMode, setMyBatisXml, setInputMode, setImportedFileName]
   );
+
+  // Removes the loaded XML without adding a workflow step: same state the Clear action resets
+  // for the MyBatis input, plus the file metadata shown next to the editor.
+  const handleRemoveFile = useCallback(() => {
+    setMyBatisXml('');
+    setDetectedParams([]);
+    setMyBatisParams({});
+    setResolvedSql('');
+    setImportedFileName(null);
+  }, [setMyBatisXml, setMyBatisParams, setResolvedSql]);
 
   const handleAnalyze = useCallback(async () => {
     const sqlToAnalyze =
@@ -197,7 +244,8 @@ export default function QueryInputContent() {
     // characters) that the regex-based analyzer below would otherwise silently "succeed" on.
     const formatCheck = validateSqlFormat(sqlToAnalyze);
     if (!formatCheck.valid && formatCheck.issue) {
-      const reasonText = (t as Record<string, string>)[formatCheck.issue.reasonKey] || formatCheck.issue.reason;
+      const reasonText =
+        (t as Record<string, string>)[formatCheck.issue.reasonKey] || formatCheck.issue.reason;
       toast.warning(
         (t.sqlFormatIssueWarning || '')
           .replace('{reason}', reasonText)
@@ -223,9 +271,12 @@ export default function QueryInputContent() {
       return;
     }
 
+    const runId = ++analysisRunRef.current;
     const runAnalyze = async (): Promise<void> => {
+      setAnalysisError(null);
       setIsAnalyzing(true);
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
+      if (runId !== analysisRunRef.current) return;
       setAnalysisResult(result);
       toast.success(
         t.analysisCompleteMessage
@@ -252,10 +303,16 @@ export default function QueryInputContent() {
       router.push('/sql-metrics-dashboard');
     };
 
-    await runAnalyze().catch(() => {
-      toast.error(t.parseErrorMessage || 'Parse error');
+    await runAnalyze().catch((error: unknown) => {
+      if (runId === analysisRunRef.current) {
+        const message = error instanceof Error ? error.message : String(error);
+        // Publish the failure to the store so the dashboard can render its error
+        // state and offer a retry (specs/010-sql-intelligence-dashboard FR-016).
+        setAnalysisError(message || t.parseErrorMessage || 'Parse error');
+        toast.error(t.parseErrorMessage || 'Parse error');
+      }
     });
-    setIsAnalyzing(false);
+    if (runId === analysisRunRef.current) setIsAnalyzing(false);
   }, [
     inputMode,
     rawSql,
@@ -267,6 +324,7 @@ export default function QueryInputContent() {
     t,
     setIsAnalyzing,
     setAnalysisResult,
+    setAnalysisError,
     beginNavigation,
   ]);
 
@@ -277,10 +335,19 @@ export default function QueryInputContent() {
       setDetectedParams([]);
       setMyBatisParams({});
       setResolvedSql('');
+      setImportedFileName(null);
     }
     // Clear analysis result to lock navigation
     setAnalysisResult(null);
-  }, [inputMode, setRawSql, setMyBatisXml, setMyBatisParams, setResolvedSql, setAnalysisResult]);
+  }, [
+    inputMode,
+    setRawSql,
+    setMyBatisXml,
+    setMyBatisParams,
+    setResolvedSql,
+    setAnalysisResult,
+    setImportedFileName,
+  ]);
 
   const handleLoadSample = useCallback(() => {
     if (inputMode === 'sql') {
@@ -290,13 +357,30 @@ export default function QueryInputContent() {
     }
   }, [inputMode, setRawSql, setMyBatisXml]);
 
-  const handleTabChange = (newMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor') => {
-    setInputMode(newMode as any);
+  const handleTabChange = (newMode: QueryInputMode) => {
+    if (newMode === 'code-generator' && codeGeneratorInitialSql === null) {
+      const initialSql =
+        inputMode === 'sql'
+          ? rawSql
+          : inputMode === 'mybatis' || inputMode === 'import-xml'
+            ? resolvedSql
+            : inputMode === 'smart-editor'
+              ? smartEditorSqlRef.current
+              : '';
+      setCodeGeneratorInitialSql(initialSql);
+      setCodeGeneratorSql(initialSql);
+    }
+    setInputMode(newMode);
     // Switching tabs manually means the pending jump no longer applies to what's shown.
     setJumpSql(null);
   };
 
-  const currentSql = inputMode === 'smart-editor' ? '' : inputMode === 'sql' ? rawSql : resolvedSql;
+  const currentSql =
+    inputMode === 'smart-editor' || inputMode === 'code-generator'
+      ? ''
+      : inputMode === 'sql'
+        ? rawSql
+        : resolvedSql;
 
   // A "go to line" link from the Metrics Dashboard/Graph Visualizer lands here: captured once on
   // mount, it switches to the Smart Editor tab, loads the analyzed SQL instead of the current
@@ -318,13 +402,88 @@ export default function QueryInputContent() {
     null | import('@/lib/ai/aiService').SqlOptimizationResult
   >(null);
 
+  // Format-error report state for the smart-editor tab (spec 012). Lives here rather than in the
+  // panel so the report survives a close/reopen and stays in sync with the SQL the editor
+  // actually failed on (FR-004). The MyBatis/XML → smart-editor flow is the primary path this
+  // page exposes, so the panel must be wired here too — not only on the standalone editor page.
+  const [formatError, setFormatError] = useState<FormatError | null>(null);
+  const [isErrorPanelOpen, setIsErrorPanelOpen] = useState(false);
+  const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
+
+  /** A new failure replaces the previous report and forces the panel open (FR-003). */
+  const handleFormatError = useCallback((error: FormatError) => {
+    setFormatError(error);
+    setIsErrorPanelOpen(true);
+  }, []);
+
+  /** Local-Ollama-only Explain (FR-011 / FR-014). */
+  const handleRequestExplain = useCallback(
+    (error: FormatError): Promise<FormatExplanation> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      return requestFormatExplanation(error, localOnlyConfig, settings.locale);
+    },
+    [settings.aiConfig, settings.locale]
+  );
+
+  /** Local-Ollama-only Fix (FR-011 / FR-014), validated by re-running the formatter. */
+  const handleRequestFix = useCallback(
+    async (error: FormatError): Promise<string> => {
+      const localOnlyConfig: AIModelConfig = {
+        ...settings.aiConfig,
+        provider: 'ollama',
+      };
+      const correctedSql = await requestFormatFix(error, localOnlyConfig);
+      try {
+        format(correctedSql, { language: toFormatterLanguage(error.dialect) });
+      } catch {
+        throw new FormatAiError({
+          kind: 'malformed',
+          message: 'The proposed SQL still fails to format.',
+          retryable: true,
+        });
+      }
+      return correctedSql;
+    },
+    [settings.aiConfig]
+  );
+
+  /** Applies a confirmed AI fix, re-formats it, and clears the report (FR-010). */
+  const handleApplyFormatFix = useCallback(
+    (sql: string) => {
+      const language = toFormatterLanguage(formatError?.dialect ?? 'mysql');
+      let applied = sql;
+      try {
+        applied = format(sql, { language });
+      } catch {
+        // Keep the user's confirmed proposal; the panel already validated a re-format.
+      }
+      editorApiRef.current?.setSql(applied);
+      setSmartEditorSql(applied);
+      setFormatError(null);
+      setIsErrorPanelOpen(false);
+      toast.success(t.formatErrorPanelFixApplied);
+    },
+    [formatError?.dialect, t]
+  );
+
+  /** Dismissing a proposal keeps the editor untouched (FR-010). */
+  const handleDismissFormatFix = useCallback(() => {
+    toast.info(t.formatErrorPanelFixDismissed);
+  }, [t]);
+
   // Tips array
   const tips = [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect].filter(Boolean);
   if (!isAuthorized) return null;
 
   return (
     <AppLayout>
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+      {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
+       * into. It must sit above all three so they share one column. */}
+      <SidePanelRail>
+      <div className="mx-auto max-w-screen-2xl space-y-6 px-6 py-8 lg:px-8 xl:px-10">
         <LoadingOverlay
           visible={isAnalyzing}
           title={t.analyzing}
@@ -335,8 +494,8 @@ export default function QueryInputContent() {
           }}
         />
 
-        {/* Header */}
-        <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        {/* Header: title, workflow spine, dialect and query history */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <Header dialect={dialect} onDialectChange={setDialect} t={t} />
           </div>
@@ -351,24 +510,45 @@ export default function QueryInputContent() {
 
         {/* Smart Editor Tab - Fullscreen */}
         {inputMode === 'smart-editor' && (
-          <div className="smart-sql-editor-theme mb-6 flex min-h-[calc(100vh-11rem)] flex-col">
+          <div className="smart-sql-editor-theme flex min-h-[calc(100vh-11rem)] flex-col">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-            <div className="mt-4 flex flex-col gap-4">
-              <div className="min-h-[620px] flex flex-col">
-                <SmartSQLEditor
-                  initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
-                  jumpToLine={jumpLine}
-                  onJumpHandled={() => {
-                    setJumpLine(null);
-                    setPendingEditorJump(null);
-                  }}
-                  onSqlChange={(sql) => {
-                    smartEditorSqlRef.current = sql;
-                    setSmartEditorSql(sql);
-                    setOptimizationResult(null);
-                  }}
-                  onOptimizationResult={setOptimizationResult}
-                />
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="mt-4 flex flex-col gap-4"
+            >
+              <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
+                <div className="flex min-h-[620px] flex-1 flex-col">
+                  <SmartSQLEditor
+                    initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
+                    jumpToLine={jumpLine}
+                    onJumpHandled={() => {
+                      setJumpLine(null);
+                      setPendingEditorJump(null);
+                    }}
+                    onSqlChange={(sql) => {
+                      smartEditorSqlRef.current = sql;
+                      setSmartEditorSql(sql);
+                      setOptimizationResult(null);
+                    }}
+                    onOptimizationResult={setOptimizationResult}
+                    onFormatError={handleFormatError}
+                    apiRef={editorApiRef}
+                  />
+                </div>
+                {formatError && (
+                  <FormatErrorPanel
+                    error={formatError}
+                    isOpen={isErrorPanelOpen}
+                    onToggle={setIsErrorPanelOpen}
+                    currentSql={smartEditorSql}
+                    onRequestExplain={handleRequestExplain}
+                    onRequestFix={handleRequestFix}
+                    onApplyFix={handleApplyFormatFix}
+                    onDismissFix={handleDismissFormatFix}
+                  />
+                )}
               </div>
 
               {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}
@@ -377,74 +557,112 @@ export default function QueryInputContent() {
           </div>
         )}
 
+        {inputMode === 'code-generator' && (
+          <div className="space-y-4">
+            <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="space-y-4"
+            >
+              <CodeGeneratorPanel dialect={dialect} t={t} initialSql={codeGeneratorInitialSql ?? ''} />
+            </div>
+          </div>
+        )}
+
         {/* Regular SQL/MyBatis Input */}
-        {inputMode !== 'smart-editor' && (
+        {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && (
           <>
             {/* Tabs - Full Width */}
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
 
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-[500px] mt-4">
-              {/* Left: Input Panel */}
-              <div className="xl:col-span-2 space-y-4">
-                {/* SQL Textarea */}
-                {inputMode === 'sql' && (
-                  <SqlInputPanel
-                    value={rawSql}
-                    onChange={setRawSql}
-                    placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
-                  />
-                )}
-
-                {/* MyBatis/XML Textarea */}
-                {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
-                  <div className="space-y-4">
-                    <MyBatisPanel
-                      xmlContent={myBatisXml}
-                      onXmlChange={setMyBatisXml}
-                      onFileImport={handleXmlFileImport}
-                      placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
-                      showFileImport={inputMode === 'import-xml'}
-                    />
-
-                    {/* Parameter Configuration */}
-                    {myBatisXml && (
-                      <ParameterConfig
-                        detectedParams={detectedParams}
-                        myBatisParams={myBatisParams}
-                        onParamChange={(key, value) =>
-                          setMyBatisParams({ ...myBatisParams, [key]: value })
-                        }
-                        conditionalParams={conditionalParams}
-                        t={t}
+            {/* Workspace: left = input + parameters, right = resolved SQL (more width for readability) */}
+            <div
+              id="query-input-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`tab-${inputMode}`}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                {/* Left: Input + Parameters */}
+                <div className="space-y-4 xl:col-span-5">
+                  {/* SQL Textarea */}
+                  {inputMode === 'sql' && (
+                    <QueryInputPanel
+                      title={t.sqlInputPanelTitle}
+                      description={t.sqlInputPanelHint}
+                      icon={<FileCode2 size={14} className="text-primary" aria-hidden />}
+                    >
+                      <SqlInputPanel
+                        value={rawSql}
+                        onChange={setRawSql}
+                        placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
                       />
-                    )}
-                  </div>
-                )}
+                    </QueryInputPanel>
+                  )}
 
-                {/* Action Buttons */}
-                <ActionButtons
-                  onAnalyze={handleAnalyze}
-                  onLoadSample={handleLoadSample}
-                  onClear={handleClear}
-                  isLoading={isAnalyzing}
-                  t={t}
-                />
+                  {/* MyBatis/XML Input + Parameter Configuration */}
+                  {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
+                    <>
+                      <QueryInputPanel
+                        title={t.myBatisPanelTitle}
+                        description={t.myBatisPanelHint}
+                        icon={<Braces size={14} className="text-primary" aria-hidden />}
+                      >
+                        <MyBatisPanel
+                          xmlContent={myBatisXml}
+                          onXmlChange={setMyBatisXml}
+                          onFileImport={handleXmlFileImport}
+                          onRemoveFile={handleRemoveFile}
+                          importedFileName={importedFileName}
+                          placeholder={t.myBatisPlaceholder || 'Paste MyBatis XML here...'}
+                          showFileImport={inputMode === 'import-xml'}
+                          t={t}
+                        />
+                      </QueryInputPanel>
+
+                      {/* Parameter Configuration */}
+                      {myBatisXml && (
+                        <ParameterConfig
+                          detectedParams={detectedParams}
+                          myBatisParams={myBatisParams}
+                          onParamChange={(key, value) =>
+                            setMyBatisParams({ ...myBatisParams, [key]: value })
+                          }
+                          conditionalParams={conditionalParams}
+                          t={t}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {/* Action Buttons */}
+                  <ActionButtons
+                    onAnalyze={handleAnalyze}
+                    onLoadSample={handleLoadSample}
+                    onClear={handleClear}
+                    isLoading={isAnalyzing}
+                    t={t}
+                  />
+                </div>
+
+                {/* Right: Preview Panel (final SQL to analyze) */}
+                <div className="xl:col-span-7 xl:min-h-[560px]">
+                  <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
+                </div>
               </div>
 
-              {/* Right: Preview Panel */}
-              <div className="xl:col-span-2 space-y-4 h-full" style={{ maxHeight: '500px' }}>
-                <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
-              </div>
+              {/* Bottom: Complexity & Linting findings */}
+              <BottomAnalytics currentSql={currentSql} />
+
+              {/* Empty State Tips */}
+              {!currentSql && <EmptyStateTips tips={tips} t={t} />}
             </div>
-
-            {/* Bottom: Complexity & Linting */}
-            <BottomAnalytics currentSql={currentSql} t={t} />
-
-            {/* Empty State Tips */}
-            {!currentSql && <EmptyStateTips tips={tips} />}
           </>
         )}
       </div>
+      </SidePanelRail>
     </AppLayout>
   );
 }

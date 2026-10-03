@@ -5,7 +5,7 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
-import { getT, type Translations } from '@/lib/i18n';
+import { getT } from '@/lib/i18n';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -13,8 +13,6 @@ import {
   Copy,
   Check,
   RotateCcw,
-  Zap,
-  Sparkles,
   X,
   Volume2,
   Square,
@@ -25,6 +23,7 @@ import {
 } from 'lucide-react';
 import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
+import { buildStructuralRegressionWarnings, buildRequirementChangeSummary, type SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import {
   optimizeSqlWithAIStream,
@@ -33,13 +32,24 @@ import {
   repairInvalidProposals,
   isProposalApplicable,
   countExactOccurrences,
+  generateRequirementCandidateStream,
+  resolveHintedTableReferences,
   type SqlOptimizationProposal,
   type SqlOptimizationResult,
   type SqlSemanticBrief,
+  type SqlRequirementCandidateResult,
+  type OptimizationMode,
 } from '@/lib/ai/aiService';
 import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
 import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
+import OptimizeQueryModal from './OptimizeQueryModal';
+import FormatSqlPanel from './FormatSqlPanel';
+import {
+  captureFormatError,
+  type FormatError,
+  type SqlFormatDialect,
+} from '@/lib/sql/formatError';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -51,6 +61,18 @@ function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' 
   return dialectMap[dialect] || 'mysql';
 }
 
+/**
+ * Maps the app's dialect to the `FormatError` dialect label. `getFormatterLanguage` cannot be
+ * reversed (both `mysql` and any unknown dialect collapse to the formatter's `mysql`), so the
+ * active dialect is narrowed here and unknown values fall back to `mysql` — the same fallback the
+ * formatter itself uses.
+ */
+function toFormatDialect(dialect: string): SqlFormatDialect {
+  return dialect === 'postgresql' || dialect === 'sqlserver' || dialect === 'oracle'
+    ? dialect
+    : 'mysql';
+}
+
 /** Best-effort SQL formatting: falls back to the input unchanged if the formatter chokes on it. */
 function safeFormatSql(sql: string, dialect: string): string {
   try {
@@ -58,102 +80,6 @@ function safeFormatSql(sql: string, dialect: string): string {
   } catch {
     return sql;
   }
-}
-
-/**
- * A local, non-AI safety net: the model is told to touch only what a linting alert requires, but
- * it can still ignore that instruction. This compares structural facts the parser already
- * verified on both queries (tables, joins, filter conditions, output columns, DISTINCT/GROUP BY)
- * and flags anything the "optimized" query dropped, so an over-eager rewrite is visible before
- * the user decides whether to keep it — instead of silently trusting the model's own summary.
- */
-function buildStructuralRegressionWarnings(
-  original: AnalysisResult,
-  optimized: AnalysisResult,
-  t: Translations
-): string[] {
-  const warnings: string[] = [];
-
-  const tableKey = (table: AnalysisResult['tables'][number]) =>
-    `${table.name.toLowerCase()}::${(table.alias ?? '').toLowerCase()}`;
-  const originalTables = new Set(original.tables.map(tableKey));
-  const optimizedTables = new Set(optimized.tables.map(tableKey));
-  if ([...originalTables].some((table) => !optimizedTables.has(table))) {
-    warnings.push(t.smartEditorOptimizeRegressionTableIdentity);
-  }
-
-  const joinKey = (join: AnalysisResult['joins'][number]) =>
-    [join.source, join.target].sort().join('::').toLowerCase();
-  const originalRelationships = new Set(original.joins.map(joinKey));
-  const optimizedRelationships = new Set(optimized.joins.map(joinKey));
-  if ([...originalRelationships].some((relationship) => !optimizedRelationships.has(relationship))) {
-    warnings.push(t.smartEditorOptimizeRegressionJoinIdentity);
-  }
-
-  // A relationship that still exists can still have quietly changed row-inclusion semantics —
-  // e.g. INNER JOIN rewritten to LEFT JOIN (or vice versa) keeps the same table pair but no
-  // longer returns the same rows, so this must be flagged separately from removal.
-  const optimizedJoinTypeByPair = new Map(optimized.joins.map((join) => [joinKey(join), join.joinType]));
-  if (
-    original.joins.some((join) => {
-      const optimizedType = optimizedJoinTypeByPair.get(joinKey(join));
-      return optimizedType !== undefined && optimizedType !== join.joinType;
-    })
-  ) {
-    warnings.push(t.smartEditorOptimizeRegressionJoinType);
-  }
-
-  // A same-count field swap (one output column replaced by another) would pass the length-only
-  // check below unnoticed, so also diff the actual field identities.
-  const fieldKey = (field: AnalysisResult['mainQueryFields'][number]) =>
-    (field.alias || field.field).toLowerCase();
-  const optimizedFields = new Set(optimized.mainQueryFields.map(fieldKey));
-  const missingField = original.mainQueryFields.find((field) => !optimizedFields.has(fieldKey(field)));
-  if (missingField) {
-    warnings.push(
-      t.smartEditorOptimizeRegressionColumnIdentity.replace('{column}', fieldKey(missingField))
-    );
-  }
-
-  if (optimized.tables.length < original.tables.length) {
-    warnings.push(
-      t.smartEditorOptimizeRegressionTables.replace(
-        '{count}',
-        String(original.tables.length - optimized.tables.length)
-      )
-    );
-  }
-  if (optimized.metrics.totalJoinCount < original.metrics.totalJoinCount) {
-    warnings.push(
-      t.smartEditorOptimizeRegressionJoins.replace(
-        '{count}',
-        String(original.metrics.totalJoinCount - optimized.metrics.totalJoinCount)
-      )
-    );
-  }
-  if (optimized.metrics.conditionCount < original.metrics.conditionCount) {
-    warnings.push(
-      t.smartEditorOptimizeRegressionConditions.replace(
-        '{count}',
-        String(original.metrics.conditionCount - optimized.metrics.conditionCount)
-      )
-    );
-  }
-  if (optimized.mainQueryFields.length < original.mainQueryFields.length) {
-    warnings.push(
-      t.smartEditorOptimizeRegressionColumns
-        .replace('{optimized}', String(optimized.mainQueryFields.length))
-        .replace('{original}', String(original.mainQueryFields.length))
-    );
-  }
-  if (original.metrics.distinct > 0 && optimized.metrics.distinct === 0) {
-    warnings.push(t.smartEditorOptimizeRegressionDistinct);
-  }
-  if (original.metrics.groupBy > 0 && optimized.metrics.groupBy === 0) {
-    warnings.push(t.smartEditorOptimizeRegressionGroupBy);
-  }
-
-  return warnings;
 }
 
 /** Reads a JSON string value out of a possibly-incomplete JSON document being streamed in. */
@@ -248,25 +174,49 @@ const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
   renderSideBySide: true,
 };
 
+/** Imperative surface `SmartSQLEditor` exposes to its owner via `apiRef`. */
+export interface SmartSQLEditorApi {
+  /** The editor's live SQL — the source of truth for the stale-proposal check (FR-016). */
+  getSql: () => string;
+  /** Replaces the editor SQL and mirrors the change into the owner's `onSqlChange` callback. */
+  setSql: (sql: string) => void;
+}
+
 export const SmartSQLEditor: React.FC<{
   initialSql?: string;
   /** Lets the page observe the live editor content (used by the AI SQL Explainer). */
   onSqlChange?: (sql: string) => void;
   onOptimizationResult?: (result: SqlOptimizationResult | null) => void;
+  /**
+   * Emits a structured diagnostic whenever Format fails, so the page can show the right-side
+   * error report instead of relying on a transient toast (spec 012, FR-002/FR-003). Format
+   * success emits nothing, leaving the existing success flow untouched (FR-001).
+   */
+  onFormatError?: (error: FormatError) => void;
   /** Line to reveal + briefly highlight once the editor is ready — fed by "go to line" links on the Metrics Dashboard. */
   jumpToLine?: number | null;
   /** Called once the jump has been applied, so the caller can clear its pending-jump state. */
   onJumpHandled?: () => void;
+  /**
+   * Imperative handle for the format-error panel's "Apply fix" action (spec 012, FR-010). Only
+   * the owner of the editor state can replace the SQL, so the page passes a ref down and the
+   * panel calls it after the user explicitly confirms.
+   */
+  apiRef?: React.MutableRefObject<SmartSQLEditorApi | null>;
 }> = ({
   initialSql = 'SELECT * FROM table_name LIMIT 10;',
   onSqlChange,
   onOptimizationResult,
+  onFormatError,
   jumpToLine,
   onJumpHandled,
+  apiRef,
 }) => {
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const jumpDecorationsRef = useRef<string[]>([]);
+  /** Mirror of `state.currentSql` so imperative callers read the latest SQL, not a stale closure. */
+  const currentSqlRef = useRef(initialSql);
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
@@ -306,15 +256,42 @@ export const SmartSQLEditor: React.FC<{
   // Collapsed by default; the user clicks to open it before deciding to confirm.
   const [isSemanticDetailExpanded, setIsSemanticDetailExpanded] = useState(false);
   /** Carries the sql/context computed in step 1 over to the confirmed optimize call in step 2. */
-  const pendingOptimizeRef = useRef<{ sql: string; brief: string; originalAnalysis: AnalysisResult | null } | null>(
-    null
-  );
+  const pendingOptimizeRef = useRef<{
+    sql: string;
+    brief: string;
+    originalAnalysis: AnalysisResult | null;
+    userInstruction?: string;
+  } | null>(null);
+  // All analysis/optimize content now lives in a modal (see OptimizeQueryModal) so it never
+  // pushes the editor down; this only tracks whether that modal is visible.
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // The user's own words for what to optimize, typed in the modal; kept across a single session
+  // so re-submitting after tweaking it does not lose what was already typed.
+  const [instructionDraft, setInstructionDraft] = useState('');
   const [speechPhase, setSpeechPhase] = useState<'idle' | 'loading' | 'playing'>('idle');
   const isLocalProvider = settings.aiConfig.provider === 'ollama';
   const speechAbortRef = useRef<AbortController | null>(null);
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
   // One synthesized clip per optimize result — replayable without re-billing a fresh request.
   const speechUrlRef = useRef<string | null>(null);
+
+  // Requirement-driven candidate flow (spec 004): a separate mode from the existing
+  // lint/instruction optimizer above — it is explicitly allowed to change query semantics, so
+  // its result is never auto-applied; the user must review the change summary and confirm.
+  const [optimizeMode, setOptimizeMode] = useState<OptimizationMode>('instruction');
+  const requirementAbortRef = useRef<AbortController | null>(null);
+  const [requirementDraft, setRequirementDraft] = useState('');
+  const [requirementHintedTablesDraft, setRequirementHintedTablesDraft] = useState('');
+  const [requirementPhase, setRequirementPhase] = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
+  const [requirementStreamRaw, setRequirementStreamRaw] = useState('');
+  const [requirementResult, setRequirementResult] = useState<SqlRequirementCandidateResult | null>(null);
+  const [requirementError, setRequirementError] = useState<string | null>(null);
+  const [requirementChangeSummary, setRequirementChangeSummary] = useState<SemanticChangeSummary | null>(null);
+  // The exact SQL the candidate was generated from — if the editor's SQL no longer matches this
+  // when the user tries to apply, the candidate is stale and must be regenerated (FR-007).
+  const requirementSourceSqlRef = useRef<string | null>(null);
+  const requirementIsStale =
+    requirementResult !== null && requirementSourceSqlRef.current !== state.currentSql;
 
   const stopSpeech = useCallback(() => {
     speechAbortRef.current?.abort();
@@ -451,8 +428,22 @@ export const SmartSQLEditor: React.FC<{
 
   // Publish the current SQL upward so sibling panels stay in sync with the editor.
   useEffect(() => {
+    currentSqlRef.current = state.currentSql;
     onSqlChange?.(state.currentSql);
   }, [state.currentSql, onSqlChange]);
+
+  // Imperative handle for the error panel's "Apply fix". `getSql` reads from live state (never a
+  // stale closure) so the panel's stale check compares against what the user actually sees.
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = {
+      getSql: () => currentSqlRef.current,
+      setSql: (sql: string) => setState((prev) => ({ ...prev, currentSql: sql })),
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef]);
 
   const revealAndHighlightLine = useCallback((line: number) => {
     const editor = editorRef.current;
@@ -519,10 +510,22 @@ export const SmartSQLEditor: React.FC<{
 
       toast.success(t.formattingSuccess);
     } catch (error) {
+      // Format failure: reset the button, keep the editor's SQL exactly as it was (FR-005), and
+      // hand the structured diagnostic to the page, which renders the right-side error report.
+      // When no panel is wired (e.g. the embedded Query Input tab), fall back to the legacy
+      // toast so the failure is never silent.
       setState((prev) => ({ ...prev, isFormatting: false }));
-      toast.error((error as Error)?.message || t.formattingError);
+      const formatError = captureFormatError(error, {
+        sourceSql: state.currentSql,
+        dialect: toFormatDialect(dialect),
+      });
+      if (onFormatError) {
+        onFormatError(formatError);
+      } else {
+        toast.error(formatError.message || t.formattingError);
+      }
     }
-  }, [state.currentSql, dialect, t]);
+  }, [state.currentSql, dialect, t, onFormatError]);
 
   const handleToggleDiffMode = useCallback(() => {
     setState((prev) => ({
@@ -555,12 +558,13 @@ export const SmartSQLEditor: React.FC<{
   }, [state.currentSql, t]);
 
   /** Step 1: ask the model to state purpose/relationships/filters — no rewrite proposed yet. */
-  const handleAnalyzeSemantics = useCallback(async () => {
+  const handleAnalyzeSemantics = useCallback(async (userInstruction?: string) => {
     const sql = state.currentSql.trim();
     if (!sql) {
       toast.error(t.emptyQueryError);
       return;
     }
+    const trimmedInstruction = userInstruction?.trim() || undefined;
 
     optimizeAbortRef.current?.abort();
     resetSpeechCache();
@@ -599,11 +603,12 @@ export const SmartSQLEditor: React.FC<{
         config: settings.aiConfig,
         locale: settings.locale,
         contextBrief: brief,
+        userInstruction: trimmedInstruction,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
 
-      pendingOptimizeRef.current = { sql, brief, originalAnalysis };
+      pendingOptimizeRef.current = { sql, brief, originalAnalysis, userInstruction: trimmedInstruction };
       setSemanticBrief(result);
       setSemanticPhase('ready');
     } catch (error) {
@@ -697,6 +702,7 @@ export const SmartSQLEditor: React.FC<{
           config: settings.aiConfig,
           locale: settings.locale,
           contextBrief: brief,
+          userInstruction: pending.userInstruction,
           signal: controller.signal,
         },
         (delta) => setOptimizeStreamRaw((prev) => prev + delta)
@@ -813,6 +819,208 @@ export const SmartSQLEditor: React.FC<{
     [state.currentSql, dialect, settings.locale, t]
   );
 
+  /** Backdrop/X/Escape: aborts an in-flight call but otherwise keeps the last result so
+   * reopening the modal shows exactly what was there before (FR-013 + persistence). */
+  const handleCloseOptimizeModal = useCallback(() => {
+    setIsModalOpen(false);
+    if (semanticPhase === 'running' || optimizePhase === 'streaming') {
+      optimizeAbortRef.current?.abort();
+      optimizeAbortRef.current = null;
+      setSemanticPhase('idle');
+      setOptimizePhase('idle');
+    }
+    if (requirementPhase === 'streaming') {
+      requirementAbortRef.current?.abort();
+      requirementAbortRef.current = null;
+      setRequirementPhase('idle');
+    }
+  }, [semanticPhase, optimizePhase, requirementPhase]);
+
+  const handleSubmitInstruction = useCallback(
+    (instruction: string) => {
+      setInstructionDraft(instruction);
+      void handleAnalyzeSemantics(instruction);
+    },
+    [handleAnalyzeSemantics]
+  );
+
+  /**
+   * Session-level "Apply to editor": applies every not-yet-applied proposal in sequence against a
+   * single running copy of the SQL (rather than relying on state re-renders between calls),
+   * re-checking the structural regression guard at each step and skipping any proposal that would
+   * fail it, then commits once and switches straight to the before/after diff view (FR-010/FR-011).
+   */
+  const handleSessionApply = useCallback(async () => {
+    if (!optimizeResult) return;
+    const proposalsToApply = optimizeResult.proposals.filter(
+      (proposal) => !appliedProposalIds.includes(proposal.id)
+    );
+    let workingSql = state.currentSql;
+    const newlyApplied: string[] = [];
+    for (const proposal of proposalsToApply) {
+      if (countExactOccurrences(workingSql, proposal.find) !== 1) continue;
+      const candidateSql = workingSql.replace(proposal.find, proposal.replace);
+      try {
+        const [originalAnalysis, candidateAnalysis] = await Promise.all([
+          analyzeSql(workingSql, dialect, settings.locale),
+          analyzeSql(candidateSql, dialect, settings.locale),
+        ]);
+        const regressions = buildStructuralRegressionWarnings(originalAnalysis, candidateAnalysis, t);
+        if (regressions.length > 0) {
+          setStructuralWarnings(regressions);
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      workingSql = candidateSql;
+      newlyApplied.push(proposal.id);
+    }
+
+    if (newlyApplied.length === 0) {
+      toast.error(t.smartEditorOptimizeProposalBlocked);
+      return;
+    }
+
+    setState((prev) => ({ ...prev, currentSql: workingSql, isDiffMode: true }));
+    setAppliedProposalIds((previous) => [...previous, ...newlyApplied]);
+    setIsModalOpen(false);
+    toast.success(t.smartEditorSessionAppliedToast);
+  }, [optimizeResult, appliedProposalIds, state.currentSql, dialect, settings.locale, t]);
+
+  /** Explicit "Discard": unlike closing the modal, this clears the pending result entirely so a
+   * later reopen starts a fresh session rather than showing stale proposals (FR-012). */
+  const handleSessionDiscard = useCallback(() => {
+    setIsModalOpen(false);
+    optimizeAbortRef.current?.abort();
+    optimizeAbortRef.current = null;
+    pendingOptimizeRef.current = null;
+    setSemanticPhase('idle');
+    setSemanticBrief(null);
+    setSemanticError(null);
+    setOptimizePhase('idle');
+    setOptimizeResult(null);
+    setOptimizeError(null);
+    setOptimizeStreamRaw('');
+    setStructuralWarnings([]);
+    onOptimizationResult?.(null);
+    toast.info(t.smartEditorSessionDiscardedToast);
+  }, [onOptimizationResult, t]);
+
+  /**
+   * Requirement-driven candidate generation (spec 004 US1): unlike the lint/instruction optimizer
+   * above, the model may change tables/joins/filters/output columns to satisfy the requirement.
+   * The result is only ever shown as a candidate here — nothing is applied to the editor until
+   * the user explicitly reviews the change summary and clicks Apply (US2).
+   */
+  const handleSubmitRequirement = useCallback(async () => {
+    const sql = state.currentSql.trim();
+    const requirementText = requirementDraft.trim();
+    if (!sql) {
+      toast.error(t.emptyQueryError);
+      return;
+    }
+    if (!requirementText) {
+      toast.error(t.smartEditorRequirementEmptyError);
+      return;
+    }
+    const hintedTables = requirementHintedTablesDraft
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    requirementAbortRef.current?.abort();
+    const controller = new AbortController();
+    requirementAbortRef.current = controller;
+
+    setRequirementResult(null);
+    setRequirementError(null);
+    setRequirementChangeSummary(null);
+    setRequirementStreamRaw('');
+    setRequirementPhase('streaming');
+    requirementSourceSqlRef.current = null;
+
+    let originalAnalysis: AnalysisResult | null = null;
+    let brief = '';
+    try {
+      originalAnalysis = await analyzeSql(sql, dialect, settings.locale);
+      brief = buildSqlContextBrief(originalAnalysis);
+    } catch {
+      brief = '';
+    }
+
+    // Deterministic check against what the local parser already knows (there is no live schema
+    // catalog in this app) — anything not recognized locally is left for the model to
+    // self-report in `unresolved_references` rather than being authoritatively rejected here.
+    const { unresolved: unresolvedHints } = resolveHintedTableReferences(hintedTables, originalAnalysis);
+
+    try {
+      const result = await generateRequirementCandidateStream(
+        {
+          sql,
+          config: settings.aiConfig,
+          locale: settings.locale,
+          contextBrief: brief,
+          requirementInput: { text: requirementText, hintedTables },
+          signal: controller.signal,
+        },
+        (delta) => setRequirementStreamRaw((prev) => prev + delta)
+      );
+      if (controller.signal.aborted) return;
+
+      const mergedUnresolved = Array.from(new Set([...result.unresolvedReferences, ...unresolvedHints]));
+      const finalResult = { ...result, unresolvedReferences: mergedUnresolved };
+
+      let changeSummary: SemanticChangeSummary | null = null;
+      if (result.structured && originalAnalysis) {
+        try {
+          const candidateAnalysis = await analyzeSql(result.optimizedSql || sql, dialect, settings.locale);
+          changeSummary = buildRequirementChangeSummary(originalAnalysis, candidateAnalysis);
+        } catch {
+          changeSummary = null;
+        }
+      }
+
+      requirementSourceSqlRef.current = sql;
+      setRequirementResult(finalResult);
+      setRequirementChangeSummary(changeSummary);
+      setRequirementPhase('done');
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') {
+        setRequirementPhase('idle');
+        return;
+      }
+      const message = (error as Error)?.message || t.smartEditorRequirementError;
+      setRequirementError(message);
+      setRequirementPhase('error');
+      toast.error(message);
+    } finally {
+      if (requirementAbortRef.current === controller) requirementAbortRef.current = null;
+    }
+  }, [state.currentSql, requirementDraft, requirementHintedTablesDraft, dialect, settings, t]);
+
+  /** Whole-query replacement, gated behind explicit confirmation (US2) — switches to the diff
+   * view immediately after, same as the existing session-apply flow, so the user sees exactly
+   * what changed before trusting the result. */
+  const handleApplyRequirementCandidate = useCallback(() => {
+    if (!requirementResult || requirementIsStale) return;
+    setState((prev) => ({ ...prev, currentSql: requirementResult.optimizedSql, isDiffMode: true }));
+    setIsModalOpen(false);
+    toast.success(t.smartEditorRequirementAppliedToast);
+  }, [requirementResult, requirementIsStale, t]);
+
+  const handleDiscardRequirementCandidate = useCallback(() => {
+    requirementAbortRef.current?.abort();
+    requirementAbortRef.current = null;
+    requirementSourceSqlRef.current = null;
+    setRequirementPhase('idle');
+    setRequirementResult(null);
+    setRequirementError(null);
+    setRequirementChangeSummary(null);
+    setRequirementStreamRaw('');
+    toast.info(t.smartEditorRequirementDiscardedToast);
+  }, [t]);
+
   // Calculate statistics. originalLines/originalChars reflect state.originalSql (the "before"
   // state) so the stats bar can show before → after counts once the SQL has been modified.
   const stats = {
@@ -846,34 +1054,8 @@ export const SmartSQLEditor: React.FC<{
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons — Format and Analyze/Optimize now live as right-edge toggle tabs. */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleFormatSQL}
-            disabled={state.isFormatting || state.isOptimizing || !state.currentSql.trim()}
-            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
-            title="Format SQL (Ctrl+Shift+F)"
-          >
-            <Zap size={12} />
-            {state.isFormatting
-              ? t.smartEditorFormatting
-              : t.formatSqlButton || t.smartEditorFormat}
-          </button>
-
-          <button
-            onClick={handleAnalyzeSemantics}
-            disabled={semanticPhase === 'running' || state.isOptimizing || !state.currentSql.trim()}
-            className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            title={t.analyzeOptimizeTitle}
-          >
-            <Sparkles size={12} />
-            {semanticPhase === 'running'
-              ? t.smartEditorSemanticAnalyzing
-              : state.isOptimizing
-                ? t.smartEditorOptimizing
-                : t.analyzeOptimizeButton}
-          </button>
-
           <button
             onClick={handleToggleDiffMode}
             disabled={!state.hasChanges}
@@ -956,336 +1138,64 @@ export const SmartSQLEditor: React.FC<{
           <div className="text-xs text-muted-foreground">{stats.changeSummary}</div>
         </div>
 
-        {/* Step 1: model's own understanding of the query, reviewed before any rewrite runs */}
-        {semanticPhase !== 'idle' && (
-          <div className="mb-3 rounded-lg border border-amber-800/40 bg-amber-950/20 p-3 scrollbar-thin">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setIsSemanticDetailExpanded((prev) => !prev)}
-                disabled={!semanticBrief}
-                aria-expanded={isSemanticDetailExpanded}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold uppercase tracking-wide text-amber-300 disabled:cursor-default"
-              >
-                <Sparkles size={12} className={semanticPhase === 'running' ? 'animate-pulse' : ''} />
-                <span className="min-w-0 flex-1 truncate">
-                  {semanticPhase === 'running'
-                    ? t.smartEditorSemanticAnalyzing
-                    : semanticPhase === 'error'
-                      ? t.smartEditorOptimizationError
-                      : t.smartEditorSemanticReviewTitle}
-                </span>
-                {semanticBrief &&
-                  (isSemanticDetailExpanded ? (
-                    <ChevronUp size={14} className="flex-shrink-0" />
-                  ) : (
-                    <ChevronDown size={14} className="flex-shrink-0" />
-                  ))}
-              </button>
-              {(semanticPhase === 'ready' || semanticPhase === 'error') && (
-                <button
-                  onClick={handleCancelSemanticReview}
-                  className="text-gray-500 transition-colors hover:text-gray-300"
-                  aria-label={t.smartEditorReset}
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {semanticPhase === 'error' && semanticError && (
-              <p className="mt-2 text-xs text-red-300">{semanticError}</p>
-            )}
-
-            {(semanticPhase === 'ready' || semanticPhase === 'confirmed') && semanticBrief && isSemanticDetailExpanded && (
-              <div className="mt-2 space-y-2">
-                {semanticBrief.structured ? (
-                  <>
-                    {semanticBrief.purpose && (
-                      <p className="text-sm leading-relaxed text-gray-200">{semanticBrief.purpose}</p>
-                    )}
-                    {semanticBrief.relationships.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          {t.smartEditorSemanticRelationshipsLabel}
-                        </p>
-                        <ul className="mt-1 space-y-1 text-sm text-gray-200">
-                          {semanticBrief.relationships.map((rel, index) => (
-                            <li key={`semantic-rel-${index}`} className="flex items-start gap-2">
-                              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
-                              <span>
-                                {rel.tables && <span className="font-semibold text-amber-200">{rel.tables}: </span>}
-                                {rel.description}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {semanticBrief.criticalFilters.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          {t.smartEditorSemanticFiltersLabel}
-                        </p>
-                        <ul className="mt-1 space-y-1 text-sm text-gray-200">
-                          {semanticBrief.criticalFilters.map((filter, index) => (
-                            <li key={`semantic-filter-${index}`} className="flex items-start gap-2">
-                              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
-                              {filter}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {semanticBrief.risks.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          {t.smartEditorSemanticRisksLabel}
-                        </p>
-                        <ul className="mt-1 space-y-1 text-sm text-gray-200">
-                          {semanticBrief.risks.map((risk, index) => (
-                            <li key={`semantic-risk-${index}`} className="flex items-start gap-2">
-                              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
-                              {risk}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
-                    {semanticBrief.raw}
-                  </pre>
-                )}
-              </div>
-            )}
-
-            {(semanticPhase === 'ready' || semanticPhase === 'confirmed') && semanticBrief && (
-              <div className="mt-2">
-                {semanticPhase === 'ready' && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => void handleConfirmOptimize()}
-                      className="rounded-md border border-amber-500/60 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
-                    >
-                      {t.smartEditorSemanticConfirmButton}
-                    </button>
-                    <button
-                      onClick={handleCancelSemanticReview}
-                      className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
-                    >
-                      {t.smartEditorSemanticCancelButton}
-                    </button>
-                  </div>
-                )}
-                {semanticPhase === 'confirmed' && (
-                  <p className="text-xs font-medium text-amber-300/80">{t.smartEditorSemanticConfirmedLabel}</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* AI Optimize progress / results — live stream while running, structured summary once done */}
-        {optimizePhase !== 'idle' && (
-          <div className="mb-3 rounded-lg border border-indigo-800/40 bg-indigo-950/20 p-3 scrollbar-thin">
-            <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-indigo-300">
-                <Sparkles
-                  size={12}
-                  className={optimizePhase === 'streaming' ? 'animate-pulse' : ''}
-                />
-                {optimizePhase === 'streaming'
-                  ? t.smartEditorOptimizeProgressTitle
-                  : optimizePhase === 'error'
-                    ? t.smartEditorOptimizationError
-                    : t.optimizationResultsTitle}
-              </p>
-              {optimizePhase !== 'streaming' && (
-                <div className="flex items-center gap-1">
-                  {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
-                    <button
-                      onClick={handleSpeech}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-indigo-300 transition-colors hover:bg-indigo-400/10 hover:text-indigo-200 disabled:cursor-wait disabled:opacity-70"
-                      aria-label={
-                        speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop
-                      }
-                      title={
-                        speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop
-                      }
-                    >
-                      {speechPhase === 'loading' ? (
-                        <RefreshCw size={12} className="animate-spin" />
-                      ) : speechPhase === 'playing' ? (
-                        <Square size={12} fill="currentColor" />
-                      ) : (
-                        <Volume2 size={14} />
-                      )}
-                      <span className="hidden sm:inline">
-                        {speechPhase === 'idle' ? t.smartEditorSpeechPlay : t.smartEditorSpeechStop}
-                      </span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      stopSpeech();
-                      setOptimizePhase('idle');
-                      setSemanticPhase('idle');
-                      setSemanticBrief(null);
-                    }}
-                    className="text-gray-500 transition-colors hover:text-gray-300"
-                    aria-label={t.smartEditorReset}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {optimizePhase === 'streaming' && (
-              <p className="mt-2 max-h-40 overflow-y-auto scrollbar-thin whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
-                {buildOptimizeProgressMessage(optimizeStreamRaw, t.smartEditorOptimizeWaitingLabel)}
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-indigo-400 align-middle" />
-              </p>
-            )}
-
-            {optimizePhase === 'error' && optimizeError && (
-              <p className="mt-2 text-xs text-red-300">{optimizeError}</p>
-            )}
-
-            {optimizePhase === 'done' && optimizeResult && !optimizeResult.structured && (
-              <div className="mt-2 space-y-2">
-                <p className="text-xs leading-relaxed text-yellow-300/90">
-                  {t.smartEditorOptimizeUnstructuredNotice}
-                </p>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-800 bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
-                  {optimizeResult.raw}
-                </pre>
-              </div>
-            )}
-
-            {optimizePhase === 'done' && optimizeResult && optimizeResult.structured && (
-              <div className="mt-2 space-y-2">
-                {structuralWarnings.length > 0 && (
-                  <div className="rounded-lg border border-red-800/60 bg-red-950/30 p-3">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-red-300">
-                      <AlertTriangle size={13} />
-                      {t.smartEditorOptimizeRegressionTitle}
-                    </p>
-                    <ul className="mt-2 space-y-1">
-                      {structuralWarnings.map((warning, index) => (
-                        <li
-                          key={`smart-optimize-regression-${index}`}
-                          className="flex items-start gap-2 text-sm leading-relaxed text-red-200"
-                        >
-                          <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
-                          {warning}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <p className="text-sm leading-relaxed text-gray-200">
-                  {optimizeResult.analysis || t.aiExplainerNoContent}
-                </p>
-                {optimizeResult.semanticImpact && (
-                  <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {t.smartEditorOptimizeSemanticImpactLabel}
-                    </p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-gray-200">
-                      {optimizeResult.semanticImpact}
-                    </p>
-                  </div>
-                )}
-                {optimizeResult.proposals.length === 0 && (
-                  <p className="text-xs italic text-gray-400">{t.smartEditorOptimizeNoProposals}</p>
-                )}
-                {optimizeResult.proposals.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {t.smartEditorOptimizeProposalsLabel}
-                    </p>
-                    {optimizeResult.proposals.map((proposal) => {
-                      const isApplied = appliedProposalIds.includes(proposal.id);
-                      const isExpanded = expandedProposalIds.has(proposal.id);
-                      return (
-                        <div key={proposal.id} className="rounded-lg border border-indigo-800/50 bg-gray-900/60 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <button
-                              type="button"
-                              onClick={() => toggleProposalExpanded(proposal.id)}
-                              aria-expanded={isExpanded}
-                              className="flex min-w-0 flex-1 items-start gap-2 text-left"
-                            >
-                              {isExpanded ? (
-                                <ChevronUp size={16} className="mt-0.5 flex-shrink-0 text-indigo-300" />
-                              ) : (
-                                <ChevronDown size={16} className="mt-0.5 flex-shrink-0 text-indigo-300" />
-                              )}
-                              <span className="min-w-0 truncate text-sm font-semibold text-indigo-200">
-                                {proposal.issue || t.smartEditorOptimizeProposalsLabel}
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => void handleApplyProposal(proposal)}
-                              disabled={isApplied}
-                              className="flex-shrink-0 rounded-md border border-indigo-500/50 px-2 py-1 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/15 disabled:cursor-default disabled:border-success/40 disabled:text-success"
-                            >
-                              {isApplied ? t.smartEditorOptimizeProposalAppliedLabel : t.smartEditorOptimizeProposalApply}
-                            </button>
-                          </div>
-                          {isExpanded && (
-                            <div className="mt-2 space-y-1 text-sm leading-relaxed text-gray-200">
-                              {proposal.location && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalLocation}: </span>{proposal.location}</p>}
-                              {proposal.reason && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalReason}: </span>{proposal.reason}</p>}
-                              {proposal.recommendation && <p><span className="text-gray-400">{t.smartEditorOptimizeProposalRecommendation}: </span>{proposal.recommendation}</p>}
-                              {proposal.semanticImpact && <p><span className="text-gray-400">{t.smartEditorOptimizeSemanticImpactLabel}: </span>{proposal.semanticImpact}</p>}
-                              <pre className="mt-2 max-h-28 overflow-auto rounded border border-gray-800 bg-gray-950 p-2 text-[11px] leading-relaxed text-gray-300 scrollbar-thin">
-                                <code>{proposal.find}</code>
-                              </pre>
-                              <pre className="mt-1 max-h-28 overflow-auto rounded border border-indigo-900/50 bg-indigo-950/20 p-2 text-[11px] leading-relaxed text-indigo-100 scrollbar-thin">
-                                <code>{proposal.replace}</code>
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {optimizeResult.suggestions.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {t.performanceNotesLabel}
-                    </p>
-                    <ul className="mt-1 space-y-1 text-sm text-gray-200">
-                      {optimizeResult.suggestions.map((suggestion, index) => (
-                        <li
-                          key={`smart-optimize-suggestion-${index}`}
-                          className="flex items-start gap-2"
-                        >
-                          <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
-                          {suggestion}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {knowledgeSources.length > 0 && (
-                  <p className="text-[11px] text-gray-500">
-                    {t.smartEditorOptimizeGroundedIn.replace(
-                      '{sources}',
-                      Array.from(new Set(knowledgeSources.map((source) => source.sourceFile))).join(', ')
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      <OptimizeQueryModal
+        isOpen={isModalOpen}
+        onClose={handleCloseOptimizeModal}
+        onOpen={() => setIsModalOpen(true)}
+        optimizeMode={optimizeMode}
+        onOptimizeModeChange={setOptimizeMode}
+        semanticPhase={semanticPhase}
+        semanticBrief={semanticBrief}
+        semanticError={semanticError}
+        isSemanticDetailExpanded={isSemanticDetailExpanded}
+        onToggleSemanticDetail={() => setIsSemanticDetailExpanded((prev) => !prev)}
+        onConfirmSemanticReview={() => void handleConfirmOptimize()}
+        onCancelSemanticReview={handleCancelSemanticReview}
+        instructionDraft={instructionDraft}
+        onInstructionDraftChange={setInstructionDraft}
+        onSubmitInstruction={handleSubmitInstruction}
+        optimizePhase={optimizePhase}
+        optimizeStreamRaw={optimizeStreamRaw}
+        optimizeError={optimizeError}
+        optimizeResult={optimizeResult}
+        structuralWarnings={structuralWarnings}
+        appliedProposalIds={appliedProposalIds}
+        expandedProposalIds={expandedProposalIds}
+        onToggleProposalExpanded={toggleProposalExpanded}
+        onApplyProposal={(proposal: SqlOptimizationProposal) => void handleApplyProposal(proposal)}
+        onDismissResults={() => {
+          stopSpeech();
+          setOptimizePhase('idle');
+          setSemanticPhase('idle');
+          setSemanticBrief(null);
+        }}
+        knowledgeSources={knowledgeSources}
+        speechPhase={speechPhase}
+        onSpeech={() => void handleSpeech()}
+        onSessionApply={() => void handleSessionApply()}
+        onSessionDiscard={handleSessionDiscard}
+        requirementDraft={requirementDraft}
+        onRequirementDraftChange={setRequirementDraft}
+        requirementHintedTablesDraft={requirementHintedTablesDraft}
+        onRequirementHintedTablesDraftChange={setRequirementHintedTablesDraft}
+        onSubmitRequirement={() => void handleSubmitRequirement()}
+        requirementPhase={requirementPhase}
+        requirementStreamRaw={requirementStreamRaw}
+        requirementError={requirementError}
+        requirementResult={requirementResult}
+        requirementChangeSummary={requirementChangeSummary}
+        requirementIsStale={requirementIsStale}
+        onApplyRequirementCandidate={handleApplyRequirementCandidate}
+        onDiscardRequirementCandidate={handleDiscardRequirementCandidate}
+      />
+
+      <FormatSqlPanel
+        sql={state.currentSql}
+        isFormatting={state.isFormatting}
+        onFormat={() => void handleFormatSQL()}
+      />
 
       <div className="px-4">
         <LintingAlerts sql={state.currentSql} collapsible />
@@ -1326,9 +1236,9 @@ export const SmartSQLEditor: React.FC<{
          * into content that is about to be replaced by the streamed result. */}
         {state.isOptimizing && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-[2px]">
-            <div className="flex items-center gap-3 rounded-lg border border-indigo-800/40 bg-indigo-950/80 px-4 py-3 shadow-lg">
-              <RefreshCw size={16} className="animate-spin text-indigo-300" />
-              <span className="text-sm font-medium text-indigo-200">
+            <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-card px-4 py-3 shadow-lg">
+              <RefreshCw size={16} className="animate-spin text-primary" />
+              <span className="text-sm font-medium text-foreground">
                 {t.smartEditorEditorLockedNotice}
               </span>
             </div>
