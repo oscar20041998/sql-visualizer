@@ -1680,7 +1680,9 @@ const vi = {
   authSocialLoginSuccess: 'Đã đăng nhập bằng {provider} với tài khoản {name}.',
   authSocialLoginCancelled: 'Đã hủy hoặc bị nhà cung cấp từ chối xác thực.',
   authSocialLoginFailed: 'Xác thực thất bại: {error}.',
+  authSocialLoginNotConfigured: 'Đăng nhập {provider} chưa được cấu hình. Hãy đặt {variable} và khởi động lại ứng dụng.',
   authSessionExpiredMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+  authSessionExpiresIn: 'Phiên đăng nhập hết hạn sau {time}',
   authSignOutSuccess: 'Đã đăng xuất thành công.',
 
   signInBrandTitle: 'SQL Visualizer',

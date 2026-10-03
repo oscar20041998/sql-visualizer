@@ -7,7 +7,12 @@ import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
 import RouteProgressBar from '@/components/ui/RouteProgressBar';
-import { getSocialSession, isDemoAuthenticated, isGuestSession, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import {
+  getSocialSession,
+  isDemoAuthenticated,
+  isGuestSession,
+  SOCIAL_AUTH_STORAGE_KEY,
+} from '@/lib/demoAuth';
 import { getT } from '@/lib/i18n';
 
 interface AppLayoutProps {
@@ -145,7 +150,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <RouteProgressBar active={navigationTarget !== null || isRestoringHistory} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">
-          <div className="min-h-full grid-bg">{children}</div>
+          {/* `h-full` (not just `min-h-full`) is deliberate: this is the shell that gives the page
+              content a *definite* height to resolve percentage heights against. A percentage height
+              resolves against the parent's `height` property only — `min-height` does not make a
+              parent definite — so with `min-h-full` alone, every `h-full` descendant silently
+              collapsed to `auto`. That is what left the Database Assistant history sidebar
+              content-sized instead of filling the viewport, and what stopped its `overflow-y-auto`
+              list from ever scrolling internally (specs/014 U41). `min-h-full` is kept so a short
+              page still fills the viewport, and because this box does not clip, a page whose content
+              is taller simply overflows into `main`'s own scrollbar. */}
+          <div className="h-full min-h-full grid-bg">{children}</div>
         </main>
         <AppFooter />
       </div>

@@ -59,6 +59,13 @@ describe('SignInPanel (specs/006-login-ui-redesign T016 regression guard)', () =
     expect(screen.getByText('admin')).toBeInTheDocument();
     expect(screen.getByText('1234@')).toBeInTheDocument();
   });
+
+  it('renders the Google and Microsoft brand marks on their sign-in buttons', () => {
+    render(<SignInPanel />);
+
+    expect(screen.getByTestId('google-logo').querySelectorAll('path')).toHaveLength(4);
+    expect(screen.getByTestId('microsoft-logo').querySelectorAll('rect')).toHaveLength(4);
+  });
 });
 
 describe('SignInPanel interaction states (T029)', () => {
@@ -92,6 +99,8 @@ describe('SignInPanel interaction states (T029)', () => {
   });
 
   it('disables every control while a social sign-in popup is starting', () => {
+    const originalClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id';
     const popupWindow = { closed: false, focus: vi.fn() };
     const openSpy = vi
       .spyOn(window, 'open')
@@ -110,16 +119,65 @@ describe('SignInPanel interaction states (T029)', () => {
       // let the component's poll interval settle so no cross-test state leaks
       popupWindow.closed = true;
       openSpy.mockRestore();
+      if (originalClientId === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      else process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = originalClientId;
+    }
+  });
+
+  it('explains which OAuth client ID is missing instead of opening a fake login popup', () => {
+    const originalClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    const openSpy = vi.spyOn(window, 'open');
+
+    try {
+      render(<SignInPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Google' }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent('NEXT_PUBLIC_GOOGLE_CLIENT_ID');
+      expect(openSpy).not.toHaveBeenCalled();
+    } finally {
+      openSpy.mockRestore();
+      if (originalClientId !== undefined) process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = originalClientId;
+    }
+  });
+
+  it('requests Microsoft Graph profile permission for Microsoft sign-in', () => {
+    const originalClientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID;
+    process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID = 'test-microsoft-client-id';
+    const popupWindow = { closed: false, focus: vi.fn() };
+    const openSpy = vi
+      .spyOn(window, 'open')
+      .mockReturnValue(popupWindow as unknown as Window);
+
+    try {
+      render(<SignInPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Microsoft' }));
+
+      const popupUrl = new URL(openSpy.mock.calls[0][0] as string);
+      expect(popupUrl.searchParams.get('scope')?.split(' ')).toContain('User.Read');
+      expect(popupUrl.searchParams.get('client_id')).toBe('test-microsoft-client-id');
+    } finally {
+      popupWindow.closed = true;
+      openSpy.mockRestore();
+      if (originalClientId === undefined) delete process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID;
+      else process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID = originalClientId;
     }
   });
 
   it('shows an alert when the OAuth popup is blocked', () => {
+    const originalClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id';
     vi.spyOn(window, 'open').mockReturnValue(null);
 
-    render(<SignInPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Google' }));
+    try {
+      render(<SignInPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Google' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Allow Popups to continue signing in.');
-    vi.restoreAllMocks();
+      expect(screen.getByRole('alert')).toHaveTextContent('Allow Popups to continue signing in.');
+    } finally {
+      vi.restoreAllMocks();
+      if (originalClientId === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      else process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = originalClientId;
+    }
   });
 });

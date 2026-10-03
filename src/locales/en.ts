@@ -1682,7 +1682,9 @@ const en = {
   authSocialLoginSuccess: 'Signed in via {provider} as {name}.',
   authSocialLoginCancelled: 'Authentication cancelled or rejected by the provider.',
   authSocialLoginFailed: 'Authentication failed: {error}.',
+  authSocialLoginNotConfigured: '{provider} sign-in is not configured. Set {variable} and restart the app.',
   authSessionExpiredMessage: 'Session expired. Please sign in again.',
+  authSessionExpiresIn: 'Session expires in {time}',
   authSignOutSuccess: 'Successfully signed out.',
 
   signInBrandTitle: 'SQL Visualizer',
