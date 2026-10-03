@@ -5,6 +5,7 @@
 // OPENAI_API_KEY server-side — the same "no credential in the browser" rule as /api/ai/generate.
 import type { Locale, Translations } from '@/lib/i18n';
 import type { SqlExplanation } from './aiService';
+import { GuestNotEntitledError, isSessionRequiredResponse } from './aiService';
 
 /**
  * Chat models cannot speak: `/v1/chat/completions` has no audio output, so gpt-4o-mini is not an
@@ -84,17 +85,21 @@ export function buildSpeechScript(explanation: SqlExplanation, t: Translations):
     return clampSpeechText(`${t.aiExplainerRunButton}.\n${explanation.raw}`);
   }
 
+  const { sections } = explanation;
   const parts = [
     `${t.aiExplainerRunButton}.`,
-    `${t.aiExplainerObjective}. ${explanation.objective || t.aiExplainerNoContent}`,
-    `${t.aiExplainerOutput}. ${explanation.output || t.aiExplainerNoContent}`,
-    explanation.filters.length
-      ? `${t.aiExplainerFilters}. ${explanation.filters.map((filter) => filter.replace(/\.?$/, '.')).join(' ')}`
+    `${t.aiExplainerObjective}. ${sections.query_objective || t.aiExplainerNoContent}`,
+    `${t.aiExplainerOutput}. ${sections.result_bullets.map((bullet) => bullet.replace(/\.?$/, '.')).join(' ')}`,
+    `${t.aiExplainerGrain}. ${sections.report_grain || t.aiExplainerNoContent}`,
+    sections.filter_categories.length
+      ? `${t.aiExplainerFilters}. ${sections.filter_categories
+          .map((category) => `${category.category}: ${category.items.map((item) => item.replace(/\.?$/, '.')).join(' ')}`)
+          .join(' ')}`
       : `${t.aiExplainerFilters}. ${t.aiExplainerNoFilters}`,
   ];
 
-  if (explanation.tables.length) {
-    parts.push(`${t.aiExplainerTables}. ${explanation.tables.join(', ')}.`);
+  if (sections.data_sources.length) {
+    parts.push(`${t.aiExplainerTables}. ${sections.data_sources.map((source) => source.name).join(', ')}.`);
   }
 
   return clampSpeechText(parts.join('\n'));
@@ -156,7 +161,11 @@ export async function synthesizeSpeech({
     try {
       const payload = (await response.json()) as { error?: unknown };
       if (typeof payload.error === 'string' && payload.error.trim()) message = payload.error;
-    } catch {
+      // A guest is normally blocked before the request; this covers a session that expired, so the
+      // speech button explains itself instead of reporting an opaque 401.
+      if (isSessionRequiredResponse(response.status, payload)) throw new GuestNotEntitledError();
+    } catch (caught) {
+      if (caught instanceof GuestNotEntitledError) throw caught;
       /* keep the status-code message */
     }
     throw new Error(message);

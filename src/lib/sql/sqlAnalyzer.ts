@@ -15,14 +15,21 @@ import {
   getJoinConditionComplexity,
   getComplexityLevelFromScore,
 } from '../../app/common/sqlAnalyzerUtils';
+import { parseMapperXml, resolveStatement } from './mybatis/conversion';
+import { collectConditionalParams, collectRawText, collectReferencePaths } from './mybatis/mapperModel';
+import { normaliseSqlText } from './mybatis/renderer';
 
-// Import dt-sql-parser for AST-based SQL parsing with dialect support
-let parser: any = null;
-try {
-  parser = require('dt-sql-parser');
-} catch (e) {
-  console.warn('dt-sql-parser not available, using regex-based parsing');
-}
+// Parsing engine: regex, not AST.
+//
+// This block used to `require('dt-sql-parser')` into a module-level `parser` that nothing ever
+// read, and logged "dt-sql-parser not available, using regex-based parsing" whenever that require
+// threw — a message wrong twice over: the package is installed, and the analyzer never used an AST
+// to begin with. That misleading warning is what made the Advanced Details panel look as though the
+// parser were missing, when in truth no parser is in this path.
+//
+// Real AST statistics are tracked as a separate phase. A working AST pipeline already exists in
+// `src/lib/codegen/parseSql.ts` (node-sql-parser), and `dt-sql-parser` is still loaded lazily by
+// `dialectValidator.ts` for its dialect cross-check.
 
 export type SqlDialect = 'mysql' | 'postgresql' | 'sqlserver' | 'oracle';
 
@@ -36,11 +43,14 @@ export type JoinType =
   | 'RELATES TO'
   | 'LATERAL JOIN';
 
+export type SqlSourceType = 'TABLE' | 'CTE' | 'SUBQUERY' | 'UNKNOWN' | 'VIEW';
+
 export interface TableNode {
   id: string;
   name: string;
   alias?: string;
   columns: string[];
+  sourceType: SqlSourceType;
   isSubquery?: boolean;
   isCTE?: boolean;
 }
@@ -313,12 +323,23 @@ export async function analyzeSql(
   };
 }
 
-function toNodeId(name: string): string {
-  return `table-${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+function toNodeId(name: string, alias?: string): string {
+  const sourceKey = alias ? `${name}__${alias}` : name;
+  return `table-${sourceKey.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+}
+
+function setSourceType(table: TableNode, sourceType: SqlSourceType): TableNode {
+  table.sourceType = sourceType;
+  table.isCTE = sourceType === 'CTE';
+  table.isSubquery = sourceType === 'SUBQUERY';
+  return table;
 }
 
 function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
-  const tables: TableNode[] = baseTables.map((t) => ({ ...t }));
+  const tables: TableNode[] = baseTables.map((t) => {
+    const sourceType = t.sourceType ?? (t.isSubquery ? 'SUBQUERY' : t.isCTE ? 'CTE' : 'TABLE');
+    return setSourceType({ ...t }, sourceType);
+  });
   const byName = new Map<string, TableNode>();
 
   tables.forEach((table) => {
@@ -329,7 +350,7 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
     const key = cte.name.toLowerCase();
     const existing = byName.get(key);
     if (existing) {
-      existing.isCTE = true;
+      setSourceType(existing, 'CTE');
       if (!existing.columns.length && cte.fields.length) {
         existing.columns = cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS);
       }
@@ -340,8 +361,9 @@ function buildGraphTables(baseTables: TableNode[], ctes: CTE[]): TableNode[] {
       id: toNodeId(cte.name),
       name: cte.name,
       columns: cte.fields.slice(0, SQL_ANALYZER_LIMITS.MAX_COLUMNS),
-      isCTE: true,
+      sourceType: 'CTE',
     };
+    setSourceType(node, 'CTE');
     tables.push(node);
     byName.set(key, node);
   });
@@ -367,8 +389,9 @@ function buildGraphJoins(baseJoins: JoinEdge[], tables: TableNode[], ctes: CTE[]
       id: toNodeId(name),
       name,
       columns: [],
-      isCTE: cteNames.has(key),
+      sourceType: cteNames.has(key) ? 'CTE' : 'TABLE',
     };
+    setSourceType(node, node.sourceType);
     tables.push(node);
     byName.set(key, node);
     return node;
@@ -431,17 +454,18 @@ function extractTables(sql: string): TableNode[] {
     const alias = match[2]?.replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
     const normalizedName = rawName.toUpperCase();
     if (SQL_KEYWORDS.has(normalizedName) || normalizedName.length === 0) continue;
-    const key = rawName.toUpperCase();
-    if (!tables.has(key)) {
-      tables.set(key, {
-        id: `table-${rawName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+    const sourceKey = rawName.toUpperCase();
+    const occurrenceKey = `${sourceKey}|${alias?.toUpperCase() ?? ''}`;
+    if (!tables.has(occurrenceKey)) {
+      tables.set(occurrenceKey, {
+        id: toNodeId(rawName, alias),
         name: rawName,
         alias:
           alias && !SQL_KEYWORDS.has(alias.toUpperCase()) && alias.toUpperCase() !== normalizedName
             ? alias
             : undefined,
         columns: extractColumnsForTable(sql, alias || rawName),
-        isCTE: cteNames.has(key),
+        sourceType: cteNames.has(sourceKey) ? 'CTE' : 'TABLE',
       });
     }
   }
@@ -516,18 +540,17 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   const ensureTable = (name: string, alias?: string): TableNode => {
     const normalizedName = name.toLowerCase();
     const normalizedAlias = alias?.toLowerCase();
-    const existing = tables.find(
-      (table) =>
-        table.name.toLowerCase() === normalizedName ||
-        Boolean(normalizedAlias && table.alias?.toLowerCase() === normalizedAlias)
-    );
+    const existing =
+      (normalizedAlias && tables.find((table) => table.alias?.toLowerCase() === normalizedAlias)) ||
+      tables.find((table) => table.name.toLowerCase() === normalizedName);
     if (existing) return existing;
 
     const table: TableNode = {
-      id: toNodeId(name),
+      id: toNodeId(name, alias),
       name,
       alias: alias || undefined,
       columns: extractColumnsForTable(sql, alias || name),
+      sourceType: 'TABLE',
     };
     tables.push(table);
     return table;
@@ -1311,10 +1334,17 @@ function ensureDerivedTableNode(
   const key = name.toLowerCase();
   const existing = tables.find((t) => t.name.toLowerCase() === key || t.alias?.toLowerCase() === key);
   if (existing) {
-    existing.isSubquery = true;
+    setSourceType(existing, 'SUBQUERY');
     return existing;
   }
-  const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: true };
+  const node: TableNode = {
+    id: toNodeId(name),
+    name,
+    alias,
+    columns: [],
+    sourceType: 'SUBQUERY',
+  };
+  setSourceType(node, 'SUBQUERY');
   tables.push(node);
   return node;
 }
@@ -1535,8 +1565,12 @@ function computeMetrics(
     distinct: metricDetails.distinct.length,
     having: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified: use report's conditionCount if available or logic to split
     where: report.conditionCount > 0 ? report.conditionCount : 0, // Simplified
-    subqueryDepth: computeSubqueryDepth(report.subqueries || []),
-    subqueryCount: report.subqueryCount,
+    // Canonical subquery metrics derive directly from metricDetails.subqueries
+    // (the single extracted collection), NOT from StructuralAnalysisReport.subqueryCount.
+    // This guarantees metrics.subqueryCount === metricDetails.subqueries.length
+    // at all times, per data-model.md FR-003/FR-004.
+    subqueryDepth: computeSubqueryDepth(metricDetails.subqueries),
+    subqueryCount: metricDetails.subqueries.length,
     conditionCount: report.conditionCount,
     operationAndFunctionCount: report.operationAndFunctionCount,
     lineCount: report.lineCount,
@@ -1762,11 +1796,18 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
           Boolean(normalizedAlias && t.alias?.toLowerCase() === normalizedAlias)
       );
       if (existing) {
-        if (isDerived) existing.isSubquery = true;
+        if (isDerived) setSourceType(existing, 'SUBQUERY');
         return existing;
       }
 
-      const node: TableNode = { id: toNodeId(name), name, alias, columns: [], isSubquery: isDerived };
+      const node: TableNode = {
+        id: toNodeId(name),
+        name,
+        alias,
+        columns: [],
+        sourceType: isDerived ? 'SUBQUERY' : 'TABLE',
+      };
+      setSourceType(node, node.sourceType);
       tables.push(node);
       return node;
     };
@@ -2742,107 +2783,38 @@ function extractMainQueryFields(
 }
 
 export function extractMyBatisParams(xml: string): string[] {
-  return collectMyBatisParams(xml);
+  return collectReferencePaths(parseMapperXml(xml));
 }
 
+/**
+ * Legacy resolve surface (FR-038, research R9): the first mapped statement
+ * rendered with the supplied values. The quoted-literal convention and the
+ * reference-own-name stand-in come from the shared pipeline, so the legacy
+ * path and the page describe the same SQL.
+ */
 export function resolveMyBatisParams(xml: string, params: Record<string, string>): string {
-  const { sql } = parseMyBatisXml(xml);
-  let resolved = sql;
-  for (const [key, value] of Object.entries(params)) {
-    const escapedKey = escapeRegExp(key);
-    const quotedValue = toSqlTextLiteral(value || key);
-    resolved = resolved.replace(new RegExp(`[#$]\\{${escapedKey}\\}`, 'g'), quotedValue);
-  }
-  return resolved.trim();
+  const model = parseMapperXml(xml);
+  const statement = model.statements[0];
+  if (!statement) return '';
+  return resolveStatement(model, statement.key, params, 'mysql').sql;
 }
 
 /** Extract clean SQL and parameters from MyBatis XML content */
 export function parseMyBatisXml(xml: string): { sql: string; params: string[] } {
-  // Extract SQL body from MyBatis tags
-  const sqlMatch =
-    /<(?:select|insert|update|delete)[^>]*>([\s\S]*?)<\/(?:select|insert|update|delete)>/i.exec(
-      xml
-    );
-  if (!sqlMatch) return { sql: '', params: [] };
-
-  let sqlContent = sqlMatch[1];
-
-  // Extract parameters from #{} and ${} syntax (supports nested object paths like args.param1)
-  const params = collectMyBatisParams(xml);
-
-  // Remove <if> tag conditions, keeping only the inner SQL
-  sqlContent = sqlContent.replace(/<if\s+test="[^"]*">\s*/gi, '');
-  sqlContent = sqlContent.replace(/<\/if\s*>/gi, '');
-
-  // Remove other MyBatis tags
-  sqlContent = sqlContent
-    .replace(/<(?:where|set|trim|foreach|choose|when|otherwise)[^>]*>/gi, '')
-    .replace(/<\/(?:where|set|trim|foreach|choose|when|otherwise)>/gi, '');
-
-  // Decode XML entities used in MyBatis SQL content.
-  sqlContent = decodeMyBatisXmlEntities(sqlContent);
-
-  // Clean up whitespace and SQL formatting
-  sqlContent = sqlContent
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('<!--'))
-    .join('\n');
-
-  return { sql: sqlContent, params };
-}
-
-const MYBATIS_PARAM_PATTERN = /[#$]\{([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)\}/g;
-
-function collectMyBatisParams(input: string): string[] {
-  const params: string[] = [];
-  let match;
-  while ((match = MYBATIS_PARAM_PATTERN.exec(input)) !== null) {
-    if (!params.includes(match[1])) params.push(match[1]);
-  }
-  return params;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function toSqlTextLiteral(value: string): string {
-  const trimmed = value.trim();
-  const unwrapped =
-    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-      ? trimmed.slice(1, -1)
-      : trimmed;
-  const escaped = unwrapped.replace(/'/g, "''");
-  return `'${escaped}'`;
-}
-
-function decodeMyBatisXmlEntities(sql: string): string {
-  return sql
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&');
+  const model = parseMapperXml(xml);
+  const statement = model.statements[0];
+  if (!statement) return { sql: '', params: [] };
+  // The legacy view of a plain statement: every tag dropped, every branch
+  // kept, references intact for the parameter editor, whitespace normalised.
+  return {
+    sql: normaliseSqlText(collectRawText(model, statement.key)),
+    params: collectReferencePaths(model),
+  };
 }
 
 /** Get conditional parameters from <if> tags in MyBatis XML */
 export function getConditionalParams(xml: string): Record<string, string> {
-  const conditionalParams: Record<string, string> = {};
-  const ifPattern = /<if\s+test="([^"]+)">/gi;
-  let match;
-
-  while ((match = ifPattern.exec(xml)) !== null) {
-    const condition = match[1];
-    // Extract parameter names from conditions like: "minAmount != null", "status != null"
-    const paramMatch = /(\w+)\s*!=\s*null/i.exec(condition);
-    if (paramMatch) {
-      conditionalParams[paramMatch[1]] = condition;
-    }
-  }
-
-  return conditionalParams;
+  return collectConditionalParams(parseMapperXml(xml));
 }
 
 // Strip all SQL comments (-- single-line and /* */ multi-line) from a string

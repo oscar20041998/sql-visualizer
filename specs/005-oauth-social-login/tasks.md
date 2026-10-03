@@ -60,7 +60,7 @@
 - [X] T006 [P] Implement OAuth callback URL parsing and state tracking in `src/lib/oauthUtils.ts` (or directly within `src/lib/demoAuth.ts`) to extract access tokens, CSRF state, and error fields from the callback.
 - [X] T007 Implement the **Interactive OAuth Mock Simulator**:
   - Create a custom interactive handler or a static simulator page/modal that opens when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is absent.
-  - Show a styled card allowing developers to select a mock Google profile (*Duy VT* or *Google Developer*) or click "Cancel".
+  - Show a styled card allowing developers to select a mock Google profile (*Duy Võ Thanh* or *Google Developer*) or click "Cancel".
   - On select, postMessage or return the mock callback parameters (access token, name, email, avatar, expiry).
 - [X] T008 Update the "Google" button in `src/app/page.tsx`:
   - Trigger the Google OAuth consent flow or mock simulator in a secure centered popup.
@@ -83,7 +83,7 @@
 
 ### Implementation for User Story 2
 
-- [X] T010 Extend the interactive mock simulator popup to support Microsoft profiles (*Duy VT* or *Microsoft Consultant*).
+- [X] T010 Extend the interactive mock simulator popup to support Microsoft profiles (*Duy Võ Thanh* or *Microsoft Consultant*).
 - [X] T011 Update the "Microsoft" button in `src/app/page.tsx`:
   - Trigger the Microsoft OAuth consent flow (using `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`) or mock simulator in a popup.
   - Show loading state and handle popup blocker fallbacks identically to Google.

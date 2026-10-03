@@ -27,6 +27,8 @@ import {
   type AIProvider,
 } from '@/lib/ai/aiProviders';
 import { DEFAULT_SPEECH_GENDER } from '@/lib/ai/aiSpeech';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 import { getT } from '@/lib/i18n';
 import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import Icon from '@/components/ui/AppIcon';
@@ -34,15 +36,18 @@ import Icon from '@/components/ui/AppIcon';
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${checked ? 'bg-primary' : 'bg-muted'
-        }`}
+      className={`group relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+        checked ? 'bg-primary hover:brightness-110' : 'bg-muted hover:bg-border'
+      }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0.5'
-          }`}
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
       />
     </button>
   );
@@ -83,25 +88,35 @@ function SelectDropdown<T extends string>({
   return (
     <div className="relative">
       <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground hover:bg-muted transition-colors min-w-[200px] justify-between"
+        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground shadow-sm hover:border-primary/50 hover:bg-muted transition-all duration-150 min-w-[200px] justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
       >
-        <span>{current?.label}</span>
-        <ChevronDown size={13} className="text-muted-foreground" />
+        <span className="truncate">{current?.label}</span>
+        <ChevronDown
+          size={13}
+          className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-xl z-50 py-1 min-w-[220px] w-max max-w-[min(24rem,calc(100vw-2rem))] animate-slide-up">
+        <div className="animate-dropdown absolute right-0 top-full mt-1.5 bg-card border border-border rounded-xl shadow-2xl ring-1 ring-black/5 z-50 p-1 min-w-[220px] w-max max-w-[min(24rem,calc(100vw-2rem))] max-h-[min(20rem,60vh)] overflow-y-auto scrollbar-thin">
           {options.map((opt) => (
             <button
               key={`opt-${opt.value}`}
+              type="button"
               onClick={() => {
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className={`w-full whitespace-nowrap flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${value === opt.value
-                  ? 'text-primary bg-primary/10'
+              className={`w-full whitespace-nowrap flex items-center gap-2 px-2.5 py-2 text-sm text-left rounded-md transition-colors ${
+                value === opt.value
+                  ? 'text-primary bg-primary/10 font-medium'
                   : 'text-foreground hover:bg-muted'
-                }`}
+              }`}
             >
               {value === opt.value && <Check size={12} className="text-primary flex-shrink-0" />}
               {value !== opt.value && <span className="w-3" />}
@@ -275,6 +290,11 @@ export default function SettingsContent() {
     graph: t.settingsGraph,
     ai: t.settingsAI,
   };
+
+  // Declared after the labels so the notice has its i18n string; the hook itself only needs the id.
+  // `sql-explainer` is representative: if a guest may not configure that, configuring any provider
+  // is pointless (specs/013 US2).
+  const isAiLocked = useCapabilityLock('sql-explainer');
 
   // Fill in translated labels for options
   const layoutOptionsTranslated = [
@@ -463,6 +483,22 @@ export default function SettingsContent() {
               {/* AI Model Configuration */}
               {activeCategory === 'ai' && (
                 <div>
+                  {/*
+                    A guest cannot reach any AI feature, so configuring a provider would be
+                    meaningless — worse, it invites them to paste a credential for something that will
+                    still be refused. The non-AI settings above stay fully available.
+                  */}
+                  {isAiLocked && (
+                    <div className="mb-4">
+                      <LockedFeatureNotice t={t} featureName={t.settingsAI} />
+                    </div>
+                  )}
+                  {/* fieldset rather than per-input disabled: one wrapper keeps every control inert. */}
+                  <fieldset
+                    disabled={isAiLocked}
+                    aria-disabled={isAiLocked}
+                    className={isAiLocked ? 'opacity-60' : undefined}
+                  >
                   <SettingRow label={t.aiProvider} hint={t.aiProviderHint}>
                     <SelectDropdown
                       value={aiDraft.provider}
@@ -697,6 +733,7 @@ export default function SettingsContent() {
                       {t.aiConfigSave}
                     </button>
                   </div>
+                  </fieldset>
                 </div>
               )}
             </div>

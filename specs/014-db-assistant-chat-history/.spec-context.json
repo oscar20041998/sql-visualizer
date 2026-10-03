@@ -1,0 +1,32 @@
+{
+    "workflow":  "speckit",
+    "specName":  "Database AI Assistant — Persistent Conversation History",
+    "branch":  "duyvt7",
+    "currentStep":  "tasks",
+    "status":  "ready-to-implement",
+    "history":  [
+                    {
+                        "step":  "specify",
+                        "substep":  null,
+                        "kind":  "start",
+                        "by":  "extension",
+                        "at":  "2026-09-28T15:22:32.749Z"
+                    },
+                    {
+                        "step":  "plan",
+                        "substep":  null,
+                        "kind":  "complete",
+                        "by":  "extension",
+                        "at":  "2026-09-28T16:02:39.687Z"
+                    },
+                    null,
+                    {
+                        "step":  "tasks",
+                        "by":  "extension",
+                        "at":  "2026-10-01T14:10:51.700Z",
+                        "substep":  null,
+                        "kind":  "complete"
+                    }
+                ],
+    "telemetryInstanceId":  "a33a4b8b-5216-413b-ae5a-3e35850253da"
+}

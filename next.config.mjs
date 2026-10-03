@@ -26,6 +26,13 @@ const nextConfig = {
   // sherpa-onnx-node (local read-aloud) is a native addon: webpack cannot bundle a .node binary,
   // so the speech route has to require it from node_modules at runtime.
   serverExternalPackages: ['sherpa-onnx-node'],
+  // The /readme and /confluence routes read Markdown at runtime from the filesystem. The filenames
+  // come from a Record, so Next's static analysis cannot follow them and would leave the files out
+  // of a standalone/`output: 'export'` build — the routes would then throw ENOENT in production.
+  outputFileTracingIncludes: {
+    '/readme': ['./README.md', './README_VI.md'],
+    '/confluence': ['./docs/confluence/*.md'],
+  },
   webpack(
     config,
     {

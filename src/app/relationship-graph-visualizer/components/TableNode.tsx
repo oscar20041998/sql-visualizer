@@ -14,7 +14,7 @@ export interface TableNodeData extends TableNodeType {
 }
 
 const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeData }) {
-  const { name, alias, columns, isCTE, isHighlighted, isSelected, nodeColor, isSimplified } = data;
+  const { name, alias, columns, sourceType, isHighlighted, isSelected, nodeColor, isSimplified } = data;
   const theme = data.theme ?? 'dark';
   const isLight = theme === 'light';
 
@@ -22,13 +22,16 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
   const bodyText = isLight ? '#334155' : '#cbd5e1';
   const subText = isLight ? '#64748b' : '#94a3b8';
   const mutedText = isLight ? '#94a3b8' : '#64748b';
-  const tableType = isCTE ? 'CTE' : 'TABLE';
+  const tableType = sourceType;
+  const accessibleName = `${name}, ${sourceType}${alias ? `, alias ${alias}` : ''}`;
   const totalFields = columns.length;
 
   // Simplified render for large graphs (60+ nodes)
   if (isSimplified) {
     return (
       <div
+        aria-label={accessibleName}
+        role="img"
         style={{
           background: cardBg,
           border: `2px solid ${isSelected ? nodeColor : isHighlighted ? nodeColor + 'cc' : nodeColor + '66'}`,
@@ -79,6 +82,8 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
   // Full render for normal mode
   return (
     <div
+      aria-label={accessibleName}
+      role="img"
       style={{
         background: cardBg,
         border: `2px solid ${isSelected ? nodeColor : isHighlighted ? nodeColor + 'cc' : nodeColor + '66'}`,

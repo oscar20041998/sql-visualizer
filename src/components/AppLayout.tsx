@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import Sidebar from '@/components/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { GlobalChat } from '@/components/GlobalChat';
-import LoadingOverlay from '@/components/ui/LoadingOverlay';
-import { getSocialSession, isDemoAuthenticated, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
+import RouteProgressBar from '@/components/ui/RouteProgressBar';
+import { getSocialSession, isDemoAuthenticated, isGuestSession, SOCIAL_AUTH_STORAGE_KEY } from '@/lib/demoAuth';
 import { getT } from '@/lib/i18n';
 
 interface AppLayoutProps {
@@ -54,15 +54,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const accentColor = useAppStore((s) => s.settings.accentColor);
   const navigationTarget = useAppStore((s) => s.navigationTarget);
   const completeNavigation = useAppStore((s) => s.completeNavigation);
+  const cancelNavigation = useAppStore((s) => s.cancelNavigation);
   // null = unknown (SSR/pre-hydration), true = signed in. Mirrors the
   // query-input gate pattern: render nothing until the check completes,
   // so protected content never flashes for signed-out visitors.
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  // A browser back/forward navigation runs no in-app handler, so nothing calls `beginNavigation`
+  // and the store never learns about it. `popstate` is the signal that such a navigation started;
+  // the pathname effect below retires it once the route has actually moved.
+  const [isRestoringHistory, setIsRestoringHistory] = useState(false);
+
+  useEffect(() => {
+    const handlePopState = () => setIsRestoringHistory(true);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    setIsRestoringHistory(false);
+  }, [pathname]);
 
   useEffect(() => {
     const hadStoredSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
     const staleSession = hadStoredSession && !getSocialSession();
-    if (!isDemoAuthenticated() || staleSession) {
+    // A guest is admitted too (FR-008, task T019): the workspace shell is what they were promised
+    // on confirming the disclosure, and the AI routes refuse independently at the server boundary.
+    // Only a signed-out visitor with no guest marker is bounced to /login.
+    if ((!isDemoAuthenticated() && !isGuestSession()) || staleSession) {
       if (staleSession) {
         toast.info(getT(locale).authSessionExpiredMessage);
       }
@@ -91,11 +109,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
     root.style.setProperty('--primary-foreground', theme === 'dark' ? '#0d1117' : '#ffffff');
   }, [theme, accentColor]);
 
+  // Settles an in-progress route change so the loading overlay cannot outlive it.
+  //
+  // The overlay is driven by `navigationTarget`, and the store's `completeNavigation` refuses to
+  // clear it unless the target equals the current path. That is only safe when every caller of
+  // `beginNavigation` lives under this layout — but the public pages set it too (the home page and
+  // `/login` both call `beginNavigation` before pushing), and those routes render no AppLayout at
+  // all. A target set there was therefore never cleared, leaving `navigationTarget` non-null after
+  // the user reached a workspace page. The overlay renders `fixed inset-0 z-50`, so it silently
+  // swallowed every click and no navigation worked again — the reported "cannot change page".
+  //
+  // Two things are needed, and both are here: the target must be settled once the path actually
+  // moves (first branch), and a target that can never match — a leftover pointing somewhere else —
+  // must be dropped rather than held forever (second branch).
   useEffect(() => {
-    if (navigationTarget !== pathname) return;
-    const frame = requestAnimationFrame(() => completeNavigation(pathname));
+    if (navigationTarget === null) return;
+    // The destination is reached: settle the normal way so the indicator reflects a real arrival.
+    if (navigationTarget === pathname) {
+      const frame = requestAnimationFrame(() => completeNavigation(pathname));
+      return () => cancelAnimationFrame(frame);
+    }
+    // A target we are no longer heading to — set by a page outside this shell — would otherwise
+    // hold the overlay open forever. Give the route change one frame to land, then drop it.
+    const frame = requestAnimationFrame(() => cancelNavigation());
     return () => cancelAnimationFrame(frame);
-  }, [completeNavigation, navigationTarget, pathname]);
+  }, [cancelNavigation, completeNavigation, navigationTarget, pathname]);
 
   // Auth gate: signed-out users never see protected content (not even a
   // flash) — nothing renders until the check passes, mirroring query-input.
@@ -104,7 +142,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
-      <LoadingOverlay visible={navigationTarget !== null} title="Loading..." />
+      <RouteProgressBar active={navigationTarget !== null || isRestoringHistory} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">
           <div className="min-h-full grid-bg">{children}</div>

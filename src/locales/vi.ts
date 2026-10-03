@@ -16,11 +16,64 @@ const vi = {
 
   // Query Input
   queryInputTitle: 'Nhập & Cấu hình truy vấn',
-  queryInputSubtitle: 'Dán SQL hoặc nhập MyBatis XML để bắt đầu phân tích',
+  workflowStepsLabel: 'Quy trình phân tích truy vấn',
+  workflowStepInput: 'Nhập truy vấn',
+  workflowStepConfigure: 'Cấu hình tham số',
+  workflowStepReview: 'Xem lại SQL',
+  workflowStepAnalyze: 'Phân tích',
+  inputMethodLabel: 'Phương thức nhập',
   tabPasteSQL: 'Dán SQL trực tiếp',
   tabMyBatisContent: 'Dán nội dung XML của bạn',
   tabImportMyBatis: 'Tải tệp MyBatis (XML)',
   tabSmartEditor: 'Trình soạn thảo thông minh',
+  tabCodeGenerator: 'SQL → Trình tạo mã',
+  generatorLanguage: 'Ngôn ngữ',
+  generatorSqlInput: 'SQL để tạo mã',
+  generatorGenerate: 'Tạo mã',
+  generatorRegenerate: 'Tạo lại',
+  generatorReset: 'Đặt lại',
+  generatorGeneratedCode: 'Mã Java đã tạo',
+  generatorDiagnostics: 'Thông báo khi tạo mã',
+  generatorClassification: 'Phân loại SQL',
+  generatorClassifiedAs: 'Được phân loại là',
+  generatorRecommendedOutput: 'Đầu ra đề xuất',
+  generatorNoOutput: 'Không khả dụng',
+  generatorChoiceRequired: 'Xem lại cấu trúc SQL trước khi chọn đầu ra.',
+  'generatorClass_table-definition': 'Định nghĩa bảng',
+  'generatorClass_select-entity-like': 'SELECT dạng Entity',
+  'generatorClass_select-dto': 'SELECT dạng DTO',
+  'generatorClass_select-aggregation': 'SELECT tổng hợp',
+  'generatorClass_select-join': 'SELECT có JOIN',
+  generatorClass_insert: 'Câu lệnh INSERT',
+  generatorClass_update: 'Câu lệnh UPDATE',
+  generatorClass_delete: 'Câu lệnh DELETE',
+  generatorClass_unknown: 'Câu lệnh chưa xác định',
+  generatorCopy: 'Sao chép',
+  generatorDownload: 'Tải xuống',
+  generatorCopied: 'Đã sao chép mã nguồn.',
+  generatorCopyFailed: 'Không thể sao chép mã nguồn.',
+  generatorDownloaded: 'Đã tải xuống tệp Java.',
+  generatorFramework: 'Framework',
+  generatorFrameworkJpa: 'JPA / Hibernate',
+  generatorOutputType: 'Loại đầu ra',
+  generatorNamingStrategy: 'Quy tắc đặt tên',
+  generatorLombok: 'Dùng Lombok cho getter/setter',
+  generatorRelationships: 'Bao gồm quan hệ FK tường minh',
+  generatorValidation: 'Annotation kiểm tra theo schema',
+  generatorMyBatisMapper: 'Sinh interface MyBatis @Mapper',
+  generatorOutputFiles: 'Các tệp Java được tạo',
+  generatorAuto: 'Tự động',
+  generatorEntity: 'Entity',
+  generatorDto: 'DTO / Projection',
+  generatorJavaJpa: 'Java / JPA',
+  generatorPlannedCsharp: 'C# / EF Core (dự kiến)',
+  generatorPlannedPython: 'Python / SQLAlchemy (dự kiến)',
+  generatorPlannedTypescript: 'TypeScript / TypeORM (dự kiến)',
+  generatorPlannedGo: 'Go / GORM (dự kiến)',
+  generatorPlannedKotlin: 'Kotlin / JPA (dự kiến)',
+  generatorNamingCamelCase: 'camelCase',
+  generatorNamingPascalCase: 'PascalCase',
+  generatorNamingPreserve: 'Giữ tên SQL',
   dialectLabel: 'Phương ngữ SQL',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -29,7 +82,16 @@ const vi = {
   sqlPlaceholder: 'Dán truy vấn SQL của bạn vào đây...',
   myBatisPlaceholder: 'Dán nội dung MyBatis XML của bạn vào đây...',
   parametersTitle: 'Cấu hình tham số',
-  parametersSubtitle: 'Điền giá trị để giải quyết các tham số động',
+  parametersSubtitle: 'Điền giá trị để tạo SQL cuối cùng sẽ được phân tích',
+  parametersRequiredHint: 'Cần điền giá trị để giải quyết SQL cuối cùng trước khi phân tích.',
+  parametersSearchLabel: 'Tìm tham số đã phát hiện',
+  parametersSearchPlaceholder: 'Tìm tham số...',
+  parametersSearchClear: 'Xóa tìm kiếm tham số',
+  parametersEmptyMatch: 'Không có tham số nào khớp "{query}".',
+  parametersVisibleCount: 'Hiển thị {visible}/{total} tham số',
+  parametersNoneTitle: 'Không phát hiện tham số động',
+  parametersNoneHint:
+    'XML này không có placeholder #{...} nên SQL bên phải đã sẵn sàng để phân tích.',
   paramDetected: 'tham số được phát hiện',
   noParams: 'Không phát hiện tham số động trong XML này',
   noParamsFound: 'Không tìm thấy tham số',
@@ -38,6 +100,7 @@ const vi = {
   parameterValuePrefix: 'giá trị cho',
   analyzeButton: 'Phân tích truy vấn',
   analyzing: 'Đang phân tích...',
+  routeLoading: 'Đang tải trang',
   parsingSQL: 'Đang phân tích cấu trúc SQL...',
   analysisCompleteMessage: 'Phân tích hoàn tất — {tables} bảng, {joins} kết nối được phát hiện',
   parseErrorMessage: 'Không thể phân tích truy vấn. Kiểm tra cú pháp SQL.',
@@ -61,6 +124,30 @@ const vi = {
   sqlResolved: 'SQL đã giải quyết',
   sqlReview: 'Xem lại SQL',
   sqlEditor: 'Trình soạn thảo SQL',
+  previewHint: 'Đây là SQL cuối cùng sẽ được phân tích.',
+  previewCopyLabel: 'Sao chép SQL',
+  previewEmptySqlHint: 'Dán truy vấn vào khung nhập bên trái để xem lại trước khi phân tích.',
+  previewEmptyResolvedHint:
+    'Tải tệp MyBatis XML và điền các tham số được phát hiện để tạo SQL cuối cùng.',
+  sqlInputPanelTitle: 'Nhập SQL',
+  sqlInputPanelHint: 'Dán câu lệnh SQL bạn muốn phân tích.',
+  myBatisPanelTitle: 'Nhập MyBatis XML',
+  myBatisPanelHint: 'Tải lên hoặc dán XML chứa câu lệnh cần phân tích.',
+  myBatisDropTitle: 'Kéo tệp XML vào đây hoặc bấm để chọn tệp',
+  myBatisDropHint: 'Tham số sẽ được phát hiện tự động ngay sau khi tải tệp.',
+  myBatisCurrentFileLabel: 'Tệp hiện tại',
+  myBatisRemoveFile: 'Xóa XML',
+  myBatisFileImported: 'Đã nhập "{file}". Tham số phát hiện được liệt kê bên dưới.',
+  myBatisFileReadError: 'Không thể đọc tệp XML. Vui lòng chọn tệp .xml hợp lệ và thử lại.',
+  analyzeHint: 'Kiểm tra truy vấn, chấm điểm độ phức tạp và mở bảng chỉ số trong một bước.',
+  findingsWarningCountOne: '1 cảnh báo',
+  findingsWarningCountOther: '{count} cảnh báo',
+  findingsErrorCountOne: '1 lỗi',
+  findingsErrorCountOther: '{count} lỗi',
+  severityError: 'Lỗi',
+  severityWarning: 'Cảnh báo',
+  dismissFinding: 'Bỏ qua cảnh báo',
+  tipsTitle: 'Mẹo',
 
   // Tips
   tipCTE: 'Sử dụng WITH...AS cho CTE để phân tích CTE đầy đủ',
@@ -75,6 +162,7 @@ const vi = {
   graphFilterAll: 'Tất cả',
   graphFilterCte: 'Quan hệ CTE',
   graphFilterTable: 'Quan hệ bảng',
+  graphFilterSubquery: 'Quan hệ truy vấn con',
   noGraph: 'Không có biểu đồ để hiển thị',
   noGraphHint: 'Phân tích truy vấn trước để xem biểu đồ quan hệ',
   tableCount: 'Bảng',
@@ -187,7 +275,7 @@ const vi = {
   metricsFunctionsInsideOn: 'Hàm bên trong ON',
   metricsNonEquiOn: 'ON không bằng',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
-  metricsFieldExtractionSummaryTitle: 'Tóm tắt trích xuất trường',
+  metricsFieldExtractionSummaryTitle: 'Tổng hợp các trường được trích xuất',
   metricsFieldExpressionHeader: 'Biểu thức',
   metricsFieldAliasHeader: 'Bí danh',
   metricsFieldTypeHeader: 'Loại',
@@ -257,6 +345,8 @@ const vi = {
   complexityFactorsReconciled: 'Tổng hiển thị',
   complexityFactorsJoinsConsistent: 'Điểm JOIN nhất quán',
   complexityFactorsJoinsMismatch: 'Điểm JOIN không khớp',
+  complexityFactorsSubqueriesConsistent: 'Số lượng subquery nhất quán',
+  complexityFactorsSubqueriesMismatch: 'Số lượng subquery không khớp',
   complexityKeywordFrom: 'FROM',
   complexityKeywordWhere: 'WHERE',
   complexityKeywordDistinct: 'DISTINCT',
@@ -648,6 +738,8 @@ const vi = {
   guidelineQuickRefSettings: 'Cài đặt',
   guidelineQuickRefAiExplainer: 'AI Diễn Giải SQL',
   guidelineQuickRefDbAssistant: 'Trợ lý AI Cơ sở dữ liệu',
+  guidelineQuickRefChatHistory: 'Lịch sử hội thoại',
+  guidelineQuickRefCodeGen: 'SQL → Trình sinh mã',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Chuyển tối / sáng',
@@ -672,6 +764,40 @@ const vi = {
 
   // Complexity Scoring - Dashboard
   complexityDashboardTitle: 'Bảng điều khiển độ phức tạp',
+  analysisHealthTitle: 'Sức khỏe truy vấn',
+  analysisHealthUnavailable: 'Không có điểm phức tạp cho phân tích này.',
+  analysisHealthScoreLabel: 'Độ phức tạp chuẩn hóa',
+  analysisHealthFindings: 'Phát hiện',
+  analysisFindingErrors: 'Lỗi',
+  analysisFindingWarnings: 'Cảnh báo',
+  analysisLoadingTitle: 'Đang phân tích…',
+  analysisLoadingHint: 'Bảng điều khiển sẽ cập nhật ngay khi phân tích xong.',
+  analysisErrorTitle: 'Phân tích thất bại',
+  analysisRetry: 'Thử lại',
+  analysisAdvancedTitle: 'Chi tiết nâng cao',
+  analysisAdvancedRawScore: 'Điểm thô',
+  analysisAdvancedDenominator: 'Mẫu số động',
+  analysisAdvancedPercentage: 'Tỷ lệ so với mẫu số',
+  analysisAdvancedRuleIds: 'Mã quy tắc',
+  analysisAdvancedScoring: 'Chấm điểm',
+  analysisAdvancedParserMeta: 'Siêu dữ liệu trình phân tích',
+  analysisAdvancedEngine: 'Engine phân tích cú pháp',
+  analysisAdvancedDialect: 'Dialect',
+  analysisAdvancedKeywords: 'Số từ khóa trong engine',
+  analysisAdvancedPatterns: 'Số mẫu regex',
+  analysisAdvancedMaxColumns: 'Số cột tối đa được trích',
+  analysisAdvancedMaxCteRefs: 'Số tham chiếu trường CTE tối đa',
+  analysisAdvancedAstUnavailable:
+    'Thống kê AST không khả dụng cho câu lệnh này — không tạo được AST để phân tích cho dialect của nó.',
+  analysisAdvancedAst: 'Cấu trúc AST',
+  analysisAdvancedAstNodes: 'Số nút AST',
+  analysisAdvancedAstStatementKind: 'Loại câu lệnh đã phân tích',
+  analysisAdvancedAstCteCount: 'Số khai báo CTE',
+  analysisAdvancedAstCteDepth: 'Độ sâu lồng nhau CTE tối đa',
+  analysisAdvancedAstSubqueryDepth: 'Độ sâu subquery tối đa',
+  analysisAdvancedAstNodeTypes: 'Số nút theo từng loại',
+  analysisAdvancedAstOperators: 'Số lần xuất hiện toán tử',
+  analysisAdvancedAstFunctions: 'Số lần xuất hiện hàm',
   complexityScore: 'Điểm số',
   complexityProgressBar: 'Tiến trình',
   complexityKeywordsAndClauses: 'Từ khóa & Mệnh đề',
@@ -1212,6 +1338,8 @@ const vi = {
   emptyQueryError: 'Truy vấn trống. Vui lòng nhập hoặc dán SQL để phân tích.',
   smartEditorFormatting: 'Đang định dạng...',
   smartEditorFormat: 'Định dạng',
+  smartEditorFormatResultLabel: 'Kết quả',
+  smartEditorEmptySqlHint: 'Chưa có gì để định dạng — hãy nhập hoặc tải SQL.',
   smartEditorNoChangesToCompare: 'Không có thay đổi để so sánh',
   smartEditorCompare: 'So sánh',
   smartEditorEditorView: 'Chế độ xem trình soạn thảo',
@@ -1234,6 +1362,62 @@ const vi = {
   smartEditorModifiedSummary: 'Đã sửa đổi từ gốc',
   smartEditorNoChangesSummary: 'Không có thay đổi từ gốc',
   copiedToClipboard: 'Đã sao chép vào bộ nhớ tạm',
+
+  // Smart Editor - Format Error Diagnostics panel (spec 012)
+  formatErrorPanelTitle: 'Báo cáo lỗi định dạng',
+  formatErrorPanelSubtitle: 'Trình định dạng không thể phân tích truy vấn này.',
+  formatErrorPanelOpen: 'Mở báo cáo lỗi định dạng',
+  formatErrorPanelClose: 'Đóng báo cáo lỗi định dạng',
+  formatErrorPanelToggleCollapse: 'Thu gọn báo cáo lỗi',
+  formatErrorPanelToggleExpand: 'Mở rộng báo cáo lỗi',
+  formatErrorPanelSeverity: 'Lỗi',
+  formatErrorRegionLabel: 'Vùng lỗi',
+  formatErrorRegionSourceFormatter: 'do trình định dạng báo',
+  formatErrorRegionSourceAstParser: 'do bộ phân tích kiểm chéo báo',
+  formatErrorPanelDialectLabel: 'Phương ngữ',
+  formatErrorPanelOccurredAtLabel: 'Thời điểm',
+  formatErrorPanelLocationLabel: 'Vị trí',
+  formatErrorPanelLocationValue: 'Dòng {line}, cột {column}',
+  formatErrorPanelOffsetValue: 'Ký tự {offset}',
+  formatErrorPanelSnippetLabel: 'Ngữ cảnh',
+  formatErrorPanelMessageLabel: 'Chi tiết',
+  formatErrorPanelEditorUnchanged: 'SQL của bạn được giữ nguyên.',
+  formatErrorPanelExplain: 'Giải thích bằng AI',
+  formatErrorPanelExplainRunning: 'Đang giải thích…',
+  formatErrorPanelFix: 'Đề xuất cách sửa',
+  formatErrorPanelFixRunning: 'Đang tạo cách sửa…',
+  formatErrorPanelExplainSectionTitle: 'Giải thích từ AI',
+  formatErrorPanelRootCauseLabel: 'Nguyên nhân gốc',
+  formatErrorPanelEvidenceLabel: 'Căn cứ',
+  formatErrorPanelFixSectionTitle: 'Cách sửa đề xuất',
+  formatErrorPanelFixBeforeLabel: 'Trước',
+  formatErrorPanelFixAfterLabel: 'Sau',
+  formatErrorPanelCopyFix: 'Sao chép',
+  formatErrorPanelCopyFixDone: 'Đã sao chép cách sửa được đề xuất',
+  formatErrorPanelApplyFix: 'Áp dụng cách sửa',
+  formatErrorPanelDismissFix: 'Bỏ qua',
+  formatErrorPanelRetry: 'Thử lại',
+  formatErrorPanelLoading: 'Đang chờ mô hình cục bộ…',
+  formatErrorPanelAiUnavailableTitle: 'AI cục bộ không khả dụng',
+  formatErrorPanelAiUnavailable:
+    'Không thể kết nối mô hình Ollama cục bộ. Hãy khởi động Ollama, kiểm tra mô hình đã cấu hình trong Cài đặt đã được cài đặt, rồi thử lại.',
+  formatErrorPanelAiErrorTitle: 'Yêu cầu AI thất bại',
+  formatErrorPanelAiMalformed:
+    'Mô hình cục bộ trả về kết quả không dùng được. Hãy thử lại, hoặc chọn một mô hình cục bộ mạnh hơn trong Cài đặt.',
+  formatErrorPanelStale:
+    'SQL đã thay đổi kể từ khi cách sửa này được tạo. Hãy yêu cầu cách sửa mới để tiếp tục.',
+  formatErrorPanelInvalidFix:
+    'SQL được đề xuất vẫn không định dạng được. Cách sửa đã không được áp dụng — hãy yêu cầu cách sửa khác.',
+  formatErrorPanelFixApplied: 'Đã áp dụng và định dạng thành công cách sửa được đề xuất',
+  formatErrorPanelFixDismissed: 'Đã bỏ qua cách sửa được đề xuất',
+  formatErrorPanelFixNoChange: 'Mô hình trả về đúng SQL cũ, nên không có gì để áp dụng.',
+  formatErrorPanelFixOutOfRange:
+    'Bản sửa này vượt ra ngoài vị trí lỗi nên chưa được áp dụng. Hãy yêu cầu một bản sửa cục bộ hơn.',
+  formatErrorPanelAppliedRange: 'Phạm vi ký tự đã áp dụng',
+  formatErrorPanelFixNoRegion:
+    'Không xác định được vị trí lỗi, nên không thể áp dụng bản sửa một cách an toàn.',
+  formatErrorPanelEmptyQuery: 'Không có SQL để chẩn đoán.',
+  formatErrorPanelResizeHandle: 'Thay đổi kích thước bảng báo cáo lỗi',
 
   // Guideline - AI Speech Section
   guidelineAiSpeechTitle: 'AI Chuyển văn bản thành giọng nói',
@@ -1269,6 +1453,25 @@ const vi = {
     'Việc minh chứng yêu cầu Ollama đang chạy cục bộ với mô hình embedding "all-minilm" đã được tải về, không phụ thuộc vào nhà cung cấp nào bạn dùng để tạo câu trả lời.',
   guidelineDbAssistantTip2:
     'Nếu không có minh chứng, trợ lý vẫn trả lời bằng kiến thức chung của mô hình — không có gì bị lỗi, chỉ là dòng Nguồn tham khảo sẽ không xuất hiện.',
+
+  // Guideline - Database AI Assistant Chat History Section (spec 014)
+  guidelineChatHistoryTitle: 'Lịch sử hội thoại Database AI Assistant',
+  guidelineChatHistorySubtitle:
+    'Lịch sử nhiều cuộc trò chuyện, bền vững, có thể tìm kiếm, đổi tên và quản lý',
+  guidelineChatHistoryStep1Label: 'Hội thoại vẫn còn sau khi tải lại',
+  guidelineChatHistoryStep1Desc:
+    'Đặt câu hỏi cho Trợ lý AI Cơ sở dữ liệu, sau đó tải lại trang, điều hướng sang trang khác rồi quay lại, hoặc khởi động lại trình duyệt. Đúng cuộc trò chuyện đó hiện ra y như bạn rời đi — câu hỏi, câu trả lời và nhãn nguồn vẫn nguyên vẹn — không phải hỏi lại.',
+  guidelineChatHistoryStep2Label: 'Duyệt và tìm kiếm trong thanh bên',
+  guidelineChatHistoryStep2Desc:
+    'Mở bảng lịch sử để xem mọi cuộc trò chuyện đã lưu, được nhóm theo tính gần đây (Hôm nay, Hôm qua, 7 ngày trước, Cũ hơn). Tìm theo tiêu đề cuộc trò chuyện hoặc theo nội dung câu hỏi bạn đã đặt để quay lại chủ đề ngay.',
+  guidelineChatHistoryStep3Label: 'Đổi tên, xóa hoặc xóa toàn bộ',
+  guidelineChatHistoryStep3Desc:
+    'Đặt tiêu đề rõ ràng hơn cho một cuộc trò chuyện, xóa một cuộc trò chuyện, hoặc xóa toàn bộ lịch sử. Mọi thay đổi được lưu ngay lập tức, và nút Chat mới sẽ bắt đầu một cuộc trò chuyện mới mà không làm mất các cuộc trò chuyện trước đó.',
+  guidelineChatHistoryTip1:
+    'Lịch sử được lưu trên thiết bị của bạn và phân chia theo danh tính đã đăng nhập — mỗi tài khoản chỉ nhìn thấy các cuộc trò chuyện của chính mình.',
+  guidelineChatHistoryTip2:
+    'Khách và người chưa đăng nhập không có lịch sử lưu sẵn theo thiết kế: bảng vẫn hiển thị nhưng trống cho đến khi bạn đăng nhập và lưu một cuộc trò chuyện.',
+
   guidelineAdvancedFeaturesTitle: 'Các tính năng nâng cao & Cải tiến UI',
   guidelineAdvancedFeaturesSubtitle: 'Phân trang, tìm kiếm và khả năng tùy chỉnh mới',
   guidelineAdvancedFeaturesStep1Label: 'Bảng trường truy vấn chính với phân trang',
@@ -1295,6 +1498,42 @@ const vi = {
   guidelineAdvancedFeaturesTip4:
     'Tất cả các thành phần sử dụng sự chứa đựng CSS để có hiệu suất tối ưu và kết xuất nhanh hơn',
 
+  // Guideline - Format Error Diagnostics Section (spec 012)
+  guidelineFormatErrorTitle: 'Chẩn đoán lỗi định dạng bằng AI',
+  guidelineFormatErrorSubtitle:
+    'Bảng lỗi cố định kèm giải thích và đề xuất cách sửa bằng AI, chạy cục bộ',
+  guidelineFormatErrorStep1Label: 'Kích hoạt lỗi định dạng',
+  guidelineFormatErrorStep1Desc:
+    'Mở Smart SQL Editor và dán SQL mà trình định dạng không thể phân tích, rồi nhấn Format. Thay vì chỉ hiện toast thoáng qua, một bảng báo cáo lỗi chuyên dụng mở ra ở bên phải và SQL của bạn được giữ nguyên.',
+  guidelineFormatErrorStep2Label: 'Nhận giải thích từ AI',
+  guidelineFormatErrorStep2Desc:
+    'Trong bảng, nhấn "Giải thích bằng AI" để nhận lời giải thích dễ hiểu về lỗi là gì và nguyên nhân gốc, dựa trên chính SQL của bạn và thông báo của trình định dạng.',
+  guidelineFormatErrorStep3Label: 'Xem lại và áp dụng cách sửa',
+  guidelineFormatErrorStep3Desc:
+    'Nhấn "Đề xuất cách sửa" để xem bản sửa tối thiểu, giữ nguyên ngữ nghĩa ở dạng so sánh song song với bản gốc (Trước / Sau). Xem lại rồi chọn "Áp dụng cách sửa" hoặc sao chép vào clipboard. Bỏ qua sẽ giữ nguyên SQL của bạn.',
+  guidelineFormatErrorTip1:
+    'Chạy hoàn toàn trên Ollama cục bộ — SQL của bạn không bao giờ rời khỏi thiết bị khi giải thích hay đề xuất cách sửa.',
+  guidelineFormatErrorTip2:
+    'Nếu SQL của bạn thay đổi sau khi cách sửa được tạo, đề xuất sẽ bị đánh dấu là cũ (stale) để bạn không vô tình áp dụng lên các chỉnh sửa mới hơn.',
+
+  // Guideline - SQL → Code Generator Section (spec 015)
+  guidelineCodeGenTitle: 'SQL → Trình sinh mã (Code Generator)',
+  guidelineCodeGenSubtitle:
+    'Chuyển bảng và truy vấn SQL thành mã Java/JPA mà không cần ánh xạ thủ công',
+  guidelineCodeGenStep1Label: 'Mở tab SQL → Code Generator',
+  guidelineCodeGenStep1Desc:
+    'Trên trang Nhập truy vấn, chuyển sang tab SQL → Code Generator. Tab này có ô SQL riêng, nên nội dung ở các tab Dán SQL, MyBatis và Smart Editor của bạn vẫn được giữ nguyên.',
+  guidelineCodeGenStep2Label: 'Chọn đích và các tùy chọn',
+  guidelineCodeGenStep2Desc:
+    'Hiện tại đích được hỗ trợ là Java / JPA; C#, Python, TypeScript, Go và Kotlin được liệt kê là kế hoạch. Chọn loại đầu ra (Entity, DTO / Projection hoặc Tự động), chiến lược đặt tên, và có bao gồm quan hệ, Lombok hay chú thích validation hay không.',
+  guidelineCodeGenStep3Label: 'Sinh mã, rồi xem trước, sao chép hoặc tải về',
+  guidelineCodeGenStep3Desc:
+    'Dán một câu CREATE TABLE để nhận entity hoặc một câu SELECT để nhận DTO, rồi nhấn Generate. Kết quả hiện ra trong khung xem trước có tô màu cú pháp, kèm phân loại SQL đã phát hiện và các cảnh báo. Sao chép hoặc tải về dưới dạng tệp .java; Reset khôi phục đầu vào ban đầu và xóa kết quả.',
+  guidelineCodeGenTip1:
+    'Hệ thống phân loại SQL của bạn (định nghĩa bảng, select dạng entity, DTO, tổng hợp, JOIN, DML) và đề xuất đầu ra phù hợp — nó cảnh báo thay vì âm thầm sinh ra mã sai.',
+  guidelineCodeGenTip2:
+    'Bản số (cardinality) của quan hệ không phải lúc nào cũng suy ra được chỉ từ SQL, nên trình sinh mã ghi lại các giả định của nó và đánh dấu các ngôn ngữ kế hoạch là chưa được hỗ trợ.',
+
   // Home Page
   homeWelcomeTitle: 'Chào mừng đến SQL Visualizer',
   homeMainHeading: 'Phân tích truy vấn SQL',
@@ -1303,12 +1542,28 @@ const vi = {
     'Trực quan hóa độ phức tạp truy vấn, hiểu mối quan hệ và tối ưu hóa SQL của bạn với phân tích nâng cao và trực quan hóa tương tác.',
   homeGetStartedButton: 'Bắt đầu phân tích',
   homeGuidelinesButton: 'Xem hướng dẫn',
-  homeAccuracyLabel: '100%',
-  homeAccuracyValue: 'Độ chính xác phân tích',
-  homeRealtimeLabel: 'Thời gian thực',
-  homeRealtimeValue: 'Xử lý truy vấn',
-  homeDialectLabel: '4+ SQL',
-  homeDialectValue: 'Hỗ trợ phương ngữ',
+  // Homepage navigation
+  homeSkipToContent: 'Chuyển đến nội dung',
+  homeNavOpenMenu: 'Mở menu điều hướng',
+  homeNavCloseMenu: 'Đóng menu điều hướng',
+  homeNavFeatures: 'Tính năng',
+  homeNavWorkflow: 'Cách hoạt động',
+  homeNavDocs: 'Tài liệu',
+  // Homepage statistics
+  homeStatDialectsValue: '4',
+  homeStatDialectsLabel: 'Phương ngữ SQL được hỗ trợ',
+  homeStatFeaturesValue: '12',
+  homeStatFeaturesLabel: 'Khả năng phân tích',
+  homeStatWorkflowValue: '3',
+  homeStatWorkflowLabel: 'Quy trình có hướng dẫn',
+  // Homepage sections
+  homeFeaturesEyebrow: 'Tính năng',
+  // Homepage documentation section
+  homeDocsSectionEyebrow: 'Tài liệu',
+  homeDocsSectionTitle: 'Mọi thứ bạn cần, trong một README',
+  homeDocsSectionDesc:
+    'Khám phá tính năng, cài đặt, cấu hình AI và kiến trúc dự án — ngay từ README của kho mã nguồn.',
+  homeDocsSectionButton: 'Đọc README',
   homePowerfulFeaturesTitle: 'Tính năng mạnh mẽ',
   homeFeaturesDescription: 'Mọi thứ bạn cần để hiểu và tối ưu hóa truy vấn SQL của mình',
   homeQueryAnalysisTitle: 'Phân tích truy vấn',
@@ -1323,7 +1578,28 @@ const vi = {
     'Gợi ý được hỗ trợ bởi AI để tối ưu hóa truy vấn của bạn và cải thiện hiệu suất',
   homeAiExplainerTitle: 'AI Diễn Giải SQL',
   homeAiExplainerDesc:
-    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu.',
+    'Chuyển SQL thành phần diễn giải có cấu trúc bằng ngôn ngữ tự nhiên về mục đích, bộ lọc, đầu ra và các bảng được tham chiếu — kèm đọc thành giọng nói bằng bộ chuyển văn bản thành giọng nói tích hợp.',
+  homeMyBatisTitle: 'Chuẩn hóa MyBatis XML',
+  homeMyBatisDesc:
+    'Giải thế tham số, dynamic SQL và các include của MyBatis thành một câu lệnh hoàn chỉnh trước khi phân tích.',
+  homeCteAnalysisTitle: 'CTE & nguồn gốc trường',
+  homeCteAnalysisDesc:
+    'Mở rộng mọi CTE và subquery, truy vết từng trường dữ liệu đến từ đâu, và phát hiện CTE thừa hoặc CTE đệ quy.',
+  homeSmartEditorTitle: 'SQL Editor thông minh',
+  homeSmartEditorDesc:
+    'Định dạng và kiểm tra SQL ngay khi gõ, kèm lint, điểm độ phức tạp và trình diễn giải AI ngay cạnh trình soạn.',
+  homeFormatErrorTitle: 'Chẩn đoán lỗi bằng AI',
+  homeFormatErrorDesc:
+    'Biến lỗi cú pháp hoặc dialect thành giải thích dễ hiểu kèm đề xuất sửa từ AI, áp dụng chỉ một cú nhấp.',
+  homeDatabaseAssistantTitle: 'Trợ lý AI cho Database',
+  homeDatabaseAssistantDesc:
+    'Đặt câu hỏi về tài liệu database của bạn và nhận câu trả lời dựa trên tài liệu được truy xuất (RAG).',
+  homeQueryHistoryTitle: 'Lịch sử truy vấn & tìm kiếm ngữ nghĩa',
+  homeQueryHistoryDesc:
+    'Truy vấn đã phân tích được lưu phía server và tìm kiếm theo ý nghĩa, không chỉ theo từ khoá — mở lại hoặc xoá ngay.',
+  homeDocsConsultantTitle: 'Trợ lý tài liệu',
+  homeDocsConsultantDesc:
+    'Chat riêng cho dự án, trả lời dựa trên guideline và tài liệu kèm trích dẫn nguồn.',
   homeReadyToAnalyzeTitle: 'Sẵn sàng để phân tích?',
   homeReadyToAnalyzeDesc:
     'Tải lên truy vấn SQL và nhận những hiểu biết tức thì về độ phức tạp, hiệu suất và cơ hội tối ưu hóa.',
@@ -1341,6 +1617,11 @@ const vi = {
   homePreviewTables: 'bảng được ánh xạ',
   homePreviewRecommendation: 'Khuyến nghị',
   homePreviewRecommendationText: 'Xem lại thao tác sắp xếp cuối và xác nhận các chỉ mục hỗ trợ.',
+
+  // Documentation pages (README + Confluence)
+  backToHome: 'Về trang chủ',
+  confluenceFooterNote: 'SQL Visualizer — tài liệu tính năng',
+  readmeFooterNote: 'SQL Visualizer — README dự án',
 
   // Authentication Panel
   authWorkspaceAccessTitle: 'Truy cập không gian làm việc',
@@ -1369,6 +1650,33 @@ const vi = {
   authRegisterUnavailable: 'Đăng ký tài khoản sẽ khả dụng khi API xác thực được kết nối.',
   authSocialUnavailable: 'Đăng nhập bằng {provider} sẽ khả dụng khi API xác thực được kết nối.',
   authSignInPrompt: 'Vui lòng đăng nhập để mở không gian truy vấn.',
+
+  // Guest access (specs/013-guest-access-mode). Nội dung disclosure phải nêu rõ những gì không dùng
+  // được và cho biết AI chạy trên máy người dùng vẫn khả dụng — ràng buộc theo chi phí, không theo nhãn.
+  guestAccessLink: 'Tôi chưa có tài khoản, nhưng vẫn muốn sử dụng',
+  guestAccessDialogTitle: 'Tiếp tục mà không cần tài khoản?',
+  guestAccessDialogIntro:
+    'Bạn có thể dùng ngay các công cụ phân tích SQL. Một vài tính năng hỗ trợ bằng AI cần có tài khoản, vì chúng chạy trên tài nguyên dùng chung của nhà cung cấp.',
+  guestAccessDialogUnavailableList:
+    'Không dùng được khi chưa có tài khoản: AI Explain, AI Optimize, chat Docs Consultant, Database AI Assistant, sinh yêu cầu bằng AI, và đọc thành tiếng.',
+  guestAccessDialogReason:
+    'Các tính năng này cần chạy mô hình AI, nên dành riêng cho người đã đăng nhập.',
+  guestAccessDialogLocalAiNote:
+    'Những phần khác vẫn dùng được: phân tích SQL, đồ thị quan hệ, chỉ số độ phức tạp, phân tích CTE và mọi định dạng export.',
+  guestAccessDialogConfirm: 'Tiếp tục với tư cách khách',
+  guestAccessDialogCancel: 'Huỷ',
+  guestAccessDialogClose: 'Đóng',
+  // Locked-feature notice (US2).
+  guestAccessLockedReason:
+    'Tính năng này cần chạy mô hình AI, nên chỉ dành cho người đã đăng nhập.',
+  guestAccessLockedLocalAiNote:
+    'Phân tích SQL, đồ thị quan hệ, chỉ số độ phức tạp, phân tích CTE và mọi định dạng export vẫn dùng được.',
+  guestAccessLockedSignIn: 'Đăng nhập để mở khoá',
+  guestAccessBadge: 'Khách',
+  guestAccessBadgeTitle: 'Bạn đang xem với tư cách khách. Các tính năng AI bị giới hạn.',
+  guestAccessResumeTitle: 'Bạn vẫn đang xem với tư cách khách',
+  guestAccessResumeBody: 'Tiếp tục từ chỗ đã dừng, hoặc đăng nhập để mở các tính năng AI.',
+  guestAccessResumeAction: 'Tiếp tục với tư cách khách',
   authSocialLoginSuccess: 'Đã đăng nhập bằng {provider} với tài khoản {name}.',
   authSocialLoginCancelled: 'Đã hủy hoặc bị nhà cung cấp từ chối xác thực.',
   authSocialLoginFailed: 'Xác thực thất bại: {error}.',
@@ -1378,8 +1686,10 @@ const vi = {
   signInBrandTitle: 'SQL Visualizer',
   signInBrandTagline:
     'Kiểm tra cấu trúc truy vấn, xác định yếu tố chi phí và cải thiện câu lệnh cuối bằng dữ liệu cụ thể — từ văn bản SQL đến bước tiếp theo rõ ràng.',
-  signInBrandFeatureAnalysis: 'Truy vết CTE, nguồn gốc trường, join, truy vấn lồng nhau và quan hệ giữa các bảng.',
-  signInBrandFeatureScoring: 'Dùng hệ số chấm điểm chính xác và cảnh báo lint để tập trung thay đổi tiếp theo.',
+  signInBrandFeatureAnalysis:
+    'Truy vết CTE, nguồn gốc trường, join, truy vấn lồng nhau và quan hệ giữa các bảng.',
+  signInBrandFeatureScoring:
+    'Dùng hệ số chấm điểm chính xác và cảnh báo lint để tập trung thay đổi tiếp theo.',
 
   homeWorkflowEyebrow: 'Quy trình',
   homeWorkflowTitle: 'Từ SQL đến bước tiếp theo rõ ràng',
@@ -1475,6 +1785,7 @@ const vi = {
   aiExplainerErrorHint:
     'Hãy kiểm tra nhà cung cấp AI có thể truy cập được và mô hình, Base URL hoặc API Key trong Cài đặt → Cấu hình Mô hình AI là chính xác.',
   aiExplainerObjective: 'Mục tiêu truy vấn',
+  aiExplainerGrain: 'Cấp độ báo cáo',
   aiExplainerFilters: 'Điều kiện lọc & ràng buộc',
   aiExplainerNoFilters: 'Truy vấn này không có điều kiện lọc hay ràng buộc nào.',
   aiExplainerOutput: 'Dữ liệu bạn nhận được',
@@ -1485,6 +1796,8 @@ const vi = {
   aiExplainerHideRaw: 'Ẩn phản hồi gốc của mô hình',
   aiExplainerUnstructuredNotice:
     'Mô hình không trả về các mục có cấu trúc, dưới đây là toàn bộ câu trả lời của mô hình.',
+  aiExplainerLengthNotice:
+    'Giải thích này nằm ngoài giới hạn 500–1.000 ký tự, nên bản gần đúng nhất được hiển thị.',
   aiExplainerDrafting: 'Đang soạn phần giải thích…',
 
   // AI - quản lý cửa sổ ngữ cảnh
@@ -1600,6 +1913,28 @@ const vi = {
   dbAssistantErrorGeneric: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
   dbAssistantDisclaimer:
     'Câu trả lời do AI tạo ra và có thể không chính xác — hãy kiểm tra lại trước khi áp dụng vào việc quan trọng.',
+
+  // Database Assistant Conversation History
+  dbAssistantHistoryTitle: 'Cuộc trò chuyện',
+  dbAssistantHistoryNewChat: 'Trò chuyện mới',
+  dbAssistantHistorySearch: 'Tìm kiếm cuộc trò chuyện...',
+  dbAssistantHistoryEmpty: 'Chưa có cuộc trò chuyện nào. Bắt đầu cuộc trò chuyện mới!',
+  dbAssistantHistoryNoMatch: 'Không tìm thấy cuộc trò chuyện nào khớp với tìm kiếm của bạn',
+  dbAssistantHistoryToday: 'Hôm nay',
+  dbAssistantHistoryYesterday: 'Hôm qua',
+  dbAssistantHistoryPreviousSevenDays: 'Một tuần trước',
+  dbAssistantHistoryOlder: 'Cũ hơn',
+  dbAssistantHistoryRename: 'Đổi tên',
+  dbAssistantHistoryDelete: 'Xóa',
+  dbAssistantHistoryClearAll: 'Xóa tất cả',
+  dbAssistantHistoryClearAllConfirm: 'Bạn có chắc chắn muốn xóa tất cả cuộc trò chuyện không?',
+  dbAssistantHistoryDeleteConfirm: 'Xóa cuộc trò chuyện này?',
+  dbAssistantHistoryStorageUnavailable: 'Cuộc trò chuyện sẽ không được lưu',
+  dbAssistantHistoryToggle: 'Bật lịch sử',
+  dbAssistantHistoryCollapse: 'Thu gọn bảng lịch sử',
+  dbAssistantHistoryExpand: 'Mở rộng bảng lịch sử',
+  dbAssistantHistoryResize: 'Đổi chiều rộng bảng lịch sử',
+  dbAssistantHistoryGuestNotice: 'Đăng nhập để lưu và xem lại cuộc trò chuyện giữa các phiên.',
 } as const;
 
 export default vi;

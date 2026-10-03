@@ -5,6 +5,8 @@ import { MessageCircle, X, Bot } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import DocsConsultantChat from '@/app/guideline/components/DocsConsultantChat';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { isGuestSession } from '@/lib/demoAuth';
 
 const CHAT_LAUNCHER_POSITION_KEY = 'sql-visualizer-chat-launcher-position';
 const CHAT_LAUNCHER_SIZE = 48;
@@ -26,6 +28,12 @@ export const GlobalChat: React.FC = () => {
   const draggedRef = useRef(false);
   const latestLauncherPositionRef = useRef<LauncherPosition | null>(null);
   const t = getT(settings.locale);
+  // Read from storage rather than the store: the guest marker lives in demoAuth, and GlobalChat
+  // remounts on every page change, so a mount-time read is the cheapest correct source.
+  const [isGuest, setIsGuest] = useState(false);
+  useEffect(() => {
+    setIsGuest(isGuestSession());
+  }, []);
 
   useEffect(() => {
     const savedPosition = window.localStorage.getItem(CHAT_LAUNCHER_POSITION_KEY);
@@ -124,7 +132,14 @@ export const GlobalChat: React.FC = () => {
             </button>
           </div>
           <div className="flex-1 scrollbar-thin overflow-y-auto">
-             <DocsConsultantChat config={settings.aiConfig} locale={settings.locale} t={t} className="p-4" />
+            {/* Guest access: the Docs Consultant retrieval is hard-wired to the operator's
+                embedding key, so it costs shared capacity even for a local-model guest
+                (research.md R3). Show the notice instead of a chat that would be refused. */}
+            {isGuest ? (
+              <LockedFeatureNotice t={t} featureName={t.docsConsultantTitle} className="m-4" />
+            ) : (
+              <DocsConsultantChat config={settings.aiConfig} locale={settings.locale} t={t} className="p-4" />
+            )}
           </div>
         </div>
       ) : (

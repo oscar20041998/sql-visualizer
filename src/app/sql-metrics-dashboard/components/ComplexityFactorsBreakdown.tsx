@@ -4,9 +4,11 @@ import React from 'react';
 import { Zap } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import type { DetailedComplexityScore } from '@/lib/sql/complexityScorer';
+import type { SqlMetrics } from '@/lib/sql/sqlAnalyzer';
 
 interface ComplexityFactorsBreakdownProps {
   detailedComplexity?: DetailedComplexityScore;
+  metrics?: SqlMetrics;
   t: ReturnType<typeof getT>;
 }
 
@@ -41,7 +43,11 @@ function getKeywordLabel(category: string, t: ReturnType<typeof getT>): string {
   return key ? t[key] : category.replace(/_/g, ' ');
 }
 
-export default function ComplexityFactorsBreakdown({ detailedComplexity, t }: ComplexityFactorsBreakdownProps) {
+export default function ComplexityFactorsBreakdown({
+  detailedComplexity,
+  metrics,
+  t,
+}: ComplexityFactorsBreakdownProps) {
   const selectFieldTypeLabels = {
     raw: t.complexityFactorsFieldTypeRaw,
     alias: t.complexityFactorsFieldTypeAlias,
@@ -50,6 +56,9 @@ export default function ComplexityFactorsBreakdown({ detailedComplexity, t }: Co
     aggregate: t.complexityFactorsFieldTypeAggregate,
     function: t.complexityFactorsFieldTypeFunction,
   };
+  const subqueryScorerCount = detailedComplexity?.scoreBreakdown.subqueries.count ?? 0;
+  const subqueryCount = metrics?.subqueryCount ?? subqueryScorerCount;
+  const subqueryReconcile = !metrics || subqueryScorerCount === metrics.subqueryCount;
   const formulaFactors: BreakdownFactor[] = detailedComplexity
     ? [
         ...detailedComplexity.scoreBreakdown.keywords.map((keyword) => ({
@@ -73,7 +82,11 @@ export default function ComplexityFactorsBreakdown({ detailedComplexity, t }: Co
         },
         ...[
           { name: t.complexityBreakdownCTEs, ...detailedComplexity.scoreBreakdown.ctes },
-          { name: t.complexityBreakdownSubqueries, ...detailedComplexity.scoreBreakdown.subqueries },
+          {
+            name: t.complexityBreakdownSubqueries,
+            ...detailedComplexity.scoreBreakdown.subqueries,
+            count: subqueryCount,
+          },
           {
             name: t.complexityBreakdownWindowFunctions,
             ...detailedComplexity.scoreBreakdown.windowFunctions,
@@ -113,46 +126,55 @@ export default function ComplexityFactorsBreakdown({ detailedComplexity, t }: Co
             />
           </div>
           <div className="space-y-3">
-          {formulaFactors.map((factor) => {
-            const pct =
-              detailedComplexity.totalScore > 0
-                ? Math.min(100, Math.round((factor.contribution / detailedComplexity.totalScore) * 100))
-                : 0;
-          return (
-            <div
-              key={`${factor.name}-${factor.formula}`}
-              className="space-y-1.5"
-              style={{ contain: 'layout style paint' }}
-            >
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-foreground font-medium">{factor.name}</span>
-                <div className="flex items-center gap-3 font-mono text-muted-foreground">
-                  <span>{factor.formula}</span>
-                  <span className="text-foreground">
-                    {t.complexityFactorsContribution}: +{factor.contribution}
-                  </span>
-                  <span>{pct}%</span>
-                </div>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            {formulaFactors.map((factor) => {
+              const pct =
+                detailedComplexity.totalScore > 0
+                  ? Math.min(100, Math.round((factor.contribution / detailedComplexity.totalScore) * 100))
+                  : 0;
+              return (
                 <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${pct}%`,
-                    background:
-                      pct > 66 ? 'var(--danger)' : pct > 33 ? 'var(--warning)' : 'var(--success)',
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
+                  key={`${factor.name}-${factor.formula}`}
+                  className="space-y-1.5"
+                  style={{ contain: 'layout style paint' }}
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-medium">{factor.name}</span>
+                    <div className="flex items-center gap-3 font-mono text-muted-foreground">
+                      <span>{factor.formula}</span>
+                      <span className="text-foreground">
+                        {t.complexityFactorsContribution}: +{factor.contribution}
+                      </span>
+                      <span>{pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${pct}%`,
+                        background:
+                          pct > 66 ? 'var(--danger)' : pct > 33 ? 'var(--warning)' : 'var(--success)',
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
             <span>{t.complexityFactorsReconciled}: {totalContribution} / {detailedComplexity.totalScore}</span>
-            <span className={joinsReconcile ? 'text-success' : 'text-danger'}>
-              {joinsReconcile ? t.complexityFactorsJoinsConsistent : t.complexityFactorsJoinsMismatch}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={joinsReconcile ? 'text-success' : 'text-danger'}>
+                {joinsReconcile ? t.complexityFactorsJoinsConsistent : t.complexityFactorsJoinsMismatch}
+              </span>
+              {metrics && (
+                <span className={subqueryReconcile ? 'text-success' : 'text-danger'}>
+                  {subqueryReconcile
+                    ? t.complexityFactorsSubqueriesConsistent
+                    : t.complexityFactorsSubqueriesMismatch}
+                </span>
+              )}
+            </div>
           </div>
         </>
       ) : (

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import SignInPage from '@/components/auth/SignInPage';
-import { useAppStore } from '@/lib/store';
+import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
+import { getT } from '@/lib/i18n';
 import { resetTestStorage } from '../utils/test-setup';
 
 vi.mock('next/navigation', () => ({
@@ -56,5 +57,30 @@ describe('SignInPage brand column (specs/006-login-ui-redesign T024 / FR-015)', 
     expect(
       (form as Element).compareDocumentPosition(brand) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it('exposes the language and theme switches before signing in (specs/006 FR-008)', () => {
+    useAppStore.setState({ settings: { ...DEFAULT_SETTINGS } });
+    render(<SignInPage />);
+
+    expect(screen.getByRole('group', { name: getT('en').language })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: getT('en').lightMode }));
+    expect(useAppStore.getState().settings.theme).toBe('light');
+
+    fireEvent.click(screen.getByRole('button', { name: getT('en').languageVietnamese }));
+    expect(useAppStore.getState().settings.locale).toBe('vi');
+  });
+
+  it('offers a back-to-home link that leaves the sign-in page', () => {
+    useAppStore.setState({ settings: { ...DEFAULT_SETTINGS } });
+    render(<SignInPage />);
+
+    const backLink = screen.getByRole('link', { name: getT('en').backToHome });
+    expect(backLink).toHaveAttribute('href', '/');
+
+    // The brand column must stay free of interactive controls (FR-015), so the link cannot
+    // live in it; the test above already asserts that, and the switch test above covers the rest.
+    expect(screen.getByRole('group', { name: getT('en').language })).toBeInTheDocument();
   });
 });

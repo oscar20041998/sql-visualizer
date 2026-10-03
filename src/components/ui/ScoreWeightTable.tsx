@@ -4,6 +4,11 @@ import React from 'react';
 import { BarChart3 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
+import {
+  getGuidelineAccent,
+  type GraphTheme,
+  type GuidelineAccent,
+} from '@/app/common/colorConstant';
 
 interface WeightRow {
   category: string;
@@ -15,6 +20,10 @@ interface WeightRow {
 export default function ScoreWeightTable() {
   const { settings } = useAppStore();
   const t = getT(settings.locale);
+  // Category accents are text and border colours, so they must follow the active theme: the neon
+  // dark shades are unreadable on the light `--card` surface.
+  const theme: GraphTheme = settings.theme === 'light' ? 'light' : 'dark';
+  const accent = (name: GuidelineAccent) => getGuidelineAccent(name, theme);
 
   const weightData: WeightRow[] = [
     // Base Clauses
@@ -22,19 +31,19 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategoryBaseClauses,
       construct: t.scoreTableFROM,
       weight: 1,
-      color: '#6ee7f7',
+      color: accent('cyan'),
     },
     {
       category: t.scoreTableCategoryBaseClauses,
       construct: t.scoreTableWHERE,
       weight: 2,
-      color: '#6ee7f7',
+      color: accent('cyan'),
     },
     {
       category: t.scoreTableCategoryBaseClauses,
       construct: t.scoreTableDISTINCT,
       weight: 3,
-      color: '#6ee7f7',
+      color: accent('cyan'),
     },
 
     // Joins
@@ -42,37 +51,37 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableINNERJOIN,
       weight: 4,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
     {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableLEFTJOIN,
       weight: 5,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
     {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableRIGHTJOIN,
       weight: 5,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
     {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableFULLOUTERJOIN,
       weight: 10,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
     {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableCROSSJOIN,
       weight: 10,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
     {
       category: t.scoreTableCategoryJoins,
       construct: t.scoreTableNATURALJOIN,
       weight: 5,
-      color: '#f59e0b',
+      color: accent('amber'),
     },
 
     // Aggregations
@@ -80,19 +89,19 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategoryAggregations,
       construct: t.scoreTableGROUPBY,
       weight: 4,
-      color: '#10b981',
+      color: accent('emerald'),
     },
     {
       category: t.scoreTableCategoryAggregations,
       construct: t.scoreTableORDERBY,
       weight: 3,
-      color: '#10b981',
+      color: accent('emerald'),
     },
     {
       category: t.scoreTableCategoryAggregations,
       construct: t.scoreTableHAVING,
       weight: 4,
-      color: '#10b981',
+      color: accent('emerald'),
     },
 
     // Advanced Structures
@@ -100,31 +109,31 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategoryAdvanced,
       construct: t.scoreTableWITH,
       weight: 8,
-      color: '#a78bfa',
+      color: accent('violet'),
     },
     {
       category: t.scoreTableCategoryAdvanced,
       construct: t.scoreTableNESTEDSUBQUERY,
       weight: 12,
-      color: '#a78bfa',
+      color: accent('violet'),
     },
     {
       category: t.scoreTableCategoryAdvanced,
       construct: t.scoreTableUNION,
       weight: 6,
-      color: '#a78bfa',
+      color: accent('violet'),
     },
     {
       category: t.scoreTableCategoryAdvanced,
       construct: t.scoreTableEXCEPT,
       weight: 6,
-      color: '#a78bfa',
+      color: accent('violet'),
     },
     {
       category: t.scoreTableCategoryAdvanced,
       construct: t.scoreTableINTERSECT,
       weight: 6,
-      color: '#a78bfa',
+      color: accent('violet'),
     },
 
     // Window Functions
@@ -132,31 +141,31 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategoryWindowFunctions,
       construct: t.scoreTableOVER,
       weight: 6,
-      color: '#ec4899',
+      color: accent('pink'),
     },
     {
       category: t.scoreTableCategoryWindowFunctions,
       construct: t.scoreTablePARTITIONBY,
       weight: 3,
-      color: '#ec4899',
+      color: accent('pink'),
     },
     {
       category: t.scoreTableCategoryWindowFunctions,
       construct: t.scoreTableROWNUMBER,
       weight: 6,
-      color: '#ec4899',
+      color: accent('pink'),
     },
     {
       category: t.scoreTableCategoryWindowFunctions,
       construct: t.scoreTableRANK,
       weight: 6,
-      color: '#ec4899',
+      color: accent('pink'),
     },
     {
       category: t.scoreTableCategoryWindowFunctions,
       construct: t.scoreTableDENSERANK,
       weight: 6,
-      color: '#ec4899',
+      color: accent('pink'),
     },
 
     // SELECT Field Types
@@ -164,37 +173,37 @@ export default function ScoreWeightTable() {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableRawField,
       weight: 1,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
     {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableAliasField,
       weight: 3,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
     {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableConditionalField,
       weight: 5,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
     {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableSubqueryField,
       weight: 10,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
     {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableAggregateField,
       weight: 4,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
     {
       category: t.scoreTableCategorySelectFields,
       construct: t.scoreTableFunctionField,
       weight: 3,
-      color: '#14b8a6',
+      color: accent('teal'),
     },
   ];
 

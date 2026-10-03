@@ -280,6 +280,8 @@
     border-color: var(--border) !important;
   }
 
+  .smart-sql-editor-theme .text-white,
+  .smart-sql-editor-theme .text-gray-100,
   .smart-sql-editor-theme .text-gray-200,
   .smart-sql-editor-theme .text-gray-300 {
     color: var(--foreground) !important;
@@ -372,6 +374,150 @@
   .smart-sql-editor-theme .text-emerald-400 {
     color: var(--success) !important;
   }
+
+  .animate-dropdown {
+    animation: dropdownIn 0.16s ease-out;
+    transform-origin: top right;
+  }
+
+  /* Sweeping bar shown while a route change is in flight (see components/ui/RouteProgressBar.tsx). */
+  .route-progress-bar {
+    animation: routeProgressSweep 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------------------
+     Native form controls.
+     The Tailwind `forms` plugin is intentionally NOT enabled (see
+     specs/006-login-ui-redesign, research R4), so the native select/checkbox are
+     styled here — scoped and driven entirely by the design tokens, so they follow
+     both themes and every accent preset.
+     --------------------------------------------------------------------------- */
+
+  .select-control {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 2.5rem;
+    padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--foreground);
+    background-color: var(--input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 0.95rem 0.95rem;
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .light .select-control {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23636c76' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  }
+
+  .select-control:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+    background-color: color-mix(in srgb, var(--primary) 6%, var(--input));
+  }
+
+  .select-control:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent);
+  }
+
+  .select-control:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* Where the platform honours it (Firefox/Linux), keep the option list on-theme too. */
+  .select-control option {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
+
+  .select-control option:disabled {
+    color: var(--muted-foreground);
+  }
+
+  /* Dense variant for toolbars where the control sits in a compact row. */
+  .select-control-sm {
+    min-height: 1.75rem;
+    padding: 0.125rem 1.75rem 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    background-position: right 0.5rem center;
+    background-size: 0.85rem 0.85rem;
+  }
+
+  .checkbox-control {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+    background-color: var(--input);
+    border: 1.5px solid var(--border);
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .checkbox-control:hover:not(:disabled):not(:checked) {
+    border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+    background-color: color-mix(in srgb, var(--primary) 8%, var(--input));
+  }
+
+  .checkbox-control:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  /* The checkmark is drawn from a rotated border, so the control needs no icon asset
+     and the stroke colour follows --primary-foreground in both themes. */
+  .checkbox-control::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    width: 0.28rem;
+    height: 0.5rem;
+    border: solid var(--primary-foreground);
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -55%) rotate(45deg) scale(0.4);
+    opacity: 0;
+    transition:
+      transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 120ms ease;
+  }
+
+  .checkbox-control:checked::after {
+    transform: translate(-50%, -55%) rotate(45deg) scale(1);
+    opacity: 1;
+  }
+
+  .checkbox-control:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent);
+  }
+
+  .checkbox-control:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 @keyframes fadeIn {
@@ -393,6 +539,42 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes routeProgressSweep {
+  0% {
+    transform: translateX(-100%) scaleX(0.35);
+  }
+
+  50% {
+    transform: translateX(35%) scaleX(0.55);
+  }
+
+  100% {
+    transform: translateX(260%) scaleX(0.35);
+  }
+}
+
+/* Respect a reduced-motion preference: the bar still communicates "loading", it just stops
+   sweeping and settles into a static fill. */
+@media (prefers-reduced-motion: reduce) {
+  .route-progress-bar {
+    animation: none;
+    transform: translateX(0) scaleX(1);
+    opacity: 0.7;
   }
 }
 

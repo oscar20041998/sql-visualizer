@@ -26,8 +26,8 @@
       const provider = params.get('provider') === 'microsoft' ? 'microsoft' : 'google';
       const state = params.get('state') || '';
       const profiles = provider === 'google'
-        ? [{ name: 'Duy VT', email: 'duyvt7@gmail.com' }, { name: 'Google Developer', email: 'dev.google@gmail.com' }]
-        : [{ name: 'Duy VT', email: 'duyvt7@fpt.com' }, { name: 'Microsoft Consultant', email: 'consultant@microsoft.com' }];
+        ? [{ name: 'Duy Võ Thanh', email: 'duyvt7@gmail.com' }, { name: 'Google Developer', email: 'dev.google@gmail.com' }]
+        : [{ name: 'Duy Võ Thanh', email: 'duyvt7@fpt.com' }, { name: 'Microsoft Consultant', email: 'consultant@microsoft.com' }];
       document.getElementById('title').textContent = provider === 'google' ? 'Google sign in' : 'Microsoft sign in';
       const container = document.getElementById('profiles');
       function send(payload) {

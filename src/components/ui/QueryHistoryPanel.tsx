@@ -44,7 +44,7 @@ function complexityColor(level: string | undefined): string {
     case 'SUPER_HIGH':
       return 'text-red-400 bg-red-500/10 border-red-800/50';
     default:
-      return 'text-gray-400 bg-gray-500/10 border-gray-700';
+      return 'text-muted-foreground bg-muted border-border';
   }
 }
 

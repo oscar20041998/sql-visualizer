@@ -16,11 +16,64 @@ const en = {
 
   // Query Input
   queryInputTitle: 'Query Input & Configuration',
-  queryInputSubtitle: 'Paste SQL or import MyBatis XML to begin analysis',
+  workflowStepsLabel: 'Query analysis workflow',
+  workflowStepInput: 'Input',
+  workflowStepConfigure: 'Configure parameters',
+  workflowStepReview: 'Review SQL',
+  workflowStepAnalyze: 'Analyze',
+  inputMethodLabel: 'Input method',
   tabPasteSQL: 'Paste SQL Direct',
   tabMyBatisContent: 'Paste your XML content',
   tabImportMyBatis: 'Import MyBatis (XML) file',
   tabSmartEditor: 'Smart Editor',
+  tabCodeGenerator: 'SQL → Code Generator',
+  generatorLanguage: 'Language',
+  generatorSqlInput: 'SQL for code generation',
+  generatorGenerate: 'Generate',
+  generatorRegenerate: 'Regenerate',
+  generatorReset: 'Reset',
+  generatorGeneratedCode: 'Generated Java code',
+  generatorDiagnostics: 'Generation diagnostics',
+  generatorClassification: 'SQL classification',
+  generatorClassifiedAs: 'Classified as',
+  generatorRecommendedOutput: 'Recommended output',
+  generatorNoOutput: 'Unavailable',
+  generatorChoiceRequired: 'Review the SQL shape before choosing an output.',
+  'generatorClass_table-definition': 'Table definition',
+  'generatorClass_select-entity-like': 'Entity-like SELECT',
+  'generatorClass_select-dto': 'DTO SELECT',
+  'generatorClass_select-aggregation': 'Aggregate SELECT',
+  'generatorClass_select-join': 'Joined SELECT',
+  generatorClass_insert: 'INSERT statement',
+  generatorClass_update: 'UPDATE statement',
+  generatorClass_delete: 'DELETE statement',
+  generatorClass_unknown: 'Unknown statement',
+  generatorCopy: 'Copy',
+  generatorDownload: 'Download',
+  generatorCopied: 'Generated source copied.',
+  generatorCopyFailed: 'Could not copy generated source.',
+  generatorDownloaded: 'Java file downloaded.',
+  generatorFramework: 'Framework',
+  generatorFrameworkJpa: 'JPA / Hibernate',
+  generatorOutputType: 'Output type',
+  generatorNamingStrategy: 'Naming strategy',
+  generatorLombok: 'Use Lombok accessors',
+  generatorRelationships: 'Include explicit FK relationships',
+  generatorValidation: 'Schema-backed validation annotations',
+  generatorMyBatisMapper: 'Generate MyBatis @Mapper interface',
+  generatorOutputFiles: 'Generated Java files',
+  generatorAuto: 'Auto',
+  generatorEntity: 'Entity',
+  generatorDto: 'DTO / Projection',
+  generatorJavaJpa: 'Java / JPA',
+  generatorPlannedCsharp: 'C# / EF Core (planned)',
+  generatorPlannedPython: 'Python / SQLAlchemy (planned)',
+  generatorPlannedTypescript: 'TypeScript / TypeORM (planned)',
+  generatorPlannedGo: 'Go / GORM (planned)',
+  generatorPlannedKotlin: 'Kotlin / JPA (planned)',
+  generatorNamingCamelCase: 'camelCase',
+  generatorNamingPascalCase: 'PascalCase',
+  generatorNamingPreserve: 'Preserve SQL names',
   dialectLabel: 'SQL Dialect',
   dialectMySQL: 'MySQL',
   dialectPostgres: 'PostgreSQL',
@@ -31,7 +84,16 @@ const en = {
   myBatisPlaceholder:
     'Paste your MyBatis XML here...\n\nExample:\n<select id="getOrders" resultType="Order">\n  SELECT * FROM orders WHERE customer_id = #{customerId}\n  AND status = #{status}\n</select>',
   parametersTitle: 'Parameter Configuration',
-  parametersSubtitle: 'Fill in values to resolve dynamic parameters',
+  parametersSubtitle: 'Fill in values to build the final SQL that will be analyzed',
+  parametersRequiredHint: 'Values are required to resolve the final SQL before analysis.',
+  parametersSearchLabel: 'Search detected parameters',
+  parametersSearchPlaceholder: 'Search parameters…',
+  parametersSearchClear: 'Clear parameter search',
+  parametersEmptyMatch: 'No parameter matches "{query}".',
+  parametersVisibleCount: 'Showing {visible} of {total} parameters',
+  parametersNoneTitle: 'No dynamic parameters detected',
+  parametersNoneHint:
+    'This XML has no #{...} placeholders, so the SQL on the right is ready to analyze.',
   paramDetected: 'parameters detected',
   noParams: 'No dynamic parameters detected in this XML',
   noParamsFound: 'No parameters found',
@@ -40,6 +102,7 @@ const en = {
   parameterValuePrefix: 'value for',
   analyzeButton: 'Analyze Query',
   analyzing: 'Analyzing...',
+  routeLoading: 'Loading page',
   parsingSQL: 'Parsing SQL structure...',
   analysisCompleteMessage: 'Analysis complete — {tables} tables, {joins} joins detected',
   parseErrorMessage: 'Failed to parse query. Check SQL syntax.',
@@ -63,6 +126,31 @@ const en = {
   sqlResolved: 'Resolved SQL',
   sqlReview: 'Review SQL',
   sqlEditor: 'SQL Editor',
+  previewHint: 'This is the final SQL that will be analyzed.',
+  previewCopyLabel: 'Copy SQL',
+  previewEmptySqlHint:
+    'Paste a query in the input panel so it can be reviewed here before analysis.',
+  previewEmptyResolvedHint:
+    'Load a MyBatis XML file and fill in the detected parameters to build the final SQL.',
+  sqlInputPanelTitle: 'SQL input',
+  sqlInputPanelHint: 'Paste the SQL statement you want to analyze.',
+  myBatisPanelTitle: 'MyBatis XML input',
+  myBatisPanelHint: 'Import or paste the XML that contains the statement to analyze.',
+  myBatisDropTitle: 'Drop an XML file here or click to browse',
+  myBatisDropHint: 'Parameters are detected automatically once the file is loaded.',
+  myBatisCurrentFileLabel: 'Current file',
+  myBatisRemoveFile: 'Remove XML',
+  myBatisFileImported: 'Imported "{file}". Detected parameters are listed below.',
+  myBatisFileReadError: 'Could not read the XML file. Choose a valid .xml file and try again.',
+  analyzeHint: 'Validates the query, scores its complexity and opens the metrics dashboard.',
+  findingsWarningCountOne: '1 warning',
+  findingsWarningCountOther: '{count} warnings',
+  findingsErrorCountOne: '1 error',
+  findingsErrorCountOther: '{count} errors',
+  severityError: 'Error',
+  severityWarning: 'Warning',
+  dismissFinding: 'Dismiss finding',
+  tipsTitle: 'Tips',
 
   // Tips
   tipCTE: 'Use WITH...AS for CTEs to get full CTE analysis',
@@ -77,6 +165,7 @@ const en = {
   graphFilterAll: 'All',
   graphFilterCte: "CTE's Relationship",
   graphFilterTable: "Table's Relationship",
+  graphFilterSubquery: "Subquery's Relationship",
   noGraph: 'No graph to display',
   noGraphHint: 'Analyze a query first to see the relationship graph',
   tableCount: 'Tables',
@@ -190,7 +279,7 @@ const en = {
   metricsFunctionsInsideOn: 'Functions inside ON',
   metricsNonEquiOn: 'Non-equi ON',
   metricsNonEquiExamples: '>, <, LIKE, BETWEEN, IN',
-  metricsFieldExtractionSummaryTitle: 'Field Extraction Summary',
+  metricsFieldExtractionSummaryTitle: 'Extracted Fields Summary',
   metricsFieldExpressionHeader: 'Expression',
   metricsFieldAliasHeader: 'Alias',
   metricsFieldTypeHeader: 'Type',
@@ -260,6 +349,8 @@ const en = {
   complexityFactorsReconciled: 'Displayed total',
   complexityFactorsJoinsConsistent: 'JOIN score consistent',
   complexityFactorsJoinsMismatch: 'JOIN score mismatch',
+  complexityFactorsSubqueriesConsistent: 'Subquery count consistent',
+  complexityFactorsSubqueriesMismatch: 'Subquery count mismatch',
   complexityKeywordFrom: 'FROM',
   complexityKeywordWhere: 'WHERE',
   complexityKeywordDistinct: 'DISTINCT',
@@ -652,6 +743,8 @@ const en = {
   guidelineQuickRefSettings: 'Settings',
   guidelineQuickRefAiExplainer: 'AI SQL Explainer',
   guidelineQuickRefDbAssistant: 'Database AI Assistant',
+  guidelineQuickRefChatHistory: 'Chat History',
+  guidelineQuickRefCodeGen: 'SQL → Code Generator',
 
   // Guideline - Sidebar Controls
   guidelineSidebarDarkLight: 'Dark / Light toggle',
@@ -676,6 +769,40 @@ const en = {
 
   // Complexity Scoring - Dashboard
   complexityDashboardTitle: 'Complexity Dashboard',
+  analysisHealthTitle: 'Query Health',
+  analysisHealthUnavailable: 'Complexity score is unavailable for this analysis.',
+  analysisHealthScoreLabel: 'Normalized complexity',
+  analysisHealthFindings: 'Findings',
+  analysisFindingErrors: 'Errors',
+  analysisFindingWarnings: 'Warnings',
+  analysisLoadingTitle: 'Analyzing…',
+  analysisLoadingHint: 'The dashboard updates as soon as the analysis finishes.',
+  analysisErrorTitle: 'Analysis failed',
+  analysisRetry: 'Retry',
+  analysisAdvancedTitle: 'Advanced details',
+  analysisAdvancedRawScore: 'Raw score',
+  analysisAdvancedDenominator: 'Dynamic denominator',
+  analysisAdvancedPercentage: 'Share of denominator',
+  analysisAdvancedRuleIds: 'Rule identifiers',
+  analysisAdvancedScoring: 'Scoring',
+  analysisAdvancedParserMeta: 'Parser & analyzer metadata',
+  analysisAdvancedEngine: 'Parse engine',
+  analysisAdvancedDialect: 'Dialect',
+  analysisAdvancedKeywords: 'Keywords in engine',
+  analysisAdvancedPatterns: 'Regex patterns',
+  analysisAdvancedMaxColumns: 'Max columns extracted',
+  analysisAdvancedMaxCteRefs: 'Max CTE field references',
+  analysisAdvancedAstUnavailable:
+    'AST statistics are unavailable for this statement — no parseable AST was produced for its dialect.',
+  analysisAdvancedAst: 'AST structure',
+  analysisAdvancedAstNodes: 'AST nodes',
+  analysisAdvancedAstStatementKind: 'Parsed statement kind',
+  analysisAdvancedAstCteCount: 'CTE declarations',
+  analysisAdvancedAstCteDepth: 'Max CTE nesting depth',
+  analysisAdvancedAstSubqueryDepth: 'Max subquery depth',
+  analysisAdvancedAstNodeTypes: 'Node counts by type',
+  analysisAdvancedAstOperators: 'Operator occurrences',
+  analysisAdvancedAstFunctions: 'Function occurrences',
   complexityProgressBar: 'Progress',
   complexityKeywordsAndClauses: 'Keywords & Clauses',
   complexitySelectFields: 'SELECT Fields',
@@ -1210,6 +1337,8 @@ const en = {
   emptyQueryError: 'Query is empty. Please enter a valid SQL query to analyze.',
   smartEditorFormatting: 'Formatting...',
   smartEditorFormat: 'Format',
+  smartEditorFormatResultLabel: 'Result',
+  smartEditorEmptySqlHint: 'Nothing to format yet — type or load SQL.',
   smartEditorNoChangesToCompare: 'No changes to compare',
   smartEditorCompare: 'Compare',
   smartEditorEditorView: 'Editor View',
@@ -1232,6 +1361,62 @@ const en = {
   smartEditorModifiedSummary: 'Modified from original',
   smartEditorNoChangesSummary: 'No changes from original',
   copiedToClipboard: 'Copied to clipboard',
+
+  // Smart Editor - Format Error Diagnostics panel (spec 012)
+  formatErrorPanelTitle: 'Format Error Report',
+  formatErrorPanelSubtitle: 'The formatter could not parse this query.',
+  formatErrorPanelOpen: 'Open format error report',
+  formatErrorPanelClose: 'Close format error report',
+  formatErrorPanelToggleCollapse: 'Collapse error report',
+  formatErrorPanelToggleExpand: 'Expand error report',
+  formatErrorPanelSeverity: 'Error',
+  formatErrorRegionLabel: 'Erroneous region',
+  formatErrorRegionSourceFormatter: 'reported by the formatter',
+  formatErrorRegionSourceAstParser: 'reported by the cross-check parser',
+  formatErrorPanelDialectLabel: 'Dialect',
+  formatErrorPanelOccurredAtLabel: 'Reported at',
+  formatErrorPanelLocationLabel: 'Location',
+  formatErrorPanelLocationValue: 'Line {line}, column {column}',
+  formatErrorPanelOffsetValue: 'Character {offset}',
+  formatErrorPanelSnippetLabel: 'Context',
+  formatErrorPanelMessageLabel: 'Details',
+  formatErrorPanelEditorUnchanged: 'Your SQL was left unchanged.',
+  formatErrorPanelExplain: 'Explain with AI',
+  formatErrorPanelExplainRunning: 'Explaining…',
+  formatErrorPanelFix: 'Suggest a fix',
+  formatErrorPanelFixRunning: 'Generating a fix…',
+  formatErrorPanelExplainSectionTitle: 'AI explanation',
+  formatErrorPanelRootCauseLabel: 'Root cause',
+  formatErrorPanelEvidenceLabel: 'Grounded in',
+  formatErrorPanelFixSectionTitle: 'Proposed fix',
+  formatErrorPanelFixBeforeLabel: 'Before',
+  formatErrorPanelFixAfterLabel: 'After',
+  formatErrorPanelCopyFix: 'Copy',
+  formatErrorPanelCopyFixDone: 'Suggested fix copied to clipboard',
+  formatErrorPanelApplyFix: 'Apply fix',
+  formatErrorPanelDismissFix: 'Dismiss',
+  formatErrorPanelRetry: 'Retry',
+  formatErrorPanelLoading: 'Waiting for the local model…',
+  formatErrorPanelAiUnavailableTitle: 'Local AI is unavailable',
+  formatErrorPanelAiUnavailable:
+    'Could not reach the local Ollama model. Start Ollama, confirm the model configured in Settings is installed, then try again.',
+  formatErrorPanelAiErrorTitle: 'The AI request failed',
+  formatErrorPanelAiMalformed:
+    'The local model returned an unusable answer. Try again, or pick a stronger local model in Settings.',
+  formatErrorPanelStale:
+    'The SQL has changed since this fix was generated. Request a new fix to continue.',
+  formatErrorPanelInvalidFix:
+    'The proposed SQL still fails to format. The suggested fix was not applied — ask for another one.',
+  formatErrorPanelFixApplied: 'Suggested fix applied and formatted successfully',
+  formatErrorPanelFixDismissed: 'Suggested fix dismissed',
+  formatErrorPanelFixNoChange: 'The model returned the same SQL, so there is nothing to apply.',
+  formatErrorPanelFixOutOfRange:
+    'This correction reaches beyond the error location, so it was not applied. Ask for a more local one.',
+  formatErrorPanelAppliedRange: 'Applied character range',
+  formatErrorPanelFixNoRegion:
+    'No error location could be determined, so a correction cannot be applied safely.',
+  formatErrorPanelEmptyQuery: 'There is no SQL to diagnose.',
+  formatErrorPanelResizeHandle: 'Resize the error report panel',
 
   // Guideline - AI Speech Section
   guidelineAiSpeechTitle: 'AI Text-to-Speech',
@@ -1267,6 +1452,25 @@ const en = {
     'Grounding requires Ollama running locally with the "all-minilm" embedding model pulled, independent of which provider you use to generate answers.',
   guidelineDbAssistantTip2:
     'Without grounding, the assistant still answers from general model knowledge — nothing breaks, the Sources row is simply omitted.',
+
+  // Guideline - Database AI Assistant Chat History Section (spec 014)
+  guidelineChatHistoryTitle: 'Database AI Assistant Chat History',
+  guidelineChatHistorySubtitle:
+    'Persistent, multi-conversation history you can search, rename and manage',
+  guidelineChatHistoryStep1Label: 'Conversations survive a reload',
+  guidelineChatHistoryStep1Desc:
+    'Ask the Database AI Assistant a question, then reload the page, navigate to another page and back, or restart the browser. The same conversation returns exactly where you left it — questions, answers and source labels intact — with nothing re-asked.',
+  guidelineChatHistoryStep2Label: 'Browse and search the sidebar',
+  guidelineChatHistoryStep2Desc:
+    'Open the history panel to see every saved conversation grouped by recency (Today, Yesterday, Previous 7 days, Older). Search by conversation title or by the text of the questions you asked to jump straight back to a topic.',
+  guidelineChatHistoryStep3Label: 'Rename, delete or clear',
+  guidelineChatHistoryStep3Desc:
+    'Give a conversation a clearer title, delete a single conversation, or clear the whole history. Every change is saved immediately, and New chat starts a fresh conversation without losing the previous ones.',
+  guidelineChatHistoryTip1:
+    'History is stored on your device and partitioned per signed-in identity — each account only ever sees its own conversations.',
+  guidelineChatHistoryTip2:
+    'Guests and signed-out visitors have no stored history by design: the panel stays present but empty until you sign in and save a conversation.',
+
   guidelineAdvancedFeaturesTitle: 'Advanced Features & UI Enhancements',
   guidelineAdvancedFeaturesSubtitle: 'New pagination, search, and customization capabilities',
   guidelineAdvancedFeaturesStep1Label: 'Main Query Fields Table with Pagination',
@@ -1293,6 +1497,41 @@ const en = {
   guidelineAdvancedFeaturesTip4:
     'All components use CSS containment for optimal performance and faster rendering',
 
+  // Guideline - Format Error Diagnostics Section (spec 012)
+  guidelineFormatErrorTitle: 'Format Error Diagnostics with AI',
+  guidelineFormatErrorSubtitle:
+    'Persistent error panel with AI explanation and fix suggestions, running locally',
+  guidelineFormatErrorStep1Label: 'Trigger a format error',
+  guidelineFormatErrorStep1Desc:
+    'Open the Smart SQL Editor and paste SQL the formatter cannot parse, then click Format. Instead of a transient toast, a dedicated error report panel opens on the right and your SQL is left unchanged.',
+  guidelineFormatErrorStep2Label: 'Get an AI explanation',
+  guidelineFormatErrorStep2Desc:
+    'In the panel, click "Explain with AI" for a plain-language explanation of what the error is and its root cause, grounded in your actual SQL and the formatter\'s message.',
+  guidelineFormatErrorStep3Label: 'Review and apply a fix',
+  guidelineFormatErrorStep3Desc:
+    'Click "Suggest a fix" to see a minimal, semantics-preserving correction side-by-side with the original (Before / After). Review it, then either "Apply fix" or copy it to the clipboard. Dismissing leaves your SQL untouched.',
+  guidelineFormatErrorTip1:
+    'Runs entirely on local Ollama — your SQL never leaves your device for explanation or fix requests.',
+  guidelineFormatErrorTip2:
+    "If your SQL changes after a fix is generated, the proposal is flagged as stale so you can't accidentally apply it over newer edits.",
+
+  // Guideline - SQL → Code Generator Section (spec 015)
+  guidelineCodeGenTitle: 'SQL → Code Generator',
+  guidelineCodeGenSubtitle: 'Turn SQL tables and queries into Java/JPA code without manual mapping',
+  guidelineCodeGenStep1Label: 'Open the SQL → Code Generator tab',
+  guidelineCodeGenStep1Desc:
+    'On the Query Input page, switch to the SQL → Code Generator tab. It has its own SQL box, so your text in the SQL paste, MyBatis and Smart Editor tabs is left untouched.',
+  guidelineCodeGenStep2Label: 'Choose the target and options',
+  guidelineCodeGenStep2Desc:
+    'Java / JPA is the supported target today; C#, Python, TypeScript, Go and Kotlin are listed as planned. Pick the output type (Entity, DTO / Projection or Auto), the naming strategy, and whether to include relationships, Lombok or validation annotations.',
+  guidelineCodeGenStep3Label: 'Generate, then preview, copy or download',
+  guidelineCodeGenStep3Desc:
+    'Paste a CREATE TABLE to get an entity or a SELECT to get a DTO, then click Generate. The result appears in a syntax-highlighted preview together with the detected SQL classification and any warnings. Copy it or download it as a .java file; Reset restores the initial input and clears the result.',
+  guidelineCodeGenTip1:
+    'The system classifies your SQL (table definition, entity-like select, DTO, aggregation, JOIN, DML) and recommends the right output — it warns instead of silently generating incorrect code.',
+  guidelineCodeGenTip2:
+    'Relationship cardinality cannot always be inferred from SQL alone, so the generator documents its assumptions and marks planned languages as not yet supported.',
+
   // Home Page
   homeWelcomeTitle: 'Welcome to SQL Visualizer',
   homeMainHeading: 'Analyze SQL Queries',
@@ -1301,12 +1540,28 @@ const en = {
     'Visualize query complexity, understand relationships, and optimize your SQL with advanced analytics and interactive visualizations.',
   homeGetStartedButton: 'Start Analyzing',
   homeGuidelinesButton: 'View Guidelines',
-  homeAccuracyLabel: '100%',
-  homeAccuracyValue: 'Analysis Accuracy',
-  homeRealtimeLabel: 'Real-time',
-  homeRealtimeValue: 'Query Processing',
-  homeDialectLabel: '4+ SQL',
-  homeDialectValue: 'Dialect Support',
+  // Homepage navigation
+  homeSkipToContent: 'Skip to content',
+  homeNavOpenMenu: 'Open navigation menu',
+  homeNavCloseMenu: 'Close navigation menu',
+  homeNavFeatures: 'Features',
+  homeNavWorkflow: 'How it works',
+  homeNavDocs: 'Docs',
+  // Homepage statistics
+  homeStatDialectsValue: '4',
+  homeStatDialectsLabel: 'SQL dialects supported',
+  homeStatFeaturesValue: '12',
+  homeStatFeaturesLabel: 'Analysis capabilities',
+  homeStatWorkflowValue: '3',
+  homeStatWorkflowLabel: 'Step guided workflow',
+  // Homepage sections
+  homeFeaturesEyebrow: 'Features',
+  // Homepage documentation section
+  homeDocsSectionEyebrow: 'Documentation',
+  homeDocsSectionTitle: 'Everything you need, in one README',
+  homeDocsSectionDesc:
+    'Explore features, setup, AI configuration, and project architecture — straight from the repository README.',
+  homeDocsSectionButton: 'Read the README',
   homePowerfulFeaturesTitle: 'Powerful Features',
   homeFeaturesDescription: 'Everything you need to understand and optimize your SQL queries',
   homeQueryAnalysisTitle: 'Query Analysis',
@@ -1323,7 +1578,28 @@ const en = {
     'AI-powered suggestions to optimize your queries and improve performance',
   homeAiExplainerTitle: 'AI SQL Explainer',
   homeAiExplainerDesc:
-    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables.',
+    'Turn SQL into a structured natural-language explanation of its objective, filters, output, and referenced tables — and read any insight aloud with the built-in text-to-speech.',
+  homeMyBatisTitle: 'MyBatis XML Normalization',
+  homeMyBatisDesc:
+    'Resolve MyBatis parameters, dynamic SQL and includes into one executable statement before the analysis ever starts.',
+  homeCteAnalysisTitle: 'CTE & Field Origin',
+  homeCteAnalysisDesc:
+    'Unfold every CTE and subquery, trace where each field comes from, and spot unused or recursive CTEs.',
+  homeSmartEditorTitle: 'Smart SQL Editor',
+  homeSmartEditorDesc:
+    'Format and validate SQL while you type, with linting, complexity feedback and the AI explainer right next to the editor.',
+  homeFormatErrorTitle: 'AI Error Diagnostics',
+  homeFormatErrorDesc:
+    'Turn a syntax or dialect error into a plain explanation plus an AI-proposed fix you can apply in one click.',
+  homeDatabaseAssistantTitle: 'Database AI Assistant',
+  homeDatabaseAssistantDesc:
+    'Ask questions about your database manuals and get answers grounded in retrieved documentation (RAG).',
+  homeQueryHistoryTitle: 'Query History & Semantic Search',
+  homeQueryHistoryDesc:
+    'Analysed queries are stored server-side and searchable by meaning, not just keywords — reopen or remove them in one click.',
+  homeDocsConsultantTitle: 'Docs Consultant Chat',
+  homeDocsConsultantDesc:
+    'A project-specific chat that answers from the app guidelines and documentation, with the source passages attached.',
   homeReadyToAnalyzeTitle: 'Ready to analyze?',
   homeReadyToAnalyzeDesc:
     'Upload your SQL queries and get instant insights into complexity, performance, and optimization opportunities.',
@@ -1341,6 +1617,11 @@ const en = {
   homePreviewTables: 'tables mapped',
   homePreviewRecommendation: 'Recommendation',
   homePreviewRecommendationText: 'Review the final sort operation and confirm supporting indexes.',
+
+  // Documentation pages (README + Confluence)
+  backToHome: 'Back to Home',
+  confluenceFooterNote: 'SQL Visualizer — feature documentation',
+  readmeFooterNote: 'SQL Visualizer — project README',
 
   // Authentication Panel
   authWorkspaceAccessTitle: 'Workspace access',
@@ -1371,6 +1652,33 @@ const en = {
   authSocialUnavailable:
     '{provider} sign-in will be available when the authentication API is connected.',
   authSignInPrompt: 'Please sign in to open the query workspace.',
+
+  // Guest access (specs/013-guest-access-mode). The disclosure must name what is unavailable and
+  // state that AI on the visitor's own machine stays available — the restriction follows who pays.
+  guestAccessLink: "I don't have an account, but still want to use",
+  guestAccessDialogTitle: 'Continue without an account?',
+  guestAccessDialogIntro:
+    'You can use the SQL analysis tools straight away. A few AI-assisted features need an account, because they run on the operator’s shared capacity.',
+  guestAccessDialogUnavailableList:
+    'Unavailable without an account: AI Explain, AI Optimize, the Docs Consultant chat, the Database AI Assistant, AI requirement generation, and read-aloud.',
+  guestAccessDialogReason:
+    'These features run an AI model, so they are reserved for signed-in users.',
+  guestAccessDialogLocalAiNote:
+    'Everything else stays open: SQL analysis, the relationship graph, complexity metrics, CTE analysis and every export.',
+  guestAccessDialogConfirm: 'Continue as guest',
+  guestAccessDialogCancel: 'Cancel',
+  guestAccessDialogClose: 'Close',
+  // Locked-feature notice (US2). Rendered from local state, so it must read correctly on its own.
+  guestAccessLockedReason:
+    'This feature runs an AI model, so it is available to signed-in users only.',
+  guestAccessLockedLocalAiNote:
+    'The SQL analysis, relationship graph, complexity metrics, CTE analysis and all exports stay available to you.',
+  guestAccessLockedSignIn: 'Sign in to unlock',
+  guestAccessBadge: 'Guest',
+  guestAccessBadgeTitle: 'You are browsing as a guest. AI features are limited.',
+  guestAccessResumeTitle: 'You are still browsing as a guest',
+  guestAccessResumeBody: 'Continue where you left off, or sign in to unlock the AI features.',
+  guestAccessResumeAction: 'Continue as guest',
   authSocialLoginSuccess: 'Signed in via {provider} as {name}.',
   authSocialLoginCancelled: 'Authentication cancelled or rejected by the provider.',
   authSocialLoginFailed: 'Authentication failed: {error}.',
@@ -1380,8 +1688,10 @@ const en = {
   signInBrandTitle: 'SQL Visualizer',
   signInBrandTagline:
     'Inspect query structure, identify cost drivers, and improve the final statement with evidence — from SQL text to a clear next step.',
-  signInBrandFeatureAnalysis: 'Trace CTEs, field origins, joins, nested queries, and table relationships.',
-  signInBrandFeatureScoring: 'Use exact scoring factors and linting findings to focus your next change.',
+  signInBrandFeatureAnalysis:
+    'Trace CTEs, field origins, joins, nested queries, and table relationships.',
+  signInBrandFeatureScoring:
+    'Use exact scoring factors and linting findings to focus your next change.',
 
   homeWorkflowEyebrow: 'Workflow',
   homeWorkflowTitle: 'From SQL text to a clear next step',
@@ -1478,6 +1788,7 @@ const en = {
   aiExplainerErrorHint:
     'Check that the AI provider is reachable and that the model, base URL, or API key in Settings → AI Model Configuration are correct.',
   aiExplainerObjective: 'Query objective',
+  aiExplainerGrain: 'Report grain',
   aiExplainerFilters: 'Filters & constraints',
   aiExplainerNoFilters: 'This query has no filters or constraints.',
   aiExplainerOutput: 'What you get back',
@@ -1488,6 +1799,8 @@ const en = {
   aiExplainerHideRaw: 'Hide raw model response',
   aiExplainerUnstructuredNotice:
     'The model did not return structured sections, so here is its full answer.',
+  aiExplainerLengthNotice:
+    'This explanation fell outside the 500–1,000 character guideline, so the closest match is shown.',
   aiExplainerDrafting: 'Drafting the explanation…',
 
   // AI - context window management
@@ -1603,6 +1916,28 @@ const en = {
   dbAssistantErrorGeneric: 'Something went wrong. Please try again.',
   dbAssistantDisclaimer:
     'Answers are AI-generated and may be incorrect — verify anything critical before relying on it.',
+
+  // Database Assistant Conversation History
+  dbAssistantHistoryTitle: 'Conversations',
+  dbAssistantHistoryNewChat: 'New chat',
+  dbAssistantHistorySearch: 'Search conversations...',
+  dbAssistantHistoryEmpty: 'No conversations yet. Start a new chat!',
+  dbAssistantHistoryNoMatch: 'No conversations match your search',
+  dbAssistantHistoryToday: 'Today',
+  dbAssistantHistoryYesterday: 'Yesterday',
+  dbAssistantHistoryPreviousSevenDays: 'Previous 7 days',
+  dbAssistantHistoryOlder: 'Older',
+  dbAssistantHistoryRename: 'Rename',
+  dbAssistantHistoryDelete: 'Delete',
+  dbAssistantHistoryClearAll: 'Clear all',
+  dbAssistantHistoryClearAllConfirm: 'Are you sure you want to delete all conversations?',
+  dbAssistantHistoryDeleteConfirm: 'Delete this conversation?',
+  dbAssistantHistoryStorageUnavailable: 'Conversations will not be saved',
+  dbAssistantHistoryToggle: 'Toggle history',
+  dbAssistantHistoryCollapse: 'Collapse history panel',
+  dbAssistantHistoryExpand: 'Expand history panel',
+  dbAssistantHistoryResize: 'Resize history panel',
+  dbAssistantHistoryGuestNotice: 'Sign in to save and revisit your conversations across sessions.',
 } as const;
 
 export default en;

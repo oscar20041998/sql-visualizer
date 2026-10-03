@@ -1,0 +1,38 @@
+{
+  "workflow": "speckit",
+  "specName": "SQL Source Classification",
+  "branch": "duyvt7",
+  "currentStep": "implement",
+  "status": "in-progress",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-20T03:02:36.568Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T03:14:16.115Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T03:17:41.650Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-20T03:44:29.272Z"
+    }
+  ],
+  "telemetryInstanceId": "fcee9f4c-16b1-4313-b782-357a7ec18a88"
+}

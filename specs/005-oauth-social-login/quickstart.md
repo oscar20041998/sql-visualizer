@@ -23,10 +23,10 @@ To make local development, offline design, and testing seamless, the buttons on 
 1. **Popup Experience**: When you click "Google" or "Microsoft", the application detects the absence of client IDs and opens a beautifully styled, local simulation popup window.
 2. **User Accounts Available**:
    - **Google Mock Profiles**:
-     - *Duy VT* (`duyvt@fpt.com`, Avatar: Standard FPT icon)
+     - *Duy Võ Thanh* (`duyvt@fpt.com`, Avatar: Standard FPT icon)
      - *Google Developer* (`dev.google@gmail.com`, Avatar: standard Google G)
    - **Microsoft Mock Profiles**:
-     - *Duy VT* (`duyvt7@fsoft.com.vn`, Avatar: standard MS logo)
+     - *Duy Võ Thanh* (`duyvt7@fsoft.com.vn`, Avatar: standard MS logo)
      - *Microsoft Consultant* (`consultant@microsoft.com`, Avatar: standard MS logo)
 3. **Flow Simulation**:
    - Clicking on a profile in the simulated window will fire a successful OAuth Callback parameter payload containing a mock access token and `expires_in` value.
@@ -40,20 +40,20 @@ To make local development, offline design, and testing seamless, the buttons on 
 1. Navigate to the login page (ensure you are signed out).
 2. Click the **Google** button.
 3. Observe that a clean, modeled popup window opens representing Google's consent screen.
-4. Select the profile **Duy VT** (`duyvt@fpt.com`).
+4. Select the profile **Duy Võ Thanh** (`duyvt@fpt.com`).
 5. **Expected Outcome**:
    - The popup closes.
-   - A success toast is displayed: *"Signed in via Google as Duy VT."*
+   - A success toast is displayed: *"Signed in via Google as Duy Võ Thanh."*
    - You are redirected instantly to the `/query-input` workspace.
-   - The Sidebar or profile indicator displays the Google logo alongside *"Duy VT"*.
+   - The Sidebar or profile indicator displays the Google logo alongside *"Duy Võ Thanh"*.
 
 ### Scenario 2 — Sign in with Microsoft (US2 - Mock Mode)
 1. Sign out of any active session to return to the sign-in screen.
 2. Click the **Microsoft** button.
-3. Select **Duy VT** (`duyvt7@fsoft.com.vn`).
+3. Select **Duy Võ Thanh** (`duyvt7@fsoft.com.vn`).
 4. **Expected Outcome**:
    - The popup closes.
-   - A success toast is displayed: *"Signed in via Microsoft as Duy VT."*
+   - A success toast is displayed: *"Signed in via Microsoft as Duy Võ Thanh."*
    - You land on the `/query-input` page with the Microsoft identity profile visible.
 
 ### Scenario 3 — Flow Cancellation / Consent Rejection (Edge Cases)

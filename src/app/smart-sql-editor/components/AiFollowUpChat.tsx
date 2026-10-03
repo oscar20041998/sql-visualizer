@@ -6,6 +6,8 @@ import { AlertTriangle, Check, ChevronRight, Copy, MessageSquareText, RefreshCw,
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
 import { askFollowUp, type AIMessage } from '@/lib/ai/aiService';
+import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
 interface AiFollowUpChatProps {
   sql: string;
@@ -30,15 +32,15 @@ function SqlCodeBlock({ sql, t }: { sql: string; t: Translations }) {
   };
 
   return (
-    <div className="relative my-2 overflow-hidden rounded-lg border border-gray-700 bg-gray-950">
+    <div className="relative my-2 overflow-hidden rounded-lg border border-border bg-muted/50">
       <button
         onClick={() => void copySql()}
         title={copied ? t.aiExplainerCopiedShort : t.aiExplainerCopy}
-        className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+        className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
       >
         {copied ? <Check size={13} /> : <Copy size={13} />}
       </button>
-      <pre className="max-h-56 overflow-auto p-3 pr-11 font-mono text-xs leading-relaxed text-sky-200 scrollbar-thin">
+      <pre className="max-h-56 overflow-auto p-3 pr-11 font-mono text-xs leading-relaxed text-foreground scrollbar-thin">
         <code>{sql}</code>
       </pre>
     </div>
@@ -54,13 +56,13 @@ function AssistantMessage({ content, t }: { content: string; t: Translations }) 
 
   while ((match = SQL_CODE_FENCE_RE.exec(content))) {
     if (match.index > lastIndex) {
-      parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{content.slice(lastIndex, match.index)}</p>);
+      parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content.slice(lastIndex, match.index)}</p>);
     }
     parts.push(<SqlCodeBlock key={key++} sql={match[1].trim()} t={t} />);
     lastIndex = SQL_CODE_FENCE_RE.lastIndex;
   }
   if (lastIndex < content.length) {
-    parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{content.slice(lastIndex)}</p>);
+    parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content.slice(lastIndex)}</p>);
   }
   return <div>{parts}</div>;
 }
@@ -89,6 +91,11 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
   contextBrief,
   t,
 }) => {
+  // A guest reads the locked explanation INSIDE the chat card (specs/013 US2 / FR-015):
+  // the header stays rendered so the lock is discoverable where the AI feature lives,
+  // and only the thread/composer area shows the lock instead of a form that would
+  // fail on submit (FR-013).
+  const locked = useCapabilityLock('follow-up-chat');
   const [history, setHistory] = useState<AIMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -157,29 +164,12 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
 
   const suggestions = buildSuggestions(sql, t);
 
-  return (
-    <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-300">
-              <MessageSquareText size={11} />
-            </span>
-            {t.aiChatTitle}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">{t.aiChatSubtitle}</p>
-        </div>
-        {history.length > 0 && (
-          <button
-            onClick={handleReset}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1 text-[11px] text-gray-300 transition-colors hover:bg-gray-700"
-          >
-            <Trash2 size={11} />
-            {t.aiChatReset}
-          </button>
-        )}
-      </div>
-
+  const chatBody = locked ? (
+    <div className="mt-3">
+      <LockedFeatureNotice t={t} featureName={t.aiChatTitle} />
+    </div>
+  ) : (
+    <>
       {/* Thread */}
       {history.length > 0 && (
         <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
@@ -188,22 +178,22 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
               key={`ai-turn-${index}`}
               className={
                 message.role === 'user'
-                  ? 'ml-6 rounded-lg border border-violet-600/50 bg-violet-950/40 px-3 py-2'
-                  : 'mr-6 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2'
+                  ? 'ml-6 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2'
+                  : 'mr-6 rounded-lg border border-border bg-muted/40 px-3 py-2'
               }
             >
-              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${message.role === 'user' ? 'text-violet-300' : 'text-sky-300'}`}>
+              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${message.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}>
                 {message.role === 'user' ? t.aiChatRoleYou : t.aiChatRoleAssistant}
               </p>
               {message.role === 'assistant' ? (
                 <AssistantMessage content={message.content} t={t} />
               ) : (
-                <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-violet-100">{message.content}</p>
+                <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground">{message.content}</p>
               )}
             </div>
           ))}
           {isAsking && (
-            <div className="mr-6 flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-400">
+            <div className="mr-6 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               <RefreshCw size={11} className="animate-spin" />
               {t.aiChatThinking}
             </div>
@@ -213,7 +203,7 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
       )}
 
       {droppedMessages > 0 && (
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] text-yellow-300/90">
+        <p className="mt-2 flex items-start gap-1.5 text-[11px] text-warning">
           <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
           {t.aiChatHistoryTrimmed.replace('{count}', String(droppedMessages))}
         </p>
@@ -227,7 +217,7 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
               key={`ai-suggestion-${index}`}
               onClick={() => ask(suggestion)}
               disabled={isAsking}
-              className="rounded-full border border-gray-700 bg-gray-900 px-2.5 py-1 text-[11px] text-gray-300 transition-colors hover:border-violet-700 hover:text-violet-200 disabled:opacity-50"
+              className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:opacity-50"
             >
               {suggestion}
             </button>
@@ -248,17 +238,44 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
           onChange={(event) => setQuestion(event.target.value)}
           placeholder={t.aiChatPlaceholder}
           disabled={isAsking}
-          className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-violet-700 focus:outline-none disabled:opacity-60"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={isAsking || !question.trim()}
-          className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t.aiChatSend}
           <ChevronRight size={12} />
         </button>
       </form>
+    </>
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
+              <MessageSquareText size={11} />
+            </span>
+            {t.aiChatTitle}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t.aiChatSubtitle}</p>
+        </div>
+        {history.length > 0 && (
+          <button
+            onClick={handleReset}
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-secondary"
+          >
+            <Trash2 size={11} />
+            {t.aiChatReset}
+          </button>
+        )}
+      </div>
+
+      {chatBody}
     </div>
   );
 };

@@ -57,9 +57,13 @@ docs/knowledge/*.pdf
 
 # Optional: if using Specify or GitHub Skills
 .specify
-.github/skills
+.github
 .specs
 
 # Optional: if using the command-line interface
 .cline
 .clinerules
+
+# Optional: if using Specify skills
+skills-lock.json
+.agents/

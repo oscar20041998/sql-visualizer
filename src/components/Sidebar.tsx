@@ -19,12 +19,13 @@ import {
   Loader,
   ChevronLeft,
   LogOut,
+  UserRound,
   Sparkles,
   Database,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import { clearDemoAuthenticated, getSocialSession, type UserSession } from '@/lib/demoAuth';
+import { clearDemoAuthenticated, getSocialSession, isGuestSession, type UserSession } from '@/lib/demoAuth';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
 
@@ -58,10 +59,12 @@ export default function Sidebar() {
   const { settings, updateSettings, analysisResult, navigationTarget, beginNavigation } =
     useAppStore();
   const [socialSession, setSocialSession] = useState<UserSession | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const t = getT(settings.locale);
 
   useEffect(() => {
     setSocialSession(getSocialSession());
+    setIsGuest(isGuestSession());
   }, []);
 
   const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
@@ -187,6 +190,28 @@ export default function Sidebar() {
 
       {/* Bottom Controls */}
       <div className="border-t border-border p-2 space-y-1">
+        {/* Guest access (specs/013-guest-access-mode, FR-010): a guest is not a social session,
+            so the avatar block above stays empty — this badge is what tells them why some
+            features are unavailable. */}
+        {isGuest && (
+          <div
+            title={t.guestAccessBadgeTitle}
+            className={`mb-2 flex items-center gap-2 rounded-md border border-dashed border-border px-2 py-2 ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <UserRound
+              size={16}
+              aria-hidden="true"
+              className="flex-shrink-0 text-muted-foreground"
+            />
+            {!isCollapsed && (
+              <span className="truncate text-xs font-medium text-muted-foreground">
+                {t.guestAccessBadge}
+              </span>
+            )}
+          </div>
+        )}
         {socialSession && (
           <div
             className={`mb-2 flex items-center gap-2 px-2 py-2 ${isCollapsed ? 'justify-center' : ''}`}
