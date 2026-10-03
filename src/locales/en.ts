@@ -520,10 +520,11 @@ const en = {
   spacingSpacious: 'Spacious',
 
   // Settings - AI Model Configuration
-  settingsAI: 'AI Model Configuration',
-  aiConfigSubtitle: 'Configure the AI provider used for SQL-to-natural-language explanations',
+  settingsAI: 'AI Provider & Models',
+  aiConfigSubtitle:
+    'Choose the provider, model, and token budgets shared by SQL Explainer, chat, and Database AI Assistant.',
   aiProvider: 'AI Provider',
-  aiProviderHint: 'Choose between a local Ollama model or a cloud AI provider',
+  aiProviderHint: 'This provider is shared by SQL Explainer, chat, and Database AI Assistant.',
   aiProviderOllama: 'Ollama (Local LLM)',
   aiProviderOpenAI: 'OpenAI',
   aiProviderAnthropic: 'Anthropic (Claude)',
@@ -547,13 +548,19 @@ const en = {
   aiConfigUnsaved: 'You have unsaved changes',
   aiConfigUpToDate: 'All changes saved',
   aiModelId: 'Model ID',
-  aiModelIdHint: 'Identifier of the model to use, e.g. gpt-4o or claude-3-5-sonnet',
+  aiModelIdHint:
+    'Choose a model available to your provider account and compatible with chat responses.',
   aiModelCustom: 'Enter a custom model ID...',
+  aiModelAdd: 'Add model',
+  aiModelSearch: 'Search models...',
+  aiModelAddConfirm: 'Add',
+  aiModelCustomPlaceholder: 'Custom model ID',
   aiModelsLoading: 'Loading available models...',
   aiModelsLoadFailed: 'Could not load models.',
   aiModelsSignInRequired: 'Sign in to load available models.',
   aiModelsRetry: 'Retry',
-  aiModelsNoneAvailable: 'No models found. Enter a model ID manually.',
+  aiModelsNoneAvailable: 'No models found. Use "Add model" to enter a model ID.',
+  aiTokenUnit: 'tokens',
   aiTemperature: 'Temperature',
   aiTemperatureHint: 'Controls randomness — lower values are more deterministic',
   aiSystemPrompt: 'System Prompt Instructions for AI',
@@ -1688,7 +1695,8 @@ const en = {
   authSocialLoginSuccess: 'Signed in via {provider} as {name}.',
   authSocialLoginCancelled: 'Authentication cancelled or rejected by the provider.',
   authSocialLoginFailed: 'Authentication failed: {error}.',
-  authSocialLoginNotConfigured: '{provider} sign-in is not configured. Set {variable} and restart the app.',
+  authSocialLoginNotConfigured:
+    '{provider} sign-in is not configured. Set {variable} and restart the app.',
   authSessionExpiredMessage: 'Session expired. Please sign in again.',
   authSessionExpiresIn: 'Session expires in {time}',
   authSignOutSuccess: 'Successfully signed out.',
@@ -1814,10 +1822,10 @@ const en = {
   // AI - context window management
   aiContextTokens: 'Context Window (tokens)',
   aiContextTokensHint:
-    "Saved per provider. Must match the selected model's real context size — Ollama silently drops anything over the limit, so raise it with OLLAMA_CONTEXT_LENGTH or a Modelfile before raising it here.",
+    "Prompt budget saved per provider. Keep it within the selected model's context limit; Ollama also needs a matching server context setting.",
   aiMaxOutputTokens: 'Max Answer Length (tokens)',
   aiMaxOutputTokensHint:
-    'Saved per provider. Reserved out of the context window for the answer itself.',
+    'Maximum tokens reserved for the answer. The selected model or this app’s API limit may be lower than the chosen value.',
   aiBatchConcurrency: 'Batch Concurrency',
   aiBatchConcurrencyHint:
     'How many AI requests run at once during a batch explain. Ollama serialises per model unless OLLAMA_NUM_PARALLEL is raised.',

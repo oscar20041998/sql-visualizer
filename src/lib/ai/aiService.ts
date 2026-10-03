@@ -3,6 +3,7 @@ import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
 import type { AnalysisResult } from '../sql/sqlAnalyzer';
 import {
+  DEFAULT_CHAT_MODELS,
   DEFAULT_CONTEXT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_EMBEDDING_MODELS,
@@ -211,9 +212,7 @@ export async function readFailure(response: Response, fallbackMessage: string): 
     throw new GuestNotEntitledError();
   }
   const detail = (payload as { error?: unknown } | null)?.error;
-  throw new AIServiceError(
-    typeof detail === 'string' && detail.trim() ? detail : fallbackMessage
-  );
+  throw new AIServiceError(typeof detail === 'string' && detail.trim() ? detail : fallbackMessage);
 }
 
 /**
@@ -1157,6 +1156,21 @@ function assertGuestEntitled(config: AIModelConfig, capabilityId: string): void 
   }
 }
 
+/**
+ * The model actually sent to the provider.
+ *
+ * A config written before the per-provider defaults existed — or one whose model was cleared — would
+ * otherwise reach the provider as an empty string and fail with an opaque 404. Falling back to the
+ * curated default keeps the Chatbot and the Database AI Assistant working without a settings visit.
+ */
+function resolveModel(config: AIModelConfig): string {
+  const model =
+    config.provider === 'ollama'
+      ? config.ollamaModel
+      : config.modelId || DEFAULT_CHAT_MODELS[config.provider];
+  return model.trim() || DEFAULT_CHAT_MODELS[config.provider];
+}
+
 /** Routes a generation request to the provider configured in AIModelConfig. */
 export async function generateWithAI(
   config: AIModelConfig,
@@ -1166,7 +1180,7 @@ export async function generateWithAI(
   if (config.provider === 'ollama') {
     return callOllama(
       config.baseUrls?.ollama ?? '',
-      config.ollamaModel,
+      resolveModel(config),
       toProviderCall(config, request)
     );
   }
@@ -1186,7 +1200,7 @@ export async function streamWithAI(
   if (config.provider === 'ollama') {
     return callOllamaStream(
       config.baseUrls?.ollama ?? '',
-      config.ollamaModel,
+      resolveModel(config),
       toProviderCall(config, request),
       onDelta
     );

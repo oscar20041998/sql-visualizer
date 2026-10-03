@@ -28,7 +28,8 @@ Thumbs.db
 *.tsbuildinfo
 
 # Local text-to-speech voices, fetched by `npm run setup:piper` (~140 MB)
-models/
+# Anchored to the repo root: a bare `models/` also matches src/app/api/ai/models/, which is source.
+/models/
 
 # Local query-history workbook, written by /api/history (per-machine data, not source)
 data/

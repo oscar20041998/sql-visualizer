@@ -514,10 +514,12 @@ const vi = {
   spacingSpacious: 'Rộng rãi',
 
   // Settings - AI Model Configuration
-  settingsAI: 'Cấu hình mô hình AI',
-  aiConfigSubtitle: 'Cấu hình nhà cung cấp AI dùng để diễn giải SQL sang ngôn ngữ tự nhiên',
+  settingsAI: 'Cấu hình AI',
+  aiConfigSubtitle:
+    'Chọn nhà cung cấp, mô hình và ngân sách token dùng chung cho SQL Explainer, chatbot và Database AI Assistant.',
   aiProvider: 'Nhà cung cấp AI',
-  aiProviderHint: 'Chọn giữa mô hình Ollama cục bộ hoặc nhà cung cấp AI đám mây',
+  aiProviderHint:
+    'Nhà cung cấp này được dùng chung cho SQL Explainer, chatbot và Database AI Assistant.',
   aiProviderOllama: 'Ollama (LLM cục bộ)',
   aiProviderOpenAI: 'OpenAI',
   aiProviderAnthropic: 'Anthropic (Claude)',
@@ -541,13 +543,18 @@ const vi = {
   aiConfigUnsaved: 'Bạn có thay đổi chưa lưu',
   aiConfigUpToDate: 'Đã lưu tất cả thay đổi',
   aiModelId: 'Model ID',
-  aiModelIdHint: 'Định danh mô hình sử dụng, ví dụ gpt-4o hoặc claude-3-5-sonnet',
+  aiModelIdHint: 'Chọn model có trong tài khoản nhà cung cấp và hỗ trợ phản hồi hội thoại.',
   aiModelCustom: 'Nhập Model ID tùy chỉnh...',
+  aiModelAdd: 'Thêm model',
+  aiModelSearch: 'Tìm kiếm model...',
+  aiModelAddConfirm: 'Thêm',
+  aiModelCustomPlaceholder: 'Model ID tùy chỉnh',
   aiModelsLoading: 'Đang tải danh sách model...',
   aiModelsLoadFailed: 'Không tải được danh sách model.',
   aiModelsSignInRequired: 'Hãy đăng nhập để tải danh sách model.',
   aiModelsRetry: 'Thử lại',
-  aiModelsNoneAvailable: 'Không tìm thấy model. Hãy nhập Model ID thủ công.',
+  aiModelsNoneAvailable: 'Không tìm thấy model. Dùng "Thêm model" để nhập Model ID.',
+  aiTokenUnit: 'token',
   aiTemperature: 'Độ ngẫu nhiên (temperature)',
   aiTemperatureHint: 'Kiểm soát mức độ ngẫu nhiên — giá trị thấp cho kết quả ổn định hơn',
   aiSystemPrompt: 'Hướng dẫn mặc định cho cách AI',
@@ -1686,7 +1693,8 @@ const vi = {
   authSocialLoginSuccess: 'Đã đăng nhập bằng {provider} với tài khoản {name}.',
   authSocialLoginCancelled: 'Đã hủy hoặc bị nhà cung cấp từ chối xác thực.',
   authSocialLoginFailed: 'Xác thực thất bại: {error}.',
-  authSocialLoginNotConfigured: 'Đăng nhập {provider} chưa được cấu hình. Hãy đặt {variable} và khởi động lại ứng dụng.',
+  authSocialLoginNotConfigured:
+    'Đăng nhập {provider} chưa được cấu hình. Hãy đặt {variable} và khởi động lại ứng dụng.',
   authSessionExpiredMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
   authSessionExpiresIn: 'Phiên đăng nhập hết hạn sau {time}',
   authSignOutSuccess: 'Đã đăng xuất thành công.',
@@ -1811,10 +1819,10 @@ const vi = {
   // AI - quản lý cửa sổ ngữ cảnh
   aiContextTokens: 'Cửa sổ ngữ cảnh (token)',
   aiContextTokensHint:
-    'Lưu riêng theo từng provider. Phải khớp với cửa sổ ngữ cảnh thật của mô hình đang chọn — Ollama âm thầm bỏ phần vượt giới hạn, nên hãy tăng bằng OLLAMA_CONTEXT_LENGTH hoặc Modelfile trước khi tăng ở đây.',
+    'Ngân sách token cho prompt, lưu riêng theo provider. Không chọn vượt cửa sổ ngữ cảnh của model; Ollama cần cấu hình context tương ứng ở server.',
   aiMaxOutputTokens: 'Độ dài câu trả lời tối đa (token)',
   aiMaxOutputTokensHint:
-    'Lưu riêng theo từng provider. Phần được giữ lại trong cửa sổ ngữ cảnh cho chính câu trả lời.',
+    'Số token tối đa dành cho câu trả lời. Model hoặc giới hạn API của ứng dụng có thể thấp hơn giá trị đã chọn.',
   aiBatchConcurrency: 'Số request song song',
   aiBatchConcurrencyHint:
     'Số request AI chạy đồng thời khi giải thích theo lô. Ollama xử lý tuần tự trên mỗi mô hình trừ khi tăng OLLAMA_NUM_PARALLEL.',
