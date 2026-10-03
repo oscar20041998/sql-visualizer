@@ -60,12 +60,68 @@ export default function Sidebar() {
     useAppStore();
   const [socialSession, setSocialSession] = useState<UserSession | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  const [microsoftAvatarUrl, setMicrosoftAvatarUrl] = useState<string | null>(null);
+  const [sessionNow, setSessionNow] = useState(() => Date.now());
   const t = getT(settings.locale);
+  const remainingSeconds = socialSession
+    ? Math.max(0, Math.ceil((socialSession.expiry - sessionNow) / 1000))
+    : 0;
+  const sessionRemaining =
+    remainingSeconds >= 60
+      ? `${Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`
+      : `${remainingSeconds}s`;
 
   useEffect(() => {
     setSocialSession(getSocialSession());
     setIsGuest(isGuestSession());
   }, []);
+
+  useEffect(() => {
+    setMicrosoftAvatarUrl(null);
+    if (!socialSession || socialSession.provider !== 'microsoft' || socialSession.avatarUrl) return;
+
+    let active = true;
+    let objectUrl: string | null = null;
+    fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
+      headers: { Authorization: `Bearer ${socialSession.accessToken}` },
+    })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const photo = await response.blob();
+        if (!photo.type.startsWith('image/')) return;
+        objectUrl = URL.createObjectURL(photo);
+        if (active) setMicrosoftAvatarUrl(objectUrl);
+        else URL.revokeObjectURL(objectUrl);
+      })
+      .catch(() => {
+        // A missing Graph photo is expected for some accounts; keep the initials fallback.
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [socialSession]);
+
+  useEffect(() => {
+    if (!socialSession) return;
+
+    const updateSessionClock = () => {
+      const now = Date.now();
+      setSessionNow(now);
+      if (now < socialSession.expiry) return;
+
+      clearDemoAuthenticated();
+      setSocialSession(null);
+      toast.info(t.authSessionExpiredMessage);
+      beginNavigation('/login');
+      router.replace('/login');
+    };
+
+    updateSessionClock();
+    const interval = window.setInterval(updateSessionClock, 1000);
+    return () => window.clearInterval(interval);
+  }, [socialSession, t.authSessionExpiredMessage, beginNavigation, router]);
 
   const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
   const toggleLocale = () => updateSettings({ locale: settings.locale === 'en' ? 'vi' : 'en' });
@@ -216,9 +272,9 @@ export default function Sidebar() {
           <div
             className={`mb-2 flex items-center gap-2 px-2 py-2 ${isCollapsed ? 'justify-center' : ''}`}
           >
-            {socialSession.avatarUrl ? (
+            {socialSession.avatarUrl || microsoftAvatarUrl ? (
               <img
-                src={socialSession.avatarUrl}
+                src={socialSession.avatarUrl || microsoftAvatarUrl || undefined}
                 alt=""
                 className="h-8 w-8 rounded-full object-cover"
               />
@@ -237,6 +293,9 @@ export default function Sidebar() {
                 </div>
                 <span className="block truncate text-[10px] text-muted-foreground">
                   {socialSession.email}
+                </span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {t.authSessionExpiresIn.replace('{time}', sessionRemaining)}
                 </span>
               </div>
             )}

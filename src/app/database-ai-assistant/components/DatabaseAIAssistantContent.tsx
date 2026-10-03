@@ -298,8 +298,11 @@ export default function DatabaseAIAssistantContent() {
         </div>
       )}
       {!(isGuest && isLockedForGuest(getCapability('database-assistant')!, aiConfig)) && (
-        <div className="flex h-full min-h-0 flex-col lg:flex-row lg:items-stretch">
-          {/* `items-stretch` plus the panel's own viewport height lets the sidebar fill the column. */}
+        <div className="flex h-full min-h-0 flex-col lg:flex-row lg:items-stretch lg:overflow-hidden">
+          {/* `items-stretch` lets the sidebar fill the row's height, and `lg:overflow-hidden` keeps the
+              page from *also* scrolling: once both columns own their own scroll regions, letting `main`
+              scroll too would nest two scrollbars over the same content. Below `lg` the panel is a
+              drawer, so the document keeps its normal flow. */}
           {/* History Panel: owns its own responsive layout (sidebar on lg, drawer below) */}
           <DatabaseAssistantHistoryPanel />
 
@@ -331,13 +334,19 @@ export default function DatabaseAIAssistantContent() {
               )}
             </header>
 
-            <section className="flex flex-1 flex-col">
+            {/* `min-h-0` is required, not cosmetic: a flex item defaults to `min-height: auto`, so
+                without it this section refuses to shrink below its content and the `overflow-y-auto`
+                child below never scrolls — the whole page scrolls instead and the header scrolls
+                away. */}
+            <section className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 space-y-6 overflow-y-auto pb-6 scrollbar-thin">
                 {turns.length === 0 && (
                   <div className="flex min-h-[45vh] flex-col items-center justify-center gap-5 text-center">
                     <Database size={30} className="text-primary" />
                     <div>
-                      <p className="text-xl font-medium text-foreground">{t.dbAssistantEmptyTitle}</p>
+                      <p className="text-xl font-medium text-foreground">
+                        {t.dbAssistantEmptyTitle}
+                      </p>
                       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                         {t.dbAssistantEmptySubtitle}
                       </p>
@@ -359,87 +368,89 @@ export default function DatabaseAIAssistantContent() {
                   </div>
                 )}
 
-              {turns.map((turn) => (
-                <div
-                  key={turn.id}
-                  className={`group flex items-start gap-3 ${turn.role === 'user' ? 'flex-row-reverse' : ''}`}
-                >
-                  <span
-                    className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
-                      turn.role === 'user'
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-primary/10 text-primary'
-                    }`}
-                  >
-                    {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
-                  </span>
+                {turns.map((turn) => (
                   <div
-                    className={`max-w-[86%] px-1 py-1.5 ${
-                      turn.role === 'user'
-                        ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
-                        : 'text-sm text-foreground'
-                    }`}
+                    key={turn.id}
+                    className={`group flex items-start gap-3 ${turn.role === 'user' ? 'flex-row-reverse' : ''}`}
                   >
-                    <div className="mb-1 flex items-center justify-between gap-3">
-                      {turn.role === 'assistant' && (
-                        <CopyButton
-                          text={turn.content}
-                          label={t.dbAssistantCopy}
-                          labelCopied={t.dbAssistantCopied}
-                        />
+                    <span
+                      className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+                        turn.role === 'user'
+                          ? 'bg-muted text-muted-foreground'
+                          : 'bg-primary/10 text-primary'
+                      }`}
+                    >
+                      {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
+                    </span>
+                    <div
+                      className={`max-w-[86%] px-1 py-1.5 ${
+                        turn.role === 'user'
+                          ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
+                          : 'text-sm text-foreground'
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-3">
+                        {turn.role === 'assistant' && (
+                          <CopyButton
+                            text={turn.content}
+                            label={t.dbAssistantCopy}
+                            labelCopied={t.dbAssistantCopied}
+                          />
+                        )}
+                      </div>
+                      {turn.content ? (
+                        turn.role === 'assistant' ? (
+                          <MessageContent content={turn.content} />
+                        ) : (
+                          <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
+                        )
+                      ) : (
+                        <Loader2 size={15} className="animate-spin text-muted-foreground" />
+                      )}
+                      {turn.isStreaming && turn.content && (
+                        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />
+                      )}
+                      {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            {t.dbAssistantSourcesLabel}:
+                          </span>
+                          {turn.sources.map((source, sourceIndex) => (
+                            <span
+                              key={`db-source-${turn.id}-${sourceIndex}`}
+                              className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
+                              title={[source.section, source.pageAnchor]
+                                .filter(Boolean)
+                                .join(' — ')}
+                            >
+                              {source.sourceFile}
+                              {source.section ? ` · ${source.section}` : ''}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    {turn.content ? (
-                      turn.role === 'assistant' ? (
-                        <MessageContent content={turn.content} />
-                      ) : (
-                        <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
-                      )
-                    ) : (
-                      <Loader2 size={15} className="animate-spin text-muted-foreground" />
-                    )}
-                    {turn.isStreaming && turn.content && (
-                      <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />
-                    )}
-                    {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
-                        <span className="text-[10px] text-muted-foreground">
-                          {t.dbAssistantSourcesLabel}:
-                        </span>
-                        {turn.sources.map((source, sourceIndex) => (
-                          <span
-                            key={`db-source-${turn.id}-${sourceIndex}`}
-                            className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
-                            title={[source.section, source.pageAnchor].filter(Boolean).join(' — ')}
-                          >
-                            {source.sourceFile}
-                            {source.section ? ` · ${source.section}` : ''}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {!isAsking && followUps.length > 0 && (
-                <div className="ml-9 flex flex-wrap items-center gap-2">
-                  <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t.dbAssistantFollowUpsLabel}
-                  </span>
-                  {followUps.map((suggestion, index) => (
-                    <button
-                      key={`db-followup-${turns.length}-${index}`}
-                      onClick={() => ask(suggestion)}
-                      className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {!isAsking && followUps.length > 0 && (
+                  <div className="ml-9 flex flex-wrap items-center gap-2">
+                    <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t.dbAssistantFollowUpsLabel}
+                    </span>
+                    {followUps.map((suggestion, index) => (
+                      <button
+                        key={`db-followup-${turns.length}-${index}`}
+                        onClick={() => ask(suggestion)}
+                        className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              <div ref={endRef} />
+                <div ref={endRef} />
               </div>
 
               <form

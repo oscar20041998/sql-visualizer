@@ -99,7 +99,9 @@ export function DatabaseAssistantHistoryPanel() {
     const onMove = (moveEvent: PointerEvent) => {
       const next = startWidth + (moveEvent.clientX - startX);
       const maxByViewport = Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth - 320);
-      setDragWidth(Math.min(Math.max(next, MIN_SIDEBAR_WIDTH), Math.max(maxByViewport, MIN_SIDEBAR_WIDTH)));
+      setDragWidth(
+        Math.min(Math.max(next, MIN_SIDEBAR_WIDTH), Math.max(maxByViewport, MIN_SIDEBAR_WIDTH))
+      );
     };
 
     const stop = () => {
@@ -354,7 +356,7 @@ export function DatabaseAssistantHistoryPanel() {
           // The toggle and the resize handle are deliberately siblings of this element rather than
           // children: anything inside would become unreachable, leaving no way to expand it again.
           aria-hidden={isCollapsed || undefined}
-          className={`flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-border bg-card ${
+          className={`flex h-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-r border-border bg-card ${
             isCollapsed ? 'w-0 border-r-0' : ''
           }`}
         >
@@ -508,9 +510,7 @@ function ConversationItem({
   return (
     <div
       className={`cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors ${
-        isActive
-          ? 'bg-primary/10 font-medium text-primary'
-          : 'text-foreground hover:bg-muted'
+        isActive ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted'
       }`}
     >
       {isRenaming ? (
@@ -543,10 +543,7 @@ function ConversationItem({
           />
         </div>
       ) : (
-        <div
-          onClick={onSelect}
-          className="flex items-center justify-between gap-2 group"
-        >
+        <div onClick={onSelect} className="flex items-center justify-between gap-2 group">
           <span className="flex-1 text-sm truncate">{conversation.title}</span>
           <div className="flex flex-col gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
             <button

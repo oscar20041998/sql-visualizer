@@ -1,6 +1,6 @@
 # SQL Visualizer
 
-**📚 Ngôn ngữ:** [English](./README.md) | Tiếng Việt
+**📚 Ngôn ngữ:** English | [Tiếng Việt]
 
 Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng Next.js 15, React 19 và TypeScript. Phân tích độ phức tạp truy vấn, trực quan hóa quan hệ giữa các bảng, khám phá CTE và phân tích chi tiết điều kiện JOIN trên nhiều SQL dialects.
 
