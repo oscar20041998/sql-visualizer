@@ -89,3 +89,34 @@ describe('generateWithCloudKey Gemini adapter', () => {
     }
   });
 });
+
+describe('generateWithCloudKey OpenAI adapter', () => {
+  it('uses the completion token parameter supported by GPT-5', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: 'Ready.' } }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    try {
+      await generateWithCloudKey(
+        'openai',
+        'test-api-key',
+        'gpt-5',
+        'https://api.openai.com',
+        {
+          messages: [{ role: 'user', content: 'Reply briefly.' }],
+          maxTokens: 128,
+        }
+      );
+
+      const [, requestInit] = fetchMock.mock.calls[0];
+      const requestBody = JSON.parse(String(requestInit?.body));
+      expect(requestBody.max_completion_tokens).toBe(128);
+      expect(requestBody.max_tokens).toBeUndefined();
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+});
