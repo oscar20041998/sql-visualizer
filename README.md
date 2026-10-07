@@ -200,14 +200,14 @@ SQL Visualizer uses Ollama locally at `http://localhost:11434` by default. The a
 
 | Purpose | Model | Used by |
 | --- | --- | --- |
-| Chat, SQL explanation, SQL optimization, and Database AI Assistant answers | `qwen2.5-coder:7b` | Default Ollama chat model, configurable in **Settings > AI Model Configuration** |
+| Chat, SQL explanation, SQL optimization, and Database AI Assistant answers | `qwen2.5-coder:3b` | Default Ollama chat model, configurable in **Settings > AI Model Configuration** |
 | Database-manual RAG retrieval | `all-minilm` | Required for Database AI Assistant grounding; must match the local index embedding space |
 | Query History semantic search | `nomic-embed-text` | Finds previously analyzed SQL with similar meaning |
 
 Install the complete local setup:
 
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:3b
 ollama pull all-minilm
 ollama pull nomic-embed-text
 ```
@@ -218,7 +218,7 @@ For a responsive single-user development workflow, use these settings in **Setti
 | --- | --- | --- |
 | Provider | `Ollama` | Keeps SQL prompts and RAG embeddings on the local machine |
 | Base URL | `http://localhost:11434` | Default local Ollama service address |
-| Chat model | `qwen2.5-coder:7b` | Balanced SQL quality, streaming speed, and memory use |
+| Chat model | `qwen2.5-coder:3b` | Balanced SQL quality, streaming speed, and memory use |
 | Temperature | `0.1` | Produces more deterministic SQL explanations and optimization suggestions |
 | Context window | `8192` | Supports a SQL query, parser context, conversation history, and retrieved manual excerpts |
 | Maximum output tokens | `1200` | Keeps streamed answers concise and reduces generation latency |
@@ -232,7 +232,7 @@ $env:OLLAMA_CONTEXT_LENGTH = "8192"
 ollama serve
 ```
 
-For best throughput, keep the models warm while the application is in use, avoid running multiple large chat models concurrently, and use GPU acceleration when available. `qwen2.5-coder:7b` needs roughly 5 GB of model storage and typically benefits from at least 8 GB available RAM/VRAM; reduce the context window back to `4096` on memory-constrained machines. Do not change the RAG model from `all-minilm` unless you rebuild the Database Knowledge index with the replacement model.
+For best throughput, keep the models warm while the application is in use, avoid running multiple large chat models concurrently, and use GPU acceleration when available. `qwen2.5-coder:3b` needs roughly 5 GB of model storage and typically benefits from at least 8 GB available RAM/VRAM; reduce the context window back to `4096` on memory-constrained machines. Do not change the RAG model from `all-minilm` unless you rebuild the Database Knowledge index with the replacement model.
 
 ### Optional: Build the Database Knowledge RAG Index
 

@@ -15,7 +15,7 @@ and [contracts/history-ui.md](./contracts/history-ui.md); work breakdown belongs
 |---|---|
 | Node.js 20+ | `@types/node` is `^20` |
 | Dependencies installed | `npm install` — **no new dependency is added by this feature** |
-| A working AI target | Ollama running locally with `qwen2.5-coder:7b` (the default in `DEFAULT_AI_CONFIG`), **or** a cloud provider configured server-side. Needed only for the scenarios that ask a question |
+| A working AI target | Ollama running locally with `qwen2.5-coder:3b` (the default in `DEFAULT_AI_CONFIG`), **or** a cloud provider configured server-side. Needed only for the scenarios that ask a question |
 | A signed-in identity | Google/Microsoft social sign-in, or the demo password. **Required**: history is partitioned per identity, so a guest or signed-out browser has no history by design (FR-030, FR-043) |
 | Optional: RAG grounding | `npm run build:database-knowledge-index` plus the Ollama embedding model, to exercise the source-label restore scenario. Without it the assistant answers from general knowledge and `sources` is empty — that is a supported state, not a failure |
 

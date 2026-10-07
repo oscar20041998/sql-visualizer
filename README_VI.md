@@ -198,14 +198,14 @@ SQL Visualizer sử dụng Ollama cục bộ tại `http://localhost:11434` theo
 
 | Mục đích | Mô hình | Được sử dụng bởi |
 | --- | --- | --- |
-| Chat, giải thích SQL, tối ưu hóa SQL, và Database AI Assistant answers | `qwen2.5-coder:7b` | Mô hình Ollama chat mặc định, có thể cấu hình trong **Settings > AI Model Configuration** |
+| Chat, giải thích SQL, tối ưu hóa SQL, và Database AI Assistant answers | `qwen2.5-coder:3b` | Mô hình Ollama chat mặc định, có thể cấu hình trong **Settings > AI Model Configuration** |
 | Truy xuất RAG sách hướng dẫn cơ sở dữ liệu | `all-minilm` | Bắt buộc cho grounding Database AI Assistant; phải khớp với không gian nhúng chỉ mục cục bộ |
 | Tìm kiếm ngữ nghĩa lịch sử truy vấn | `nomic-embed-text` | Tìm SQL được phân tích trước đó với ý nghĩa tương tự |
 
 Cài đặt hoàn chỉnh:
 
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:3b
 ollama pull all-minilm
 ollama pull nomic-embed-text
 ```
@@ -216,7 +216,7 @@ ollama pull nomic-embed-text
 | --- | --- | --- |
 | Nhà cung cấp (Provider) | `Ollama` | Giữ SQL prompts và RAG embeddings trên máy cục bộ |
 | Base URL | `http://localhost:11434` | Địa chỉ dịch vụ Ollama cục bộ mặc định |
-| Chat model | `qwen2.5-coder:7b` | Cân bằng chất lượng SQL, tốc độ streaming và mức sử dụng bộ nhớ |
+| Chat model | `qwen2.5-coder:3b` | Cân bằng chất lượng SQL, tốc độ streaming và mức sử dụng bộ nhớ |
 | Nhiệt độ (Temperature) | `0.1` | Tạo ra các giải thích SQL và đề xuất tối ưu hóa xác định hơn |
 | Cửa sổ ngữ cảnh (Context window) | `8192` | Hỗ trợ truy vấn SQL, ngữ cảnh trình phân tích, lịch sử cuộc trò chuyện và trích dẫn sách hướng dẫn được truy xuất |
 | Token đầu ra tối đa (Maximum output tokens) | `1200` | Giữ các câu trả lời được phát truyền ngắn gọn và giảm độ trễ tạo |
@@ -230,7 +230,7 @@ $env:OLLAMA_CONTEXT_LENGTH = "8192"
 ollama serve
 ```
 
-Để có thông lượng tốt nhất, hãy giữ các mô hình ấm khi ứng dụng đang hoạt động, tránh chạy nhiều mô hình chat lớn cùng lúc và sử dụng GPU acceleration khi có sẵn. `qwen2.5-coder:7b` cần khoảng 5 GB lưu trữ mô hình và thường được hưởng lợi từ ít nhất 8 GB RAM/VRAM có sẵn; giảm cửa sổ ngữ cảnh quay lại `4096` trên các máy bị hạn chế bộ nhớ. Không thay đổi mô hình RAG từ `all-minilm` trừ khi bạn xây dựng lại chỉ mục Database Knowledge với mô hình thay thế.
+Để có thông lượng tốt nhất, hãy giữ các mô hình ấm khi ứng dụng đang hoạt động, tránh chạy nhiều mô hình chat lớn cùng lúc và sử dụng GPU acceleration khi có sẵn. `qwen2.5-coder:3b` cần khoảng 5 GB lưu trữ mô hình và thường được hưởng lợi từ ít nhất 8 GB RAM/VRAM có sẵn; giảm cửa sổ ngữ cảnh quay lại `4096` trên các máy bị hạn chế bộ nhớ. Không thay đổi mô hình RAG từ `all-minilm` trừ khi bạn xây dựng lại chỉ mục Database Knowledge với mô hình thay thế.
 
 ### Tùy chọn: Xây dựng chỉ mục Database Knowledge RAG
 
@@ -316,14 +316,17 @@ sql-visualizer/
 
 ## 📖 Tài liệu
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Hướng dẫn đóng góp (Tiếng Anh)
-- **[CONTRIBUTING_VI.md](CONTRIBUTING_VI.md)** - Hướng dẫn đóng góp (Tiếng Việt)
 - **[Confluence EN](docs/confluence/SQL_Visualizer_Confluence_EN.md)** - Tài liệu Confluence (Tiếng Anh)
 - **[Confluence VI](docs/confluence/SQL_Visualizer_Confluence_VI.md)** - Tài liệu Confluence (Tiếng Việt)
 
 ## 🤝 Đóng góp
 
-Cảm ơn bạn đã quan tâm đến việc đóng góp! Vui lòng xem [CONTRIBUTING.md](CONTRIBUTING.md) hoặc [CONTRIBUTING_VI.md](CONTRIBUTING_VI.md) để biết hướng dẫn chi tiết.
+Cảm ơn bạn đã quan tâm đến việc đóng góp! Khi gửi thay đổi, vui lòng bảo đảm:
+
+- Mọi tính năng đều có bản dịch tiếng Anh và tiếng Việt
+- Component được khai báo kiểu đầy đủ bằng TypeScript
+- Mã nguồn tuân theo phong cách mã hiện có của dự án
+- Tính năng phức tạp được kèm tài liệu trong FEATURES.md
 
 ## ⚖️ Giấy phép
 

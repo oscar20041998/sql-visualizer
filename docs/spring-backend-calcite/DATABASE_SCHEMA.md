@@ -65,7 +65,7 @@ CREATE TABLE dashboard_settings (
 	ai_provider varchar(20) NOT NULL DEFAULT 'ollama'
 		CHECK (ai_provider IN ('ollama', 'openai', 'anthropic', 'gemini')),
 	ai_base_urls jsonb NOT NULL DEFAULT '{}'::jsonb,
-	ollama_model varchar(200) NOT NULL DEFAULT 'qwen2.5-coder:7b',
+	ollama_model varchar(200) NOT NULL DEFAULT 'qwen2.5-coder:3b',
 	ai_model_id varchar(200) NOT NULL DEFAULT 'gpt-4o',
 	ai_temperature double precision NOT NULL DEFAULT 0.1 CHECK (ai_temperature BETWEEN 0 AND 2),
 	ai_system_prompt text NOT NULL,

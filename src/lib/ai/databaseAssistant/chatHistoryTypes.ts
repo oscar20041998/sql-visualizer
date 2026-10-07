@@ -38,7 +38,7 @@ export interface StoredMessage {
   /** For assistant messages: whether grounding was actually used (distinguishes "no sources found" from "grounding unavailable") — FR-012, Key Entities */
   grounded?: boolean;
 
-  /** For assistant messages: which model/provider produced it (e.g., 'ollama:qwen2.5-coder:7b', 'openai:gpt-4o') — Key Entities */
+  /** For assistant messages: which model/provider produced it (e.g., 'ollama:qwen2.5-coder:3b', 'openai:gpt-4o') — Key Entities */
   model?: string;
 }
 

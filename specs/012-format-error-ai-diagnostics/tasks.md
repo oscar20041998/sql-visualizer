@@ -14,7 +14,7 @@ description: 'Task list for SQL Format Error Diagnostics with AI'
 
 **Organization**: Tasks grouped by user story (US1/US2/US3). IDs T001–T014 are the delivered first pass and keep their original numbering for traceability; the 2026-09-25 clarifications (FR-017…FR-021) add T017+. The first pass's remaining items (its T015/T016: verification and quickstart S1–S7) are re-expressed as T030/T031 with the updated scope.
 
-**Status snapshot**: 14 first-pass tasks (T001–T014) are complete in the working tree. The region-bounded apply (FR-017/FR-018/FR-020) is **not implemented** and is the critical path: today `FormatErrorPanel` applies the model's whole `correctedSql` through `setSql`.
+**Status snapshot**: The region-bounded apply (FR-017/FR-018/FR-020) is implemented. T048 adds a guard for the single-line case where a line-sized region otherwise spans the whole document and could authorize a broad rewrite.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -113,6 +113,7 @@ Single Next.js app: `src/app/`, `src/lib/`, `src/locales/` and `tests/unit/` at 
 - [x] T027 [US3] [P] Re-format the **spliced** SQL before committing it to the editor; mark the proposal `invalid` and write nothing when the re-format throws, covered in `tests/unit/smart-sql-editor-format-error-page.test.tsx` and implemented in `src/app/smart-sql-editor/components/SmartSQLEditor.tsx` (`contracts/format-error-ai-contract.md` §4) [U66]
 - [X] T028 [US3] Replace the whole-document apply path (`setSql(proposedSql)`) with `applyScopedFix()` plus the `appliedRange` audit line in `src/app/smart-sql-editor/page.tsx`, `src/app/smart-sql-editor/components/SmartSQLEditor.tsx` and `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` (FR-017, FR-010; supersedes the apply behaviour of T013) [U65] [U30] [U60] [A9]
 - [X] T029 [US3] [P] Render the applicability states — out-of-range, region-undetermined, and the new-proposal affordance — in `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` (FR-018, FR-020) [U57] [U58] [U59] [U61] [A11]
+- [X] T048 [US3] Refuse broad proposals when a single-line fallback region spans the whole document; cover the guard in `tests/unit/format-fix-scope.test.ts` and implement it in `src/lib/sql/formatFixScope.ts` (FR-017, FR-018) [U83]
 
 ---
 

@@ -1098,3 +1098,16 @@ and failed before the implementation. `/speckit-tdd-plan` writes the baseline en
     location) did not weaken them.
   - Still open: U14 (parser unavailable -> null) has no test; the panel and prompt still do not
     render the `heuristic` label, so an Oracle user is not told the boundary came from a guess.
+
+### Cycle 44 - U83 (a one-line fallback cannot authorize a broad query rewrite)
+
+- test: `tests/unit/format-fix-scope.test.ts::refuses a whole-query rewrite when a single-line error region covers the document`
+- red: `npx vitest run tests/unit/format-fix-scope.test.ts -t "refuses a whole-query rewrite when a single-line error region covers the document"`
+  -> `AssertionError: expected { ok: true, …(2) } to deeply equal { ok: false, reason: 'out-of-range' }`
+  The resolver's line-sized region covered the entire one-line SQL, so a broad rewrite was accepted.
+- green: `src/lib/sql/formatFixScope.ts` rejects a change when the region spans the whole snapshot and either the removed or inserted text exceeds half the document. Small local corrections remain eligible for the existing splice and re-format checks.
+  `npx vitest run tests/unit/format-fix-scope.test.ts` -> 14 passed. The panel apply fixtures now use a one-character correction (`(` -> `1`) so they continue to test confirmation and applied-range reporting without asserting that a broad generated query is accepted.
+- verification: `npx vitest run tests/unit/format-error-panel.test.tsx --reporter=dot` -> 28 passed; focused guard + page tests -> 20 passed; `npm test` -> 60 files, 556 tests passed; `npm run type-check` -> clean.
+- refactor: none.
+- task sync: T048 and U83 marked complete. Apply contract §4 now records the full-document fallback guard.
+- commit: none — see cycle 1.

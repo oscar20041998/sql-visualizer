@@ -535,7 +535,7 @@ const en = {
     'API root for this provider. Override it to use an OpenAI-compatible gateway — the host must also be listed in AI_ALLOWED_BASE_URLS on the server before a key is sent to it.',
   aiBaseUrlReset: 'Restore default',
   aiLocalModel: 'Local Model Name',
-  aiLocalModelHint: 'Model tag pulled in Ollama, e.g. qwen2.5-coder:7b or llama3',
+  aiLocalModelHint: 'Model tag pulled in Ollama, e.g. qwen2.5-coder:3b or llama3',
   aiServerKeyTitle: 'API key is managed on the server',
   aiServerKeyHint:
     'The browser never receives a provider credential. Set the key in the .env file at the project root and restart the dev server — this is the variable the server reads for the selected provider:',

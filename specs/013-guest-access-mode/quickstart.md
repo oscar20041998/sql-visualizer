@@ -10,7 +10,7 @@ code; the work items live in `tasks.md`.
 ## Prerequisites
 
 - `npm run dev` (serves on port 4028), a browser, and devtools open for the network panel.
-- For the AI checks: a running Ollama with the default model (`qwen2.5-coder:7b`) reachable at
+- For the AI checks: a running Ollama with the default model (`qwen2.5-coder:3b`) reachable at
   `http://localhost:11434`, **and** at least one cloud provider key present in `.env`. Verifying both
   sides is what proves the provider no longer changes the outcome (R9).
 - For the sign-in checks: set `DEMO_ADMIN_PASSWORD` and `SESSION_SECRET` in `.env`. Without them the

@@ -68,7 +68,7 @@ export const MAX_OUTPUT_TOKENS_RANGE = { min: 128, max: 32768 } as const;
  * themselves; this map only covers `modelId`.
  */
 export const DEFAULT_CHAT_MODELS: Record<AIProvider, string> = {
-  ollama: 'qwen2.5-coder:7b',
+  ollama: 'qwen2.5-coder:3b',
   openai: 'gpt-4o',
   anthropic: 'claude-3-7-sonnet-20250219',
   gemini: 'gemini-3.8-flash',
@@ -98,7 +98,7 @@ export const RETIRED_GEMINI_MODELS = [
  * Local Ollama chat model. Held separately from `DEFAULT_CHAT_MODELS.ollama` because Ollama's
  * model lives in its own config field and is written through a separate code path.
  */
-export const DEFAULT_OLLAMA_MODEL = 'qwen2.5-coder:7b';
+export const DEFAULT_OLLAMA_MODEL = 'qwen2.5-coder:3b';
 
 /**
  * Embedding model per provider, used by the query-history semantic search feature — it follows

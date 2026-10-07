@@ -6,7 +6,7 @@ import { AlertTriangle, Check, Layers, RefreshCw } from 'lucide-react';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
 import type { CTE } from '@/lib/sql/sqlAnalyzer';
-import { explainSqlStructured, type SqlExplanation } from '@/lib/ai/aiService';
+import { explainCteWithAI, type CteExplanation } from '@/lib/ai/aiService';
 import { runBatch, type BatchItemState } from '@/lib/ai/aiQueue';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
 import { useCapabilityLock } from '@/lib/useCapabilityLock';
@@ -18,7 +18,130 @@ interface AiCteBatchPanelProps {
   t: Translations;
 }
 
-type CteBatchState = BatchItemState<CTE, SqlExplanation>;
+type CteBatchState = BatchItemState<CTE, CteExplanation>;
+
+const MAX_DEPENDENCY_CONTEXT_CHARS = 6_000;
+const INLINE_MARKDOWN_TOKEN =
+  /(`[^`]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|\b(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|ON|WITH|AS|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|ALL|DISTINCT|CASE|WHEN|THEN|ELSE|END|SUM|COUNT|AVG|MIN|MAX|COALESCE|NULL)\b|\b[a-zA-Z_][a-zA-Z0-9]*_[a-zA-Z0-9_]*\b)/gi;
+
+function renderInlineMarkdown(text: string): React.ReactNode {
+  return text.split(INLINE_MARKDOWN_TOKEN).map((part, index) => {
+    const isBackticked = part.startsWith('`') && part.endsWith('`');
+    const isBold = part.startsWith('**') && part.endsWith('**');
+    const isItalic = !isBold && part.startsWith('*') && part.endsWith('*');
+    const isSqlKeyword =
+      /^(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|ON|WITH|AS|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|ALL|DISTINCT|CASE|WHEN|THEN|ELSE|END|SUM|COUNT|AVG|MIN|MAX|COALESCE|NULL)$/i.test(
+        part
+      );
+    const isIdentifier = /^[a-zA-Z_][a-zA-Z0-9]*_[a-zA-Z0-9_]*$/.test(part);
+
+    if (isBold) {
+      return (
+        <strong key={index} className="font-semibold text-primary">
+          {renderInlineMarkdown(part.slice(2, -2))}
+        </strong>
+      );
+    }
+
+    if (isItalic) {
+      return <em key={index}>{renderInlineMarkdown(part.slice(1, -1))}</em>;
+    }
+
+    if (isBackticked || isSqlKeyword || isIdentifier) {
+      return (
+        <code
+          key={index}
+          className={`rounded px-1 font-mono text-[0.9em] ${
+            isSqlKeyword
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+          }`}
+        >
+          {isBackticked ? part.slice(1, -1) : part}
+        </code>
+      );
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+export function CteExplanationText({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: React.ReactNode[] = [];
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index];
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line.trim());
+    if (heading) {
+      blocks.push(
+        <h4
+          key={`heading-${index}`}
+          className="border-l-2 border-primary bg-primary/10 px-2 py-1 text-xs font-semibold text-primary"
+        >
+          {renderInlineMarkdown(heading[2])}
+        </h4>
+      );
+      index += 1;
+      continue;
+    }
+
+    const unordered = /^\s*[-*+]\s+(.+)$/.exec(line);
+    const ordered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
+    if (unordered || ordered) {
+      const matcher = unordered ? /^\s*[-*+]\s+(.+)$/ : /^\s*\d+[.)]\s+(.+)$/;
+      const items: string[] = [];
+      while (index < lines.length) {
+        const match = matcher.exec(lines[index]);
+        if (!match) break;
+        items.push(match[1]);
+        index += 1;
+      }
+      const List = unordered ? 'ul' : 'ol';
+      blocks.push(
+        <List
+          key={`list-${index - items.length}`}
+          className={`space-y-1 pl-5 ${unordered ? 'list-disc' : 'list-decimal'}`}
+        >
+          {items.map((item, itemIndex) => (
+            <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </List>
+      );
+      continue;
+    }
+
+    blocks.push(
+      line.trim() ? (
+        <p key={`paragraph-${index}`}>{renderInlineMarkdown(line)}</p>
+      ) : (
+        <div key={`space-${index}`} className="h-1" />
+      )
+    );
+    index += 1;
+  }
+
+  return <div className="space-y-2 text-sm leading-relaxed text-foreground">{blocks}</div>;
+}
+
+function buildDependencyContext(cte: CTE, ctes: CTE[]): string {
+  const dependencies = new Set(cte.dependencies.map((name) => name.toLowerCase()));
+  const sources = ctes.filter(
+    (candidate) => candidate.name !== cte.name && dependencies.has(candidate.name.toLowerCase())
+  );
+  const dependencyDefinitions = sources
+    .map((dependency) => `CTE ${dependency.name}:\n${dependency.body}`)
+    .join('\n\n');
+  const context = [
+    cte.isRecursive ? 'The target CTE is recursive and refers to its previous iteration.' : '',
+    dependencyDefinitions,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (context.length <= MAX_DEPENDENCY_CONTEXT_CHARS) return context;
+  return `${context.slice(0, MAX_DEPENDENCY_CONTEXT_CHARS)}\n[Remaining dependency context omitted]`;
+}
 
 const STATUS_STYLES: Record<CteBatchState['status'], string> = {
   pending: 'border-border bg-muted text-muted-foreground',
@@ -29,9 +152,8 @@ const STATUS_STYLES: Record<CteBatchState['status'], string> = {
 };
 
 /**
- * Explains every CTE of the query separately, a bounded number at a time. Each CTE is a small
- * self-contained prompt, which keeps every request well inside the context window even when the
- * full query would not fit — and gives a per-step reading of a long pipeline.
+ * Explains every CTE of the query separately, a bounded number at a time. Each request includes
+ * only its direct upstream CTEs, preserving the pipeline context without sending the full query.
  */
 export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, locale, t }) => {
   // A guest reads the locked explanation INSIDE the batch panel (specs/013 US2 / FR-015):
@@ -62,12 +184,13 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
     setExpanded(null);
 
     try {
-      const finalStates = await runBatch<CTE, SqlExplanation>(
+      const finalStates = await runBatch<CTE, CteExplanation>(
         ctes,
         (cte, _index, signal) =>
-          explainSqlStructured({
-            // A CTE body is valid standalone SQL once wrapped in a SELECT context.
-            sql: `-- CTE "${cte.name}"\nSELECT * FROM (\n${cte.body}\n) AS ${cte.name};`,
+          explainCteWithAI({
+            cteName: cte.name,
+            cteSql: cte.body,
+            dependencyContext: buildDependencyContext(cte, ctes),
             config,
             locale,
             signal,
@@ -135,24 +258,7 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
 
                 {isOpen && state.result && (
                   <div className="mt-1.5 ml-6 space-y-2 rounded-lg border border-border bg-muted/40 p-2.5">
-                    <p className="text-sm leading-relaxed text-foreground">
-                      {state.result.structured ? state.result.sections.query_objective : state.result.raw}
-                    </p>
-                    {state.result.structured && state.result.sections.filter_categories.length > 0 && (
-                      <ul className="space-y-1">
-                        {state.result.sections.filter_categories.map((category, categoryIndex) =>
-                          category.items.map((filter, filterIndex) => (
-                            <li
-                              key={`cte-filter-${state.index}-${categoryIndex}-${filterIndex}`}
-                              className="flex items-start gap-2 text-xs leading-relaxed text-foreground"
-                            >
-                              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-warning" />
-                              {filter}
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    )}
+                    <CteExplanationText text={state.result.text} />
                   </div>
                 )}
 
@@ -187,29 +293,29 @@ export const AiCteBatchPanel: React.FC<AiCteBatchPanelProps> = ({ ctes, config, 
         </div>
 
         {locked ? null : (
-        <div className="flex items-center gap-2">
-          {states.length > 0 && (
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {completed}/{states.length}
-            </span>
-          )}
-          {isRunning ? (
-            <button
-              onClick={cancel}
-              className="rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-secondary"
-            >
-              {t.aiBatchCancel}
-            </button>
-          ) : (
-            <button
-              onClick={run}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <Layers size={11} />
-              {states.length ? t.aiBatchRerun : t.aiBatchRun}
-            </button>
-          )}
-        </div>
+          <div className="flex items-center gap-2">
+            {states.length > 0 && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {completed}/{states.length}
+              </span>
+            )}
+            {isRunning ? (
+              <button
+                onClick={cancel}
+                className="rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-secondary"
+              >
+                {t.aiBatchCancel}
+              </button>
+            ) : (
+              <button
+                onClick={run}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Layers size={11} />
+                {states.length ? t.aiBatchRerun : t.aiBatchRun}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

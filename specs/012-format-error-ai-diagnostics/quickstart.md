@@ -5,7 +5,7 @@ End-to-end scenarios that prove the feature works. Prerequisites assume the app'
 ## Prerequisites
 
 1. `npm install` (already present in this repo).
-2. Ollama running locally with a model installed (e.g. `ollama run qwen2.5-coder:7b`).
+2. Ollama running locally with a model installed (e.g. `ollama run qwen2.5-coder:3b`).
 3. In **Settings → AI Model Configuration**: provider = **Ollama**, base URL = `http://localhost:11434`, local model name = the installed tag.
 
 ## Run

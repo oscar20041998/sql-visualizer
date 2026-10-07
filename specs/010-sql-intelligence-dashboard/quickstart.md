@@ -4,7 +4,7 @@
 
 ## Prerequisites
 - Node.js + npm; repository root.
-- Ollama running locally with the configured model (default `qwen2.5-coder:7b`) — **optional**: every deterministic check below must pass with Ollama stopped.
+- Ollama running locally with the configured model (default `qwen2.5-coder:3b`) — **optional**: every deterministic check below must pass with Ollama stopped.
 
 ## Setup
 ```bash

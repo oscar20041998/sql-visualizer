@@ -187,7 +187,7 @@ describe('requestFormatExplanation', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('http://localhost:11434/v1/chat/completions');
-    expect(calls[0].body.model).toBe('qwen2.5-coder:7b');
+    expect(calls[0].body.model).toBe('qwen2.5-coder:3b');
     expect(result.explanation).toContain('Unclosed parenthesis');
     expect(result.evidence).toEqual(['SELECT * FROM (;']);
   });

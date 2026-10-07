@@ -27,6 +27,37 @@ const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
   vi: (sql) => `Hãy giải thích truy vấn SQL sau đây bằng ngôn ngữ đơn giản, dễ hiểu:\n\n${sql}`,
 };
 
+/** A deliberately text-only contract for explaining one CTE in a long query pipeline. */
+const EXPLAIN_CTE_PROMPT: Record<
+  Locale,
+  (name: string, sql: string, dependencies: string) => string
+> = {
+  en: (
+    name,
+    sql,
+    dependencies
+  ) => `Explain the SQL query step named '${name}' to a reader who does not write SQL. Reply with compact Markdown, never JSON. Use ### headings to separate short sections, **bold** only for essential conclusions, short - lists when helpful, and backticks around SQL keywords, table names, CTE names, and field names. Do not use links or HTML.
+
+State its role in the overall data flow, what information it produces, and its important conditions or transformations. Explain SQL meaning, not execution performance. Do not invent business definitions that the SQL does not prove.
+
+${dependencies ? `Direct upstream query steps for context:\n${dependencies}\n\n` : ''}Target query step '${name}':
+\`\`\`sql
+${sql}
+\`\`\``,
+  vi: (
+    name,
+    sql,
+    dependencies
+  ) => `Hãy giải thích bước truy vấn có tên '${name}' cho người không biết SQL. Trả lời bằng Markdown ngắn gọn, không trả JSON. Dùng tiêu đề ### để phân tách các phần ngắn, **in đậm** chỉ cho kết luận quan trọng, danh sách - ngắn khi phù hợp, và đặt từ khóa SQL, tên bảng, tên CTE và tên trường trong dấu backticks. Không dùng liên kết hoặc HTML.
+
+Nêu rõ vai trò của bước này trong luồng dữ liệu, thông tin nó tạo ra, cùng các điều kiện hoặc phép biến đổi quan trọng. Giải thích ý nghĩa SQL, không phân tích hiệu năng thực thi. Không tự suy diễn ý nghĩa nghiệp vụ khi SQL không chứng minh được.
+
+${dependencies ? `Các bước truy vấn đầu vào trực tiếp để tham chiếu:\n${dependencies}\n\n` : ''}Bước truy vấn '${name}':
+\`\`\`sql
+${sql}
+\`\`\``,
+};
+
 /** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
 const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
   en: (
@@ -1313,6 +1344,8 @@ function asList(value: unknown): string[] {
 
 /** Share of the prompt budget the parser brief may occupy before it gets dropped. */
 const CONTEXT_BRIEF_BUDGET_RATIO = 0.3;
+/** Explain favors parser facts more than other AI operations, without sacrificing fitting SQL. */
+const EXPLAIN_CONTEXT_BRIEF_BUDGET_RATIO = 0.4;
 
 /** Share of the prompt budget reserved for conversation history on follow-up turns. */
 const HISTORY_BUDGET_RATIO = 0.4;
@@ -1341,6 +1374,24 @@ export interface ExplainSqlOptions {
    */
   userInstruction?: string;
   signal?: AbortSignal;
+}
+
+/** Input for a text-only explanation of one CTE and its direct inputs. */
+export interface ExplainCteOptions {
+  cteName: string;
+  cteSql: string;
+  dependencyContext?: string;
+  config: AIModelConfig;
+  locale?: Locale;
+  signal?: AbortSignal;
+}
+
+/** A user-readable CTE explanation; raw provider output is retained only for diagnostics. */
+export interface CteExplanation {
+  text: string;
+  raw: string;
+  /** True when a provider ignored the text-only request and returned JSON we converted to prose. */
+  usedJsonFallback: boolean;
 }
 
 export interface SqlOptimizationResult {
@@ -1714,11 +1765,18 @@ function prepareExplainPrompt(
   const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
   const available = Math.max(128, budget.promptTokens - systemTokens);
 
-  const brief = fitContextBrief(contextBrief, Math.floor(available * CONTEXT_BRIEF_BUDGET_RATIO));
-  const briefTokens = estimateTokens(brief);
-  const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
-
   const buildPrompt = EXPLAIN_SQL_STRUCTURED_PROMPT[locale] ?? EXPLAIN_SQL_STRUCTURED_PROMPT.en;
+  const promptOverhead = estimateTokens(buildPrompt(''));
+  const contentBudget = Math.max(128, available - promptOverhead);
+  const briefBudget = Math.floor(contentBudget * EXPLAIN_CONTEXT_BRIEF_BUDGET_RATIO);
+  const sqlTokens = estimateTokens(sql);
+  const sqlBudget =
+    sqlTokens <= contentBudget ? sqlTokens : Math.max(128, contentBudget - briefBudget);
+  const fitted = truncateSqlForBudget(sql, sqlBudget);
+  const remainingBriefBudget = Math.max(0, contentBudget - estimateTokens(fitted.sql));
+  const brief = fitContextBrief(contextBrief, Math.min(briefBudget, remainingBriefBudget), {
+    truncate: true,
+  });
   const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
 
   const report: AIBudgetReport = {
@@ -2854,4 +2912,61 @@ export async function explainSqlWithAI(
 ): Promise<string> {
   const buildPrompt = EXPLAIN_SQL_PROMPT[locale] ?? EXPLAIN_SQL_PROMPT.en;
   return generateWithAI(config, { prompt: buildPrompt(sql) });
+}
+
+function readableCteJsonFallback(raw: string): string | null {
+  const parsed = extractJsonObject(raw);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+
+  const payload = parsed as Record<string, unknown>;
+  const lines = [
+    payload.summary,
+    payload.query_objective,
+    ...(Array.isArray(payload.details) ? payload.details : []),
+    ...(Array.isArray(payload.result_bullets) ? payload.result_bullets : []),
+    payload.report_grain,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim());
+
+  if (lines.length === 0) {
+    const collectText = (value: unknown, depth = 0): void => {
+      if (depth > 3) return;
+      if (typeof value === 'string' && value.trim()) {
+        lines.push(value.trim());
+      } else if (Array.isArray(value)) {
+        value.forEach((item) => collectText(item, depth + 1));
+      } else if (value && typeof value === 'object') {
+        Object.values(value).forEach((item) => collectText(item, depth + 1));
+      }
+    };
+    collectText(payload);
+  }
+
+  return lines.length ? lines.join('\n') : null;
+}
+
+/**
+ * Explains one CTE without applying the full-query JSON contract. CTEs naturally describe joins,
+ * aggregation, and dependencies, so forcing the full-query rules here creates false fallbacks.
+ */
+export async function explainCteWithAI(
+  { cteName, cteSql, dependencyContext = '', config, locale = 'en', signal }: ExplainCteOptions,
+  generate: typeof generateWithAI = generateWithAI
+): Promise<CteExplanation> {
+  if (!cteSql.trim()) throw new AIServiceError('There is no CTE SQL to explain.');
+
+  const buildPrompt = EXPLAIN_CTE_PROMPT[locale] ?? EXPLAIN_CTE_PROMPT.en;
+  const raw = (
+    await generate(config, {
+      prompt: buildPrompt(cteName, cteSql, dependencyContext),
+      jsonMode: false,
+      signal,
+    })
+  ).trim();
+
+  if (!raw) throw new AIServiceError('The model returned an empty CTE explanation.');
+
+  const fallback = readableCteJsonFallback(raw);
+  return { text: fallback ?? raw, raw, usedJsonFallback: Boolean(fallback) };
 }

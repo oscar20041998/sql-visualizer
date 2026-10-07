@@ -530,7 +530,7 @@ const vi = {
     'API root của nhà cung cấp này. Ghi đè để dùng gateway tương thích OpenAI — host đó cũng phải được khai báo trong AI_ALLOWED_BASE_URLS ở server trước khi key được gửi tới.',
   aiBaseUrlReset: 'Khôi phục mặc định',
   aiLocalModel: 'Tên mô hình cục bộ',
-  aiLocalModelHint: 'Tag mô hình đã tải trong Ollama, ví dụ qwen2.5-coder:7b hoặc llama3',
+  aiLocalModelHint: 'Tag mô hình đã tải trong Ollama, ví dụ qwen2.5-coder:3b hoặc llama3',
   aiServerKeyTitle: 'API key được quản lý ở phía server',
   aiServerKeyHint:
     'Trình duyệt không bao giờ nhận được credential của nhà cung cấp. Hãy đặt key trong file .env ở thư mục gốc dự án rồi khởi động lại dev server — đây là biến mà server sẽ đọc cho nhà cung cấp đang chọn:',
