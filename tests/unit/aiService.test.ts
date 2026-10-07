@@ -247,7 +247,7 @@ describe('generateWithCloudKey OpenAI adapter', () => {
 describe('per-provider default chat models', () => {
   it('pins a distinct default for all four providers', () => {
     expect(DEFAULT_CHAT_MODELS).toEqual({
-      ollama: 'qwen2.5-coder:7b',
+      ollama: 'qwen2.5-coder:3b',
       openai: 'gpt-4o',
       anthropic: 'claude-3-7-sonnet-20250219',
       gemini: 'gemini-3.8-flash',

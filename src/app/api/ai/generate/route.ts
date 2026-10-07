@@ -52,7 +52,10 @@ export async function POST(request: Request) {
 
   const messages = parseMessages(body.messages);
   if (!messages) {
-    return NextResponse.json({ error: 'messages must be a non-empty array of {role, content}.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'messages must be a non-empty array of {role, content}.' },
+      { status: 400 }
+    );
   }
 
   const modelId = typeof body.modelId === 'string' ? body.modelId.trim() : '';
@@ -60,7 +63,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'modelId is required.' }, { status: 400 });
   }
 
-  const resolvedBaseUrl = resolveAllowedBaseUrl(body.provider, body.baseUrl);
+  const resolvedBaseUrl = resolveAllowedBaseUrl(
+    body.provider,
+    body.baseUrl,
+    // The app's own host: a Base URL of localhost:4028 (or whatever this deployment is served on)
+    // means "call ourselves", which is never a provider. Named explicitly in the error instead of
+    // being reported as a generic allow-list miss.
+    new URL(request.url).host
+  );
   if (!resolvedBaseUrl.ok) {
     return NextResponse.json({ error: resolvedBaseUrl.error }, { status: 400 });
   }
@@ -84,9 +94,11 @@ export async function POST(request: Request) {
     const isGpt5 = modelId.toLowerCase().startsWith('gpt-5');
     const tempValue = clampNumber(body.temperature, 0, 2, 0.1);
 
-    // Debug: log modelId and whether temperature will be included.
+    // Logs the destination root (no credential) so a misrouted request is visible in the server
+    // console: the browser only ever sees this route, never the outbound provider URL itself.
     console.info(
-      `[api/ai/generate] modelId=${modelId} isGpt5=${isGpt5} temperatureProvided=${typeof body.temperature !== 'undefined'
+      `[api/ai/generate] provider=${body.provider} baseUrl=${baseUrl} modelId=${modelId} isGpt5=${isGpt5} temperatureProvided=${
+        typeof body.temperature !== 'undefined'
       } temperatureValue=${tempValue}`
     );
 
@@ -103,7 +115,8 @@ export async function POST(request: Request) {
       // The browser cancelled; nothing to report back.
       return new NextResponse(null, { status: 499 });
     }
-    const message = error instanceof AIServiceError ? error.message : 'The AI request failed on the server.';
+    const message =
+      error instanceof AIServiceError ? error.message : 'The AI request failed on the server.';
     if (!(error instanceof AIServiceError)) console.error('[api/ai/generate]', error);
     return NextResponse.json({ error: redactSecrets(message) }, { status: 502 });
   }

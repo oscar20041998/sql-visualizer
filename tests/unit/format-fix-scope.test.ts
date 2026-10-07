@@ -178,6 +178,20 @@ describe('applyFormatFix', () => {
     expect(result).toEqual({ ok: false, reason: 'out-of-range' });
   });
 
+  it('refuses a whole-query rewrite when a single-line error region covers the document', () => {
+    const original = 'SELECT id FROM users WHERE id = (';
+    const proposed = 'SELECT name FROM accounts WHERE active = 1';
+
+    const result = applyFormatFix({
+      snapshotSql: original,
+      currentSql: original,
+      proposedSql: proposed,
+      region: regionForLine(original, 1),
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'out-of-range' });
+  });
+
   it('rejects an insertion that carries text past the region', () => {
     // The model rewrote the end of the erroneous line and carried on into a new clause. The change
     // itself is the single offending character, so its span sits inside the region — but the text it

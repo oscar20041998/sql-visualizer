@@ -50,7 +50,8 @@ function allowedHosts(provider: CloudProvider): Set<string> {
     if (host) hosts.add(host);
     // A silently ignored entry looks identical to a missing one, which is what made this hard
     // to diagnose in the first place.
-    else console.warn(`[api/ai/generate] Ignoring unparseable AI_ALLOWED_BASE_URLS entry: ${entry}`);
+    else
+      console.warn(`[api/ai/generate] Ignoring unparseable AI_ALLOWED_BASE_URLS entry: ${entry}`);
   }
   return hosts;
 }
@@ -61,8 +62,18 @@ export type BaseUrlResolution = { ok: true; baseUrl: string } | { ok: false; err
  * Validates the requested base URL. "Malformed" and "host not allow-listed" are different
  * problems with different fixes, so they get different messages — and the message names the
  * value actually received, since the stored value is the one thing the user cannot see.
+ *
+ * `selfHost` is the host this app itself is served on (the route passes `new URL(request.url).host`).
+ * Pointing a cloud provider at the app's own origin is the classic misconfiguration — the request
+ * would come right back to /api/ai/* instead of reaching the provider — so it gets its own message
+ * naming the fix rather than the generic allow-list text. It is only a special case when NOT
+ * allow-listed: an operator who deliberately allow-lists a same-host gateway keeps working.
  */
-export function resolveAllowedBaseUrl(provider: CloudProvider, requested: unknown): BaseUrlResolution {
+export function resolveAllowedBaseUrl(
+  provider: CloudProvider,
+  requested: unknown,
+  selfHost?: string
+): BaseUrlResolution {
   if (typeof requested !== 'string' || !requested.trim()) {
     return { ok: true, baseUrl: DEFAULT_BASE_URLS[provider] };
   }
@@ -86,19 +97,30 @@ export function resolveAllowedBaseUrl(provider: CloudProvider, requested: unknow
     return { ok: false, error: `Base URL "${raw}" must use http or https, not ${parsed.protocol}` };
   }
 
+  const requestedHost = parsed.host.toLowerCase();
   const allowed = allowedHosts(provider);
-  if (!allowed.has(parsed.host.toLowerCase())) {
+  if (allowed.has(requestedHost)) {
+    return { ok: true, baseUrl: candidate };
+  }
+
+  if (selfHost && requestedHost === selfHost.toLowerCase()) {
     return {
       ok: false,
       error:
-        `Base URL host "${parsed.host}" is not allow-listed for ${provider}. ` +
-        `Allowed right now: ${[...allowed].join(', ')}. ` +
-        `Either set Base URL back to ${DEFAULT_BASE_URLS[provider]} in Settings, ` +
-        `or add AI_ALLOWED_BASE_URLS=${parsed.origin} to .env and restart the server.`,
+        `Base URL "${raw}" points at this app (${selfHost}), not at ${provider}. ` +
+        `AI requests would be sent to the app itself instead of the provider. ` +
+        `Set Base URL to ${DEFAULT_BASE_URLS[provider]} in Settings → AI Model Configuration → Base URL.`,
     };
   }
 
-  return { ok: true, baseUrl: candidate };
+  return {
+    ok: false,
+    error:
+      `Base URL host "${parsed.host}" is not allow-listed for ${provider}. ` +
+      `Allowed right now: ${[...allowed].join(', ')}. ` +
+      `Either set Base URL back to ${DEFAULT_BASE_URLS[provider]} in Settings, ` +
+      `or add AI_ALLOWED_BASE_URLS=${parsed.origin} to .env and restart the server.`,
+  };
 }
 
 export function isCloudProvider(value: unknown): value is CloudProvider {

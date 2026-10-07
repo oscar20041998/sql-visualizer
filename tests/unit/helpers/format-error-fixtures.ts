@@ -25,7 +25,7 @@ export function makeOllamaConfig(overrides: Partial<AIModelConfig> = {}): AIMode
       anthropic: 'https://api.anthropic.com',
       gemini: 'https://generativelanguage.googleapis.com',
     },
-    ollamaModel: 'qwen2.5-coder:7b',
+    ollamaModel: 'qwen2.5-coder:3b',
     modelId: 'gpt-4o',
     temperature: 0.2,
     systemPrompt: '',

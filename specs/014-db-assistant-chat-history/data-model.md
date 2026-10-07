@@ -60,7 +60,7 @@ the in-memory projection (`DatabaseAssistantChatTurn.isStreaming`) and is never 
 | `createdAt` | `number` (epoch ms, finite) | yes | Key Entities | "when it was produced" |
 | `sources` | `DatabaseKnowledgeSource[]` | assistant only | FR-012 | Reuses the **existing** exported type from `src/lib/ai/databaseAssistant.ts`: `{ sourceFile: string; section?: string; pageAnchor?: string }`. Restored verbatim; retrieval is never re-run |
 | `grounded` | `boolean` | assistant only | FR-012, Key Entities | "whether grounding was used". Distinguishes *no sources found* from *grounding unavailable*, so a restored answer does not misrepresent itself |
-| `model` | `string` | assistant only | Key Entities | "which model/provider produced it" — e.g. `ollama:qwen2.5-coder:7b`, `openai:gpt-4o`. Informational on restore; never used to re-route a request |
+| `model` | `string` | assistant only | Key Entities | "which model/provider produced it" — e.g. `ollama:qwen2.5-coder:3b`, `openai:gpt-4o`. Informational on restore; never used to re-route a request |
 
 **Validation (`isStoredMessage`)**: object; `id` non-empty string; `role` exactly `'user'` or
 `'assistant'`; `content` a string (empty is rejected for `assistant`, since a completed answer is

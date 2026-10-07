@@ -24,7 +24,7 @@ Transform the existing SQL metrics dashboard (`src/app/sql-metrics-dashboard`) f
 
 **Performance Goals**: Dashboard presentation completes within 1 second of analysis completion for 50+ table statements (constitution standard); no analysis recomputation inside render — analysis is computed once and the adapter derives presentation data.
 
-**Constraints**: Reuse the existing i18n (flat typed keys in `src/locales/{en,vi}.ts` via `getT(locale)`; no second i18n system); reuse the existing AI service (`src/lib/ai/aiService.ts`, server-proxied `/api/ai/generate`, cloud credentials server-side only, Ollama default `qwen2.5-coder:7b`); do not change parser / dialect / MyBatis / finding semantics or complexity weights (FR-024) except the proven denominator defect (FR-008); preserve the dark developer-tool aesthetic.
+**Constraints**: Reuse the existing i18n (flat typed keys in `src/locales/{en,vi}.ts` via `getT(locale)`; no second i18n system); reuse the existing AI service (`src/lib/ai/aiService.ts`, server-proxied `/api/ai/generate`, cloud credentials server-side only, Ollama default `qwen2.5-coder:3b`); do not change parser / dialect / MyBatis / finding semantics or complexity weights (FR-024) except the proven denominator defect (FR-008); preserve the dark developer-tool aesthetic.
 
 **Scale/Scope**: One dashboard route (~14 existing components regrouped/extended) + shared complexity surfaces (`components/ui/ComplexityDashboard`, `ComplexityBreakdown`, guideline `ScoreWeightTable`, smart-sql-editor comparison panels); one new pure adapter module (`src/lib/sql/dashboard/`); new sections: Health Summary, Top Findings, Top Complexity Contributors, Structural Overview + tabs, AI Insights, Advanced Details.
 

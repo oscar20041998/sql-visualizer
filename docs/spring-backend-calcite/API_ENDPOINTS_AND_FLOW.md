@@ -101,7 +101,7 @@ Response and partial-update request shape:
       "anthropic": "https://api.anthropic.com",
       "gemini": "https://generativelanguage.googleapis.com"
     },
-    "ollamaModel": "qwen2.5-coder:7b",
+    "ollamaModel": "qwen2.5-coder:3b",
     "modelId": "gpt-4o",
     "temperature": 0.1,
     "systemPrompt": "You are a SQL expert assistant.",

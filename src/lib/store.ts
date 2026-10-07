@@ -279,7 +279,7 @@ export const useAppStore = create<AppState>()(
           };
 
           // Preserve an explicitly selected model, but repair the empty value written by v6.
-          // qwen2.5-coder:7b is installed by the local setup documented for this project.
+          // qwen2.5-coder:3b is installed by the local setup documented for this project.
           if (!persistedAiConfig.ollamaModel?.trim()) {
             persistedAiConfig.ollamaModel = DEFAULT_AI_CONFIG.ollamaModel;
           }
