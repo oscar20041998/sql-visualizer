@@ -28,10 +28,10 @@ The default local server address is `http://localhost:11434`.
 
 ## 2. Download a SQL-Capable Model
 
-SQL Visualizer defaults to `qwen2.5-coder:7b`:
+SQL Visualizer defaults to `qwen2.5-coder:3b`:
 
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:3b
 ```
 
 Confirm that the model is installed:
@@ -47,7 +47,7 @@ You can use another installed model. Enter its exact name in SQL Visualizer Sett
 Run a short request before connecting it to SQL Visualizer:
 
 ```bash
-ollama run qwen2.5-coder:7b "Explain what a SQL JOIN does in one sentence."
+ollama run qwen2.5-coder:3b "Explain what a SQL JOIN does in one sentence."
 ```
 
 If the response succeeds, the model and local Ollama service are ready.
@@ -67,7 +67,7 @@ If the response succeeds, the model and local Ollama service are ready.
 4. Select **Ollama** as the provider.
 5. Set **Base URL** to `http://localhost:11434` when Ollama runs locally.
 6. Set **Local Model Name** to the exact model tag shown by `ollama list`, for example:
-   - `qwen2.5-coder:7b`
+   - `qwen2.5-coder:3b`
    - `llama2`
    - `qwen2.5`
 7. If the model is not installed, run `ollama pull <model-name>` in your terminal, then refresh the app and enter the exact model tag again.

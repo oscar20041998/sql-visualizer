@@ -36,7 +36,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unsupported provider.' }, { status: 400 });
   }
 
-  const resolvedBaseUrl = resolveAllowedBaseUrl(body.provider, body.baseUrl);
+  const resolvedBaseUrl = resolveAllowedBaseUrl(
+    body.provider,
+    body.baseUrl,
+    // See /api/ai/generate: flags a Base URL pointed at this app itself rather than a provider.
+    new URL(request.url).host
+  );
   if (!resolvedBaseUrl.ok) {
     return NextResponse.json({ error: resolvedBaseUrl.error }, { status: 400 });
   }

@@ -210,5 +210,6 @@ are corrected.
 | U18 | A position on the last character yields a range ending exactly at the SQL length            | FR-017  | example           | DONE    | `tests/unit/format-error-region.test.ts::ends the range exactly at the SQL length for a position on the last character` |
 | U81 | Keeps the range inside the SQL bounds when the reported position lies past the end of the SQL | FR-017 | example         | DONE    | `tests/unit/format-error-region.test.ts::keeps a position past the end of the SQL inside the bounds` |
 | U82 | Refuses a change whose replacement would add a line past the region (lengthening the region's own line stays legal) | FR-017 | example | DONE | `tests/unit/format-fix-scope.test.ts::rejects an insertion that carries text past the region` |
+| U83 | Refuses a broad rewrite when a one-line fallback region spans the whole document | FR-017, FR-018 | example | DONE | `tests/unit/format-fix-scope.test.ts::refuses a whole-query rewrite when a single-line error region covers the document` |
 
 outer loop, so the 1:1 criterion mapping above stays exact.

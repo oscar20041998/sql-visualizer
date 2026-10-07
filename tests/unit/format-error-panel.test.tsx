@@ -58,6 +58,28 @@ const DEFAULT_REGION: ErrorRegion = {
   anchorOffset: 15,
 };
 
+/** A one-character syntax correction, used to exercise Apply without a broad semantic rewrite. */
+const LOCAL_FIX_SQL = 'SELECT id FROM users WHERE id = (';
+const LOCAL_FIX_PROPOSAL = 'SELECT id FROM users WHERE id = 1';
+const LOCAL_FIX_OFFSET = LOCAL_FIX_SQL.indexOf('(');
+const LOCAL_FIX_ERROR = makeError({
+  sourceSql: LOCAL_FIX_SQL,
+  location: {
+    offset: LOCAL_FIX_OFFSET,
+    line: 1,
+    column: LOCAL_FIX_OFFSET + 1,
+  },
+});
+const LOCAL_FIX_REGION: ErrorRegion = {
+  startOffset: 0,
+  endOffset: LOCAL_FIX_SQL.length,
+  startLine: 1,
+  endLine: 1,
+  source: 'formatter',
+  snippet: LOCAL_FIX_SQL,
+  anchorOffset: LOCAL_FIX_OFFSET,
+};
+
 /** A two-line error whose parenthesis is on line 2, so the region is that line alone. */
 const OUT_OF_RANGE_ERROR = makeError({
   sourceSql: 'SELECT id\nFROM (',
@@ -348,7 +370,15 @@ describe('FormatErrorPanel (US3 — fix)', () => {
 
   it('applies the correction only after explicit confirmation (FR-010)', async () => {
     const applied: string[] = [];
-    render(<AiHarness fix={async () => proposeFix} onApplyFix={(sql) => applied.push(sql)} />);
+    render(
+      <AiHarness
+        error={LOCAL_FIX_ERROR}
+        region={LOCAL_FIX_REGION}
+        currentSql={LOCAL_FIX_SQL}
+        fix={async () => LOCAL_FIX_PROPOSAL}
+        onApplyFix={(sql) => applied.push(sql)}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
@@ -357,7 +387,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     expect(applied).toEqual([]);
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
-    expect(applied).toEqual(['SELECT * FROM (SELECT 1) t;']);
+    expect(applied).toEqual([LOCAL_FIX_PROPOSAL]);
   });
 
   it('leaves the SQL untouched when the proposal is dismissed', async () => {
@@ -408,15 +438,26 @@ describe('FormatErrorPanel (US3 — fix)', () => {
   });
 
   it('reports the applied range after a region-bounded apply', async () => {
-    render(<AiHarness fix={async () => proposeFix} onApplyFix={() => undefined} />);
+    render(
+      <AiHarness
+        error={LOCAL_FIX_ERROR}
+        region={LOCAL_FIX_REGION}
+        currentSql={LOCAL_FIX_SQL}
+        fix={async () => LOCAL_FIX_PROPOSAL}
+        onApplyFix={() => undefined}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
-    // The audit line names the character range that was actually written (FR-017). `node -e` on this
-    // fixture gives the change as the zero-width insertion [15, 15) — the shared `;` is the suffix.
-    expect(await screen.findByText(`${t.formatErrorPanelAppliedRange}: 15-15`)).toBeInTheDocument();
+    // The audit line names the single character replaced in the malformed predicate (FR-017).
+    expect(
+      await screen.findByText(
+        `${t.formatErrorPanelAppliedRange}: ${LOCAL_FIX_OFFSET}-${LOCAL_FIX_OFFSET + 1}`
+      )
+    ).toBeInTheDocument();
   });
 
   it('disables apply and says why when no region was determined', async () => {

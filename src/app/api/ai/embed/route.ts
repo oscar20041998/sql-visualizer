@@ -48,7 +48,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'modelId is required.' }, { status: 400 });
   }
 
-  const resolvedBaseUrl = resolveAllowedBaseUrl(body.provider, body.baseUrl);
+  const resolvedBaseUrl = resolveAllowedBaseUrl(
+    body.provider,
+    body.baseUrl,
+    // See /api/ai/generate: flags a Base URL pointed at this app itself rather than a provider.
+    new URL(request.url).host
+  );
   if (!resolvedBaseUrl.ok) {
     return NextResponse.json({ error: resolvedBaseUrl.error }, { status: 400 });
   }
@@ -64,13 +69,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const embedding = await embedWithCloudKey(body.provider, apiKey, modelId, baseUrl, text, request.signal);
+    const embedding = await embedWithCloudKey(
+      body.provider,
+      apiKey,
+      modelId,
+      baseUrl,
+      text,
+      request.signal
+    );
     return NextResponse.json({ embedding });
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') {
       return new NextResponse(null, { status: 499 });
     }
-    const message = error instanceof AIServiceError ? error.message : 'The embedding request failed on the server.';
+    const message =
+      error instanceof AIServiceError
+        ? error.message
+        : 'The embedding request failed on the server.';
     if (!(error instanceof AIServiceError)) console.error('[api/ai/embed]', error);
     return NextResponse.json({ error: redactSecrets(message) }, { status: 502 });
   }

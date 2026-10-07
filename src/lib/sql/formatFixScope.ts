@@ -91,6 +91,15 @@ export function applyFormatFix({
 
   const change = extractChange(snapshotSql, proposedSql);
   if (isEmptyChange(change)) return { ok: false, reason: 'no-change' };
+  // A one-line fallback can span the whole document. In that case a large rewrite is not evidence
+  // of a local syntax fix, so fail closed instead of treating the entire query as the error region.
+  if (
+    region.startOffset === 0 &&
+    region.endOffset === snapshotSql.length &&
+    Math.max(change.originalFragment.length, change.replacement.length) > snapshotSql.length / 2
+  ) {
+    return { ok: false, reason: 'out-of-range' };
+  }
 
   // Rule 4: the change must be fully contained in the region. Each boundary is rejected rather than
   // clamped, so text the panel never flagged as erroneous is never rewritten (FR-018).

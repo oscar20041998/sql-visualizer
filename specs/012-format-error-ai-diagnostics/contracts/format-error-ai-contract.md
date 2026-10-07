@@ -72,7 +72,7 @@ Rules, evaluated in this order:
 1. `stale` — the editor SQL no longer equals the request-time snapshot (FR-016). Nothing is written.
 2. `undetermined-region` — no region could be resolved from the formatter or the AST cross-check parser; the panel reports it and offers a new proposal (FR-020).
 3. `no-change` — the extracted change is empty (the model returned the input unchanged); the proposal is not applicable.
-4. `out-of-range` — the change span is not fully contained in the region; the editor is left untouched, the panel reports that the proposal reaches beyond the error location and offers a retry (FR-018).
+4. `out-of-range` — the change span is not fully contained in the region; the editor is left untouched, the panel reports that the proposal reaches beyond the error location and offers a retry (FR-018). If a line-sized fallback region spans the whole document, also reject a proposal whose removed or inserted text exceeds half the document; a one-line boundary alone must not authorize a broad rewrite.
 5. Otherwise apply `sql.slice(0, start) + replacement + sql.slice(end)` and record `appliedRange` (FR-017).
 
 Invariants: the text outside `[startOffset, endOffset)` is byte-identical to the pre-apply SQL; the spliced result is re-formatted before being committed to the editor, and a failed re-format marks the proposal `invalid` and writes nothing; `Apply` is only reachable from an explicit user confirmation (FR-010).

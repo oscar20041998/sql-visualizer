@@ -464,7 +464,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
       let brief = '';
       try {
         parsed = await analyzeSql(query, dialect, settings.locale);
-        brief = buildSqlContextBrief(parsed);
+        brief = buildSqlContextBrief(parsed, { detailed: true });
       } catch {
         parsed = null;
       }
