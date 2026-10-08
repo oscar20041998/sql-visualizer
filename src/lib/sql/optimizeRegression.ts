@@ -28,14 +28,18 @@ export function buildStructuralRegressionWarnings(
     [join.source, join.target].sort().join('::').toLowerCase();
   const originalRelationships = new Set(original.joins.map(joinKey));
   const optimizedRelationships = new Set(optimized.joins.map(joinKey));
-  if ([...originalRelationships].some((relationship) => !optimizedRelationships.has(relationship))) {
+  if (
+    [...originalRelationships].some((relationship) => !optimizedRelationships.has(relationship))
+  ) {
     warnings.push(t.smartEditorOptimizeRegressionJoinIdentity);
   }
 
   // A relationship that still exists can still have quietly changed row-inclusion semantics —
   // e.g. INNER JOIN rewritten to LEFT JOIN (or vice versa) keeps the same table pair but no
   // longer returns the same rows, so this must be flagged separately from removal.
-  const optimizedJoinTypeByPair = new Map(optimized.joins.map((join) => [joinKey(join), join.joinType]));
+  const optimizedJoinTypeByPair = new Map(
+    optimized.joins.map((join) => [joinKey(join), join.joinType])
+  );
   if (
     original.joins.some((join) => {
       const optimizedType = optimizedJoinTypeByPair.get(joinKey(join));
@@ -50,7 +54,9 @@ export function buildStructuralRegressionWarnings(
   const fieldKey = (field: AnalysisResult['mainQueryFields'][number]) =>
     (field.alias || field.field).toLowerCase();
   const optimizedFields = new Set(optimized.mainQueryFields.map(fieldKey));
-  const missingField = original.mainQueryFields.find((field) => !optimizedFields.has(fieldKey(field)));
+  const missingField = original.mainQueryFields.find(
+    (field) => !optimizedFields.has(fieldKey(field))
+  );
   if (missingField) {
     warnings.push(
       t.smartEditorOptimizeRegressionColumnIdentity.replace('{column}', fieldKey(missingField))
@@ -122,7 +128,9 @@ export function buildRequirementChangeSummary(
 ): SemanticChangeSummary {
   const tableKey = (table: AnalysisResult['tables'][number]) => table.name.toLowerCase();
   const originalTableNames = new Map(original.tables.map((table) => [tableKey(table), table.name]));
-  const candidateTableNames = new Map(candidate.tables.map((table) => [tableKey(table), table.name]));
+  const candidateTableNames = new Map(
+    candidate.tables.map((table) => [tableKey(table), table.name])
+  );
 
   const addedTables = [...candidateTableNames.keys()]
     .filter((key) => !originalTableNames.has(key))
@@ -131,7 +139,8 @@ export function buildRequirementChangeSummary(
     .filter((key) => !candidateTableNames.has(key))
     .map((key) => originalTableNames.get(key)!);
 
-  const nameById = (analysis: AnalysisResult) => new Map(analysis.tables.map((table) => [table.id, table.name]));
+  const nameById = (analysis: AnalysisResult) =>
+    new Map(analysis.tables.map((table) => [table.id, table.name]));
   const joinDescription = (analysis: AnalysisResult, join: AnalysisResult['joins'][number]) => {
     const names = nameById(analysis);
     const source = names.get(join.source) ?? join.source;
@@ -144,8 +153,12 @@ export function buildRequirementChangeSummary(
     const target = (names.get(join.target) ?? join.target).toLowerCase();
     return [source, target].sort().join('::');
   };
-  const originalJoinKeys = new Map(original.joins.map((join) => [joinKey(original, join), joinDescription(original, join)]));
-  const candidateJoinKeys = new Map(candidate.joins.map((join) => [joinKey(candidate, join), joinDescription(candidate, join)]));
+  const originalJoinKeys = new Map(
+    original.joins.map((join) => [joinKey(original, join), joinDescription(original, join)])
+  );
+  const candidateJoinKeys = new Map(
+    candidate.joins.map((join) => [joinKey(candidate, join), joinDescription(candidate, join)])
+  );
 
   const addedJoins = [...candidateJoinKeys.keys()]
     .filter((key) => !originalJoinKeys.has(key))
@@ -154,9 +167,14 @@ export function buildRequirementChangeSummary(
     .filter((key) => !candidateJoinKeys.has(key))
     .map((key) => originalJoinKeys.get(key)!);
 
-  const fieldKey = (field: AnalysisResult['mainQueryFields'][number]) => (field.alias || field.field).toLowerCase();
-  const originalFields = new Map(original.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field]));
-  const candidateFields = new Map(candidate.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field]));
+  const fieldKey = (field: AnalysisResult['mainQueryFields'][number]) =>
+    (field.alias || field.field).toLowerCase();
+  const originalFields = new Map(
+    original.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field])
+  );
+  const candidateFields = new Map(
+    candidate.mainQueryFields.map((field) => [fieldKey(field), field.alias || field.field])
+  );
 
   const addedColumns = [...candidateFields.keys()]
     .filter((key) => !originalFields.has(key))

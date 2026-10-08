@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { format } from 'sql-formatter';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
@@ -311,6 +312,54 @@ describe('FormatErrorPanel (US2 — explain)', () => {
     expect(screen.getByText('SELECT * FROM (;')).toBeInTheDocument();
   });
 
+  it('requests a correction after explaining and shows formatted, highlighted, copyable SQL', async () => {
+    const sequence: string[] = [];
+    render(
+      <AiHarness
+        explain={async () => {
+          sequence.push('explain');
+          return makeExplanation();
+        }}
+        fix={async () => {
+          sequence.push('correct');
+          return 'SELECT id, name FROM users WHERE active = 1;';
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
+    expect(sequence).toEqual(['explain', 'correct']);
+    const code = correctHeading.closest('section')?.querySelector('pre code');
+    expect(code?.textContent).toBe(
+      format('SELECT id, name FROM users WHERE active = 1;', { language: 'mysql' })
+    );
+    expect(code?.querySelector('.text-sky-300')).toHaveTextContent('SELECT');
+    expect(screen.getByRole('button', { name: t.formatErrorPanelCopyFix })).toBeInTheDocument();
+    expect(screen.queryByText(t.formatErrorPanelFixSectionTitle)).not.toBeInTheDocument();
+  });
+
+  it('hides the integrated correction when the editor SQL becomes stale', async () => {
+    const explain = async () => makeExplanation();
+    const fix = async () => 'SELECT id FROM users WHERE id = 1';
+    const view = render(<AiHarness explain={explain} fix={fix} />);
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+    await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel });
+
+    view.rerender(
+      <AiHarness explain={explain} fix={fix} currentSql="SELECT * FROM (; -- edited" />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.formatErrorPanelStale);
+    expect(
+      screen.queryByRole('heading', { name: t.formatErrorPanelCorrectLabel })
+    ).not.toBeInTheDocument();
+  });
+
   it('surfaces an actionable unavailable state when the local model is down', async () => {
     render(<AiHarness explain={failWith('unavailable', 'down')} />);
 
@@ -365,7 +414,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
 
-    expect(writeText).toHaveBeenCalledWith(proposeFix);
+    expect(writeText).toHaveBeenCalledWith(format(proposeFix, { language: 'mysql' }));
   });
 
   it('applies the correction only after explicit confirmation (FR-010)', async () => {

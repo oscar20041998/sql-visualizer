@@ -2,7 +2,15 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Check, ChevronRight, Copy, MessageSquareText, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronRight,
+  Copy,
+  MessageSquareText,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale, Translations } from '@/lib/i18n';
 import { askFollowUp, type AIMessage } from '@/lib/ai/aiService';
@@ -56,13 +64,21 @@ function AssistantMessage({ content, t }: { content: string; t: Translations }) 
 
   while ((match = SQL_CODE_FENCE_RE.exec(content))) {
     if (match.index > lastIndex) {
-      parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content.slice(lastIndex, match.index)}</p>);
+      parts.push(
+        <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {content.slice(lastIndex, match.index)}
+        </p>
+      );
     }
     parts.push(<SqlCodeBlock key={key++} sql={match[1].trim()} t={t} />);
     lastIndex = SQL_CODE_FENCE_RE.lastIndex;
   }
   if (lastIndex < content.length) {
-    parts.push(<p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{content.slice(lastIndex)}</p>);
+    parts.push(
+      <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+        {content.slice(lastIndex)}
+      </p>
+    );
   }
   return <div>{parts}</div>;
 }
@@ -182,13 +198,17 @@ export const AiFollowUpChat: React.FC<AiFollowUpChatProps> = ({
                   : 'mr-6 rounded-lg border border-border bg-muted/40 px-3 py-2'
               }
             >
-              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${message.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}>
+              <p
+                className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${message.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}
+              >
                 {message.role === 'user' ? t.aiChatRoleYou : t.aiChatRoleAssistant}
               </p>
               {message.role === 'assistant' ? (
                 <AssistantMessage content={message.content} t={t} />
               ) : (
-                <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground">{message.content}</p>
+                <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground">
+                  {message.content}
+                </p>
               )}
             </div>
           ))}

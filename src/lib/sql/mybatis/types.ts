@@ -293,4 +293,3 @@ export const DIALECT_PROFILES: Record<SqlDialect, DialectProfile> = {
   sqlserver: defaultProfile(),
   oracle: defaultProfile(),
 };
-

@@ -5,9 +5,10 @@
 // the contract requires. A rejected answer becomes a described failure the panel can render —
 // never a silent no-op.
 //
-// Local-only rule (constitution V / FR-014): requests go to the configured Ollama base URL through
-// the existing `generateWithAI` adapter. No cloud provider is reachable from this module.
+// Provider routing: requests go through the `generateWithAI` adapter with the Settings
+// `AIModelConfig` as-is — Ollama direct, cloud providers via the server proxy.
 import { generateWithAI } from './aiService';
+import { format } from 'sql-formatter';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale } from '@/lib/i18n';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
@@ -147,6 +148,55 @@ Return only a JSON object with exactly this key — no explanation, no prose:
 {
   "correctedSql": "the minimally corrected SQL"
 }`;
+}
+
+function buildFormatFixRetryPrompt(
+  error: FormatError,
+  rejectedSql: string,
+  formatterMessage: string
+): string {
+  return `Your previous SQL correction still failed the SQL formatter. Correct the syntax using the formatter's feedback below.
+
+SQL dialect: ${error.dialect}
+Original formatter error: ${error.message}
+Formatter error for your previous correction: ${formatterMessage}
+
+Original SQL:
+00sql
+${fitSqlForPrompt(error.sourceSql)}
+00
+
+Your previous correction:
+00sql
+${fitSqlForPrompt(rejectedSql)}
+00
+
+Return only a JSON object with exactly this key, containing a corrected SQL statement valid for the stated dialect:
+{ "correctedSql": "..." }`;
+}
+
+function formatterLanguage(
+  dialect: FormatError['dialect']
+): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
+  if (dialect === 'postgresql') return 'postgresql';
+  if (dialect === 'sqlserver') return 'tsql';
+  if (dialect === 'oracle') return 'plsql';
+  return 'mysql';
+}
+
+function validateFormatFix(sql: string, dialect: FormatError['dialect']): void {
+  format(sql, { language: formatterLanguage(dialect) });
+}
+
+function formatterFailureMessage(thrown: unknown): string {
+  const message = thrown instanceof Error ? thrown.message : String(thrown);
+  return (
+    message
+      .split(/\r?\n/)
+      .find((line) => line.trim())
+      ?.trim()
+      .slice(0, 240) ?? 'Unknown formatter error'
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -324,7 +374,7 @@ function isGroundedInError(explanation: FormatExplanation, error: FormatError): 
 }
 
 /**
- * Asks the local model to explain a format error. Rejects with a {@link FormatAiError} carrying a
+ * Asks the configured model to explain a format error. Rejects with a {@link FormatAiError} carrying a
  * renderable state — never resolves with a partial, empty or ungrounded explanation (FR-012).
  */
 export async function requestFormatExplanation(
@@ -352,12 +402,13 @@ export async function requestFormatExplanation(
 }
 
 /**
- * Asks the local model for a minimal, semantics-preserving correction. Resolves with the corrected
- * SQL only; the caller owns the re-format and apply gate (FR-010 / FR-015).
+ * Asks the configured model for a minimal, semantics-preserving correction. Resolves with the corrected
+ * SQL only. If the first correction still fails the formatter, one retry is made with its error
+ * feedback; the editor still owns the explicit apply gate (FR-010 / FR-015).
  */
 export async function requestFormatFix(error: FormatError, config: AIModelConfig): Promise<string> {
   const raw = await runRequest(config, buildFormatFixPrompt(error), FIX_MAX_TOKENS);
-  const correctedSql = parseFormatFix(raw, error.sourceSql);
+  let correctedSql = parseFormatFix(raw, error.sourceSql);
   if (!correctedSql) {
     throw new FormatAiError({
       kind: 'malformed',
@@ -366,5 +417,29 @@ export async function requestFormatFix(error: FormatError, config: AIModelConfig
       retryable: true,
     });
   }
-  return correctedSql;
+
+  try {
+    validateFormatFix(correctedSql, error.dialect);
+    return correctedSql;
+  } catch (firstFormatterError) {
+    const retryRaw = await runRequest(
+      config,
+      buildFormatFixRetryPrompt(error, correctedSql, formatterFailureMessage(firstFormatterError)),
+      FIX_MAX_TOKENS
+    );
+    correctedSql = parseFormatFix(retryRaw, error.sourceSql);
+    if (correctedSql) {
+      try {
+        validateFormatFix(correctedSql, error.dialect);
+        return correctedSql;
+      } catch {
+        // Report the same actionable state when the single feedback retry also fails validation.
+      }
+    }
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The proposed SQL still fails to format after one correction attempt.',
+      retryable: true,
+    });
+  }
 }

@@ -73,14 +73,16 @@ export function renderEntity(
   const diagnostics: GeneratedCode['diagnostics'] = [];
   const relationships = options.includeRelationships
     ? foreignKeys.filter((constraint) => {
-        const supported = constraint.columns.length === 1 &&
+        const supported =
+          constraint.columns.length === 1 &&
           constraint.referencedColumns.length === 1 &&
           table.columns.some((column) => column.name === constraint.columns[0]);
         if (!supported) {
           diagnostics.push({
             severity: 'warning',
             code: 'unsupported-relationship',
-            message: `Relationship ${constraint.name ?? ''} was kept as scalar columns because its key metadata is composite or incomplete.`.trim(),
+            message:
+              `Relationship ${constraint.name ?? ''} was kept as scalar columns because its key metadata is composite or incomplete.`.trim(),
             sourceSpan: null,
           });
         }
@@ -88,15 +90,22 @@ export function renderEntity(
       })
     : [];
   const relationshipColumns = new Set(relationships.map((constraint) => constraint.columns[0]));
-    const scalarColumns = table.columns.filter((column) => !relationshipColumns.has(column.name));
-    const needsNotNull = options.validationAnnotations && scalarColumns.some((column) => column.nullable === false);
-    const needsSize = options.validationAnnotations && scalarColumns.some(
-      (column) => mapSqlType(column.sqlType.raw, 'mysql').javaType === 'String' && column.length !== null
+  const scalarColumns = table.columns.filter((column) => !relationshipColumns.has(column.name));
+  const needsNotNull =
+    options.validationAnnotations && scalarColumns.some((column) => column.nullable === false);
+  const needsSize =
+    options.validationAnnotations &&
+    scalarColumns.some(
+      (column) =>
+        mapSqlType(column.sqlType.raw, 'mysql').javaType === 'String' && column.length !== null
     );
-  const isOneToOne = (constraint: (typeof relationships)[number]) => table.constraints.some(
-    (candidate) => candidate.kind === 'unique' &&
-      candidate.columns.length === 1 && candidate.columns[0] === constraint.columns[0]
-  );
+  const isOneToOne = (constraint: (typeof relationships)[number]) =>
+    table.constraints.some(
+      (candidate) =>
+        candidate.kind === 'unique' &&
+        candidate.columns.length === 1 &&
+        candidate.columns[0] === constraint.columns[0]
+    );
   const primaryKeyColumns = new Set(
     table.constraints
       .filter((constraint) => constraint.kind === 'primary-key')
@@ -125,34 +134,38 @@ export function renderEntity(
       sourceSpan: null,
     });
   });
-  const accessors = options.useLombok ? [] : scalarColumns.flatMap((column) => {
-    const javaType = mapSqlType(column.sqlType.raw, 'mysql').javaType ?? 'Object';
-    const fieldName = toJavaIdentifier(column.name, 'camelCase');
-    const methodSuffix = `${fieldName[0].toUpperCase()}${fieldName.slice(1)}`;
-    return [
-      `    public ${javaType} get${methodSuffix}() {`,
-      `        return ${fieldName};`,
-      '    }',
-      '',
-      `    public void set${methodSuffix}(${javaType} ${fieldName}) {`,
-      `        this.${fieldName} = ${fieldName};`,
-      '    }',
-    ];
-    });
-  const relationAccessors = options.useLombok ? [] : relationships.flatMap((constraint) => {
-    const relatedClass = classNameForTable(constraint.referencedTable);
-    const fieldName = `${relatedClass[0].toLowerCase()}${relatedClass.slice(1)}`;
-    const methodSuffix = relatedClass;
-    return [
-      `    public ${relatedClass} get${methodSuffix}() {`,
-      `        return ${fieldName};`,
-      '    }',
-      '',
-      `    public void set${methodSuffix}(${relatedClass} ${fieldName}) {`,
-      `        this.${fieldName} = ${fieldName};`,
-      '    }',
-    ];
-  });
+  const accessors = options.useLombok
+    ? []
+    : scalarColumns.flatMap((column) => {
+        const javaType = mapSqlType(column.sqlType.raw, 'mysql').javaType ?? 'Object';
+        const fieldName = toJavaIdentifier(column.name, 'camelCase');
+        const methodSuffix = `${fieldName[0].toUpperCase()}${fieldName.slice(1)}`;
+        return [
+          `    public ${javaType} get${methodSuffix}() {`,
+          `        return ${fieldName};`,
+          '    }',
+          '',
+          `    public void set${methodSuffix}(${javaType} ${fieldName}) {`,
+          `        this.${fieldName} = ${fieldName};`,
+          '    }',
+        ];
+      });
+  const relationAccessors = options.useLombok
+    ? []
+    : relationships.flatMap((constraint) => {
+        const relatedClass = classNameForTable(constraint.referencedTable);
+        const fieldName = `${relatedClass[0].toLowerCase()}${relatedClass.slice(1)}`;
+        const methodSuffix = relatedClass;
+        return [
+          `    public ${relatedClass} get${methodSuffix}() {`,
+          `        return ${fieldName};`,
+          '    }',
+          '',
+          `    public void set${methodSuffix}(${relatedClass} ${fieldName}) {`,
+          `        this.${fieldName} = ${fieldName};`,
+          '    }',
+        ];
+      });
   const source = [
     'import jakarta.persistence.Column;',
     'import jakarta.persistence.Entity;',
@@ -191,9 +204,11 @@ export function renderEntity(
     className,
     outputType: 'entity',
     diagnostics,
-    assumptions: relationships.map((constraint) => isOneToOne(constraint)
-      ? `One-to-one cardinality is proposed for ${constraint.referencedTable} because the foreign key is unique; verify the database relationship.`
-      : `Many-to-one cardinality is inferred for ${constraint.referencedTable}; verify the database relationship.`),
+    assumptions: relationships.map((constraint) =>
+      isOneToOne(constraint)
+        ? `One-to-one cardinality is proposed for ${constraint.referencedTable} because the foreign key is unique; verify the database relationship.`
+        : `Many-to-one cardinality is inferred for ${constraint.referencedTable}; verify the database relationship.`
+    ),
     ...(options.generateMyBatisMapper ? { additionalFiles: [myBatisMapperFile(className)] } : {}),
   };
 }
@@ -206,12 +221,14 @@ export function renderDto(model: ParsedSqlModel, options: CodeGenerationOptions)
       fileName: '',
       className: null,
       outputType: null,
-      diagnostics: [{
-        severity: 'error',
-        code: 'unsupported-dto-shape',
-        message: 'The SELECT result does not contain supported output fields.',
-        sourceSpan: null,
-      }],
+      diagnostics: [
+        {
+          severity: 'error',
+          code: 'unsupported-dto-shape',
+          message: 'The SELECT result does not contain supported output fields.',
+          sourceSpan: null,
+        },
+      ],
       assumptions: [],
     };
   }
@@ -219,7 +236,8 @@ export function renderDto(model: ParsedSqlModel, options: CodeGenerationOptions)
   const className = `${classNameForTable(shape.sourceTables[0] ?? 'QueryResult')}Dto`;
   const diagnostics: GeneratedCode['diagnostics'] = [];
   const fields = shape.fields.map((field: SelectField, index) => {
-    const fieldNameSource = field.alias ?? field.sourceColumns[0]?.split('.').at(-1) ?? `field${index + 1}`;
+    const fieldNameSource =
+      field.alias ?? field.sourceColumns[0]?.split('.').at(-1) ?? `field${index + 1}`;
     const fieldName = toJavaIdentifier(fieldNameSource, options.namingStrategy);
     let javaType: string | null = null;
     if (field.inferredSqlType) {
@@ -245,18 +263,20 @@ export function renderDto(model: ParsedSqlModel, options: CodeGenerationOptions)
     }
     return { fieldName, javaType };
   });
-  const accessors = options.useLombok ? [] : fields.flatMap(({ fieldName, javaType }) => {
-    const methodSuffix = `${fieldName[0].toUpperCase()}${fieldName.slice(1)}`;
-    return [
-      `    public ${javaType} get${methodSuffix}() {`,
-      `        return ${fieldName};`,
-      '    }',
-      '',
-      `    public void set${methodSuffix}(${javaType} ${fieldName}) {`,
-      `        this.${fieldName} = ${fieldName};`,
-      '    }',
-    ];
-  });
+  const accessors = options.useLombok
+    ? []
+    : fields.flatMap(({ fieldName, javaType }) => {
+        const methodSuffix = `${fieldName[0].toUpperCase()}${fieldName.slice(1)}`;
+        return [
+          `    public ${javaType} get${methodSuffix}() {`,
+          `        return ${fieldName};`,
+          '    }',
+          '',
+          `    public void set${methodSuffix}(${javaType} ${fieldName}) {`,
+          `        this.${fieldName} = ${fieldName};`,
+          '    }',
+        ];
+      });
   const source = [
     ...(options.useLombok ? ['import lombok.Getter;', 'import lombok.Setter;', ''] : []),
     ...(options.useLombok ? ['@Getter', '@Setter'] : []),

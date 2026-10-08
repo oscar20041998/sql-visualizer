@@ -2,7 +2,15 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, X, ShieldCheck, Target, Filter, MessageSquareText, Settings } from 'lucide-react';
+import {
+  Sparkles,
+  X,
+  ShieldCheck,
+  Target,
+  Filter,
+  MessageSquareText,
+  Settings,
+} from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 

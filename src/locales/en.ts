@@ -1403,6 +1403,7 @@ const en = {
   formatErrorPanelRootCauseLabel: 'Root cause',
   formatErrorPanelEvidenceLabel: 'Grounded in',
   formatErrorPanelFixSectionTitle: 'Proposed fix',
+  formatErrorPanelCorrectLabel: 'Correct',
   formatErrorPanelFixBeforeLabel: 'Before',
   formatErrorPanelFixAfterLabel: 'After',
   formatErrorPanelCopyFix: 'Copy',

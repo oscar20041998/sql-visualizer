@@ -25,12 +25,16 @@ export function classifySql(model: ParsedSqlModel): SqlClassification {
     const { hasJoin, hasAggregation, groupByExpressions } = model.selectShape;
     if (model.selectShape.fields.some((field) => field.expressionKind === 'wildcard')) {
       return {
-        kind: hasJoin ? 'select-join' : hasAggregation || groupByExpressions.length > 0
-          ? 'select-aggregation'
-          : 'select-entity-like',
+        kind: hasJoin
+          ? 'select-join'
+          : hasAggregation || groupByExpressions.length > 0
+            ? 'select-aggregation'
+            : 'select-entity-like',
         confidence: 'limited',
         recommendedOutput: 'none',
-        reasons: ['Wildcard output does not identify the result columns or key; use explicit columns before generating code.'],
+        reasons: [
+          'Wildcard output does not identify the result columns or key; use explicit columns before generating code.',
+        ],
         requiresUserChoice: true,
       };
     }
@@ -70,7 +74,9 @@ export function classifySql(model: ParsedSqlModel): SqlClassification {
       kind: model.statementKind,
       confidence: 'high',
       recommendedOutput: 'none',
-      reasons: ['Consider a repository/persistence method; DML source generation is not supported.'],
+      reasons: [
+        'Consider a repository/persistence method; DML source generation is not supported.',
+      ],
       requiresUserChoice: false,
     };
   }

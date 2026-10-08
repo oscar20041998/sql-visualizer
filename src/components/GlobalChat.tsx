@@ -24,7 +24,12 @@ export const GlobalChat: React.FC = () => {
   const { settings, chatIsOpen: isOpen, setChatIsOpen: setIsOpen } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [launcherPosition, setLauncherPosition] = useState<LauncherPosition | null>(null);
-  const dragStartRef = useRef<{ pointerX: number; pointerY: number; left: number; top: number } | null>(null);
+  const dragStartRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    left: number;
+    top: number;
+  } | null>(null);
   const draggedRef = useRef(false);
   const latestLauncherPositionRef = useRef<LauncherPosition | null>(null);
   const t = getT(settings.locale);
@@ -45,11 +50,17 @@ export const GlobalChat: React.FC = () => {
         const clampedPosition = {
           left: Math.min(
             Math.max(CHAT_LAUNCHER_MARGIN, position.left),
-            Math.max(CHAT_LAUNCHER_MARGIN, window.innerWidth - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN)
+            Math.max(
+              CHAT_LAUNCHER_MARGIN,
+              window.innerWidth - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN
+            )
           ),
           top: Math.min(
             Math.max(CHAT_LAUNCHER_MARGIN, position.top),
-            Math.max(CHAT_LAUNCHER_MARGIN, window.innerHeight - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN)
+            Math.max(
+              CHAT_LAUNCHER_MARGIN,
+              window.innerHeight - CHAT_LAUNCHER_SIZE - CHAT_LAUNCHER_MARGIN
+            )
           ),
         };
         latestLauncherPositionRef.current = clampedPosition;
@@ -121,13 +132,10 @@ export const GlobalChat: React.FC = () => {
         <div className="w-80 md:w-96 h-[500px] flex flex-col shadow-2xl rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between p-3 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
-                <Bot className="text-primary" size={20} />
-                <h3 className="font-semibold text-sm">{t.aiAssistantTitle}</h3>
+              <Bot className="text-primary" size={20} />
+              <h3 className="font-semibold text-sm">{t.aiAssistantTitle}</h3>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1 rounded-full hover:bg-muted"
-            >
+            <button onClick={() => setIsOpen(false)} className="p-1 rounded-full hover:bg-muted">
               <X size={16} />
             </button>
           </div>
@@ -138,7 +146,12 @@ export const GlobalChat: React.FC = () => {
             {isGuest ? (
               <LockedFeatureNotice t={t} featureName={t.docsConsultantTitle} className="m-4" />
             ) : (
-              <DocsConsultantChat config={settings.aiConfig} locale={settings.locale} t={t} className="p-4" />
+              <DocsConsultantChat
+                config={settings.aiConfig}
+                locale={settings.locale}
+                t={t}
+                className="p-4"
+              />
             )}
           </div>
         </div>

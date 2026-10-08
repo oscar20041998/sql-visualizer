@@ -220,9 +220,7 @@ class LocalStorageImpl implements DatabaseAssistantHistoryStorage {
         return new StorageCorruptError(`History for ${identityKey}: invalid JSON`);
       }
       // Other error (quota, SecurityError, etc.)
-      return new StorageUnavailableError(
-        e instanceof Error ? e.message : 'Unable to read storage'
-      );
+      return new StorageUnavailableError(e instanceof Error ? e.message : 'Unable to read storage');
     }
   }
 

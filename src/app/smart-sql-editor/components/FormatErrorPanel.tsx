@@ -13,6 +13,7 @@
  * confirmation, and is refused outright once the editor SQL has moved on (FR-010 / FR-016).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { format } from 'sql-formatter';
 import {
   AlertTriangle,
   Bug,
@@ -130,6 +131,58 @@ const DIALECT_LABELS: Record<FormatError['dialect'], string> = {
   oracle: 'Oracle',
 };
 
+const FORMATTER_LANGUAGES: Record<
+  FormatError['dialect'],
+  'mysql' | 'postgresql' | 'tsql' | 'plsql'
+> = {
+  mysql: 'mysql',
+  postgresql: 'postgresql',
+  sqlserver: 'tsql',
+  oracle: 'plsql',
+};
+
+const SQL_HIGHLIGHT_PATTERN =
+  /(--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|\b(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|USING|AS|WITH|RECURSIVE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|VIEW|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|FETCH|UNION|ALL|DISTINCT|AND|OR|NOT|NULL|IS|IN|EXISTS|CASE|WHEN|THEN|ELSE|END|COUNT|SUM|AVG|MIN|MAX|COALESCE|CAST|OVER|PARTITION|ROWS|RANGE|BETWEEN|LIKE|TRUE|FALSE)\b|\b\d+(?:\.\d+)?\b)/gi;
+
+function renderHighlightedSql(sql: string): React.ReactNode {
+  return sql.split(SQL_HIGHLIGHT_PATTERN).map((token, index) => {
+    if (!token) return null;
+    if (/^(--|\/\*)/.test(token)) {
+      return (
+        <span key={index} className="text-muted-foreground italic">
+          {token}
+        </span>
+      );
+    }
+    if (token.startsWith("'")) {
+      return (
+        <span key={index} className="text-emerald-300">
+          {token}
+        </span>
+      );
+    }
+    if (/^\d/.test(token)) {
+      return (
+        <span key={index} className="text-amber-300">
+          {token}
+        </span>
+      );
+    }
+    if (
+      /^(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|USING|AS|WITH|RECURSIVE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|VIEW|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|FETCH|UNION|ALL|DISTINCT|AND|OR|NOT|NULL|IS|IN|EXISTS|CASE|WHEN|THEN|ELSE|END|COUNT|SUM|AVG|MIN|MAX|COALESCE|CAST|OVER|PARTITION|ROWS|RANGE|BETWEEN|LIKE|TRUE|FALSE)$/i.test(
+        token
+      )
+    ) {
+      return (
+        <span key={index} className="font-semibold text-sky-300">
+          {token}
+        </span>
+      );
+    }
+    return token;
+  });
+}
+
 export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   error: rawError,
   isOpen,
@@ -170,6 +223,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   } | null>(null);
   const [fixPhase, setFixPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [fixFailure, setFixFailure] = useState<FormatAiFailureKind>('error');
+  const [fixFromExplain, setFixFromExplain] = useState(false);
   /** Brief "copied" feedback on the proposed-fix copy button, reset after a short delay. */
   const [fixCopied, setFixCopied] = useState(false);
   /** The retry control a refusal points at, so focus lands where the user can act (FR-018). */
@@ -188,6 +242,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     setProposedSql(null);
     setFixPhase('idle');
     setFixCopied(false);
+    setFixFromExplain(false);
   }, [error]);
 
   /** True once the editor SQL diverged from the SQL the proposal was built from (FR-016). */
@@ -234,33 +289,56 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     return isStale({ originalSql: fixSnapshotSql, proposedSql }, currentSql);
   }, [proposedSql, fixSnapshotSql, currentSql]);
 
+  const formattedProposedSql = useMemo(() => {
+    if (proposedSql === null) return null;
+    try {
+      return format(proposedSql, { language: FORMATTER_LANGUAGES[error.dialect] });
+    } catch {
+      return proposedSql;
+    }
+  }, [proposedSql, error.dialect]);
+
+  const requestFix = useCallback(
+    async (integratedWithExplain: boolean) => {
+      if (!onRequestFix) return;
+      setFixFromExplain(integratedWithExplain);
+      setFixPhase('loading');
+      setFixSnapshotSql(null);
+      setProposedSql(null);
+      try {
+        const corrected = await onRequestFix(error);
+        setProposedSql(corrected);
+        setFixSnapshotSql(error.sourceSql);
+        setFixPhase('ready');
+      } catch (thrown) {
+        setFixFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
+        setFixPhase('failed');
+      }
+    },
+    [onRequestFix, error]
+  );
+
   const handleExplain = useCallback(async () => {
     if (!onRequestExplain) return;
     setExplainPhase('loading');
+    setExplanation(null);
+    setFixSnapshotSql(null);
+    setProposedSql(null);
+    setFixPhase('idle');
+    setFixFromExplain(false);
     try {
       setExplanation(await onRequestExplain(error));
       setExplainPhase('ready');
+      await requestFix(true);
     } catch (thrown) {
       setExplainFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
       setExplainPhase('failed');
     }
-  }, [onRequestExplain, error]);
+  }, [onRequestExplain, error, requestFix]);
 
   const handleFix = useCallback(async () => {
-    if (!onRequestFix) return;
-    setFixPhase('loading');
-    setFixSnapshotSql(null);
-    setProposedSql(null);
-    try {
-      const corrected = await onRequestFix(error);
-      setProposedSql(corrected);
-      setFixSnapshotSql(error.sourceSql);
-      setFixPhase('ready');
-    } catch (thrown) {
-      setFixFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
-      setFixPhase('failed');
-    }
-  }, [onRequestFix, error]);
+    await requestFix(false);
+  }, [requestFix]);
 
   const handleApplyFix = useCallback(() => {
     // Defence in depth: the Apply control is hidden while stale, and this guard makes applying a
@@ -299,16 +377,16 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
   /** Copies the proposed correction to the clipboard, mirroring the SQL Explainer's copy UX. */
   const handleCopyFix = useCallback(async () => {
-    if (!proposedSql) return;
+    if (!formattedProposedSql) return;
     try {
-      await navigator.clipboard.writeText(proposedSql);
+      await navigator.clipboard.writeText(formattedProposedSql);
       setFixCopied(true);
       toast.success(t.formatErrorPanelCopyFixDone);
       window.setTimeout(() => setFixCopied(false), 2000);
     } catch {
       toast.error(t.smartEditorFailedToCopy);
     }
-  }, [proposedSql, t]);
+  }, [formattedProposedSql, t]);
 
   const position = useMemo(() => formatErrorPosition(error), [error]);
 
@@ -453,17 +531,21 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 <button
                   type="button"
                   onClick={handleExplain}
-                  disabled={explainPhase === 'loading'}
+                  disabled={
+                    explainPhase === 'loading' || (fixFromExplain && fixPhase === 'loading')
+                  }
                   className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {explainPhase === 'loading' ? (
+                  {explainPhase === 'loading' || (fixFromExplain && fixPhase === 'loading') ? (
                     <Loader2 size={12} className="animate-spin" aria-hidden="true" />
                   ) : (
                     <Sparkles size={12} aria-hidden="true" />
                   )}
-                  {explainPhase === 'loading'
-                    ? t.formatErrorPanelExplainRunning
-                    : t.formatErrorPanelExplain}
+                  {fixFromExplain && fixPhase === 'loading'
+                    ? t.formatErrorPanelFixRunning
+                    : explainPhase === 'loading'
+                      ? t.formatErrorPanelExplainRunning
+                      : t.formatErrorPanelExplain}
                 </button>
               )}
               {onRequestFix && (
@@ -536,15 +618,52 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
             </section>
           )}
 
+          {fixFromExplain && fixPhase === 'ready' && formattedProposedSql && !proposalIsStale && (
+            <section className="rounded border border-success/50 bg-success/10 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-success">
+                  <Check size={13} aria-hidden="true" />
+                  {t.formatErrorPanelCorrectLabel}
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleCopyFix}
+                  aria-label={t.formatErrorPanelCopyFix}
+                  title={t.formatErrorPanelCopyFix}
+                  className="flex items-center gap-1 rounded border border-success/40 bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {fixCopied ? (
+                    <Check size={12} aria-hidden="true" />
+                  ) : (
+                    <Copy size={12} aria-hidden="true" />
+                  )}
+                  {fixCopied ? t.copied : t.formatErrorPanelCopyFix}
+                </button>
+              </div>
+              <pre className="max-h-72 overflow-auto rounded border border-success/30 bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
+                <code>{renderHighlightedSql(formattedProposedSql)}</code>
+              </pre>
+            </section>
+          )}
+
+          {fixFromExplain && fixPhase === 'ready' && proposalIsStale && (
+            <p
+              role="alert"
+              className="whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-3 text-xs text-warning"
+            >
+              {t.formatErrorPanelStale}
+            </p>
+          )}
+
           <AiStatusBlock
             phase={fixPhase}
             kind={fixFailure}
             t={t}
-            onRetry={handleFix}
+            onRetry={() => void requestFix(fixFromExplain)}
             failedMessage={t.formatErrorPanelInvalidFix}
           />
 
-          {fixPhase === 'ready' && proposedSql && (
+          {fixPhase === 'ready' && proposedSql && !fixFromExplain && (
             <section className="rounded border border-border bg-muted/40 p-3">
               <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-foreground">
                 <Wand2 size={12} aria-hidden="true" />

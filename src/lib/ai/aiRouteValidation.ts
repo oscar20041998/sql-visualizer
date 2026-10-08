@@ -50,8 +50,7 @@ function allowedHosts(provider: CloudProvider): Set<string> {
     if (host) hosts.add(host);
     // A silently ignored entry looks identical to a missing one, which is what made this hard
     // to diagnose in the first place.
-    else
-      console.warn(`[api/ai/generate] Ignoring unparseable AI_PORTAL_BASE_URL entry: ${entry}`);
+    else console.warn(`[api/ai/generate] Ignoring unparseable AI_PORTAL_BASE_URL entry: ${entry}`);
   }
   return hosts;
 }

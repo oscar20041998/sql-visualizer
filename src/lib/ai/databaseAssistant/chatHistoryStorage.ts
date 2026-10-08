@@ -39,7 +39,10 @@ export class StorageCorruptError extends Error {
   }
 }
 
-export type StorageError = StorageUnavailableError | StorageQuotaExceededError | StorageCorruptError;
+export type StorageError =
+  | StorageUnavailableError
+  | StorageQuotaExceededError
+  | StorageCorruptError;
 
 export function isStorageError(err: unknown): err is StorageError {
   return (

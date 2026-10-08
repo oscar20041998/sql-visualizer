@@ -14,7 +14,8 @@ export interface TableNodeData extends TableNodeType {
 }
 
 const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeData }) {
-  const { name, alias, columns, sourceType, isHighlighted, isSelected, nodeColor, isSimplified } = data;
+  const { name, alias, columns, sourceType, isHighlighted, isSelected, nodeColor, isSimplified } =
+    data;
   const theme = data.theme ?? 'dark';
   const isLight = theme === 'light';
 

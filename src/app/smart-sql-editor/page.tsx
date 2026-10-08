@@ -16,12 +16,10 @@ import { resolveErrorRegion, type CrossCheckPosition } from '@/lib/sql/formatErr
 import { locateSyntaxError } from '@/lib/sql/dialectValidator';
 import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import {
-  FormatAiError,
   requestFormatExplanation,
   requestFormatFix,
   type FormatExplanation,
 } from '@/lib/ai/formatErrorAi';
-import type { AIModelConfig } from '@/lib/store';
 import { toast } from 'sonner';
 
 /** Formatter language for client-side validation that an AI fix actually formats. */
@@ -126,43 +124,26 @@ export default function SmartSQLEditorPage() {
   }, []);
 
   /**
-   * Local-Ollama-only Explain action (FR-011). The config is cloned with provider forced to
-   * `ollama` before the request leaves this page, so even a store that currently points at a
-   * cloud provider cannot route this feature's SQL off-device (FR-014).
+   * Explain action for a format error (FR-011). Uses the provider configured in
+   * Settings (`settings.aiConfig`) as-is, so OpenAI / Anthropic / Gemini /
+   * AI Portal are honoured — `generateWithAI` routes Ollama direct and cloud
+   * providers through the server proxy that holds the key.
    */
   const handleRequestExplain = useCallback(
     (error: FormatError): Promise<FormatExplanation> => {
-      const localOnlyConfig: AIModelConfig = {
-        ...settings.aiConfig,
-        provider: 'ollama',
-      };
-      return requestFormatExplanation(error, localOnlyConfig, settings.locale);
+      return requestFormatExplanation(error, settings.aiConfig, settings.locale);
     },
     [settings.aiConfig, settings.locale]
   );
 
   /**
-   * Local-Ollama-only Fix action (FR-011 / FR-014). A proposed fix is validated by re-running the
-   * formatter: if it still fails, the promise rejects and the panel shows the invalid state
-   * (contract §3). The editor is never touched here — that happens only on Apply (FR-010).
+   * Fix action (FR-011). Same provider routing as Explain. `requestFormatFix` validates the model's
+   * response and retries once with formatter feedback if needed. The editor is never touched here —
+   * that happens only on Apply (FR-010).
    */
   const handleRequestFix = useCallback(
     async (error: FormatError): Promise<string> => {
-      const localOnlyConfig: AIModelConfig = {
-        ...settings.aiConfig,
-        provider: 'ollama',
-      };
-      const correctedSql = await requestFormatFix(error, localOnlyConfig);
-      try {
-        format(correctedSql, { language: toFormatterLanguage(error.dialect) });
-      } catch {
-        throw new FormatAiError({
-          kind: 'malformed',
-          message: 'The proposed SQL still fails to format.',
-          retryable: true,
-        });
-      }
-      return correctedSql;
+      return requestFormatFix(error, settings.aiConfig);
     },
     [settings.aiConfig]
   );
@@ -225,161 +206,163 @@ export default function SmartSQLEditorPage() {
        * into. It must sit above all three so they share one column. */}
       <SidePanelRail>
         <div className="smart-sql-editor-theme flex flex-col bg-background">
-        {/* Header */}
-        <div className="border-b border-border bg-card p-6 shadow-sm">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="mb-2 text-3xl font-bold text-foreground">{t.editorPageTitle}</h1>
-            <p className="text-muted-foreground">{t.editorPageSubtitle}</p>
-          </div>
-        </div>
-
-        {/* Sample Query Selector */}
-        <div className="border-b border-border bg-muted/50 px-6 py-4">
-          <div className="max-w-7xl mx-auto">
-            <p className="mb-3 text-sm font-semibold text-foreground">
-              {t.editorPageLoadSampleQueryLabel}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {Object.keys(SAMPLE_QUERIES).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedQuery(key as keyof typeof SAMPLE_QUERIES)}
-                  className={`px-4 py-2 rounded font-medium transition ${
-                    selectedQuery === key
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'border border-border bg-card text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {key === 'simple' && t.editorPageQuerySimple}
-                  {key === 'withJoin' && t.editorPageQueryWithJoin}
-                  {key === 'withCTE' && t.editorPageQueryWithCTE}
-                  {key === 'complex' && t.editorPageQueryComplex}
-                </button>
-              ))}
+          {/* Header */}
+          <div className="border-b border-border bg-card p-6 shadow-sm">
+            <div className="max-w-7xl mx-auto">
+              <h1 className="mb-2 text-3xl font-bold text-foreground">{t.editorPageTitle}</h1>
+              <p className="text-muted-foreground">{t.editorPageSubtitle}</p>
             </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col w-full">
-          <div className="max-w-7xl mx-auto w-full p-6 flex flex-col gap-4">
-            <div className="flex-shrink-0 rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-foreground">
-              <p className="mb-2 font-semibold">{t.editorPageProTipsTitle}</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>{t.editorPageProTip1}</li>
-                <li>{t.editorPageProTip2}</li>
-                <li>{t.editorPageProTip3}</li>
-                <li>{t.editorPageProTip4}</li>
-                <li>{t.editorPageProTip5}</li>
-                <li>{t.editorPageProTip6}</li>
-              </ul>
-            </div>
-
-            {/* Editor + right-side format-error report (spec 012) */}
-            <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
-              <div className="flex min-h-[620px] flex-1 flex-col">
-                <SmartSQLEditor
-                  initialSql={SAMPLE_QUERIES[selectedQuery]}
-                  onSqlChange={handleSqlChange}
-                  onOptimizationResult={setOptimizationResult}
-                  onFormatError={handleFormatError}
-                  apiRef={editorApiRef}
-                />
+          {/* Sample Query Selector */}
+          <div className="border-b border-border bg-muted/50 px-6 py-4">
+            <div className="max-w-7xl mx-auto">
+              <p className="mb-3 text-sm font-semibold text-foreground">
+                {t.editorPageLoadSampleQueryLabel}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(SAMPLE_QUERIES).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedQuery(key as keyof typeof SAMPLE_QUERIES)}
+                    className={`px-4 py-2 rounded font-medium transition ${
+                      selectedQuery === key
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'border border-border bg-card text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {key === 'simple' && t.editorPageQuerySimple}
+                    {key === 'withJoin' && t.editorPageQueryWithJoin}
+                    {key === 'withCTE' && t.editorPageQueryWithCTE}
+                    {key === 'complex' && t.editorPageQueryComplex}
+                  </button>
+                ))}
               </div>
-              {formatError && (
-                <FormatErrorPanel
-                  error={formatError}
-                  isOpen={isErrorPanelOpen}
-                  onToggle={setIsErrorPanelOpen}
-                  region={formatErrorRegion}
-                  currentSql={currentSql}
-                  onRequestExplain={handleRequestExplain}
-                  onRequestFix={handleRequestFix}
-                  onApplyFix={handleApplyFormatFix}
-                  onDismissFix={handleDismissFormatFix}
-                />
-              )}
             </div>
-
-            {/* SQL → natural language */}
-            <AiSqlExplainer sql={currentSql} optimizationResult={optimizationResult} />
           </div>
-        </div>
 
-        {/* Footer with Instructions */}
-        <div className="overflow-y-auto border-t border-border bg-card p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Setup Instructions */}
-              <div>
-                <h3 className="mb-3 text-lg font-bold text-foreground">{t.editorPageSetupTitle}</h3>
-                <ol className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <span className="font-bold text-primary">1.</span>
-                    <span>{t.editorPageInstallDepsLabel}</span>
-                  </li>
-                  <li className="ml-6 rounded bg-muted p-2 font-mono text-xs text-foreground">
-                    {t.editorPageInstallDepsCmd}
-                  </li>
-                  <li className="flex gap-2 mt-3">
-                    <span className="font-bold text-primary">2.</span>
-                    <span>{t.editorPageStartOllamaLabel}</span>
-                  </li>
-                  <li className="ml-6 rounded bg-muted p-2 font-mono text-xs text-foreground">
-                    {t.editorPageStartOllamaCmd}
-                  </li>
-                  <li className="flex gap-2 mt-3">
-                    <span className="font-bold text-primary">3.</span>
-                    <span>{t.editorPageTestLabel}</span>
-                  </li>
-                </ol>
-              </div>
-
-              {/* Features */}
-              <div>
-                <h3 className="mb-3 text-lg font-bold text-foreground">
-                  {t.editorPageFeaturesTitle}
-                </h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature1}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature2}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature3}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature4}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature5}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-success">✓</span>
-                    <span>{t.editorPageFeature6}</span>
-                  </li>
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col w-full">
+            <div className="max-w-7xl mx-auto w-full p-6 flex flex-col gap-4">
+              <div className="flex-shrink-0 rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-foreground">
+                <p className="mb-2 font-semibold">{t.editorPageProTipsTitle}</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>{t.editorPageProTip1}</li>
+                  <li>{t.editorPageProTip2}</li>
+                  <li>{t.editorPageProTip3}</li>
+                  <li>{t.editorPageProTip4}</li>
+                  <li>{t.editorPageProTip5}</li>
+                  <li>{t.editorPageProTip6}</li>
                 </ul>
               </div>
-            </div>
 
-            {/* More Info */}
-            <div className="mt-6 rounded border border-border bg-muted/50 p-4">
-              <p className="text-sm text-muted-foreground">
-                {t.editorPageMoreInfoLabel}{' '}
-                <code className="rounded bg-background px-2 py-1 text-foreground">
-                  {t.editorPageMoreInfoFile}
-                </code>
-              </p>
+              {/* Editor + right-side format-error report (spec 012) */}
+              <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
+                <div className="flex min-h-[620px] flex-1 flex-col">
+                  <SmartSQLEditor
+                    initialSql={SAMPLE_QUERIES[selectedQuery]}
+                    onSqlChange={handleSqlChange}
+                    onOptimizationResult={setOptimizationResult}
+                    onFormatError={handleFormatError}
+                    apiRef={editorApiRef}
+                  />
+                </div>
+                {formatError && (
+                  <FormatErrorPanel
+                    error={formatError}
+                    isOpen={isErrorPanelOpen}
+                    onToggle={setIsErrorPanelOpen}
+                    region={formatErrorRegion}
+                    currentSql={currentSql}
+                    onRequestExplain={handleRequestExplain}
+                    onRequestFix={handleRequestFix}
+                    onApplyFix={handleApplyFormatFix}
+                    onDismissFix={handleDismissFormatFix}
+                  />
+                )}
+              </div>
+
+              {/* SQL → natural language */}
+              <AiSqlExplainer sql={currentSql} optimizationResult={optimizationResult} />
             </div>
           </div>
-        </div>
+
+          {/* Footer with Instructions */}
+          <div className="overflow-y-auto border-t border-border bg-card p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Setup Instructions */}
+                <div>
+                  <h3 className="mb-3 text-lg font-bold text-foreground">
+                    {t.editorPageSetupTitle}
+                  </h3>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="font-bold text-primary">1.</span>
+                      <span>{t.editorPageInstallDepsLabel}</span>
+                    </li>
+                    <li className="ml-6 rounded bg-muted p-2 font-mono text-xs text-foreground">
+                      {t.editorPageInstallDepsCmd}
+                    </li>
+                    <li className="flex gap-2 mt-3">
+                      <span className="font-bold text-primary">2.</span>
+                      <span>{t.editorPageStartOllamaLabel}</span>
+                    </li>
+                    <li className="ml-6 rounded bg-muted p-2 font-mono text-xs text-foreground">
+                      {t.editorPageStartOllamaCmd}
+                    </li>
+                    <li className="flex gap-2 mt-3">
+                      <span className="font-bold text-primary">3.</span>
+                      <span>{t.editorPageTestLabel}</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Features */}
+                <div>
+                  <h3 className="mb-3 text-lg font-bold text-foreground">
+                    {t.editorPageFeaturesTitle}
+                  </h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature1}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature2}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature3}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature4}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature5}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-success">✓</span>
+                      <span>{t.editorPageFeature6}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* More Info */}
+              <div className="mt-6 rounded border border-border bg-muted/50 p-4">
+                <p className="text-sm text-muted-foreground">
+                  {t.editorPageMoreInfoLabel}{' '}
+                  <code className="rounded bg-background px-2 py-1 text-foreground">
+                    {t.editorPageMoreInfoFile}
+                  </code>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </SidePanelRail>
     </AppLayout>

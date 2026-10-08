@@ -162,10 +162,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
                 {t.cteUsageCount}
               </span>
               <div className="flex items-center gap-1.5">
-                <Eye
-                  size={13}
-                  className={cte.isUnused ? 'text-amber-500' : 'text-emerald-500'}
-                />
+                <Eye size={13} className={cte.isUnused ? 'text-amber-500' : 'text-emerald-500'} />
                 <span className="text-sm font-bold text-foreground font-mono">
                   {cte.usageCount}
                 </span>

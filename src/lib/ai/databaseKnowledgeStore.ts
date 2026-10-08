@@ -86,7 +86,10 @@ export function getDatabaseKnowledgeEmbeddingModel(): string {
  * Reads embeddings straight out of the shared Float32Array by offset instead of allocating a
  * per-candidate array, since this loop runs over all ~82k chunks on every question.
  */
-export function findClosestDatabaseKnowledge(query: number[], topN: number): DatabaseKnowledgeMatch[] {
+export function findClosestDatabaseKnowledge(
+  query: number[],
+  topN: number
+): DatabaseKnowledgeMatch[] {
   const { meta, embeddings, manifest } = load();
   const { dim, count } = manifest;
   if (query.length !== dim) {

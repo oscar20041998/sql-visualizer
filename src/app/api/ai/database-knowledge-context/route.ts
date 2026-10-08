@@ -42,7 +42,11 @@ export interface DatabaseKnowledgeSource {
 }
 
 function isValidEmbedding(value: unknown): value is number[] {
-  return Array.isArray(value) && value.length > 0 && value.every((n) => typeof n === 'number' && Number.isFinite(n));
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((n) => typeof n === 'number' && Number.isFinite(n))
+  );
 }
 
 function buildContext(matches: DatabaseKnowledgeMatch[]): string {
@@ -66,16 +70,24 @@ export async function POST(request: Request) {
   }
 
   if (!isValidEmbedding(body.embedding)) {
-    return NextResponse.json({ error: 'embedding must be a non-empty array of finite numbers.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'embedding must be a non-empty array of finite numbers.' },
+      { status: 400 }
+    );
   }
   const topN = Math.min(MAX_TOP_N, Math.max(1, Number(body.topN) || DEFAULT_TOP_N));
   const dialectLabel =
-    typeof body.dialect === 'string' ? DIALECT_LABELS[body.dialect.trim().toLowerCase()] : undefined;
+    typeof body.dialect === 'string'
+      ? DIALECT_LABELS[body.dialect.trim().toLowerCase()]
+      : undefined;
 
   if (!isDatabaseKnowledgeIndexAvailable()) {
     // 503, not 500/404: the deployment is missing a build step, the caller did nothing wrong.
     return NextResponse.json(
-      { error: 'Database knowledge index not built on the server. Run "npm run build:database-knowledge-index".' },
+      {
+        error:
+          'Database knowledge index not built on the server. Run "npm run build:database-knowledge-index".',
+      },
       { status: 503 }
     );
   }
@@ -111,7 +123,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ context: buildContext(matches), sources });
   } catch (error) {
     console.error('[api/ai/database-knowledge-context]', error);
-    const message = error instanceof Error ? error.message : 'Database knowledge search failed on the server.';
+    const message =
+      error instanceof Error ? error.message : 'Database knowledge search failed on the server.';
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

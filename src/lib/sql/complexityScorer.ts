@@ -397,7 +397,11 @@ function getLineContext(sql: string, pattern: RegExp): string | undefined {
   return getLineContextByLineNumber(normalizedSql, lineNumber) ?? `${lineNumber}`;
 }
 
-function getNestedLineContext(sql: string, outerPattern: RegExp, nestedPattern: RegExp): string | undefined {
+function getNestedLineContext(
+  sql: string,
+  outerPattern: RegExp,
+  nestedPattern: RegExp
+): string | undefined {
   const normalizedSql = sql.replace(/\r\n?|\u2028|\u2029/g, '\n');
   const cleanedSql = stripSqlNoise(normalizedSql);
   outerPattern.lastIndex = 0;
@@ -583,7 +587,8 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
       suggestion: t.lintingLeadingWildcardSuggestion,
     },
     {
-      pattern: /\bHAVING\b(?![^;\n]*\b(?:COUNT|SUM|AVG|MIN|MAX|GROUP_CONCAT|STRING_AGG)\s*\()[^;\n]+/i,
+      pattern:
+        /\bHAVING\b(?![^;\n]*\b(?:COUNT|SUM|AVG|MIN|MAX|GROUP_CONCAT|STRING_AGG)\s*\()[^;\n]+/i,
       rule: t.lintingNonAggregateHaving,
       message: t.lintingNonAggregateHavingMessage,
       suggestion: t.lintingNonAggregateHavingSuggestion,
@@ -603,7 +608,8 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
   ];
 
   for (const candidate of additionalRules) {
-    const searchableSql = candidate.rule === t.lintingLeadingWildcard ? commentFreeSql : sanitizedSql;
+    const searchableSql =
+      candidate.rule === t.lintingLeadingWildcard ? commentFreeSql : sanitizedSql;
     if (candidate.pattern.test(searchableSql)) {
       issues.push({
         rule: candidate.rule,
@@ -614,7 +620,8 @@ export function checkOtherLintingRules(sql: string, locale: Locale = 'en'): Lint
           candidate.rule === t.lintingLeadingWildcard
             ? getLineContextByLineNumber(
                 sql,
-                searchableSql.slice(0, searchableSql.search(candidate.pattern)).split(/\r\n?|\n/).length
+                searchableSql.slice(0, searchableSql.search(candidate.pattern)).split(/\r\n?|\n/)
+                  .length
               )
             : getLineContext(sql, candidate.pattern),
       });
@@ -1182,21 +1189,23 @@ export function calculateQueryComplexity(
   const selectFieldCount = selectFields.length;
   const avgSelectComplexity = selectFieldCount > 0 ? selectComplexityScore / selectFieldCount : 0;
   const selectFieldFactors = Array.from(
-    selectFields.reduce((factors, field) => {
-      const existing = factors.get(field.type);
-      if (existing) {
-        existing.count++;
-        existing.subtotal += field.complexity;
-      } else {
-        factors.set(field.type, {
-          type: field.type,
-          count: 1,
-          weight: field.complexity,
-          subtotal: field.complexity,
-        });
-      }
-      return factors;
-    }, new Map<SelectFieldComplexity['type'], { type: SelectFieldComplexity['type']; count: number; weight: number; subtotal: number }>()).values()
+    selectFields
+      .reduce((factors, field) => {
+        const existing = factors.get(field.type);
+        if (existing) {
+          existing.count++;
+          existing.subtotal += field.complexity;
+        } else {
+          factors.set(field.type, {
+            type: field.type,
+            count: 1,
+            weight: field.complexity,
+            subtotal: field.complexity,
+          });
+        }
+        return factors;
+      }, new Map<SelectFieldComplexity['type'], { type: SelectFieldComplexity['type']; count: number; weight: number; subtotal: number }>())
+      .values()
   );
   const scoreList = getScoresFromLocalStorage();
 

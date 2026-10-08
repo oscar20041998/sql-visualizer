@@ -45,7 +45,10 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
   const [generated, setGenerated] = useState<GeneratedCode | null>(null);
   const [selectedOutputFileIndex, setSelectedOutputFileIndex] = useState(0);
   const generatedFiles = generated
-    ? [{ fileName: generated.fileName, source: generated.source }, ...(generated.additionalFiles ?? [])]
+    ? [
+        { fileName: generated.fileName, source: generated.source },
+        ...(generated.additionalFiles ?? []),
+      ]
     : [];
   const selectedOutputFile = generatedFiles[selectedOutputFileIndex] ?? generatedFiles[0];
 
@@ -59,12 +62,14 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
       setDiagnostics(
         model.diagnostics.length > 0
           ? model.diagnostics
-          : [{
-              severity: 'error',
-              code: 'generation-unavailable',
-              message: classification.reasons.join(' '),
-              sourceSpan: null,
-            }]
+          : [
+              {
+                severity: 'error',
+                code: 'generation-unavailable',
+                message: classification.reasons.join(' '),
+                sourceSpan: null,
+              },
+            ]
       );
       return;
     }
@@ -98,7 +103,9 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
 
   const downloadSource = () => {
     if (!selectedOutputFile) return;
-    const url = URL.createObjectURL(new Blob([selectedOutputFile.source], { type: 'text/x-java;charset=utf-8' }));
+    const url = URL.createObjectURL(
+      new Blob([selectedOutputFile.source], { type: 'text/x-java;charset=utf-8' })
+    );
     const link = document.createElement('a');
     link.href = url;
     link.download = selectedOutputFile.fileName;
@@ -145,10 +152,14 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
         )}
       </div>
       {classificationResult && (
-        <section aria-label={t.generatorClassification} className="space-y-1 rounded border border-border p-3">
+        <section
+          aria-label={t.generatorClassification}
+          className="space-y-1 rounded border border-border p-3"
+        >
           <h2 className="text-sm font-semibold">{t.generatorClassification}</h2>
           <p className="text-sm">
-            {t.generatorClassifiedAs}: {t[`generatorClass_${classificationResult.kind}`] ?? classificationResult.kind}
+            {t.generatorClassifiedAs}:{' '}
+            {t[`generatorClass_${classificationResult.kind}`] ?? classificationResult.kind}
           </p>
           <p className="text-sm">
             {t.generatorRecommendedOutput}:{' '}
@@ -162,7 +173,9 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
             <p className="text-sm">{t.generatorChoiceRequired}</p>
           )}
           <ul className="list-inside list-disc text-sm">
-            {classificationResult.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}
+            {classificationResult.reasons.map((reason, index) => (
+              <li key={`${index}-${reason}`}>{reason}</li>
+            ))}
           </ul>
         </section>
       )}
@@ -190,7 +203,11 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
             </div>
           </div>
           {generatedFiles.length > 1 && (
-            <div role="tablist" aria-label={t.generatorOutputFiles} className="flex gap-1 border-b border-border px-2 py-1">
+            <div
+              role="tablist"
+              aria-label={t.generatorOutputFiles}
+              className="flex gap-1 border-b border-border px-2 py-1"
+            >
               {generatedFiles.map((file, index) => (
                 <button
                   key={file.fileName}

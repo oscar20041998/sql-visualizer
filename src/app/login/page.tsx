@@ -25,7 +25,10 @@ export default function LoginPage() {
   return (
     <>
       <ThemeProvider />
-      <SignInPage showGuestResume={isGuestSession()} onResumeGuest={() => router.push('/query-input')} />
+      <SignInPage
+        showGuestResume={isGuestSession()}
+        onResumeGuest={() => router.push('/query-input')}
+      />
     </>
   );
 }

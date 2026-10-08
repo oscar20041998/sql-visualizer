@@ -40,8 +40,8 @@
   },
   "scripts": {
     "dev": "next dev -p 4028",
-    "build": "next build",
-    "start": "next dev -p 4028",
+    "build": "npm run setup:piper && npm run build:docs-index && next build",
+    "start": "next start -p 4028",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",

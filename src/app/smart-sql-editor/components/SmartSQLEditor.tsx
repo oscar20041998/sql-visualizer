@@ -23,7 +23,11 @@ import {
 } from 'lucide-react';
 import { analyzeSql, type AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules } from '@/lib/sql/complexityScorer';
-import { buildStructuralRegressionWarnings, buildRequirementChangeSummary, type SemanticChangeSummary } from '@/lib/sql/optimizeRegression';
+import {
+  buildStructuralRegressionWarnings,
+  buildRequirementChangeSummary,
+  type SemanticChangeSummary,
+} from '@/lib/sql/optimizeRegression';
 import { buildSqlContextBrief } from '@/lib/ai/aiSqlContext';
 import {
   optimizeSqlWithAIStream,
@@ -41,15 +45,14 @@ import {
   type OptimizationMode,
 } from '@/lib/ai/aiService';
 import { synthesizeSpeech } from '@/lib/ai/aiSpeech';
-import { buildOptimizeKnowledgeBrief, type DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
+import {
+  buildOptimizeKnowledgeBrief,
+  type DatabaseKnowledgeSource,
+} from '@/lib/ai/databaseAssistant';
 import LintingAlerts from '@/components/ui/LintingAlerts';
 import OptimizeQueryModal from './OptimizeQueryModal';
 import FormatSqlPanel from './FormatSqlPanel';
-import {
-  captureFormatError,
-  type FormatError,
-  type SqlFormatDialect,
-} from '@/lib/sql/formatError';
+import { captureFormatError, type FormatError, type SqlFormatDialect } from '@/lib/sql/formatError';
 
 function getFormatterLanguage(dialect: string): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
   const dialectMap: Record<string, 'mysql' | 'postgresql' | 'tsql' | 'plsql'> = {
@@ -248,9 +251,9 @@ export const SmartSQLEditor: React.FC<{
   const [structuralWarnings, setStructuralWarnings] = useState<string[]>([]);
   // Step 1 of Optimize: the model states purpose/relationships/filters before any rewrite is
   // proposed, so the user can confirm what must not change before the actual optimize call runs.
-  const [semanticPhase, setSemanticPhase] = useState<'idle' | 'running' | 'ready' | 'confirmed' | 'error'>(
-    'idle'
-  );
+  const [semanticPhase, setSemanticPhase] = useState<
+    'idle' | 'running' | 'ready' | 'confirmed' | 'error'
+  >('idle');
   const [semanticBrief, setSemanticBrief] = useState<SqlSemanticBrief | null>(null);
   const [semanticError, setSemanticError] = useState<string | null>(null);
   // Collapsed by default; the user clicks to open it before deciding to confirm.
@@ -282,11 +285,16 @@ export const SmartSQLEditor: React.FC<{
   const requirementAbortRef = useRef<AbortController | null>(null);
   const [requirementDraft, setRequirementDraft] = useState('');
   const [requirementHintedTablesDraft, setRequirementHintedTablesDraft] = useState('');
-  const [requirementPhase, setRequirementPhase] = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
+  const [requirementPhase, setRequirementPhase] = useState<'idle' | 'streaming' | 'done' | 'error'>(
+    'idle'
+  );
   const [requirementStreamRaw, setRequirementStreamRaw] = useState('');
-  const [requirementResult, setRequirementResult] = useState<SqlRequirementCandidateResult | null>(null);
+  const [requirementResult, setRequirementResult] = useState<SqlRequirementCandidateResult | null>(
+    null
+  );
   const [requirementError, setRequirementError] = useState<string | null>(null);
-  const [requirementChangeSummary, setRequirementChangeSummary] = useState<SemanticChangeSummary | null>(null);
+  const [requirementChangeSummary, setRequirementChangeSummary] =
+    useState<SemanticChangeSummary | null>(null);
   // The exact SQL the candidate was generated from — if the editor's SQL no longer matches this
   // when the user tries to apply, the candidate is stale and must be regenerated (FR-007).
   const requirementSourceSqlRef = useRef<string | null>(null);
@@ -404,7 +412,16 @@ export const SmartSQLEditor: React.FC<{
     } finally {
       if (speechAbortRef.current === controller) speechAbortRef.current = null;
     }
-  }, [optimizeResult, speechPhase, stopSpeech, playSpeech, isLocalProvider, settings.locale, settings.aiConfig.speechVoiceGender, t]);
+  }, [
+    optimizeResult,
+    speechPhase,
+    stopSpeech,
+    playSpeech,
+    isLocalProvider,
+    settings.locale,
+    settings.aiConfig.speechVoiceGender,
+    t,
+  ]);
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
@@ -558,72 +575,88 @@ export const SmartSQLEditor: React.FC<{
   }, [state.currentSql, t]);
 
   /** Step 1: ask the model to state purpose/relationships/filters — no rewrite proposed yet. */
-  const handleAnalyzeSemantics = useCallback(async (userInstruction?: string) => {
-    const sql = state.currentSql.trim();
-    if (!sql) {
-      toast.error(t.emptyQueryError);
-      return;
-    }
-    const trimmedInstruction = userInstruction?.trim() || undefined;
-
-    optimizeAbortRef.current?.abort();
-    resetSpeechCache();
-    const controller = new AbortController();
-    optimizeAbortRef.current = controller;
-
-    onOptimizationResult?.(null);
-    setOptimizeResult(null);
-    setOptimizeError(null);
-    setAppliedProposalIds([]);
-    setExpandedProposalIds(new Set());
-    setOptimizeStreamRaw('');
-    setStructuralWarnings([]);
-    setOptimizePhase('idle');
-    setSemanticError(null);
-    setSemanticBrief(null);
-    setSemanticPhase('running');
-    setIsSemanticDetailExpanded(false);
-    pendingOptimizeRef.current = null;
-
-    let brief = '';
-    let originalAnalysis: AnalysisResult | null = null;
-    try {
-      const parsed = await analyzeSql(sql, dialect, settings.locale);
-      originalAnalysis = parsed;
-      brief = buildSqlContextBrief(parsed);
-      setAnalysisResult(parsed);
-    } catch {
-      brief = '';
-      setAnalysisResult(null);
-    }
-
-    try {
-      const result = await analyzeSqlSemantics({
-        sql,
-        config: settings.aiConfig,
-        locale: settings.locale,
-        contextBrief: brief,
-        userInstruction: trimmedInstruction,
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) return;
-
-      pendingOptimizeRef.current = { sql, brief, originalAnalysis, userInstruction: trimmedInstruction };
-      setSemanticBrief(result);
-      setSemanticPhase('ready');
-    } catch (error) {
-      if ((error as Error)?.name === 'AbortError') {
-        setSemanticPhase('idle');
+  const handleAnalyzeSemantics = useCallback(
+    async (userInstruction?: string) => {
+      const sql = state.currentSql.trim();
+      if (!sql) {
+        toast.error(t.emptyQueryError);
         return;
       }
-      const message = (error as Error)?.message || t.smartEditorOptimizationError;
-      setSemanticError(message);
-      setSemanticPhase('error');
-      toast.error(message);
-    } finally {
-      if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
-    }
-  }, [state.currentSql, dialect, settings, t, onOptimizationResult, setAnalysisResult, resetSpeechCache]);
+      const trimmedInstruction = userInstruction?.trim() || undefined;
+
+      optimizeAbortRef.current?.abort();
+      resetSpeechCache();
+      const controller = new AbortController();
+      optimizeAbortRef.current = controller;
+
+      onOptimizationResult?.(null);
+      setOptimizeResult(null);
+      setOptimizeError(null);
+      setAppliedProposalIds([]);
+      setExpandedProposalIds(new Set());
+      setOptimizeStreamRaw('');
+      setStructuralWarnings([]);
+      setOptimizePhase('idle');
+      setSemanticError(null);
+      setSemanticBrief(null);
+      setSemanticPhase('running');
+      setIsSemanticDetailExpanded(false);
+      pendingOptimizeRef.current = null;
+
+      let brief = '';
+      let originalAnalysis: AnalysisResult | null = null;
+      try {
+        const parsed = await analyzeSql(sql, dialect, settings.locale);
+        originalAnalysis = parsed;
+        brief = buildSqlContextBrief(parsed);
+        setAnalysisResult(parsed);
+      } catch {
+        brief = '';
+        setAnalysisResult(null);
+      }
+
+      try {
+        const result = await analyzeSqlSemantics({
+          sql,
+          config: settings.aiConfig,
+          locale: settings.locale,
+          contextBrief: brief,
+          userInstruction: trimmedInstruction,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+
+        pendingOptimizeRef.current = {
+          sql,
+          brief,
+          originalAnalysis,
+          userInstruction: trimmedInstruction,
+        };
+        setSemanticBrief(result);
+        setSemanticPhase('ready');
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') {
+          setSemanticPhase('idle');
+          return;
+        }
+        const message = (error as Error)?.message || t.smartEditorOptimizationError;
+        setSemanticError(message);
+        setSemanticPhase('error');
+        toast.error(message);
+      } finally {
+        if (optimizeAbortRef.current === controller) optimizeAbortRef.current = null;
+      }
+    },
+    [
+      state.currentSql,
+      dialect,
+      settings,
+      t,
+      onOptimizationResult,
+      setAnalysisResult,
+      resetSpeechCache,
+    ]
+  );
 
   const handleCancelSemanticReview = useCallback(() => {
     optimizeAbortRef.current?.abort();
@@ -653,7 +686,10 @@ export const SmartSQLEditor: React.FC<{
 
     // The confirmed brief becomes an explicit constraint the model already committed to, not
     // just an instruction it could ignore like the rest of the prompt.
-    const semanticConstraints = formatSemanticBriefForOptimizePrompt(semanticBrief, settings.locale);
+    const semanticConstraints = formatSemanticBriefForOptimizePrompt(
+      semanticBrief,
+      settings.locale
+    );
     if (semanticConstraints) {
       brief = brief ? `${brief}\n\n${semanticConstraints}` : semanticConstraints;
     }
@@ -714,8 +750,16 @@ export const SmartSQLEditor: React.FC<{
       let regressionWarnings: string[] = [];
       if (result.structured && originalAnalysis) {
         try {
-          const optimizedAnalysis = await analyzeSql(result.optimizedSql || sql, dialect, settings.locale);
-          regressionWarnings = buildStructuralRegressionWarnings(originalAnalysis, optimizedAnalysis, t);
+          const optimizedAnalysis = await analyzeSql(
+            result.optimizedSql || sql,
+            dialect,
+            settings.locale
+          );
+          regressionWarnings = buildStructuralRegressionWarnings(
+            originalAnalysis,
+            optimizedAnalysis,
+            t
+          );
         } catch {
           // Re-parse failure isn't itself evidence of a problem — skip the check rather than block.
         }
@@ -801,7 +845,11 @@ export const SmartSQLEditor: React.FC<{
           analyzeSql(currentSql, dialect, settings.locale),
           analyzeSql(candidateSql, dialect, settings.locale),
         ]);
-        const regressions = buildStructuralRegressionWarnings(originalAnalysis, candidateAnalysis, t);
+        const regressions = buildStructuralRegressionWarnings(
+          originalAnalysis,
+          candidateAnalysis,
+          t
+        );
         if (regressions.length > 0) {
           setStructuralWarnings(regressions);
           toast.error(t.smartEditorOptimizeProposalBlocked);
@@ -865,7 +913,11 @@ export const SmartSQLEditor: React.FC<{
           analyzeSql(workingSql, dialect, settings.locale),
           analyzeSql(candidateSql, dialect, settings.locale),
         ]);
-        const regressions = buildStructuralRegressionWarnings(originalAnalysis, candidateAnalysis, t);
+        const regressions = buildStructuralRegressionWarnings(
+          originalAnalysis,
+          candidateAnalysis,
+          t
+        );
         if (regressions.length > 0) {
           setStructuralWarnings(regressions);
           continue;
@@ -952,7 +1004,10 @@ export const SmartSQLEditor: React.FC<{
     // Deterministic check against what the local parser already knows (there is no live schema
     // catalog in this app) — anything not recognized locally is left for the model to
     // self-report in `unresolved_references` rather than being authoritatively rejected here.
-    const { unresolved: unresolvedHints } = resolveHintedTableReferences(hintedTables, originalAnalysis);
+    const { unresolved: unresolvedHints } = resolveHintedTableReferences(
+      hintedTables,
+      originalAnalysis
+    );
 
     try {
       const result = await generateRequirementCandidateStream(
@@ -968,13 +1023,19 @@ export const SmartSQLEditor: React.FC<{
       );
       if (controller.signal.aborted) return;
 
-      const mergedUnresolved = Array.from(new Set([...result.unresolvedReferences, ...unresolvedHints]));
+      const mergedUnresolved = Array.from(
+        new Set([...result.unresolvedReferences, ...unresolvedHints])
+      );
       const finalResult = { ...result, unresolvedReferences: mergedUnresolved };
 
       let changeSummary: SemanticChangeSummary | null = null;
       if (result.structured && originalAnalysis) {
         try {
-          const candidateAnalysis = await analyzeSql(result.optimizedSql || sql, dialect, settings.locale);
+          const candidateAnalysis = await analyzeSql(
+            result.optimizedSql || sql,
+            dialect,
+            settings.locale
+          );
           changeSummary = buildRequirementChangeSummary(originalAnalysis, candidateAnalysis);
         } catch {
           changeSummary = null;
@@ -1137,7 +1198,6 @@ export const SmartSQLEditor: React.FC<{
           </div>
           <div className="text-xs text-muted-foreground">{stats.changeSummary}</div>
         </div>
-
       </div>
 
       <OptimizeQueryModal

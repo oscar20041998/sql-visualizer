@@ -83,10 +83,10 @@ export function resolveErrorRegion(
   const usesCrossCheck = formatterAnchor === undefined && crossCheckPosition != null;
   const anchorOffset =
     formatterAnchor ??
-    (crossCheckPosition?.offset ??
-      (crossCheckPosition
-        ? offsetFromLineColumn(sourceSql, crossCheckPosition.line, crossCheckPosition.column)
-        : undefined));
+    crossCheckPosition?.offset ??
+    (crossCheckPosition
+      ? offsetFromLineColumn(sourceSql, crossCheckPosition.line, crossCheckPosition.column)
+      : undefined);
   if (anchorOffset === undefined) return null;
 
   const startOffset = lineStartOffset(sourceSql, anchorOffset);

@@ -77,7 +77,10 @@ function expandNode(
   }
   if (depth >= MAX_FRAGMENT_DEPTH) {
     findings.push(
-      makeFinding('FRAGMENT_DEPTH', { messageValues: { limit: String(MAX_FRAGMENT_DEPTH) }, line: node.line })
+      makeFinding('FRAGMENT_DEPTH', {
+        messageValues: { limit: String(MAX_FRAGMENT_DEPTH) },
+        line: node.line,
+      })
     );
     return [node];
   }
@@ -97,14 +100,25 @@ function expandNode(
     // Report the overflow once; later includes are skipped without a flood.
     if (budget.expansions === MAX_FRAGMENT_EXPANSIONS + 1) {
       findings.push(
-        makeFinding('EXPANSION_LIMIT', { messageValues: { limit: String(MAX_FRAGMENT_EXPANSIONS) }, line: node.line })
+        makeFinding('EXPANSION_LIMIT', {
+          messageValues: { limit: String(MAX_FRAGMENT_EXPANSIONS) },
+          line: node.line,
+        })
       );
     }
     return [node];
   }
   const properties = resolvePropertyValues(node.properties, params);
   const substituted = fragment.children.map((child) => substituteProperties(child, properties));
-  return expandNodes(substituted, model, params, findings, [...visited, node.refid], depth + 1, budget);
+  return expandNodes(
+    substituted,
+    model,
+    params,
+    findings,
+    [...visited, node.refid],
+    depth + 1,
+    budget
+  );
 }
 
 /** Rebuild a container node with every child include expanded. */
@@ -130,11 +144,17 @@ function expandContainers(
         : undefined,
     };
   }
-  return { ...node, children: expandNodes(node.children, model, params, findings, visited, depth, budget) };
+  return {
+    ...node,
+    children: expandNodes(node.children, model, params, findings, visited, depth, budget),
+  };
 }
 
 /** A `<property>` value that names a supplied parameter takes that value. */
-function resolvePropertyValues(properties: Record<string, string>, params: ParameterSet): Record<string, string> {
+function resolvePropertyValues(
+  properties: Record<string, string>,
+  params: ParameterSet
+): Record<string, string> {
   const resolved: Record<string, string> = {};
   for (const [key, value] of Object.entries(properties)) {
     resolved[key] = value in params ? params[value] : value;
@@ -143,7 +163,10 @@ function resolvePropertyValues(properties: Record<string, string>, params: Param
 }
 
 /** Substitute `${property}` occurrences in a node's text with per-use values. */
-export function substituteProperties(node: DynamicNode, properties: Record<string, string>): DynamicNode {
+export function substituteProperties(
+  node: DynamicNode,
+  properties: Record<string, string>
+): DynamicNode {
   if (node.kind === 'text') {
     const substituted = node.text.replace(/\$\{([^{}]+)\}/g, (match, name: string) => {
       const key = name.trim();
@@ -163,5 +186,8 @@ export function substituteProperties(node: DynamicNode, properties: Record<strin
       fallback: node.fallback?.map((child) => substituteProperties(child, properties)),
     };
   }
-  return { ...node, children: node.children.map((child) => substituteProperties(child, properties)) };
+  return {
+    ...node,
+    children: node.children.map((child) => substituteProperties(child, properties)),
+  };
 }

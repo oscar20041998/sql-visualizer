@@ -7,13 +7,7 @@
  * `<selectKey>` is recorded as a separate key-generation statement (FR-004);
  * duplicate fragment declarations are reported with the first winning (E1).
  */
-import type {
-  DynamicNode,
-  MapperFile,
-  MappedStatement,
-  SqlFragment,
-  StatementType,
-} from './types';
+import type { DynamicNode, MapperFile, MappedStatement, SqlFragment, StatementType } from './types';
 import { makeFinding } from './findings';
 import { parseReference } from './parameterResolver';
 import type { SafeXmlResult } from './xmlDocument';
@@ -43,7 +37,7 @@ export function buildMapperModel(safe: SafeXmlResult, source: string): MapperFil
   // itself (or a bare reusable fragment) — both are accepted document roots.
   if (rootTag !== 'mapper' && !STATEMENT_TAGS.has(rootTag) && rootTag !== 'sql') return empty;
 
-  const namespace = rootTag === 'mapper' ? root.getAttribute('namespace') ?? '' : '';
+  const namespace = rootTag === 'mapper' ? (root.getAttribute('namespace') ?? '') : '';
   const fragments: Record<string, SqlFragment> = {};
   const duplicateFragmentIds: string[] = [];
   const statements: MappedStatement[] = [];
@@ -156,7 +150,12 @@ export function buildNodes(domNodes: NodeList | Node[], source: string): Dynamic
     const line = sourceLineOf(source, element);
 
     if (tag === 'if') {
-      nodes.push({ kind: 'if', test: element.getAttribute('test') ?? '', children: buildNodes(element.childNodes, source), line });
+      nodes.push({
+        kind: 'if',
+        test: element.getAttribute('test') ?? '',
+        children: buildNodes(element.childNodes, source),
+        line,
+      });
       continue;
     }
     if (tag === 'choose') {
@@ -165,7 +164,10 @@ export function buildNodes(domNodes: NodeList | Node[], source: string): Dynamic
       for (const branch of Array.from(element.children)) {
         const branchTag = branch.tagName.toLowerCase();
         if (branchTag === 'when') {
-          branches.push({ test: branch.getAttribute('test') ?? '', children: buildNodes(branch.childNodes, source) });
+          branches.push({
+            test: branch.getAttribute('test') ?? '',
+            children: buildNodes(branch.childNodes, source),
+          });
         } else if (branchTag === 'otherwise') {
           fallback = buildNodes(branch.childNodes, source);
         }
@@ -349,4 +351,3 @@ export function sourceLineOf(source: string, node: Node): number | undefined {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-

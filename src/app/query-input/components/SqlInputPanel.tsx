@@ -63,8 +63,12 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
         spellCheck={false}
       />
       <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs text-muted-foreground font-mono">
-        <span>{lineCount} {t.linesCount}</span>
-        <span>{charCount} {t.charCount}</span>
+        <span>
+          {lineCount} {t.linesCount}
+        </span>
+        <span>
+          {charCount} {t.charCount}
+        </span>
       </div>
     </div>
   );

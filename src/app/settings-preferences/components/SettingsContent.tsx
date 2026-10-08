@@ -213,7 +213,23 @@ const FALLBACK_CHAT_MODELS: Record<CloudProvider, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5', 'gpt-5-mini'],
   anthropic: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022'],
   gemini: ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'],
-  aiportal: ['GPT-6-Luna', 'GPT-5.4', 'GPT-5.4-mini', 'GPT-5', 'GPT-5-mini', 'DeepSeek-V4.1-Flash', 'Kimi-K2.6', 'Kimi-K2.5', 'DeepSeek-V4-Flash', 'Gemini-3.1-Flash-Lite', 'Gemini-3.1-Pro', 'Gemini-3.6-Flash', 'Gemini-3.5-Flash', 'Gemini-3.5-Flash-Lite', 'Gemini-3-Flash'],
+  aiportal: [
+    'GPT-6-Luna',
+    'GPT-5.4',
+    'GPT-5.4-mini',
+    'GPT-5',
+    'GPT-5-mini',
+    'DeepSeek-V4.1-Flash',
+    'Kimi-K2.6',
+    'Kimi-K2.5',
+    'DeepSeek-V4-Flash',
+    'Gemini-3.1-Flash-Lite',
+    'Gemini-3.1-Pro',
+    'Gemini-3.6-Flash',
+    'Gemini-3.5-Flash',
+    'Gemini-3.5-Flash-Lite',
+    'Gemini-3-Flash',
+  ],
 };
 
 const CONTEXT_TOKEN_PRESETS: Record<AIProvider, number[]> = {
@@ -461,7 +477,7 @@ export default function SettingsContent() {
     { value: 'openai', label: t.aiProviderOpenAI },
     { value: 'anthropic', label: t.aiProviderAnthropic },
     { value: 'gemini', label: t.aiProviderGemini },
-    { value: 'aiportal', label: t.aiProviderAIPortal }
+    { value: 'aiportal', label: t.aiProviderAIPortal },
   ];
   /** Registers a hand-typed model ID so it stays selectable in the combobox. */
   const addCustomModel = useCallback(

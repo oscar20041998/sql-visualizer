@@ -58,7 +58,8 @@ export async function POST(request: Request) {
   // Embeddings can go through an OpenAI-compatible gateway instead of api.openai.com directly
   // (e.g. a corporate AI portal) — same idea as AI_PORTAL_BASE_URL for the chat proxy, but this
   // one is server-only config, not something the browser can redirect.
-  const embeddingBaseUrl = process.env.AI_PORTAL_BASE_URL?.trim() + '/jpe' || DEFAULT_BASE_URLS.openai;
+  const embeddingBaseUrl =
+    process.env.AI_PORTAL_BASE_URL?.trim() + '/jpe' || DEFAULT_BASE_URLS.openai;
 
   try {
     const [queryEmbedding] = await generateEmbeddingsWithCloudKey(
@@ -79,7 +80,9 @@ export async function POST(request: Request) {
       return new NextResponse(null, { status: 499 });
     }
     const message =
-      error instanceof AIServiceError ? error.message : 'Documentation search failed on the server.';
+      error instanceof AIServiceError
+        ? error.message
+        : 'Documentation search failed on the server.';
     if (!(error instanceof AIServiceError)) console.error('[api/ai/docs-context]', error);
     return NextResponse.json({ error: redactSecrets(message) }, { status: 502 });
   }

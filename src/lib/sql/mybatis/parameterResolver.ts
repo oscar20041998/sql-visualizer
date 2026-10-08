@@ -83,7 +83,9 @@ export function resolveReferencesInText(
     let replacement: string;
 
     if (marker === '#') {
-      replacement = supplied ? profile.renderLiteral(params[parsed.path]) : profile.renderLiteral(parsed.path);
+      replacement = supplied
+        ? profile.renderLiteral(params[parsed.path])
+        : profile.renderLiteral(parsed.path);
       references.push({
         path: parsed.path,
         form: 'prepared',

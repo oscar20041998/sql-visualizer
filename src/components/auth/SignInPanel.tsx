@@ -28,18 +28,40 @@ import {
 
 function GoogleLogo() {
   return (
-    <svg data-testid="google-logo" aria-hidden="true" viewBox="0 0 48 48" className="size-[18px] shrink-0">
-      <path fill="#4285F4" d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.202 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-      <path fill="#34A853" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691z" />
-      <path fill="#FBBC05" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.14 35.091 26.715 36 24 36c-5.181 0-9.62-3.319-11.287-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-      <path fill="#EA4335" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.57l6.19 5.238C36.97 37.997 44 32 44 24c0-1.341-.138-2.65-.389-3.917z" />
+    <svg
+      data-testid="google-logo"
+      aria-hidden="true"
+      viewBox="0 0 48 48"
+      className="size-[18px] shrink-0"
+    >
+      <path
+        fill="#4285F4"
+        d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.202 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+      />
+      <path
+        fill="#34A853"
+        d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.14 35.091 26.715 36 24 36c-5.181 0-9.62-3.319-11.287-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+      />
+      <path
+        fill="#EA4335"
+        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.57l6.19 5.238C36.97 37.997 44 32 44 24c0-1.341-.138-2.65-.389-3.917z"
+      />
     </svg>
   );
 }
 
 function MicrosoftLogo() {
   return (
-    <svg data-testid="microsoft-logo" aria-hidden="true" viewBox="0 0 24 24" className="size-[18px] shrink-0">
+    <svg
+      data-testid="microsoft-logo"
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-[18px] shrink-0"
+    >
       <rect x="1" y="1" width="10" height="10" fill="#F25022" />
       <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
       <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
@@ -287,128 +309,145 @@ export default function SignInPanel() {
       {mode === 'login' ? (
         <div id="panel-login" role="tabpanel" aria-labelledby="tab-login">
           <form onSubmit={handleLogin} noValidate>
-          <div className="mt-8 space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="login-username" className="block text-sm font-medium text-foreground">
-                {t.authUsernameLabel}
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  <Mail size={15} aria-hidden="true" />
-                </span>
-                <input
-                  id="login-username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  placeholder={t.authUsernamePlaceholder}
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  className={`${controlClass} pl-9`}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="login-password" className="block text-sm font-medium text-foreground">
-                {t.authPasswordLabel}
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  <KeyRound size={15} aria-hidden="true" />
-                </span>
-                <input
-                  id="login-password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder={t.authPasswordPlaceholder}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className={`${controlClass} pl-9 pr-10`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  aria-label={showPassword ? t.authHidePassword : t.authShowPassword}
-                  aria-pressed={showPassword}
-                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            <div className="mt-8 space-y-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="login-username"
+                  className="block text-sm font-medium text-foreground"
                 >
-                  {showPassword ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
-                </button>
+                  {t.authUsernameLabel}
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                    <Mail size={15} aria-hidden="true" />
+                  </span>
+                  <input
+                    id="login-username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    placeholder={t.authUsernamePlaceholder}
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    className={`${controlClass} pl-9`}
+                  />
+                </div>
               </div>
-            </div>
 
-            {authState === 'error' && authError ? (
-              <p
-                role="alert"
-                className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="login-password"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t.authPasswordLabel}
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                    <KeyRound size={15} aria-hidden="true" />
+                  </span>
+                  <input
+                    id="login-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder={t.authPasswordPlaceholder}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className={`${controlClass} pl-9 pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? t.authHidePassword : t.authShowPassword}
+                    aria-pressed={showPassword}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={15} aria-hidden="true" />
+                    ) : (
+                      <Eye size={15} aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {authState === 'error' && authError ? (
+                <p
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  <ShieldAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>{authError}</span>
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isBusy}
+                className="h-11 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <ShieldAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
-                <span>{authError}</span>
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={isBusy}
-              className="h-11 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {t.authLoginButton}
-            </button>
-          </div>
+                {t.authLoginButton}
+              </button>
+            </div>
           </form>
         </div>
       ) : (
         <div id="panel-register" role="tabpanel" aria-labelledby="tab-register">
           <form onSubmit={handleRegister} noValidate>
-          <div className="mt-8 space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="register-email" className="block text-sm font-medium text-foreground">
-                {t.authEmailLabel}
-              </label>
-              <input
-                id="register-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder={t.authEmailPlaceholder}
-                value={registerEmail}
-                onChange={(event) => setRegisterEmail(event.target.value)}
-                className={controlClass}
-              />
+            <div className="mt-8 space-y-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="register-email"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t.authEmailLabel}
+                </label>
+                <input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder={t.authEmailPlaceholder}
+                  value={registerEmail}
+                  onChange={(event) => setRegisterEmail(event.target.value)}
+                  className={controlClass}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="register-password"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t.authCreatePasswordLabel}
+                </label>
+                <input
+                  id="register-password"
+                  name="new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder={t.authCreatePasswordPlaceholder}
+                  value={registerPassword}
+                  onChange={(event) => setRegisterPassword(event.target.value)}
+                  className={controlClass}
+                />
+              </div>
+              <button
+                type="submit"
+                className="h-11 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {t.authRegisterButton}
+              </button>
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="register-password" className="block text-sm font-medium text-foreground">
-                {t.authCreatePasswordLabel}
-              </label>
-              <input
-                id="register-password"
-                name="new-password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder={t.authCreatePasswordPlaceholder}
-                value={registerPassword}
-                onChange={(event) => setRegisterPassword(event.target.value)}
-                className={controlClass}
-              />
-            </div>
-            <button
-              type="submit"
-              className="h-11 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {t.authRegisterButton}
-            </button>
-          </div>
           </form>
         </div>
       )}
 
-
       {/* Social sign-in (behaviour preserved verbatim) */}
       <div className="my-6 flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">{t.authOrContinueWith}</span>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          {t.authOrContinueWith}
+        </span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
@@ -419,7 +458,11 @@ export default function SignInPanel() {
           disabled={isBusy}
           onClick={() => startSocialLogin('google')}
         >
-          {isBusy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <GoogleLogo />}
+          {isBusy ? (
+            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <GoogleLogo />
+          )}
           {t.authGoogleButton}
         </button>
         <button
@@ -428,22 +471,31 @@ export default function SignInPanel() {
           disabled={isBusy}
           onClick={() => startSocialLogin('microsoft')}
         >
-          {isBusy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <MicrosoftLogo />}
+          {isBusy ? (
+            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <MicrosoftLogo />
+          )}
           {t.authMicrosoftButton}
         </button>
       </div>
-
 
       {/* Temporary credentials notice — localized, tokens styled */}
       <p className="mt-6 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-sm leading-relaxed text-muted-foreground">
         <LockKeyhole size={14} className="mr-1.5 inline-block align-[-2px]" aria-hidden="true" />
         {noticeParts.map((part, index) =>
           part === '{username}' ? (
-            <code key={index} className="rounded bg-background px-1 py-0.5 font-medium text-foreground">
+            <code
+              key={index}
+              className="rounded bg-background px-1 py-0.5 font-medium text-foreground"
+            >
               admin
             </code>
           ) : part === '{password}' ? (
-            <code key={index} className="rounded bg-background px-1 py-0.5 font-medium text-foreground">
+            <code
+              key={index}
+              className="rounded bg-background px-1 py-0.5 font-medium text-foreground"
+            >
               1234@
             </code>
           ) : (

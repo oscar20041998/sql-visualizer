@@ -26,10 +26,22 @@ const WRAPPING_QUOTE_PAIRS: Array<[string, string]> = [
 // Characters that look like ASCII SQL syntax but are not: curly quotes stop string literals
 // from being recognised as such, non-breaking/zero-width spaces silently break tokenization.
 const SUSPICIOUS_CHAR_PATTERNS: Array<{ pattern: RegExp; reasonKey: string; reason: string }> = [
-  { pattern: /[\u201C\u201D]/, reasonKey: 'sqlFormatCurlyDoubleQuote', reason: 'curly double quote (\u201C \u201D)' },
-  { pattern: /[\u2018\u2019]/, reasonKey: 'sqlFormatCurlySingleQuote', reason: 'curly single quote (\u2018 \u2019)' },
+  {
+    pattern: /[\u201C\u201D]/,
+    reasonKey: 'sqlFormatCurlyDoubleQuote',
+    reason: 'curly double quote (\u201C \u201D)',
+  },
+  {
+    pattern: /[\u2018\u2019]/,
+    reasonKey: 'sqlFormatCurlySingleQuote',
+    reason: 'curly single quote (\u2018 \u2019)',
+  },
   { pattern: /\u00A0/, reasonKey: 'sqlFormatNonBreakingSpace', reason: 'non-breaking space' },
-  { pattern: /[\u200B\u200C\u200D\uFEFF]/, reasonKey: 'sqlFormatZeroWidthChar', reason: 'zero-width character' },
+  {
+    pattern: /[\u200B\u200C\u200D\uFEFF]/,
+    reasonKey: 'sqlFormatZeroWidthChar',
+    reason: 'zero-width character',
+  },
 ];
 
 /**

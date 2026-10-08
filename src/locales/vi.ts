@@ -1404,6 +1404,7 @@ const vi = {
   formatErrorPanelRootCauseLabel: 'Nguyên nhân gốc',
   formatErrorPanelEvidenceLabel: 'Căn cứ',
   formatErrorPanelFixSectionTitle: 'Cách sửa đề xuất',
+  formatErrorPanelCorrectLabel: 'Cách sửa đúng / Correct',
   formatErrorPanelFixBeforeLabel: 'Trước',
   formatErrorPanelFixAfterLabel: 'Sau',
   formatErrorPanelCopyFix: 'Sao chép',

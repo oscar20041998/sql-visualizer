@@ -58,10 +58,7 @@ export function mapSqlType(sqlType: string, _dialect: SqlDialect): TypeMappingRe
   };
 }
 
-export function mapAggregateType(
-  name: string,
-  argumentSqlType: string | null
-): TypeMappingResult {
+export function mapAggregateType(name: string, argumentSqlType: string | null): TypeMappingResult {
   const aggregate = name.trim().toUpperCase();
   if (aggregate === 'COUNT') return { javaType: 'Long', diagnostic: null };
   if (aggregate === 'AVG') return { javaType: 'BigDecimal', diagnostic: null };
@@ -78,7 +75,10 @@ export function mapAggregateType(
     return { javaType: 'Long', diagnostic: null };
   }
   if (['Float', 'Double', 'BigDecimal'].includes(argument.javaType)) {
-    return { javaType: argument.javaType === 'Float' ? 'Double' : argument.javaType, diagnostic: null };
+    return {
+      javaType: argument.javaType === 'Float' ? 'Double' : argument.javaType,
+      diagnostic: null,
+    };
   }
   return {
     javaType: null,

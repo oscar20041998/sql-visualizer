@@ -57,7 +57,10 @@ export default function ComplexityLevelRange({ score, thresholds, t }: Complexit
           const isSuperHigh = threshold.level === 'SUPER_HIGH';
           return (
             <div key={threshold.level} className="min-w-0">
-              <p className="truncate text-[10px] font-medium" style={{ color: LEVEL_COLORS[threshold.level] }}>
+              <p
+                className="truncate text-[10px] font-medium"
+                style={{ color: LEVEL_COLORS[threshold.level] }}
+              >
                 {threshold.label}
               </p>
               <p className="text-[10px] tabular-nums text-muted-foreground">

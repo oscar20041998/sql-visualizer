@@ -99,10 +99,11 @@ export function sessionCookieOptions({ maxAge }: { maxAge?: number } = {}) {
 }
 
 /** Renders the `Set-Cookie` header value. */
-export function buildSessionCookieValue(kind: Exclude<SessionKind, 'none'>, startedAt: number): string {
-  const { name, maxAge } = sessionCookieOptions(
-    kind === 'social' ? { maxAge: 60 * 60 } : {}
-  );
+export function buildSessionCookieValue(
+  kind: Exclude<SessionKind, 'none'>,
+  startedAt: number
+): string {
+  const { name, maxAge } = sessionCookieOptions(kind === 'social' ? { maxAge: 60 * 60 } : {});
   return [
     `${name}=${encodeSession(kind, startedAt)}`,
     'Path=/',
