@@ -12,14 +12,14 @@ import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import AppLayout from '@/components/AppLayout';
 import type { FormatError } from '@/lib/sql/formatError';
-import { resolveErrorRegion, type CrossCheckPosition } from '@/lib/sql/formatErrorRegion';
+import {
+  resolveErrorRegion,
+  type CrossCheckPosition,
+  type ErrorRegion,
+} from '@/lib/sql/formatErrorRegion';
 import { locateSyntaxError } from '@/lib/sql/dialectValidator';
 import { applyFormatFix } from '@/lib/sql/formatFixScope';
-import {
-  requestFormatExplanation,
-  requestFormatFix,
-  type FormatExplanation,
-} from '@/lib/ai/formatErrorAi';
+import { requestFormatExplanation, type FormatExplanation } from '@/lib/ai/formatErrorAi';
 import { toast } from 'sonner';
 
 /** Formatter language for client-side validation that an AI fix actually formats. */
@@ -124,28 +124,13 @@ export default function SmartSQLEditorPage() {
   }, []);
 
   /**
-   * Explain action for a format error (FR-011). Uses the provider configured in
-   * Settings (`settings.aiConfig`) as-is, so OpenAI / Anthropic / Gemini /
-   * AI Portal are honoured — `generateWithAI` routes Ollama direct and cloud
-   * providers through the server proxy that holds the key.
+   * One local AI request returns both the grounded explanation and corrected SQL (FR-021).
    */
   const handleRequestExplain = useCallback(
-    (error: FormatError): Promise<FormatExplanation> => {
-      return requestFormatExplanation(error, settings.aiConfig, settings.locale);
+    (error: FormatError, region?: ErrorRegion | null): Promise<FormatExplanation> => {
+      return requestFormatExplanation(error, settings.aiConfig, settings.locale, region);
     },
     [settings.aiConfig, settings.locale]
-  );
-
-  /**
-   * Fix action (FR-011). Same provider routing as Explain. `requestFormatFix` validates the model's
-   * response and retries once with formatter feedback if needed. The editor is never touched here —
-   * that happens only on Apply (FR-010).
-   */
-  const handleRequestFix = useCallback(
-    async (error: FormatError): Promise<string> => {
-      return requestFormatFix(error, settings.aiConfig);
-    },
-    [settings.aiConfig]
   );
 
   /**
@@ -275,7 +260,6 @@ export default function SmartSQLEditorPage() {
                     region={formatErrorRegion}
                     currentSql={currentSql}
                     onRequestExplain={handleRequestExplain}
-                    onRequestFix={handleRequestFix}
                     onApplyFix={handleApplyFormatFix}
                     onDismissFix={handleDismissFormatFix}
                   />

@@ -89,6 +89,6 @@ The panel's UI state.
 | `errorRegion` | ErrorRegion \| null | yes | Resolved replacement boundary; `null` drives the undetermined-region state (FR-020). |
 | `diagnosis` | AIDiagnosis \| null | no | Latest explanation result. |
 | `fixProposal` | AIFixProposal \| null | no | Latest fix proposal. |
-| `activeRequest` | `'explain' \| 'fix' \| null` | yes | The in-flight AI request, if any. |
+| `activeRequest` | `'diagnose-and-correct' \| null` | yes | The single combined AI request, if any. |
 
-**Relationships**: `AIDiagnosis.errorRef` and `AIFixProposal.originalSql` both reference the single `currentError` captured on the latest failed format; `errorRegion` is derived from that same error, and `AIFixProposal.change` must be contained in `errorRegion`.
+**Relationships**: `AIDiagnosis.errorRef` and `AIFixProposal.originalSql` both reference the single `currentError` captured on the latest failed format; `errorRegion` is derived from that same error, and `AIFixProposal.change` must be contained in `errorRegion`. Both result entities are populated by the same AI response; the panel does not issue separate explanation and fix requests.

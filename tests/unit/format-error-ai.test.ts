@@ -48,12 +48,14 @@ describe('buildExplainFormatErrorPrompt', () => {
     expect(prompt).toContain('1:5');
   });
 
-  it('asks for the strict explanation / rootCause / evidence JSON contract', () => {
+  it('asks for explanation, evidence and correctedSql in one JSON contract', () => {
     const prompt = buildExplainFormatErrorPrompt(makeFormatError());
 
     expect(prompt).toContain('"explanation"');
     expect(prompt).toContain('"rootCause"');
     expect(prompt).toContain('"evidence"');
+    expect(prompt).toContain('"correctedSql"');
+    expect(prompt).toMatch(/in one response/i);
   });
 
   it('forbids contradicting the formatter and performance advice', () => {
@@ -90,6 +92,7 @@ describe('parseFormatExplanation', () => {
         explanation: 'The parenthesis opened before the semicolon is never closed.',
         rootCause: 'The query ends with a delimiter while an expression is still open.',
         evidence: ['SELECT * FROM (;', 'Parse error at token: ;'],
+        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
       })
     );
 
@@ -97,24 +100,46 @@ describe('parseFormatExplanation', () => {
     expect(parsed?.explanation).toContain('parenthesis');
     expect(parsed?.rootCause).toContain('delimiter');
     expect(parsed?.evidence).toHaveLength(2);
+    expect(parsed?.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
   });
 
   it('tolerates a markdown fence and surrounding prose', () => {
     const parsed = parseFormatExplanation(
-      'Here is the diagnosis:\n```json\n{"explanation":"a","rootCause":"b","evidence":["c"]}\n```'
+      'Here is the diagnosis:\n```json\n{"explanation":"a","rootCause":"b","evidence":["c"],"correctedSql":"SELECT 1;"}\n```'
     );
 
-    expect(parsed).toEqual({ explanation: 'a', rootCause: 'b', evidence: ['c'] });
+    expect(parsed).toEqual({
+      explanation: 'a',
+      rootCause: 'b',
+      evidence: ['c'],
+      correctedSql: 'SELECT 1;',
+    });
   });
 
   it('rejects a payload missing required fields', () => {
     expect(parseFormatExplanation(JSON.stringify({ explanation: 'only this' }))).toBeNull();
-    expect(parseFormatExplanation(JSON.stringify({ explanation: 'a', rootCause: '' }))).toBeNull();
+    expect(
+      parseFormatExplanation(
+        JSON.stringify({
+          explanation: 'a',
+          rootCause: '',
+          evidence: ['SELECT * FROM (;'],
+          correctedSql: 'SELECT 1;',
+        })
+      )
+    ).toBeNull();
   });
 
   it('rejects a payload with no evidence (grounding is mandatory)', () => {
     expect(
-      parseFormatExplanation(JSON.stringify({ explanation: 'a', rootCause: 'b', evidence: [] }))
+      parseFormatExplanation(
+        JSON.stringify({
+          explanation: 'a',
+          rootCause: 'b',
+          evidence: [],
+          correctedSql: 'SELECT 1;',
+        })
+      )
     ).toBeNull();
   });
 
@@ -170,6 +195,27 @@ describe('describeAiFailure', () => {
 describe('requestFormatExplanation', () => {
   const config = makeOllamaConfig();
 
+  it('returns the explanation and corrected SQL from one local-model response', async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
+      return jsonResponse({
+        explanation: 'Unclosed parenthesis.',
+        rootCause: 'The delimiter arrives mid-expression.',
+        evidence: ['SELECT * FROM (;'],
+        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () =>
+      requestFormatExplanation(makeFormatError(), config)
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls[0].body)).toContain('correctedSql');
+    expect(result.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
+  });
+
   it('posts to the local Ollama chat endpoint and parses the explanation', async () => {
     const calls: Array<{ url: string; body: { model?: string } }> = [];
     const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -178,6 +224,7 @@ describe('requestFormatExplanation', () => {
         explanation: 'Unclosed parenthesis.',
         rootCause: 'The delimiter arrives mid-expression.',
         evidence: ['SELECT * FROM (;'],
+        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
       });
     }) as unknown as typeof fetch;
 
@@ -190,6 +237,7 @@ describe('requestFormatExplanation', () => {
     expect(calls[0].body.model).toBe('qwen2.5-coder:3b');
     expect(result.explanation).toContain('Unclosed parenthesis');
     expect(result.evidence).toEqual(['SELECT * FROM (;']);
+    expect(result.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
   });
 
   it('rejects an explanation whose evidence quotes SQL the editor never held', async () => {
@@ -235,8 +283,7 @@ describe('requestFormatExplanation', () => {
 describe('request shape (FR-021)', () => {
   const config = makeOllamaConfig();
 
-  it('issues a single non-streaming request for each request', async () => {
-    // One body that answers both contracts, so the same stub serves either call.
+  it('issues one non-streaming request containing both diagnosis and correction', async () => {
     const calls: Array<{ body: Record<string, unknown> }> = [];
     const fetchImpl = (async (_url: string, init: RequestInit) => {
       calls.push({ body: JSON.parse(String(init.body)) });
@@ -248,15 +295,14 @@ describe('request shape (FR-021)', () => {
       });
     }) as unknown as typeof fetch;
 
-    await withStubbedFetch(fetchImpl, () => requestFormatExplanation(makeFormatError(), config));
-    await withStubbedFetch(fetchImpl, () => requestFormatFix(makeFormatError(), config));
+    const result = await withStubbedFetch(fetchImpl, () =>
+      requestFormatExplanation(makeFormatError(), config)
+    );
 
-    // A streamed response would arrive in parts the parser cannot read, so the contract asks for
-    // the whole answer in one response and both requests must say so explicitly.
-    expect(calls).toHaveLength(2);
-    for (const call of calls) {
-      expect(call.body).toMatchObject({ stream: false });
-    }
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toMatchObject({ stream: false });
+    expect(JSON.stringify(calls[0].body)).toContain('correctedSql');
+    expect(result.correctedSql).toBe('SELECT * FROM (1);');
   });
 });
 

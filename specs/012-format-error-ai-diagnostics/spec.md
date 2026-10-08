@@ -45,15 +45,15 @@ A user clicks **Format** on SQL the formatter cannot parse. Instead of only a tr
 
 ### User Story 2 - AI explains the error and its root cause (Priority: P2)
 
-From the error panel, a user can request an explanation. A local AI model explains, in plain language, what the error is and why it happened, grounded in the actual SQL and the actual error message.
+From the error panel, a user can request one combined diagnosis and correction. A local AI model explains, in plain language, what the error is and why it happened, grounded in the actual SQL and error message, and returns corrected SQL in that same response.
 
 **Why this priority**: It upgrades the diagnostic from "what went wrong" to "why it went wrong", which is what lets non-experts and developers resolve the problem quickly. It depends on Story 1 having captured the error, but is otherwise self-contained.
 
-**Independent Test**: With a local model running, trigger a format error and request an explanation; a grounded, plain-language explanation appears in the panel. With no model available, a clear unavailable/retry state appears instead of a silent failure.
+**Independent Test**: With a local model running, trigger a format error and select **Giải thích và gợi ý sửa lỗi**; the explanation and corrected SQL appear from one response. With no model available, a clear unavailable/retry state appears instead of a silent failure.
 
 **Acceptance Scenarios**:
 
-1. **Given** a format error and a running local model, **When** the user requests an explanation, **Then** the panel shows a plain-language explanation of the error and its root cause.
+1. **Given** a format error and a running local model, **When** the user selects the combined diagnosis action, **Then** one local AI response provides a plain-language explanation, root cause, grounded evidence, and corrected SQL for review.
 2. **Given** a completed explanation, **When** it is read, **Then** it references the actual offending SQL and error (grounded in the formatter's findings), not generic advice.
 3. **Given** the local model is unavailable or the request times out, **When** the user requests an explanation, **Then** the panel shows a clear, actionable unavailable/retry state with no silent failure.
 
@@ -61,15 +61,15 @@ From the error panel, a user can request an explanation. A local AI model explai
 
 ### User Story 3 - AI proposes a fix the user can review and apply (Priority: P3)
 
-From the error panel, a user can request a corrected version of the SQL. The local AI returns a proposed fix that the user reviews and explicitly applies; the applied SQL re-formats without error.
+The combined diagnosis action returns corrected SQL alongside the explanation. The user reviews the proposed fix and explicitly applies it; the applied SQL re-formats without error.
 
 **Why this priority**: It closes the loop from diagnosis to resolution. It is lower priority than explanation because it must never silently rewrite the user's query — a review-before-apply gate is a required safeguard.
 
-**Independent Test**: Trigger a format error, request a fix, review the proposed change, and apply it; the editor shows the corrected SQL and a subsequent **Format** succeeds. Dismissing the proposal leaves the original SQL untouched.
+**Independent Test**: Trigger a format error, use the combined diagnosis action, review the proposed change from that response, and apply it; the editor shows the corrected SQL and a subsequent **Format** succeeds. Dismissing the proposal leaves the original SQL untouched.
 
 **Acceptance Scenarios**:
 
-1. **Given** a format error, **When** the user requests a fix, **Then** the panel shows the proposed corrected SQL side-by-side with the original (before/after) for review before applying.
+1. **Given** a format error, **When** the combined diagnosis action returns, **Then** the panel shows its proposed corrected SQL side-by-side with the original (before/after) for review before applying.
 2. **Given** a proposed fix, **When** the user applies it, **Then** only the SQL inside the captured error's location is replaced with the corrected version, every part of the query outside that location stays unchanged, and re-formatting the result succeeds.
 3. **Given** a proposed fix, **When** the user dismisses it, **Then** the original SQL in the editor is untouched.
 4. **Given** a proposed fix that also changes SQL outside the captured error location, **When** the user tries to apply it, **Then** the editor's SQL is left unchanged, the panel reports that the proposal reaches beyond the error location, and the user is offered a corrected proposal.
@@ -113,14 +113,14 @@ From the error panel, a user can request a corrected version of the SQL. The loc
 - **FR-018**: When an AI fix proposal changes any SQL outside the captured format error's location, the system MUST NOT apply it, MUST leave the editor's SQL unchanged, and MUST report the out-of-range change in the panel with an affordance to request a corrected proposal.
 - **FR-019**: When the captured format error has no position, the system MUST identify the erroneous region with the AST cross-check parser, use it as the replacement boundary, and include its findings in the AI request so the proposal is grounded in parser evidence.
 - **FR-020**: When no erroneous region can be determined from either the formatter or the AST cross-check parser, the system MUST NOT offer an applicable fix, MUST report in the panel that the erroneous region cannot be determined, and MUST offer to request a new proposal.
-- **FR-021**: The explanation and the fix proposal MUST be delivered as a single complete response rather than in parts, and the panel MUST convey progress through explicit loading states without reloading the page.
+- **FR-021**: The panel MUST expose one combined action labeled **Giải thích và gợi ý sửa lỗi** (localized equivalently). One request MUST return the grounded explanation and fix proposal together as a single complete response rather than in parts, and the panel MUST convey progress through explicit loading states without reloading the page.
 
 ### Key Entities
 
 - **Format Error**: represents a failed formatting attempt. Attributes: human-readable message, SQL dialect, source SQL or snippet, optional location (line/column or character offset), severity, and timestamp.
 - **AI Diagnosis**: represents the model's explanation of an error. Attributes: reference to the originating error, plain-language explanation, root cause, the SQL/error evidence it cites (grounding), status (loading / ready / unavailable), and timestamp.
 - **AI Fix Proposal**: represents a corrected SQL suggestion. Attributes: original SQL, proposed SQL, applied range (the captured error location used as the replacement boundary, recorded when applied), status (pending / applied / dismissed), and timestamp.
-- **Error Panel State**: represents the panel's UI state. Attributes: open/closed, the selected error (when more than one is shown), and the active explanation/fix request state.
+- **Error Panel State**: represents the panel's UI state. Attributes: open/closed, the selected error (when more than one is shown), and the active combined diagnosis/correction request state.
 
 ## Success Criteria *(mandatory)*
 

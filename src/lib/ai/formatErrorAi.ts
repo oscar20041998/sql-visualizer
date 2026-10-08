@@ -44,6 +44,8 @@ export interface FormatExplanation {
   rootCause: string;
   /** SQL fragments / error text the answer cites. Never empty. */
   evidence: string[];
+  /** Full corrected SQL returned alongside the diagnosis in the same model response. */
+  correctedSql: string;
 }
 
 /** The editor SQL captured when a fix was requested, used for the stale check (FR-016). */
@@ -52,8 +54,8 @@ export interface FormatFixSnapshot {
   proposedSql: string;
 }
 
-/** Answer tokens reserved for the explanation / fix. Small local windows are the norm here. */
-const EXPLAIN_MAX_TOKENS = 900;
+/** The complete response includes a full corrected query as well as the explanation. */
+const EXPLAIN_MAX_TOKENS = 3000;
 const FIX_MAX_TOKENS = 1200;
 
 /** Cap on how much of the failing SQL is embedded verbatim, so the prompt fits a small context. */
@@ -83,15 +85,25 @@ function groundingBlock(error: FormatError): string {
  * must not contradict the formatter; performance advice is explicitly out of scope so the answer
  * stays about the syntax failure.
  */
-export function buildExplainFormatErrorPrompt(error: FormatError, locale: Locale = 'en'): string {
+export function buildExplainFormatErrorPrompt(
+  error: FormatError,
+  locale: Locale = 'en',
+  region?: ErrorRegion | null
+): string {
   const languageInstruction =
     locale === 'vi'
       ? 'Write the "explanation" and "rootCause" fields in Vietnamese (tiếng Việt), using simple, beginner-friendly language. Keep the JSON keys exactly as named.'
       : 'Write the "explanation" and "rootCause" fields in English, using plain language.';
+  const regionBlock = region
+    ? `\nErroneous region (lines ${region.startLine}-${region.endLine}, from the ${region.source}): ${region.snippet}\n`
+    : '';
+  const correctionScope = region
+    ? 'Change only the erroneous region above and preserve every character outside it byte for byte.'
+    : 'Make the smallest syntax-only correction possible.';
 
-  return `A SQL formatter failed to parse a query. Explain the failure to the developer who wrote it.
+  return `A SQL formatter failed to parse a query. Explain the failure and provide a corrected query in one response.
 
-${groundingBlock(error)}
+${groundingBlock(error)}${regionBlock}
 
 SQL that failed to format:
 \`\`\`sql
@@ -102,15 +114,19 @@ Rules:
 - Ground every statement in the formatter message and the SQL above. Do not contradict the formatter.
 - Explain the syntax failure only. Do not give performance, indexing, or query-rewrite advice.
 - Be specific about the offending token, clause, or delimiter. Never invent a code fragment that is not in the SQL above.
+- Provide "correctedSql" as the full query with only the minimal syntax correction needed for the stated dialect.
+- Preserve the query's meaning, clauses, tables, columns, joins, filters, and ordering. Do not reformat unrelated SQL.
+- ${correctionScope}
 - ${languageInstruction}
-- Return only a JSON object with exactly these keys, in this order:
+- Return only one JSON object with exactly these keys, in this order:
 {
   "explanation": "plain-language statement of what the error is",
   "rootCause": "plain-language statement of why it happened",
-  "evidence": ["quoted SQL fragment or error text this answer relies on"]
+  "evidence": ["quoted SQL fragment or error text this answer relies on"],
+  "correctedSql": "the full corrected SQL query"
 }
 
-Both "explanation" and "rootCause" must be non-empty, and "evidence" must contain at least one item quoting the actual SQL or error text.`;
+Both "explanation" and "rootCause" must be non-empty, "evidence" must quote the actual SQL or error text, and "correctedSql" must be non-empty SQL.`;
 }
 
 /**
@@ -264,9 +280,10 @@ export function parseFormatExplanation(raw: string): FormatExplanation | null {
   const explanation = asTrimmedString(parsed.explanation);
   const rootCause = asTrimmedString(parsed.rootCause);
   const evidence = asStringList(parsed.evidence);
+  const correctedSql = asTrimmedString(parsed.correctedSql);
 
-  if (!explanation || !rootCause || evidence.length === 0) return null;
-  return { explanation, rootCause, evidence };
+  if (!explanation || !rootCause || evidence.length === 0 || !correctedSql) return null;
+  return { explanation, rootCause, evidence, correctedSql };
 }
 
 /**
@@ -380,11 +397,12 @@ function isGroundedInError(explanation: FormatExplanation, error: FormatError): 
 export async function requestFormatExplanation(
   error: FormatError,
   config: AIModelConfig,
-  locale: Locale = 'en'
+  locale: Locale = 'en',
+  region?: ErrorRegion | null
 ): Promise<FormatExplanation> {
   const raw = await runRequest(
     config,
-    buildExplainFormatErrorPrompt(error, locale),
+    buildExplainFormatErrorPrompt(error, locale, region),
     EXPLAIN_MAX_TOKENS
   );
   const parsed = parseFormatExplanation(raw);
@@ -395,6 +413,22 @@ export async function requestFormatExplanation(
       kind: 'malformed',
       message:
         'The model did not return a usable explanation. Try again, or pick a stronger local model in Settings.',
+      retryable: true,
+    });
+  }
+  if (parsed.correctedSql === error.sourceSql.trim()) {
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The model did not provide a correction to the SQL syntax error.',
+      retryable: true,
+    });
+  }
+  try {
+    validateFormatFix(parsed.correctedSql, error.dialect);
+  } catch {
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The model did not return a corrected query that the formatter can parse.',
       retryable: true,
     });
   }

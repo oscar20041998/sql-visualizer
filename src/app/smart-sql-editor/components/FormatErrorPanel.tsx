@@ -8,9 +8,9 @@
  * snippet. The open flag and the captured error live in `page.tsx`, so a closed panel never loses
  * its error and reopening restores the same report.
  *
- * US2/US3 — hosts the two on-demand, local-Ollama actions. Explain renders a plain-language
- * explanation plus root cause; Fix renders a minimal correction that is applied only on explicit
- * confirmation, and is refused outright once the editor SQL has moved on (FR-010 / FR-016).
+ * US2/US3 — one on-demand AI action returns a grounded explanation and minimal correction
+ * together. The correction is applied only on explicit confirmation and is refused once the
+ * editor SQL has moved on (FR-010 / FR-016).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'sql-formatter';
@@ -55,9 +55,10 @@ export interface FormatErrorPanelProps {
    */
   currentSql?: string;
   /** Runs the local-model explanation. Rejects with a `FormatAiError` on failure. */
-  onRequestExplain?: (error: FormatError) => Promise<FormatExplanation>;
-  /** Runs the local-model fix. Rejects with a `FormatAiError` on failure. */
-  onRequestFix?: (error: FormatError) => Promise<string>;
+  onRequestExplain?: (
+    error: FormatError,
+    region?: ErrorRegion | null
+  ) => Promise<FormatExplanation>;
   /** Replaces the editor SQL with a confirmed correction. */
   onApplyFix?: (sql: string) => void;
   /** Lets the parent clear its own view of the proposal. */
@@ -73,9 +74,7 @@ const UNAVAILABLE_KINDS: ReadonlySet<FormatAiFailureKind> = new Set<FormatAiFail
 type PanelTranslations = ReturnType<typeof getT>;
 
 /**
- * Renders the loading / unavailable / malformed states for one AI action. Kept as a small local
- * component because Explain and Fix share identical state semantics but different copy, and both
- * need the retry affordance required by FR-013.
+ * Renders the loading / unavailable / malformed states for the combined AI action.
  */
 const AiStatusBlock: React.FC<{
   phase: 'idle' | 'loading' | 'ready' | 'failed';
@@ -190,7 +189,6 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   region,
   currentSql,
   onRequestExplain,
-  onRequestFix,
   onApplyFix,
   onDismissFix,
 }) => {
@@ -210,7 +208,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   const [explainPhase, setExplainPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [explainFailure, setExplainFailure] = useState<FormatAiFailureKind>('error');
 
-  // --- Fix state (US3) -----------------------------------------------------------------------
+  // --- Correction state from the combined response (US3) -------------------------------------
   /** The SQL the proposal was generated from — the basis of the stale comparison. */
   const [fixSnapshotSql, setFixSnapshotSql] = useState<string | null>(null);
   const [proposedSql, setProposedSql] = useState<string | null>(null);
@@ -221,9 +219,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     startOffset: number;
     endOffset: number;
   } | null>(null);
-  const [fixPhase, setFixPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
-  const [fixFailure, setFixFailure] = useState<FormatAiFailureKind>('error');
-  const [fixFromExplain, setFixFromExplain] = useState(false);
+  const [fixPhase, setFixPhase] = useState<'idle' | 'loading' | 'ready'>('idle');
   /** Brief "copied" feedback on the proposed-fix copy button, reset after a short delay. */
   const [fixCopied, setFixCopied] = useState(false);
   /** The retry control a refusal points at, so focus lands where the user can act (FR-018). */
@@ -242,7 +238,6 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     setProposedSql(null);
     setFixPhase('idle');
     setFixCopied(false);
-    setFixFromExplain(false);
   }, [error]);
 
   /** True once the editor SQL diverged from the SQL the proposal was built from (FR-016). */
@@ -298,47 +293,26 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     }
   }, [proposedSql, error.dialect]);
 
-  const requestFix = useCallback(
-    async (integratedWithExplain: boolean) => {
-      if (!onRequestFix) return;
-      setFixFromExplain(integratedWithExplain);
-      setFixPhase('loading');
-      setFixSnapshotSql(null);
-      setProposedSql(null);
-      try {
-        const corrected = await onRequestFix(error);
-        setProposedSql(corrected);
-        setFixSnapshotSql(error.sourceSql);
-        setFixPhase('ready');
-      } catch (thrown) {
-        setFixFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
-        setFixPhase('failed');
-      }
-    },
-    [onRequestFix, error]
-  );
-
   const handleExplain = useCallback(async () => {
     if (!onRequestExplain) return;
     setExplainPhase('loading');
     setExplanation(null);
     setFixSnapshotSql(null);
     setProposedSql(null);
-    setFixPhase('idle');
-    setFixFromExplain(false);
+    setFixPhase('loading');
     try {
-      setExplanation(await onRequestExplain(error));
+      const result = await onRequestExplain(error, region);
+      setExplanation(result);
+      setProposedSql(result.correctedSql);
+      setFixSnapshotSql(error.sourceSql);
       setExplainPhase('ready');
-      await requestFix(true);
+      setFixPhase('ready');
     } catch (thrown) {
       setExplainFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
       setExplainPhase('failed');
+      setFixPhase('idle');
     }
-  }, [onRequestExplain, error, requestFix]);
-
-  const handleFix = useCallback(async () => {
-    await requestFix(false);
-  }, [requestFix]);
+  }, [onRequestExplain, error, region]);
 
   const handleApplyFix = useCallback(() => {
     // Defence in depth: the Apply control is hidden while stale, and this guard makes applying a
@@ -372,6 +346,8 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     setProposedSql(null);
     setFixSnapshotSql(null);
     setFixPhase('idle');
+    setExplanation(null);
+    setExplainPhase('idle');
     onDismissFix?.();
   }, [onDismissFix]);
 
@@ -524,63 +500,35 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
           <p className="text-xs text-muted-foreground">{t.formatErrorPanelEditorUnchanged}</p>
 
-          {/* AI actions (US2 + US3) — only offered when the page wired the handlers up. */}
-          {(onRequestExplain || onRequestFix) && (
+          {/* One request returns both the explanation and its correction (FR-021). */}
+          {onRequestExplain && (
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              {onRequestExplain && (
-                <button
-                  type="button"
-                  onClick={handleExplain}
-                  disabled={
-                    explainPhase === 'loading' || (fixFromExplain && fixPhase === 'loading')
-                  }
-                  className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {explainPhase === 'loading' || (fixFromExplain && fixPhase === 'loading') ? (
-                    <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Sparkles size={12} aria-hidden="true" />
-                  )}
-                  {fixFromExplain && fixPhase === 'loading'
-                    ? t.formatErrorPanelFixRunning
-                    : explainPhase === 'loading'
-                      ? t.formatErrorPanelExplainRunning
-                      : t.formatErrorPanelExplain}
-                </button>
-              )}
-              {onRequestFix && (
-                <button
-                  type="button"
-                  onClick={handleFix}
-                  disabled={fixPhase === 'loading'}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {fixPhase === 'loading' ? (
-                    <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Wand2 size={12} aria-hidden="true" />
-                  )}
-                  {fixPhase === 'loading' ? t.formatErrorPanelFixRunning : t.formatErrorPanelFix}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleExplain}
+                disabled={explainPhase === 'loading'}
+                className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {explainPhase === 'loading' ? (
+                  <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles size={12} aria-hidden="true" />
+                )}
+                {explainPhase === 'loading'
+                  ? t.formatErrorPanelExplainRunning
+                  : t.formatErrorPanelExplain}
+              </button>
             </div>
           )}
 
           {/* ARIA live region: announces status changes (FR-012). Message text intentionally differs by
            a period so visible-copy assertions are never ambiguous with the live-region text. */}
           <div aria-live="polite" aria-atomic="false" className="sr-only">
-            {explainPhase === 'loading' || fixPhase === 'loading'
-              ? `${t.formatErrorPanelLoading}.`
-              : ''}
+            {explainPhase === 'loading' ? `${t.formatErrorPanelLoading}.` : ''}
             {explainPhase === 'failed'
               ? UNAVAILABLE_KINDS.has(explainFailure)
                 ? `${t.formatErrorPanelAiUnavailable}.`
                 : `${t.formatErrorPanelAiMalformed}.`
-              : ''}
-            {fixPhase === 'failed'
-              ? UNAVAILABLE_KINDS.has(fixFailure)
-                ? `${t.formatErrorPanelAiUnavailable}.`
-                : `${t.formatErrorPanelInvalidFix}.`
               : ''}
             {proposalIsStale ? `${t.formatErrorPanelStale}.` : ''}
           </div>
@@ -618,7 +566,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
             </section>
           )}
 
-          {fixFromExplain && fixPhase === 'ready' && formattedProposedSql && !proposalIsStale && (
+          {fixPhase === 'ready' && formattedProposedSql && !proposalIsStale && (
             <section className="rounded border border-success/50 bg-success/10 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-success">
@@ -646,24 +594,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
             </section>
           )}
 
-          {fixFromExplain && fixPhase === 'ready' && proposalIsStale && (
-            <p
-              role="alert"
-              className="whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-3 text-xs text-warning"
-            >
-              {t.formatErrorPanelStale}
-            </p>
-          )}
-
-          <AiStatusBlock
-            phase={fixPhase}
-            kind={fixFailure}
-            t={t}
-            onRetry={() => void requestFix(fixFromExplain)}
-            failedMessage={t.formatErrorPanelInvalidFix}
-          />
-
-          {fixPhase === 'ready' && proposedSql && !fixFromExplain && (
+          {fixPhase === 'ready' && proposedSql && (
             <section className="rounded border border-border bg-muted/40 p-3">
               <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-foreground">
                 <Wand2 size={12} aria-hidden="true" />
@@ -690,25 +621,9 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                       </pre>
                     </div>
                     <div>
-                      <div className="mb-1 flex items-center justify-between">
-                        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {t.formatErrorPanelFixAfterLabel}
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={handleCopyFix}
-                          aria-label={t.formatErrorPanelCopyFix}
-                          title={t.formatErrorPanelCopyFix}
-                          className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          {fixCopied ? (
-                            <Check size={12} aria-hidden="true" />
-                          ) : (
-                            <Copy size={12} aria-hidden="true" />
-                          )}
-                          {fixCopied ? t.copied : t.formatErrorPanelCopyFix}
-                        </button>
-                      </div>
+                      <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t.formatErrorPanelFixAfterLabel}
+                      </h4>
                       <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-success/40 bg-success/5 p-2 font-mono text-xs text-foreground scrollbar-thin scrollbar-thumb-rounded">
                         {diffSide(proposedSql, 'added')}
                       </pre>
@@ -728,7 +643,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                         <button
                           type="button"
                           ref={refusalRetryRef}
-                          onClick={handleFix}
+                          onClick={handleExplain}
                           className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <RefreshCw size={12} aria-hidden="true" />

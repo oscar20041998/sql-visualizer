@@ -120,6 +120,7 @@ Grouped by the component that owns them in `plan.md`.
 | U41 | Staleness is false while the editor matches the snapshot, true once it changes or is cleared, and tolerates a trailing newline | FR-016 | example | DONE | `tests/unit/format-error-ai-fix.test.ts::tolerates a trailing newline the editor may have added` |
 | U42 | Neither AI request is ever sent to a cloud provider                                        | FR-014  | example | DONE    | `tests/unit/format-error-ai-fix.test.ts::never sends the request to a cloud provider (FR-014)` |
 | U43 | Fix prompt quotes the resolved region and instructs the model to confine changes to it     | FR-019  | example | DONE    | `tests/unit/format-error-ai.test.ts::confines the correction to the quoted region` |
+| U84 | One local AI response contains the grounded explanation and a formatter-valid corrected SQL | FR-007, FR-008, FR-009, FR-021 | example | DONE | `tests/unit/format-error-ai.test.ts::returns the explanation and corrected SQL from one local-model response` |
 
 ### `src/app/smart-sql-editor/components/FormatErrorPanel.tsx`
 
@@ -198,9 +199,10 @@ are corrected.
 | U60 | Reports the applied range after a successful region-bounded apply                         | FR-017  | example | DONE    | `tests/unit/format-error-panel.test.tsx::reports the applied range` |
 | U61 | Announces applicability notices in the live region and moves focus to the retry control   | FR-018  | example | DONE    | `tests/unit/format-error-panel.test.tsx::announces the applicability notice and moves focus to the retry control` |
 | U69 | Renders the proposal in a side-by-side diff with the original on the opposite side          | US3-AS1, FR-010 | example | DONE | `tests/unit/format-error-panel.test.tsx::shows the proposal as a side-by-side diff with the original on the opposite side` |
+| U85 | Exposes one combined action and uses its response for the correction                        | FR-021  | example | DONE | `tests/unit/format-error-panel.test.tsx::offers one combined action and uses its single response for the correction` |
 
 | U44 | Fix and explain prompts carry the cross-check parser's findings when the region came from it | FR-019 | example | PENDING | `tests/unit/format-error-ai.test.ts::grounds the request in the cross-check parser findings` |
-| U45 | Both requests are issued once as a non-streaming call and parsed once                      | FR-021  | example | DONE | `tests/unit/format-error-ai.test.ts::issues a single non-streaming request for each request` |
+| U45 | The combined request is issued once as a non-streaming call and parsed once                  | FR-021  | example | DONE | `tests/unit/format-error-ai.test.ts::issues one non-streaming request containing both diagnosis and correction` |
 
 | U28 | Accepts a change strictly inside the region                                                 | FR-017  | example           | DONE    | `tests/unit/format-fix-scope.test.ts::accepts a change inside the region` |
 | U29 | Refuses a proposal that also edits text outside the region instead of writing those edits   | FR-017  | example           | DONE    | `tests/unit/format-fix-scope.test.ts::refuses a proposal that also edits a line outside the region` |

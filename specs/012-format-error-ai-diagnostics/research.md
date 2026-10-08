@@ -10,13 +10,13 @@ Phase 0 output — resolves the design unknowns before Phase 1 artifacts.
 
 ## R2 — AI grounding for explain and fix
 
-- **Decision**: Build two structured prompts (`explainFormatError`, `proposeFormatFix`) that embed the exact error message, the offending SQL, and the active dialect. The model replies with strict JSON (see contracts). The UI renders the model text verbatim but never overrides the captured error facts.
+- **Decision**: Build one structured prompt that embeds the exact error message, the offending SQL, and the active dialect and requests explanation, root cause, grounded evidence, and corrected SQL in one strict JSON response (see contracts). The UI renders the model text verbatim but never overrides the captured error facts.
 - **Rationale**: Constitution Principle IV requires AI outputs to be grounded in parser/formatter facts and never contradict them. Embedding the actual error + SQL in the prompt is the minimal, reliable grounding mechanism; a JSON contract makes the response renderable and testable.
 - **Alternatives considered**: Free-form prose responses — rejected (harder to render the explanation/root-cause/fix as separate fields and harder to validate).
 
 ## R3 — Ollama invocation path
 
-- **Decision**: Reuse the existing `aiService.ts` adapter. Ollama is called directly from the browser at the configured `baseUrls.ollama + /v1/chat/completions` (no key, no server proxy), reading `settings.aiConfig.ollamaModel` and token budgets. Both the explanation and the fix are **single complete JSON responses** — no streaming (clarification 2026-09-25, FR-021).
+- **Decision**: Reuse the existing `aiService.ts` adapter. Ollama is called directly from the browser at the configured `baseUrls.ollama + /v1/chat/completions` (no key, no server proxy), reading `settings.aiConfig.ollamaModel` and token budgets. The combined explanation and fix are returned in **one complete JSON response** — no second request and no streaming (FR-021).
 - **Rationale**: This is the app's established Ollama path and satisfies "local only, no off-device SQL" while never holding a browser credential (FR-011, Constitution §Security allows on-device calls). The panel conveys progress with explicit loading states and never reloads the page, which covers the intent of Constitution §III for an on-demand diagnostic; the deviation is recorded (see R13).
 - **Alternatives considered**: Add a server API route to proxy Ollama — rejected (unnecessary; Ollama is already direct and local, and a proxy would add latency + a failure surface without a privacy benefit).
 
@@ -58,14 +58,14 @@ Phase 0 output — resolves the design unknowns before Phase 1 artifacts.
 
 ## R10 — Grounding the AI when the region comes from the AST fallback
 
-- **Decision**: When the region was resolved from the cross-check parser, the fix prompt embeds the parser's error message, the dialect, the bounded region snippet, and an explicit instruction that any change must stay inside the quoted region. The response contract remains `{ correctedSql }`; grounding is additive, not a new field.
-- **Rationale**: FR-019 requires parser-grounded requests. Handing the model exactly the bounded text reduces out-of-range output at the source, while R9's guard still enforces the invariant. The snippet keeps prompts small on long queries and makes the proposal auditable against the quoted region.
+- **Decision**: When a region was resolved, the combined prompt embeds its bounded snippet and source label and instructs the model to keep changes inside it. The combined response includes `correctedSql` alongside the explanation fields. Passing the cross-check parser's actual error findings is still pending (T025/U44).
+- **Rationale**: Handing the model exactly the bounded text reduces out-of-range output at the source, while R9's guard still enforces the invariant. The snippet keeps prompts small on long queries and makes the proposal auditable against the quoted region. Parser-finding grounding required by FR-019 remains open until T025/U44 is implemented.
 - **Alternatives considered**: Whole SQL only — rejected (already the previous behaviour and gives the model room to drift). Add a structured `region` field to the response — rejected (the client already knows the region, so an echoed value adds no information and one more failure mode).
 
 ## R11 — Behaviour when no region can be determined
 
-- **Decision**: `region === null` keeps the Fix action unavailable, shows an explicit "erroneous region cannot be determined" notice, and offers a "request a new proposal" affordance that re-runs region resolution. If it is still undeterminable the notice persists and no proposal is ever applicable.
-- **Rationale**: FR-020. Inventing a boundary would reintroduce the hazard, while a visible dead-end with a clear reason — and the still-available Explain action — is safe and actionable: the user can correct the reported token or ask the model what is wrong.
+- **Decision**: `region === null` keeps the combined diagnosis action available and shows an explicit "erroneous region cannot be determined" notice, but disables Apply because no proposal can be safely bounded. The notice persists until a region can be resolved.
+- **Rationale**: FR-020. Inventing a boundary would reintroduce the hazard; the combined response can still explain the error and suggest corrected SQL, but the client must not apply it without a safe region.
 - **Alternatives considered**: Fall back to whole-document review-before-apply — rejected in clarification 2026-09-25 (reintroduces the risk). Let the model choose the range — rejected (unverifiable). Hide the Fix action silently — rejected (the user cannot tell why the capability is missing).
 
 ## R12 — Apply ordering and staleness granularity
@@ -76,6 +76,6 @@ Phase 0 output — resolves the design unknowns before Phase 1 artifacts.
 
 ## R13 — Constitution §III streaming deviation
 
-- **Decision**: Keep single-response semantics for explain and fix (FR-021); record the deviation in the spec's Assumptions and in the plan's Complexity Tracking; raise the §III amendment outside this feature.
-- **Rationale**: Both responses are small structured JSON rendered as discrete fields. Streaming would need a stream-friendly format plus a partial-JSON assembler, adding parser complexity to a diagnostic panel for no perceived latency gain, while explicit loading states already cover progress without a page reload.
+- **Decision**: Keep one combined single-response action for explanation and fix (FR-021); record the deviation in the spec's Assumptions and in the plan's Complexity Tracking; raise the §III amendment outside this feature.
+- **Rationale**: The combined response is small structured JSON rendered as discrete fields. Streaming would need a stream-friendly format plus a partial-JSON assembler, adding parser complexity to a diagnostic panel for no perceived latency gain, while explicit loading states already cover progress without a page reload.
 - **Alternatives considered**: Stream partial JSON — rejected (raw fragments are not renderable and would surface parser noise). Stream the transport but render only the assembled result — rejected (pays the complexity cost for zero user-visible benefit). Drop the feature — rejected.

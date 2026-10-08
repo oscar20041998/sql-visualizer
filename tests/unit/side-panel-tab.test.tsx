@@ -230,7 +230,6 @@ describe('the real panel launchers', () => {
         region={null}
         currentSql={ERROR.sourceSql}
         onRequestExplain={() => Promise.reject(new Error('stub'))}
-        onRequestFix={() => Promise.reject(new Error('stub'))}
         onApplyFix={() => undefined}
         onDismissFix={() => undefined}
       />

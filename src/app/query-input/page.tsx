@@ -16,12 +16,7 @@ import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
 import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import type { FormatError } from '@/lib/sql/formatError';
-import {
-  FormatAiError,
-  requestFormatExplanation,
-  requestFormatFix,
-  type FormatExplanation,
-} from '@/lib/ai/formatErrorAi';
+import { requestFormatExplanation, type FormatExplanation } from '@/lib/ai/formatErrorAi';
 import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
 import { tryEmbedText } from '@/lib/ai/embeddingService';
@@ -415,30 +410,12 @@ export default function QueryInputContent() {
     setIsErrorPanelOpen(true);
   }, []);
 
-  /** Explain for a format error (FR-011). Uses the Settings provider as-is. */
+  /** One AI response provides both the explanation and corrected SQL (FR-021). */
   const handleRequestExplain = useCallback(
     (error: FormatError): Promise<FormatExplanation> => {
       return requestFormatExplanation(error, settings.aiConfig, settings.locale);
     },
     [settings.aiConfig, settings.locale]
-  );
-
-  /** Fix for a format error (FR-011), validated by re-running the formatter. */
-  const handleRequestFix = useCallback(
-    async (error: FormatError): Promise<string> => {
-      const correctedSql = await requestFormatFix(error, settings.aiConfig);
-      try {
-        format(correctedSql, { language: toFormatterLanguage(error.dialect) });
-      } catch {
-        throw new FormatAiError({
-          kind: 'malformed',
-          message: 'The proposed SQL still fails to format.',
-          retryable: true,
-        });
-      }
-      return correctedSql;
-    },
-    [settings.aiConfig]
   );
 
   /** Applies a confirmed AI fix, re-formats it, and clears the report (FR-010). */
@@ -535,7 +512,6 @@ export default function QueryInputContent() {
                       onToggle={setIsErrorPanelOpen}
                       currentSql={smartEditorSql}
                       onRequestExplain={handleRequestExplain}
-                      onRequestFix={handleRequestFix}
                       onApplyFix={handleApplyFormatFix}
                       onDismissFix={handleDismissFormatFix}
                     />
