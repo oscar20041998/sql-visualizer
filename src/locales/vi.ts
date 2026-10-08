@@ -524,10 +524,11 @@ const vi = {
   aiProviderOpenAI: 'OpenAI',
   aiProviderAnthropic: 'Anthropic (Claude)',
   aiProviderGemini: 'Google Gemini',
+  aiProviderAIPortal: 'AI Portal',
   aiBaseUrl: 'Địa chỉ Base URL',
   aiBaseUrlHint: 'Địa chỉ server Ollama cục bộ của bạn, ví dụ http://localhost:11434',
   aiBaseUrlCloudHint:
-    'API root của nhà cung cấp này. Ghi đè để dùng gateway tương thích OpenAI — host đó cũng phải được khai báo trong AI_ALLOWED_BASE_URLS ở server trước khi key được gửi tới.',
+    'API root của nhà cung cấp này. Ghi đè để dùng gateway tương thích OpenAI — host đó cũng phải được khai báo trong AI_PORTAL_BASE_URL ở server trước khi key được gửi tới.',
   aiBaseUrlReset: 'Khôi phục mặc định',
   aiLocalModel: 'Tên mô hình cục bộ',
   aiLocalModelHint: 'Tag mô hình đã tải trong Ollama, ví dụ qwen2.5-coder:3b hoặc llama3',

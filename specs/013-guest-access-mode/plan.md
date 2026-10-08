@@ -150,7 +150,7 @@ Three points that are easy to get wrong and are therefore called out rather than
 | Item | Type | Detail |
 |---|---|---|
 | *(none — no constitutional gate failed)* | — | — |
-| `docs-context` is locked for guests even when they run a local model, which is stricter than a reader of clarification 4 might expect. | **Product decision, not a violation** | Its retrieval step is hard-wired to the operator's `OPENAI_EMBEDDING_API_KEY` and the caller cannot redirect it (`route.ts:18-20`, `:36`). Allowing it would send guest-authored question text to OpenAI on the operator's credential — a privacy and cost regression. |
+| `docs-context` is locked for guests even when they run a local model, which is stricter than a reader of clarification 4 might expect. | **Product decision, not a violation** | Its retrieval step is hard-wired to the operator's `AI_PORTAL_EMBEDDING_API_KEY` and the caller cannot redirect it (`route.ts:18-20`, `:36`). Allowing it would send guest-authored question text to OpenAI on the operator's credential — a privacy and cost regression. |
 | Making the Docs Consultant retrieval provider configurable and defaulting it to local would be a cleaner long-term fix, but it changes an existing RAG pipeline and its pre-embedded corpus, which the spec places out of scope. Worth raising as a follow-up. | Alternative rejected | — |
 
 ├── spec.md                    # Feature specification (/speckit-specify output)

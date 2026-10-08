@@ -257,6 +257,7 @@ const PROVIDER_PATHS: Record<AIProvider, string> = {
   openai: '/v1/chat/completions',
   anthropic: '/v1/messages',
   gemini: '/v1beta',
+  aiportal: '/jpe/responses',
 };
 
 export function normalizeBaseUrl(raw: string): string {
@@ -458,6 +459,60 @@ function openAiTokenLimit(modelId: string, maxTokens?: number): Record<string, n
   return modelId.toLowerCase().startsWith('gpt-5')
     ? { max_completion_tokens: maxTokens }
     : { max_tokens: maxTokens };
+}
+
+function responsesRequestBody(modelId: string, call: ProviderCall, stream = false) {
+  return {
+    model: modelId,
+    input: call.messages.map(({ role, content }) => ({ role, content })),
+    ...(call.maxTokens ? { max_output_tokens: call.maxTokens } : {}),
+    ...(call.jsonMode ? { text: { format: { type: 'json_object' } } } : {}),
+    ...(stream ? { stream: true } : {}),
+  };
+}
+
+function extractResponsesText(payload: {
+  output_text?: unknown;
+  output?: Array<{ content?: Array<{ type?: string; text?: unknown }> }>;
+}): string {
+  if (typeof payload.output_text === 'string') return payload.output_text;
+  return (payload.output ?? [])
+    .flatMap((item) => item.content ?? [])
+    .filter((part) => part.type === 'output_text' && typeof part.text === 'string')
+    .map((part) => part.text as string)
+    .join('');
+}
+
+async function callAIPortalResponses(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  call: ProviderCall
+): Promise<string> {
+  const response = await safeFetch(
+    resolveProviderUrl('aiportal', baseUrl),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: call.signal,
+      body: JSON.stringify(responsesRequestBody(modelId, call)),
+    },
+    'Unable to reach AI Portal API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    const error = detail?.error;
+    const message = typeof error === 'string' ? error : error?.message;
+    throw new AIServiceError(
+      `AI Portal request failed (${response.status}): ${message || response.statusText}`
+    );
+  }
+
+  return extractResponsesText(await response.json());
 }
 
 /** Embeddings are OpenAI-only here, so this has no per-provider dispatch — just the one endpoint. */
@@ -871,6 +926,60 @@ async function callOpenAIStream(
   return response.body ?? emptyByteStream();
 }
 
+async function callAIPortalResponsesStream(
+  apiKey: string,
+  modelId: string,
+  baseUrl: string,
+  call: ProviderCall
+): Promise<ReadableStream<Uint8Array>> {
+  const response = await safeFetch(
+    resolveProviderUrl('aiportal', baseUrl),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: call.signal,
+      body: JSON.stringify(responsesRequestBody(modelId, call, true)),
+    },
+    'Unable to reach AI Portal API. Check the server network connection.'
+  );
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    const error = detail?.error;
+    const message = typeof error === 'string' ? error : error?.message;
+    throw new AIServiceError(
+      `AI Portal request failed (${response.status}): ${message || response.statusText}`
+    );
+  }
+  if (!response.body) return emptyByteStream();
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        await pumpSseFrames(response.body!, (event, data) => {
+          if (data === '[DONE]') return;
+          const payload = JSON.parse(data);
+          const type = payload.type ?? event;
+          if (type === 'response.output_text.delta' && typeof payload.delta === 'string') {
+            controller.enqueue(encodeDeltaChunk(payload.delta));
+          } else if (type === 'response.failed' || type === 'error') {
+            const message =
+              payload.error?.message ?? payload.response?.error?.message ?? payload.message;
+            throw new AIServiceError(message || 'AI Portal streaming request failed.');
+          }
+        });
+        controller.enqueue(SSE_DONE_CHUNK);
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+  });
+}
+
 /** Streaming counterpart of {@link callAnthropic}: re-emits `content_block_delta` events as
  * OpenAI-delta chunks so the client can use one parser for every provider. */
 async function callAnthropicStream(
@@ -1031,6 +1140,8 @@ export async function generateWithCloudKey(
   switch (provider) {
     case 'openai':
       return callOpenAI(apiKey, modelId, baseUrl, call);
+    case 'aiportal':
+      return callAIPortalResponses(apiKey, modelId, baseUrl, call);
     case 'anthropic':
       return callAnthropic(apiKey, modelId, baseUrl, call);
     case 'gemini':
@@ -1078,6 +1189,8 @@ export async function generateWithCloudKeyStream(
   switch (provider) {
     case 'openai':
       return callOpenAIStream(apiKey, modelId, baseUrl, call);
+    case 'aiportal':
+      return callAIPortalResponsesStream(apiKey, modelId, baseUrl, call);
     case 'anthropic':
       return callAnthropicStream(apiKey, modelId, baseUrl, call);
     case 'gemini':

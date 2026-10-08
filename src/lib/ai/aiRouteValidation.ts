@@ -10,13 +10,13 @@ export const VALID_ROLES = new Set(['system', 'user', 'assistant']);
  * The base URL arrives from the browser, and the route attaches a real credential to the
  * outgoing request — so an unchecked value would let any caller redirect our API key to a host
  * they control. Only each provider's official host is trusted by default; extra hosts (an
- * internal LLM gateway, say) must be opted into server-side via AI_ALLOWED_BASE_URLS.
+ * internal LLM gateway, say) must be opted into server-side via AI_PORTAL_BASE_URL.
  */
 /** A hostname, optionally with a port — what an allow-list entry must reduce to. */
 const HOSTNAME_PATTERN = /^[a-z0-9.-]+(?::\d+)?$/i;
 
 /**
- * Reads one host out of an AI_ALLOWED_BASE_URLS entry. Values get pasted in with array
+ * Reads one host out of an AI_PORTAL_BASE_URL entry. Values get pasted in with array
  * brackets and quotes (`['https://gw/x']`), so those are stripped rather than silently
  * accepted as a hostname that can never match anything.
  */
@@ -44,14 +44,14 @@ function allowedHosts(provider: CloudProvider): Set<string> {
     /* unreachable: the defaults are valid URLs */
   }
 
-  for (const entry of (process.env.AI_ALLOWED_BASE_URLS ?? '').split(',')) {
+  for (const entry of (process.env.AI_PORTAL_BASE_URL ?? '').split(',')) {
     if (!entry.trim()) continue;
     const host = parseAllowListEntry(entry);
     if (host) hosts.add(host);
     // A silently ignored entry looks identical to a missing one, which is what made this hard
     // to diagnose in the first place.
     else
-      console.warn(`[api/ai/generate] Ignoring unparseable AI_ALLOWED_BASE_URLS entry: ${entry}`);
+      console.warn(`[api/ai/generate] Ignoring unparseable AI_PORTAL_BASE_URL entry: ${entry}`);
   }
   return hosts;
 }
@@ -119,7 +119,7 @@ export function resolveAllowedBaseUrl(
       `Base URL host "${parsed.host}" is not allow-listed for ${provider}. ` +
       `Allowed right now: ${[...allowed].join(', ')}. ` +
       `Either set Base URL back to ${DEFAULT_BASE_URLS[provider]} in Settings, ` +
-      `or add AI_ALLOWED_BASE_URLS=${parsed.origin} to .env and restart the server.`,
+      `or add AI_PORTAL_BASE_URL=${parsed.origin} to .env and restart the server.`,
   };
 }
 

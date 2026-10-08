@@ -24,7 +24,7 @@ export interface AIModelConfig {
   provider: AIProvider;
   /**
    * Per-provider API root, all persisted so switching provider does not lose the others.
-   * Cloud overrides must also be allow-listed server-side (AI_ALLOWED_BASE_URLS) before the
+   * Cloud overrides must also be allow-listed server-side (AI_PORTAL_BASE_URL) before the
    * route will send a credential to them.
    */
   baseUrls: Record<AIProvider, string>;
@@ -259,8 +259,8 @@ export const useAppStore = create<AppState>()(
       // v2 backfilled aiConfig; v3 added the context-window / batching fields;
       // v4 moved cloud API keys to the server; v5 replaced ollamaBaseUrl with a per-provider map;
       // v6 made contextTokens / maxOutputTokens per-provider; v7 backfilled the installed
-      // local Ollama model so existing browsers do not keep an unusable empty model name.
-      version: 7,
+      // local Ollama model; v8 backfills token budgets for newly added providers.
+      version: 8,
       migrate: (persistedState) => {
         const { analysisResult: _drop, ...rest } =
           (persistedState as Record<string, unknown>) || {};

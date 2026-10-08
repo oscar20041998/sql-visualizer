@@ -39,7 +39,7 @@ Transform the existing SQL metrics dashboard (`src/app/sql-metrics-dashboard`) f
 | III. Real-Time Feedback Loop | PASS | Dashboard reads `useAppStore().analysisResult` written by the existing re-analysis flow; no page reloads introduced; the health summary refreshes in place. |
 | IV. AI-Grounded Explanations | PASS | AI Insights call the existing `aiService` with grounded prompts and the `fitContextBrief` parser-facts brief; outputs are visibly labeled and must not contradict deterministic facts; deterministic analysis remains the source of truth. |
 | V. Minimal Deployment Friction | PASS | Ollama stays the default provider; no new providers or browser credentials; AI unavailability never blocks deterministic analysis. |
-| Security & Privacy | PASS | No new credential exposure; cloud AI remains server-side (env + `AI_ALLOWED_BASE_URLS`); SQL/analysis data stays local or app-server-side as today. |
+| Security & Privacy | PASS | No new credential exposure; cloud AI remains server-side (env + `AI_PORTAL_BASE_URL`); SQL/analysis data stays local or app-server-side as today. |
 | Testing standard (Vitest, dialect edge cases) | PASS | New normalization/adapter/capability logic and components get `tests/unit` coverage; dialect edge cases documented in tests. |
 | Type Safety (strict; justified `any` only) | PASS | New modules fully typed; no new `any`. |
 | Performance (>50 tables < 1s) | PASS | Normalization and adapter are pure O(n) functions over the computed result; no re-parsing in UI. |

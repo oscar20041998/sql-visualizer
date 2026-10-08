@@ -213,6 +213,7 @@ const FALLBACK_CHAT_MODELS: Record<CloudProvider, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5', 'gpt-5-mini'],
   anthropic: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022'],
   gemini: ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'],
+  aiportal: ['GPT-6-Luna', 'GPT-5.4', 'GPT-5.4-mini', 'GPT-5', 'GPT-5-mini', 'DeepSeek-V4.1-Flash', 'Kimi-K2.6', 'Kimi-K2.5', 'DeepSeek-V4-Flash', 'Gemini-3.1-Flash-Lite', 'Gemini-3.1-Pro', 'Gemini-3.6-Flash', 'Gemini-3.5-Flash', 'Gemini-3.5-Flash-Lite', 'Gemini-3-Flash'],
 };
 
 const CONTEXT_TOKEN_PRESETS: Record<AIProvider, number[]> = {
@@ -220,6 +221,7 @@ const CONTEXT_TOKEN_PRESETS: Record<AIProvider, number[]> = {
   openai: [8192, 16384, 32768, 65536, 128000, 200000, 400000],
   anthropic: [8192, 16384, 32768, 65536, 100000, 200000],
   gemini: [8192, 16384, 32768, 65536, 128000, 256000, 512000, 1000000],
+  aiportal: [8192, 16384, 32768, 65536, 128000, 256000, 512000, 1000000],
 };
 
 const MAX_OUTPUT_TOKEN_PRESETS = [128, 256, 512, 1024, 1200, 2048, 4096, 8192, 12288, 16384];
@@ -314,7 +316,13 @@ export default function SettingsContent() {
         })
         .then((models: string[]) => {
           if (!controller.signal.aborted) {
-            setAvailableModels(models);
+            const modelsToUse =
+              models.length > 0
+                ? models
+                : aiDraft.provider === 'aiportal'
+                  ? FALLBACK_CHAT_MODELS.aiportal
+                  : models;
+            setAvailableModels(modelsToUse);
             setModelsLoaded(true);
             if (models.length > 0) {
               // Prefer the provider's curated default; fall back to whatever it returned first.
@@ -334,6 +342,10 @@ export default function SettingsContent() {
         })
         .catch((error: unknown) => {
           if (!controller.signal.aborted) {
+            if (aiDraft.provider === 'aiportal') {
+              setAvailableModels(FALLBACK_CHAT_MODELS.aiportal);
+              setModelsLoaded(true);
+            }
             setModelLoadError(error instanceof Error ? error.message : t.aiModelsLoadFailed);
           }
         })
@@ -449,6 +461,7 @@ export default function SettingsContent() {
     { value: 'openai', label: t.aiProviderOpenAI },
     { value: 'anthropic', label: t.aiProviderAnthropic },
     { value: 'gemini', label: t.aiProviderGemini },
+    { value: 'aiportal', label: t.aiProviderAIPortal }
   ];
   /** Registers a hand-typed model ID so it stays selectable in the combobox. */
   const addCustomModel = useCallback(
