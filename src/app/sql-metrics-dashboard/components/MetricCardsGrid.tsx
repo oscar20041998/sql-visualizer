@@ -67,7 +67,9 @@ function MetricCard({
       className={`group relative isolate overflow-hidden bg-card border rounded-lg p-4 flex flex-col gap-2 transition-all duration-300 ${
         alert ? 'border-danger/30 bg-danger/5' : 'border-border'
       } ${interactive ? 'cursor-pointer hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5' : ''}`}
-      style={{ containment: 'layout style paint', '--card-accent': accentColor } as React.CSSProperties}
+      style={
+        { containment: 'layout style paint', '--card-accent': accentColor } as React.CSSProperties
+      }
     >
       <div
         aria-hidden="true"
@@ -83,7 +85,10 @@ function MetricCard({
         />
       )}
       <div className="relative z-10 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: accentColor }}>
+        <span
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: accentColor }}
+        >
           {label}
         </span>
         <div
@@ -94,10 +99,7 @@ function MetricCard({
         </div>
       </div>
       <div className="relative z-10">
-        <span
-          className="text-2xl font-bold tabular-nums"
-          style={{ color: 'var(--primary)' }}
-        >
+        <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--primary)' }}>
           {value}
         </span>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
@@ -113,7 +115,13 @@ export default function MetricCardsGrid({ metrics, metricDetails, t }: MetricCar
 
   const detailModalConfig: Record<
     DetailMetricKey,
-    { title: string; icon: React.ElementType; accentColor: string; items: MetricDetailItem[]; footerNote?: string }
+    {
+      title: string;
+      icon: React.ElementType;
+      accentColor: string;
+      items: MetricDetailItem[];
+      footerNote?: string;
+    }
   > = {
     windowFunctions: {
       title: t.windowFunctions,

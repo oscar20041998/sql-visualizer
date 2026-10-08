@@ -90,7 +90,9 @@ export default function NestedSubquerySection({
             {subqueries.length}
           </span>
           {maxDepth > 0 && (
-            <span className="text-[10px] text-muted-foreground">· {t.metricsMaxStatus} {t.metricsLevelLabel} {maxDepth}</span>
+            <span className="text-[10px] text-muted-foreground">
+              · {t.metricsMaxStatus} {t.metricsLevelLabel} {maxDepth}
+            </span>
           )}
         </div>
       </div>

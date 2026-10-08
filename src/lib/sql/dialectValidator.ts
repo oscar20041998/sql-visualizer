@@ -141,9 +141,7 @@ async function crossCheckWithAst(
  * v4.18.0 has a PL-SQL grammar (both throw "plsql is not supported currently"), so Oracle is
  * never given a parser position (FR-019).
  */
-const CROSS_CHECK_GRAMMARS: Partial<
-  Record<SqlDialect, 'mysql' | 'postgresql' | 'transactsql'>
-> = {
+const CROSS_CHECK_GRAMMARS: Partial<Record<SqlDialect, 'mysql' | 'postgresql' | 'transactsql'>> = {
   mysql: 'mysql',
   postgresql: 'postgresql',
   sqlserver: 'transactsql',
@@ -208,8 +206,8 @@ export async function locateSyntaxError(
     new Parser().astify(sql, { database: grammar });
     return null;
   } catch (error) {
-    const start = (error as { location?: { start?: Omit<SyntaxErrorPosition, 'source'> } })
-      .location?.start;
+    const start = (error as { location?: { start?: Omit<SyntaxErrorPosition, 'source'> } }).location
+      ?.start;
     return start
       ? { offset: start.offset, line: start.line, column: start.column, source: 'ast-parser' }
       : null;

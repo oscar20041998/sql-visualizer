@@ -25,7 +25,12 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import { clearDemoAuthenticated, getSocialSession, isGuestSession, type UserSession } from '@/lib/demoAuth';
+import {
+  clearDemoAuthenticated,
+  getSocialSession,
+  isGuestSession,
+  type UserSession,
+} from '@/lib/demoAuth';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
 

@@ -115,6 +115,30 @@ describe('requestFormatFix', () => {
     ).resolves.toBe('SELECT * FROM (SELECT 1) t;');
   });
 
+  it('retries once with formatter feedback when the first response contains invalid SQL', async () => {
+    let requestCount = 0;
+    const fetchImpl = (async () => {
+      requestCount += 1;
+      return jsonResponse({
+        correctedSql: requestCount === 1 ? 'SELECT * FROM (' : 'SELECT * FROM users;',
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(
+      withStubbedFetch(fetchImpl, () => requestFormatFix(makeFormatError(), config))
+    ).resolves.toBe('SELECT * FROM users;');
+    expect(requestCount).toBe(2);
+  });
+
+  it('rejects when the single formatter-feedback retry is still invalid', async () => {
+    const fetchImpl = (async () =>
+      jsonResponse({ correctedSql: 'SELECT * FROM (' })) as unknown as typeof fetch;
+
+    await expect(
+      withStubbedFetch(fetchImpl, () => requestFormatFix(makeFormatError(), config))
+    ).rejects.toMatchObject({ kind: 'malformed', retryable: true });
+  });
+
   it('rejects with a malformed failure when the fix equals the original SQL', async () => {
     const fetchImpl = (async () =>
       jsonResponse({ correctedSql: 'SELECT * FROM (;' })) as unknown as typeof fetch;

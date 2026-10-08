@@ -71,7 +71,10 @@ function escapeRange(text: string, from: number, to: number): string {
 export function readMapperXml(source: string): SafeXmlResult {
   const findings: ConversionFinding[] = [];
   const boundsReached: string[] = [];
-  const finding = (kind: FindingKind, messageValues: Record<string, string>): ConversionFinding => ({
+  const finding = (
+    kind: FindingKind,
+    messageValues: Record<string, string>
+  ): ConversionFinding => ({
     kind,
     severity: 'error',
     messageKey: kind,

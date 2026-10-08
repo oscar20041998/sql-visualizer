@@ -200,10 +200,5 @@ export function searchConversations(
  * @returns Flat array in recency order
  */
 export function flattenGroupedConversations(grouped: GroupedConversations): StoredConversation[] {
-  return [
-    ...grouped.today,
-    ...grouped.yesterday,
-    ...grouped.previousSevenDays,
-    ...grouped.older,
-  ];
+  return [...grouped.today, ...grouped.yesterday, ...grouped.previousSevenDays, ...grouped.older];
 }

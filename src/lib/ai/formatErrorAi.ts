@@ -5,9 +5,10 @@
 // the contract requires. A rejected answer becomes a described failure the panel can render —
 // never a silent no-op.
 //
-// Local-only rule (constitution V / FR-014): requests go to the configured Ollama base URL through
-// the existing `generateWithAI` adapter. No cloud provider is reachable from this module.
+// Provider routing: requests go through the `generateWithAI` adapter with the Settings
+// `AIModelConfig` as-is — Ollama direct, cloud providers via the server proxy.
 import { generateWithAI } from './aiService';
+import { format } from 'sql-formatter';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale } from '@/lib/i18n';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
@@ -43,6 +44,8 @@ export interface FormatExplanation {
   rootCause: string;
   /** SQL fragments / error text the answer cites. Never empty. */
   evidence: string[];
+  /** Full corrected SQL returned alongside the diagnosis in the same model response. */
+  correctedSql: string;
 }
 
 /** The editor SQL captured when a fix was requested, used for the stale check (FR-016). */
@@ -51,8 +54,8 @@ export interface FormatFixSnapshot {
   proposedSql: string;
 }
 
-/** Answer tokens reserved for the explanation / fix. Small local windows are the norm here. */
-const EXPLAIN_MAX_TOKENS = 900;
+/** The complete response includes a full corrected query as well as the explanation. */
+const EXPLAIN_MAX_TOKENS = 3000;
 const FIX_MAX_TOKENS = 1200;
 
 /** Cap on how much of the failing SQL is embedded verbatim, so the prompt fits a small context. */
@@ -82,15 +85,25 @@ function groundingBlock(error: FormatError): string {
  * must not contradict the formatter; performance advice is explicitly out of scope so the answer
  * stays about the syntax failure.
  */
-export function buildExplainFormatErrorPrompt(error: FormatError, locale: Locale = 'en'): string {
+export function buildExplainFormatErrorPrompt(
+  error: FormatError,
+  locale: Locale = 'en',
+  region?: ErrorRegion | null
+): string {
   const languageInstruction =
     locale === 'vi'
       ? 'Write the "explanation" and "rootCause" fields in Vietnamese (tiếng Việt), using simple, beginner-friendly language. Keep the JSON keys exactly as named.'
       : 'Write the "explanation" and "rootCause" fields in English, using plain language.';
+  const regionBlock = region
+    ? `\nErroneous region (lines ${region.startLine}-${region.endLine}, from the ${region.source}): ${region.snippet}\n`
+    : '';
+  const correctionScope = region
+    ? 'Change only the erroneous region above and preserve every character outside it byte for byte.'
+    : 'Make the smallest syntax-only correction possible.';
 
-  return `A SQL formatter failed to parse a query. Explain the failure to the developer who wrote it.
+  return `A SQL formatter failed to parse a query. Explain the failure and provide a corrected query in one response.
 
-${groundingBlock(error)}
+${groundingBlock(error)}${regionBlock}
 
 SQL that failed to format:
 \`\`\`sql
@@ -101,15 +114,19 @@ Rules:
 - Ground every statement in the formatter message and the SQL above. Do not contradict the formatter.
 - Explain the syntax failure only. Do not give performance, indexing, or query-rewrite advice.
 - Be specific about the offending token, clause, or delimiter. Never invent a code fragment that is not in the SQL above.
+- Provide "correctedSql" as the full query with only the minimal syntax correction needed for the stated dialect.
+- Preserve the query's meaning, clauses, tables, columns, joins, filters, and ordering. Do not reformat unrelated SQL.
+- ${correctionScope}
 - ${languageInstruction}
-- Return only a JSON object with exactly these keys, in this order:
+- Return only one JSON object with exactly these keys, in this order:
 {
   "explanation": "plain-language statement of what the error is",
   "rootCause": "plain-language statement of why it happened",
-  "evidence": ["quoted SQL fragment or error text this answer relies on"]
+  "evidence": ["quoted SQL fragment or error text this answer relies on"],
+  "correctedSql": "the full corrected SQL query"
 }
 
-Both "explanation" and "rootCause" must be non-empty, and "evidence" must contain at least one item quoting the actual SQL or error text.`;
+Both "explanation" and "rootCause" must be non-empty, "evidence" must quote the actual SQL or error text, and "correctedSql" must be non-empty SQL.`;
 }
 
 /**
@@ -147,6 +164,55 @@ Return only a JSON object with exactly this key — no explanation, no prose:
 {
   "correctedSql": "the minimally corrected SQL"
 }`;
+}
+
+function buildFormatFixRetryPrompt(
+  error: FormatError,
+  rejectedSql: string,
+  formatterMessage: string
+): string {
+  return `Your previous SQL correction still failed the SQL formatter. Correct the syntax using the formatter's feedback below.
+
+SQL dialect: ${error.dialect}
+Original formatter error: ${error.message}
+Formatter error for your previous correction: ${formatterMessage}
+
+Original SQL:
+00sql
+${fitSqlForPrompt(error.sourceSql)}
+00
+
+Your previous correction:
+00sql
+${fitSqlForPrompt(rejectedSql)}
+00
+
+Return only a JSON object with exactly this key, containing a corrected SQL statement valid for the stated dialect:
+{ "correctedSql": "..." }`;
+}
+
+function formatterLanguage(
+  dialect: FormatError['dialect']
+): 'mysql' | 'postgresql' | 'tsql' | 'plsql' {
+  if (dialect === 'postgresql') return 'postgresql';
+  if (dialect === 'sqlserver') return 'tsql';
+  if (dialect === 'oracle') return 'plsql';
+  return 'mysql';
+}
+
+function validateFormatFix(sql: string, dialect: FormatError['dialect']): void {
+  format(sql, { language: formatterLanguage(dialect) });
+}
+
+function formatterFailureMessage(thrown: unknown): string {
+  const message = thrown instanceof Error ? thrown.message : String(thrown);
+  return (
+    message
+      .split(/\r?\n/)
+      .find((line) => line.trim())
+      ?.trim()
+      .slice(0, 240) ?? 'Unknown formatter error'
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -214,9 +280,10 @@ export function parseFormatExplanation(raw: string): FormatExplanation | null {
   const explanation = asTrimmedString(parsed.explanation);
   const rootCause = asTrimmedString(parsed.rootCause);
   const evidence = asStringList(parsed.evidence);
+  const correctedSql = asTrimmedString(parsed.correctedSql);
 
-  if (!explanation || !rootCause || evidence.length === 0) return null;
-  return { explanation, rootCause, evidence };
+  if (!explanation || !rootCause || evidence.length === 0 || !correctedSql) return null;
+  return { explanation, rootCause, evidence, correctedSql };
 }
 
 /**
@@ -324,17 +391,18 @@ function isGroundedInError(explanation: FormatExplanation, error: FormatError): 
 }
 
 /**
- * Asks the local model to explain a format error. Rejects with a {@link FormatAiError} carrying a
+ * Asks the configured model to explain a format error. Rejects with a {@link FormatAiError} carrying a
  * renderable state — never resolves with a partial, empty or ungrounded explanation (FR-012).
  */
 export async function requestFormatExplanation(
   error: FormatError,
   config: AIModelConfig,
-  locale: Locale = 'en'
+  locale: Locale = 'en',
+  region?: ErrorRegion | null
 ): Promise<FormatExplanation> {
   const raw = await runRequest(
     config,
-    buildExplainFormatErrorPrompt(error, locale),
+    buildExplainFormatErrorPrompt(error, locale, region),
     EXPLAIN_MAX_TOKENS
   );
   const parsed = parseFormatExplanation(raw);
@@ -348,16 +416,33 @@ export async function requestFormatExplanation(
       retryable: true,
     });
   }
+  if (parsed.correctedSql === error.sourceSql.trim()) {
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The model did not provide a correction to the SQL syntax error.',
+      retryable: true,
+    });
+  }
+  try {
+    validateFormatFix(parsed.correctedSql, error.dialect);
+  } catch {
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The model did not return a corrected query that the formatter can parse.',
+      retryable: true,
+    });
+  }
   return parsed;
 }
 
 /**
- * Asks the local model for a minimal, semantics-preserving correction. Resolves with the corrected
- * SQL only; the caller owns the re-format and apply gate (FR-010 / FR-015).
+ * Asks the configured model for a minimal, semantics-preserving correction. Resolves with the corrected
+ * SQL only. If the first correction still fails the formatter, one retry is made with its error
+ * feedback; the editor still owns the explicit apply gate (FR-010 / FR-015).
  */
 export async function requestFormatFix(error: FormatError, config: AIModelConfig): Promise<string> {
   const raw = await runRequest(config, buildFormatFixPrompt(error), FIX_MAX_TOKENS);
-  const correctedSql = parseFormatFix(raw, error.sourceSql);
+  let correctedSql = parseFormatFix(raw, error.sourceSql);
   if (!correctedSql) {
     throw new FormatAiError({
       kind: 'malformed',
@@ -366,5 +451,29 @@ export async function requestFormatFix(error: FormatError, config: AIModelConfig
       retryable: true,
     });
   }
-  return correctedSql;
+
+  try {
+    validateFormatFix(correctedSql, error.dialect);
+    return correctedSql;
+  } catch (firstFormatterError) {
+    const retryRaw = await runRequest(
+      config,
+      buildFormatFixRetryPrompt(error, correctedSql, formatterFailureMessage(firstFormatterError)),
+      FIX_MAX_TOKENS
+    );
+    correctedSql = parseFormatFix(retryRaw, error.sourceSql);
+    if (correctedSql) {
+      try {
+        validateFormatFix(correctedSql, error.dialect);
+        return correctedSql;
+      } catch {
+        // Report the same actionable state when the single feedback retry also fails validation.
+      }
+    }
+    throw new FormatAiError({
+      kind: 'malformed',
+      message: 'The proposed SQL still fails to format after one correction attempt.',
+      retryable: true,
+    });
+  }
 }

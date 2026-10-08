@@ -19,7 +19,7 @@ export const DEFAULT_BASE_URLS: Record<AIProvider, string> = {
   openai: 'https://api.openai.com',
   anthropic: 'https://api.anthropic.com',
   gemini: 'https://generativelanguage.googleapis.com',
-  aiportal: 'https://aiportalapi.stu-platform.live'
+  aiportal: 'https://aiportalapi.stu-platform.live',
 };
 
 /** Which environment variable holds each cloud provider's credential. */

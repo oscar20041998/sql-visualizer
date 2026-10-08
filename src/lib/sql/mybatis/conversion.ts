@@ -34,7 +34,9 @@ export function parseMapperXml(xml: string): MapperFile {
 /** Statement options in document order, feeding the picker (FR-003, E10). */
 export function listStatements(model: MapperFile): StatementOption[] {
   return model.statements.map((statement) => {
-    const repeats = model.statements.some((other) => other.id === statement.id && other.key !== statement.key);
+    const repeats = model.statements.some(
+      (other) => other.id === statement.id && other.key !== statement.key
+    );
     const base = `${statement.type} ${statement.id}`;
     return {
       key: statement.key,

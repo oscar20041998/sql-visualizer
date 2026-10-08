@@ -76,26 +76,50 @@ function tokenize(input: string): Token[] {
   let i = 0;
   while (i < input.length) {
     const ch = input[i];
-    if (/\s/.test(ch)) { i += 1; continue; }
+    if (/\s/.test(ch)) {
+      i += 1;
+      continue;
+    }
     if (ch === "'" || ch === '"') {
       const quote = ch;
       let value = '';
       i += 1;
-      while (i < input.length && input[i] !== quote) { value += input[i]; i += 1; }
+      while (i < input.length && input[i] !== quote) {
+        value += input[i];
+        i += 1;
+      }
       i += 1;
       tokens.push({ type: 'string', value });
       continue;
     }
     if (/[0-9]/.test(ch)) {
       let text = '';
-      while (i < input.length && /[0-9.]/.test(input[i])) { text += input[i]; i += 1; }
+      while (i < input.length && /[0-9.]/.test(input[i])) {
+        text += input[i];
+        i += 1;
+      }
       tokens.push({ type: 'number', value: Number(text) });
       continue;
     }
-    if (ch === '(') { tokens.push({ type: 'lparen' }); i += 1; continue; }
-    if (ch === ')') { tokens.push({ type: 'rparen' }); i += 1; continue; }
+    if (ch === '(') {
+      tokens.push({ type: 'lparen' });
+      i += 1;
+      continue;
+    }
+    if (ch === ')') {
+      tokens.push({ type: 'rparen' });
+      i += 1;
+      continue;
+    }
     const two = input.slice(i, i + 2);
-    if (two === '==' || two === '!=' || two === '>=' || two === '<=' || two === '&&' || two === '||') {
+    if (
+      two === '==' ||
+      two === '!=' ||
+      two === '>=' ||
+      two === '<=' ||
+      two === '&&' ||
+      two === '||'
+    ) {
       tokens.push({ type: 'op', text: two });
       i += 2;
       continue;
@@ -107,7 +131,10 @@ function tokenize(input: string): Token[] {
     }
     if (/[A-Za-z_$]/.test(ch)) {
       let text = '';
-      while (i < input.length && /[A-Za-z0-9_.$]/.test(input[i])) { text += input[i]; i += 1; }
+      while (i < input.length && /[A-Za-z0-9_.$]/.test(input[i])) {
+        text += input[i];
+        i += 1;
+      }
       const word = text.toLowerCase();
       if (word === 'true') tokens.push({ type: 'boolean', value: true });
       else if (word === 'false') tokens.push({ type: 'boolean', value: false });
@@ -130,7 +157,10 @@ function tokenize(input: string): Token[] {
 class Parser {
   private index = 0;
 
-  constructor(private tokens: Token[], private params: ParameterSet) {}
+  constructor(
+    private tokens: Token[],
+    private params: ParameterSet
+  ) {}
 
   atEnd(): boolean {
     return this.index >= this.tokens.length;
@@ -205,8 +235,14 @@ class Parser {
       this.index += 1;
       return token.value;
     }
-    if (token.type === 'null') { this.index += 1; return null; }
-    if (token.type === 'path') { this.index += 1; return this.resolvePath(token.text); }
+    if (token.type === 'null') {
+      this.index += 1;
+      return null;
+    }
+    if (token.type === 'path') {
+      this.index += 1;
+      return this.resolvePath(token.text);
+    }
     throw new Error(`unexpected token: ${token.type}`);
   }
 

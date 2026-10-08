@@ -120,7 +120,9 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
     }
 
     // Semantic search hasn't run yet (or failed) — fall back to a plain text filter.
-    return history.filter((entry) => entry.sql.toLowerCase().includes(query)).map((entry) => ({ entry, score: null }));
+    return history
+      .filter((entry) => entry.sql.toLowerCase().includes(query))
+      .map((entry) => ({ entry, score: null }));
   }, [history, searchQuery, searchVector]);
 
   const handleLoad = useCallback(
@@ -208,7 +210,11 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
                   disabled={isSearching || !searchQuery.trim()}
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isSearching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                  {isSearching ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Search size={12} />
+                  )}
                   {isSearching ? t.queryHistorySearching : t.queryHistorySearchButton}
                 </button>
               </div>
@@ -243,7 +249,9 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
               )}
 
               {!isLoading && history.length > 0 && results.length === 0 && (
-                <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t.queryHistoryNoResults}</p>
+                <p className="px-1 py-6 text-center text-sm text-muted-foreground">
+                  {t.queryHistoryNoResults}
+                </p>
               )}
 
               <div className="space-y-2">
@@ -255,15 +263,21 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
                       >
                         {complexityLabel(entry.complexityLevel, t)}
                       </span>
-                      <span className="text-[11px] uppercase text-muted-foreground">{entry.dialect}</span>
-                      <span className="text-[11px] text-muted-foreground">{dateFormatter.format(entry.createdAt)}</span>
+                      <span className="text-[11px] uppercase text-muted-foreground">
+                        {entry.dialect}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {dateFormatter.format(entry.createdAt)}
+                      </span>
                       {score !== null && (
                         <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                           {Math.round(Math.max(0, score) * 100)}% {t.queryHistoryMatchLabel}
                         </span>
                       )}
                       {score === null && !entry.embedding && !searchQuery && (
-                        <span className="ml-auto text-[10px] text-muted-foreground/70">{t.queryHistoryEmbeddingPending}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground/70">
+                          {t.queryHistoryEmbeddingPending}
+                        </span>
                       )}
                     </div>
 
@@ -313,7 +327,10 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
                 ) : (
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="text-muted-foreground">{t.queryHistoryConfirmClearAll}</span>
-                    <button onClick={handleClearAll} className="font-semibold text-red-400 hover:underline">
+                    <button
+                      onClick={handleClearAll}
+                      className="font-semibold text-red-400 hover:underline"
+                    >
                       {t.queryHistoryConfirmYes}
                     </button>
                     <button

@@ -169,7 +169,10 @@ export const SQL_REGEX_PATTERNS = {
   // item. Replaces a much weaker ad-hoc `[\w.]+` pattern that silently truncated bracket/quote
   // -wrapped multi-segment names (e.g. `[db].[dbo].[Table]` matched only "db") and dropped the
   // real table from the graph entirely.
-  FROM_LIST_ITEM: new RegExp(`^(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s*$`, 'i'),
+  FROM_LIST_ITEM: new RegExp(
+    `^(${QUALIFIED_NAME})(?:\\s+(?:AS\\s+)?(${IDENT_SEGMENT}))?\\s*$`,
+    'i'
+  ),
 
   // Detects a derived-table (subquery-as-table) FROM/JOIN item: optional LATERAL keyword then '('.
   DERIVED_TABLE_START: /^(?:LATERAL\s+)?\(/i,

@@ -102,9 +102,10 @@ export default function ComplexityFactorsBreakdown({
 
   const totalContribution = formulaFactors.reduce((sum, factor) => sum + factor.contribution, 0);
   const joinsContribution = detailedComplexity?.scoreBreakdown.joins.totalScore ?? 0;
-  const keywordJoinsContribution = detailedComplexity?.scoreBreakdown.keywords
-    .filter((keyword) => keyword.category.includes('JOIN'))
-    .reduce((sum, keyword) => sum + keyword.subtotal, 0) ?? 0;
+  const keywordJoinsContribution =
+    detailedComplexity?.scoreBreakdown.keywords
+      .filter((keyword) => keyword.category.includes('JOIN'))
+      .reduce((sum, keyword) => sum + keyword.subtotal, 0) ?? 0;
   const joinsReconcile = joinsContribution === keywordJoinsContribution;
 
   return (
@@ -118,8 +119,14 @@ export default function ComplexityFactorsBreakdown({
       {detailedComplexity ? (
         <>
           <div className="grid grid-cols-3 gap-3 mb-5">
-            <SummaryMetric label={t.complexityFactorsTotalScore} value={detailedComplexity.totalScore} />
-            <SummaryMetric label={t.complexityFactorsMaximumScore} value={detailedComplexity.maxScorePossible} />
+            <SummaryMetric
+              label={t.complexityFactorsTotalScore}
+              value={detailedComplexity.totalScore}
+            />
+            <SummaryMetric
+              label={t.complexityFactorsMaximumScore}
+              value={detailedComplexity.maxScorePossible}
+            />
             <SummaryMetric
               label={t.complexityFactorsPercentageOfMaximum}
               value={`${Math.round(detailedComplexity.percentageOfMax)}%`}
@@ -129,7 +136,10 @@ export default function ComplexityFactorsBreakdown({
             {formulaFactors.map((factor) => {
               const pct =
                 detailedComplexity.totalScore > 0
-                  ? Math.min(100, Math.round((factor.contribution / detailedComplexity.totalScore) * 100))
+                  ? Math.min(
+                      100,
+                      Math.round((factor.contribution / detailedComplexity.totalScore) * 100)
+                    )
                   : 0;
               return (
                 <div
@@ -153,7 +163,11 @@ export default function ComplexityFactorsBreakdown({
                       style={{
                         width: `${pct}%`,
                         background:
-                          pct > 66 ? 'var(--danger)' : pct > 33 ? 'var(--warning)' : 'var(--success)',
+                          pct > 66
+                            ? 'var(--danger)'
+                            : pct > 33
+                              ? 'var(--warning)'
+                              : 'var(--success)',
                       }}
                     />
                   </div>
@@ -162,10 +176,14 @@ export default function ComplexityFactorsBreakdown({
             })}
           </div>
           <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{t.complexityFactorsReconciled}: {totalContribution} / {detailedComplexity.totalScore}</span>
+            <span>
+              {t.complexityFactorsReconciled}: {totalContribution} / {detailedComplexity.totalScore}
+            </span>
             <div className="flex items-center gap-3">
               <span className={joinsReconcile ? 'text-success' : 'text-danger'}>
-                {joinsReconcile ? t.complexityFactorsJoinsConsistent : t.complexityFactorsJoinsMismatch}
+                {joinsReconcile
+                  ? t.complexityFactorsJoinsConsistent
+                  : t.complexityFactorsJoinsMismatch}
               </span>
               {metrics && (
                 <span className={subqueryReconcile ? 'text-success' : 'text-danger'}>

@@ -188,11 +188,11 @@ export const useDatabaseAssistantHistoryStore = create<ConversationHistoryState>
   setActiveConversation: (conversationId: string | null) => {
     set((state) => {
       // Validate ID exists if not null
-      if (
-        conversationId !== null &&
-        !state.conversations.some((c) => c.id === conversationId)
-      ) {
-        console.warn('[db-assistant-history] Cannot activate nonexistent conversation', conversationId);
+      if (conversationId !== null && !state.conversations.some((c) => c.id === conversationId)) {
+        console.warn(
+          '[db-assistant-history] Cannot activate nonexistent conversation',
+          conversationId
+        );
         return {};
       }
 
@@ -218,7 +218,10 @@ export const useDatabaseAssistantHistoryStore = create<ConversationHistoryState>
     set((state) => {
       const conv = state.conversations.find((c) => c.id === conversationId);
       if (!conv) {
-        console.warn('[db-assistant-history] Cannot rename nonexistent conversation', conversationId);
+        console.warn(
+          '[db-assistant-history] Cannot rename nonexistent conversation',
+          conversationId
+        );
         return {};
       }
 
@@ -244,7 +247,10 @@ export const useDatabaseAssistantHistoryStore = create<ConversationHistoryState>
     set((state) => {
       const index = state.conversations.findIndex((c) => c.id === conversationId);
       if (index < 0) {
-        console.warn('[db-assistant-history] Cannot delete nonexistent conversation', conversationId);
+        console.warn(
+          '[db-assistant-history] Cannot delete nonexistent conversation',
+          conversationId
+        );
         return {};
       }
 
@@ -287,7 +293,10 @@ export const useDatabaseAssistantHistoryStore = create<ConversationHistoryState>
     set((state) => {
       const conv = state.conversations.find((c) => c.id === conversationId);
       if (!conv) {
-        console.warn('[db-assistant-history] Cannot add message to nonexistent conversation', conversationId);
+        console.warn(
+          '[db-assistant-history] Cannot add message to nonexistent conversation',
+          conversationId
+        );
         return {};
       }
 

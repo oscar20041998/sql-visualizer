@@ -93,13 +93,18 @@ export function buildSpeechScript(explanation: SqlExplanation, t: Translations):
     `${t.aiExplainerGrain}. ${sections.report_grain || t.aiExplainerNoContent}`,
     sections.filter_categories.length
       ? `${t.aiExplainerFilters}. ${sections.filter_categories
-          .map((category) => `${category.category}: ${category.items.map((item) => item.replace(/\.?$/, '.')).join(' ')}`)
+          .map(
+            (category) =>
+              `${category.category}: ${category.items.map((item) => item.replace(/\.?$/, '.')).join(' ')}`
+          )
           .join(' ')}`
       : `${t.aiExplainerFilters}. ${t.aiExplainerNoFilters}`,
   ];
 
   if (sections.data_sources.length) {
-    parts.push(`${t.aiExplainerTables}. ${sections.data_sources.map((source) => source.name).join(', ')}.`);
+    parts.push(
+      `${t.aiExplainerTables}. ${sections.data_sources.map((source) => source.name).join(', ')}.`
+    );
   }
 
   return clampSpeechText(parts.join('\n'));

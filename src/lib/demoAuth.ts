@@ -154,9 +154,7 @@ export function setDemoAuthenticated(password: string): Promise<boolean> {
  * Returns whether the server issued a session. A `false` result is not an error to hide: the local
  * session remains valid for the workspace, only the AI capability is unavailable.
  */
-async function requestSession(
-  body: Record<string, unknown>
-): Promise<boolean> {
+async function requestSession(body: Record<string, unknown>): Promise<boolean> {
   if (typeof fetch === 'undefined') return false;
   try {
     const response = await fetch('/api/session', {
@@ -182,7 +180,10 @@ export async function persistGuestSessionCookie(startedAt: number): Promise<bool
  * Starts a demo session. The password is verified by the server, which is the only reason the cookie
  * means anything (research.md R6, R8).
  */
-export async function persistDemoSessionCookie(password: string, startedAt: number): Promise<boolean> {
+export async function persistDemoSessionCookie(
+  password: string,
+  startedAt: number
+): Promise<boolean> {
   return requestSession({ kind: 'demo', password, startedAt });
 }
 
@@ -238,7 +239,11 @@ export function clearSocialSession(): void {
  * localStorage entry cannot produce a working AI cookie.
  */
 export async function setSocialSession(session: UserSession): Promise<boolean> {
-  const granted = await persistSocialSessionCookie(session.provider, session.accessToken, Date.now());
+  const granted = await persistSocialSessionCookie(
+    session.provider,
+    session.accessToken,
+    Date.now()
+  );
   if (granted) window.localStorage.setItem(SOCIAL_AUTH_STORAGE_KEY, JSON.stringify(session));
   return granted;
 }

@@ -77,6 +77,16 @@ and failed before the implementation. `/speckit-tdd-plan` writes the baseline en
   `npm test` -> 34 files, 230 tests
 - refactor: none needed.
 - commit: none — see cycle 1.
+
+### Cycle 45 - U84 (one response contains explanation and correction)
+
+- test: `tests/unit/format-error-ai.test.ts::returns the explanation and corrected SQL from one local-model response`
+- red: `npx vitest run tests/unit/format-error-ai.test.ts -t "returns the explanation and corrected SQL from one local-model response"`
+  -> expected the single Ollama request body to contain `"correctedSql"`, but the prompt only asked for `explanation`, `rootCause`, and `evidence` (1 failed, 22 skipped).
+- green: the prompt now requests explanation, root cause, evidence and corrected SQL together; the parser requires all fields and the service rejects unchanged or formatter-invalid SQL. The panel exposes one combined action and uses that response for the correction.
+- verification: `npx vitest run tests/unit/format-error-ai.test.ts -t "returns the explanation and corrected SQL from one local-model response|issues one non-streaming request containing both diagnosis and correction"` -> 2 passed; `npx vitest run tests/unit/format-error-panel.test.tsx -t "offers one combined action and uses its single response for the correction"` -> 1 passed.
+- refactor: none.
+- task sync: U84 and U85 marked DONE; T049 marked complete. T025/U44 remain pending because the prompt does not yet include the cross-check parser's actual error findings.
 - tasks: **T022 ticked** — it names `[U8] [U9]` and both are now `DONE`.
 
 ## Cycle 4: U10 — a formatter offset resolves to a region covering the offending line
@@ -1111,3 +1121,4 @@ and failed before the implementation. `/speckit-tdd-plan` writes the baseline en
 - refactor: none.
 - task sync: T048 and U83 marked complete. Apply contract §4 now records the full-document fallback guard.
 - commit: none — see cycle 1.
+

@@ -91,22 +91,22 @@ export default function CTEAnalysisContent() {
           </button>
           {ctes.length > 0 && (
             <>
-            <button
-              onClick={expandAll}
-              className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
-            >
-              {t.expandAll}
-            </button>
-            <button
-              onClick={collapseAll}
-              className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
-            >
-              {t.collapseAll}
-            </button>
+              <button
+                onClick={expandAll}
+                className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
+              >
+                {t.expandAll}
+              </button>
+              <button
+                onClick={collapseAll}
+                className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
+              >
+                {t.collapseAll}
+              </button>
             </>
           )}
-          </div>
         </div>
+      </div>
 
       {/* CTE Summary Stats */}
       {ctes.length > 0 && (

@@ -10,7 +10,16 @@ import type { AIModelConfig } from '../store';
 import type { Locale } from '../i18n';
 import type { SqlDialect } from '../sql/sqlAnalyzer';
 import { checkSelectAll, checkOtherLintingRules, type LintingIssue } from '../sql/complexityScorer';
-import { callOllamaEmbed, generateWithAI, resolveBudget, safeFetch, streamWithAI, type AIMessage, type AIBudgetReport, AIServiceError } from './aiService';
+import {
+  callOllamaEmbed,
+  generateWithAI,
+  resolveBudget,
+  safeFetch,
+  streamWithAI,
+  type AIMessage,
+  type AIBudgetReport,
+  AIServiceError,
+} from './aiService';
 import { DATABASE_KNOWLEDGE_EMBEDDING_MODEL } from './aiProviders';
 import { estimateTokens, trimMessagesForBudget } from './aiTokens';
 
@@ -58,7 +67,9 @@ function extractJsonStringArray(text: string): string[] {
   try {
     const parsed = JSON.parse(withoutFence.slice(start, end + 1));
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    return parsed.filter(
+      (item): item is string => typeof item === 'string' && item.trim().length > 0
+    );
   } catch {
     return [];
   }
@@ -115,7 +126,12 @@ export async function fetchDatabaseKnowledgeContext(
   dialect?: SqlDialect
 ): Promise<DatabaseKnowledgeContext | null> {
   try {
-    const embedding = await callOllamaEmbed(ollamaBaseUrl, DATABASE_KNOWLEDGE_EMBEDDING_MODEL, question, signal);
+    const embedding = await callOllamaEmbed(
+      ollamaBaseUrl,
+      DATABASE_KNOWLEDGE_EMBEDDING_MODEL,
+      question,
+      signal
+    );
 
     const response = await safeFetch(
       '/api/ai/database-knowledge-context',
@@ -214,7 +230,9 @@ export class DatabaseAssistantService {
     const budget = resolveBudget(this.config);
     const systemPrompt =
       (DATABASE_ASSISTANT_SYSTEM_PROMPT[this.locale] ?? DATABASE_ASSISTANT_SYSTEM_PROMPT.en) +
-      (hasKnowledge ? DATABASE_KNOWLEDGE_ADDENDUM[this.locale] ?? DATABASE_KNOWLEDGE_ADDENDUM.en : '');
+      (hasKnowledge
+        ? (DATABASE_KNOWLEDGE_ADDENDUM[this.locale] ?? DATABASE_KNOWLEDGE_ADDENDUM.en)
+        : '');
     const available = Math.max(128, budget.promptTokens - estimateTokens(systemPrompt));
     const historyBudget = Math.floor(available * HISTORY_BUDGET_RATIO);
 
@@ -268,7 +286,11 @@ export class DatabaseAssistantService {
   }
 
   async stream(
-    { question, history = [], signal }: { question: string; history?: AIMessage[]; signal?: AbortSignal },
+    {
+      question,
+      history = [],
+      signal,
+    }: { question: string; history?: AIMessage[]; signal?: AbortSignal },
     onDelta: (text: string) => void
   ): Promise<DatabaseAssistantAnswer> {
     const prepared = await this.prepareRequest({ question, history, signal });
@@ -301,7 +323,10 @@ export async function streamDatabaseAssistant(
   { question, config, locale = 'en', history, signal }: DatabaseAssistantOptions,
   onDelta: (text: string) => void
 ): Promise<DatabaseAssistantAnswer> {
-  return new DatabaseAssistantService(config, locale).stream({ question, history, signal }, onDelta);
+  return new DatabaseAssistantService(config, locale).stream(
+    { question, history, signal },
+    onDelta
+  );
 }
 
 export interface FollowUpSuggestionsOptions {

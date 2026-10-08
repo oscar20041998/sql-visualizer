@@ -75,7 +75,9 @@ const StatItem = ({
   accent: string;
 }) => (
   <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-card/50 p-4 text-left">
-    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${accent}`}>
+    <div
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${accent}`}
+    >
       {icon}
     </div>
     <div>
@@ -170,129 +172,131 @@ export default function HomePage() {
       >
         {t.homeSkipToContent}
       </a>
-        {/* Header Navigation */}
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="flex h-16 items-center justify-between gap-4">
-              <a href="#top" className="flex items-center gap-3" aria-label={t.appName}>
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md shadow-primary/20">
-                  <Database className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-xl font-bold text-foreground leading-tight">{t.appName}</p>
-                  <p className="text-xs text-muted-foreground">{t.appTagline}</p>
-                </div>
-              </a>
-
-              <nav className="hidden md:flex items-center gap-1" aria-label={t.appName}>
-                <a
-                  href="#features"
-                  className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
-                >
-                  {t.homeNavFeatures}
-                </a>
-                <a
-                  href="#workflow"
-                  className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
-                >
-                  {t.homeNavWorkflow}
-                </a>
-                <button
-                  onClick={goToGuideline}
-                  className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
-                >
-                  {t.navGuideline}
-                </button>
-                <button
-                  onClick={goToReadme}
-                  className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
-                >
-                  {t.homeNavDocs}
-                </button>
-              </nav>
-
-              <div className="flex items-center gap-3">
-                <LanguageThemeSwitch />
-                <button
-                  onClick={handleGetStarted}
-                  className={`hidden md:inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground bg-gradient-to-r from-primary to-accent shadow-md shadow-primary/20 transition-opacity hover:opacity-90 ${FocusRing}`}
-                >
-                  {t.homeGetStartedButton}
-                  <ArrowUpRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setMobileMenuOpen((open) => !open)}
-                  className={`md:hidden rounded-md p-2 text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
-                  aria-expanded={mobileMenuOpen}
-                  aria-controls="mobile-nav"
-                  aria-label={mobileMenuOpen ? t.homeNavCloseMenu : t.homeNavOpenMenu}
-                >
-                  {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                </button>
+      {/* Header Navigation */}
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex h-16 items-center justify-between gap-4">
+            <a href="#top" className="flex items-center gap-3" aria-label={t.appName}>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md shadow-primary/20">
+                <Database className="w-6 h-6 text-primary-foreground" />
               </div>
+              <div className="hidden sm:block">
+                <p className="text-xl font-bold text-foreground leading-tight">{t.appName}</p>
+                <p className="text-xs text-muted-foreground">{t.appTagline}</p>
+              </div>
+            </a>
+
+            <nav className="hidden md:flex items-center gap-1" aria-label={t.appName}>
+              <a
+                href="#features"
+                className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
+              >
+                {t.homeNavFeatures}
+              </a>
+              <a
+                href="#workflow"
+                className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
+              >
+                {t.homeNavWorkflow}
+              </a>
+              <button
+                onClick={goToGuideline}
+                className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
+              >
+                {t.navGuideline}
+              </button>
+              <button
+                onClick={goToReadme}
+                className={`rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground ${FocusRing}`}
+              >
+                {t.homeNavDocs}
+              </button>
+            </nav>
+
+            <div className="flex items-center gap-3">
+              <LanguageThemeSwitch />
+              <button
+                onClick={handleGetStarted}
+                className={`hidden md:inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground bg-gradient-to-r from-primary to-accent shadow-md shadow-primary/20 transition-opacity hover:opacity-90 ${FocusRing}`}
+              >
+                {t.homeGetStartedButton}
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                className={`md:hidden rounded-md p-2 text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-nav"
+                aria-label={mobileMenuOpen ? t.homeNavCloseMenu : t.homeNavOpenMenu}
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
           </div>
+        </div>
 
-          {mobileMenuOpen && (
-            <nav
-              id="mobile-nav"
-              className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-md"
-              aria-label={t.appName}
-            >
-              <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-1">
-                <a
-                  href="#features"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
-                >
-                  {t.homeNavFeatures}
-                </a>
-                <a
-                  href="#workflow"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
-                >
-                  {t.homeNavWorkflow}
-                </a>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    goToGuideline();
-                  }}
-                  className={`rounded-md px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
-                >
-                  {t.navGuideline}
-                </button>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    goToReadme();
-                  }}
-                  className={`rounded-md px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
-                >
-                  {t.homeNavDocs}
-                </button>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    handleGetStarted();
-                  }}
-                  className={`mt-2 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-gradient-to-r from-primary to-accent transition-opacity hover:opacity-90 ${FocusRing}`}
-                >
-                  {t.homeGetStartedButton}
-                  <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </div>
-            </nav>
-          )}
-        </header>
+        {mobileMenuOpen && (
+          <nav
+            id="mobile-nav"
+            className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-md"
+            aria-label={t.appName}
+          >
+            <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-1">
+              <a
+                href="#features"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
+              >
+                {t.homeNavFeatures}
+              </a>
+              <a
+                href="#workflow"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
+              >
+                {t.homeNavWorkflow}
+              </a>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  goToGuideline();
+                }}
+                className={`rounded-md px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
+              >
+                {t.navGuideline}
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  goToReadme();
+                }}
+                className={`rounded-md px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
+              >
+                {t.homeNavDocs}
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleGetStarted();
+                }}
+                className={`mt-2 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-gradient-to-r from-primary to-accent transition-opacity hover:opacity-90 ${FocusRing}`}
+              >
+                {t.homeGetStartedButton}
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+          </nav>
+        )}
+      </header>
 
-        <main id="main" className="relative z-10">
-
+      <main id="main" className="relative z-10">
         {/* Hero Section */}
         <section className="relative max-w-7xl mx-auto px-6 pt-16 pb-20 md:pt-24 md:pb-24">
           {/* Decorative glow */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+          >
             <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
             <div className="absolute right-0 top-1/3 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
           </div>
@@ -476,7 +480,10 @@ export default function HomePage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-primary">{number}</span>
-                    <Icon size={19} className="text-primary transition-transform duration-300 group-hover:scale-110" />
+                    <Icon
+                      size={19}
+                      className="text-primary transition-transform duration-300 group-hover:scale-110"
+                    />
                   </div>
                   <h4 className="mt-7 text-lg font-semibold text-foreground">{title}</h4>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -489,7 +496,10 @@ export default function HomePage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="scroll-mt-24 max-w-7xl mx-auto px-6 py-20 border-t border-border/50">
+        <section
+          id="features"
+          className="scroll-mt-24 max-w-7xl mx-auto px-6 py-20 border-t border-border/50"
+        >
           <div
             className="text-center mb-16"
             style={{ animation: 'slideUp 0.6s ease-out 0ms both' }}
@@ -692,9 +702,16 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
-              {t.homeCopyrightText} <span className="text-primary" aria-hidden="true">✨</span> {t.homeForDevelopers}
+              {t.homeCopyrightText}{' '}
+              <span className="text-primary" aria-hidden="true">
+                ✨
+              </span>{' '}
+              {t.homeForDevelopers}
             </p>
-            <nav className="flex items-center gap-5 text-sm text-muted-foreground" aria-label={t.appName}>
+            <nav
+              className="flex items-center gap-5 text-sm text-muted-foreground"
+              aria-label={t.appName}
+            >
               <button
                 onClick={goToConfluence}
                 className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}

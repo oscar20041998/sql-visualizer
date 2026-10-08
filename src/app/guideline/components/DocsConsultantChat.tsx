@@ -26,11 +26,26 @@ function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[
     const token = match[0];
     const tokenKey = `${keyPrefix}-${key++}`;
     if (token.startsWith('***')) {
-      parts.push(<strong key={tokenKey} className="font-semibold text-foreground"><em>{token.slice(3, -3)}</em></strong>);
+      parts.push(
+        <strong key={tokenKey} className="font-semibold text-foreground">
+          <em>{token.slice(3, -3)}</em>
+        </strong>
+      );
     } else if (token.startsWith('**')) {
-      parts.push(<strong key={tokenKey} className="font-semibold text-foreground">{token.slice(2, -2)}</strong>);
+      parts.push(
+        <strong key={tokenKey} className="font-semibold text-foreground">
+          {token.slice(2, -2)}
+        </strong>
+      );
     } else if (token.startsWith('`')) {
-      parts.push(<code key={tokenKey} className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary">{token.slice(1, -1)}</code>);
+      parts.push(
+        <code
+          key={tokenKey}
+          className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
     } else {
       parts.push(<em key={tokenKey}>{token.slice(1, -1)}</em>);
     }
@@ -45,11 +60,11 @@ function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[
  * chunks server-side, then answers grounded in that context. Same interaction shape as
  * AiFollowUpChat, but each answer cites which doc section it came from.
  */
-export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({ 
-  config, 
-  locale, 
-  t, 
-  className = "rounded-2xl border border-border bg-card p-4 mb-6" 
+export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
+  config,
+  locale,
+  t,
+  className = 'rounded-2xl border border-border bg-card p-4 mb-6',
 }) => {
   // History and the in-progress draft live in the store, not local useState: this component is
   // remounted on every page navigation (GlobalChat is re-instantiated by each page's own
@@ -81,7 +96,11 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
       // Index of the placeholder assistant turn appended below, so streamed deltas can target it
       // without needing an id field on ChatTurn.
       const assistantIndex = priorHistory.length + 1;
-      setHistory((prev) => [...prev, { role: 'user', content: trimmed }, { role: 'assistant', content: '' }]);
+      setHistory((prev) => [
+        ...prev,
+        { role: 'user', content: trimmed },
+        { role: 'assistant', content: '' },
+      ]);
       setQuestion('');
       setIsAsking(true);
 
@@ -98,7 +117,9 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
         );
         if (controller.signal.aborted) return;
         setHistory((prev) =>
-          prev.map((turn, index) => (index === assistantIndex ? { ...turn, content: answer, sources } : turn))
+          prev.map((turn, index) =>
+            index === assistantIndex ? { ...turn, content: answer, sources } : turn
+          )
         );
       } catch (caught) {
         if ((caught as Error)?.name === 'AbortError') return;
@@ -132,7 +153,7 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
   ];
 
   return (
-    <div className={className + " flex flex-col h-full"}>
+    <div className={className + ' flex flex-col h-full'}>
       <div className="flex-1 scrollbar-thin overflow-y-auto space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -166,7 +187,9 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                     : 'mr-6 rounded-lg border border-border bg-muted px-3 py-2 text-muted-foreground'
                 }
               >
-                <p className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${turn.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}>
+                <p
+                  className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${turn.role === 'user' ? 'text-primary' : 'text-muted-foreground'}`}
+                >
                   {turn.role === 'user' ? t.docsConsultantRoleYou : t.docsConsultantRoleAssistant}
                 </p>
                 {turn.role === 'assistant' && !turn.content && isAsking ? (
@@ -175,7 +198,9 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
                     {t.docsConsultantThinking}
                   </p>
                 ) : (
-                  <p className={`whitespace-pre-wrap text-sm leading-relaxed ${turn.role === 'user' ? 'font-medium text-foreground' : 'font-normal text-muted-foreground'}`}>
+                  <p
+                    className={`whitespace-pre-wrap text-sm leading-relaxed ${turn.role === 'user' ? 'font-medium text-foreground' : 'font-normal text-muted-foreground'}`}
+                  >
                     {turn.role === 'assistant'
                       ? renderInlineMarkdown(turn.content, `docs-reply-${index}`)
                       : turn.content}

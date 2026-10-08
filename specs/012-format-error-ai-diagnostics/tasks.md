@@ -91,6 +91,7 @@ Single Next.js app: `src/app/`, `src/lib/`, `src/locales/` and `tests/unit/` at 
 - [x] T009 [US2] Implement `explainFormatError` prompt builder and response parser (embeds error message + dialect + SQL; parses `explanation`/`rootCause`/`evidence`) reusing `aiService` for the local Ollama call in `src/lib/ai/formatErrorAi.ts`
 - [x] T010 [US2] Add the "Explain" action and its loading/ready/unavailable/error states (render explanation, root cause, evidence) to `src/app/smart-sql-editor/components/FormatErrorPanel.tsx`
 - [ ] T025 [US2] Ground the explain and fix prompts with the bounded region snippet and, when the position came from the cross-check parser, its error findings; assert the grounding in `tests/unit/format-error-ai.test.ts` and implement in `src/lib/ai/formatErrorAi.ts` (FR-019, `research.md` R10) [U43] [U44]
+- [x] T049 [US2] Return the grounded explanation and formatter-valid corrected SQL from one local AI response, and expose the workflow through one combined action in `src/lib/ai/formatErrorAi.ts` and `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` [U84, U85] [FR-021]
 
 ---
 

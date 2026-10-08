@@ -50,7 +50,10 @@ function secretsMatch(a: string, b: string): boolean {
  * a session this app should mint a cookie for. A network failure is treated as a refusal — failing
  * closed is the only safe direction, since the alternative grants AI access to an unverified token.
  */
-async function isValidProviderToken(provider: 'google' | 'microsoft', token: string): Promise<boolean> {
+async function isValidProviderToken(
+  provider: 'google' | 'microsoft',
+  token: string
+): Promise<boolean> {
   const endpoint =
     provider === 'google'
       ? 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -84,12 +87,16 @@ export async function POST(request: Request): Promise<Response> {
     const password = typeof body.password === 'string' ? body.password : '';
     if (!secretsMatch(password, expectedDemoPassword())) {
       logger.warn('refused (invalid-credentials) requested=demo');
-      return Response.json({ error: 'Invalid credentials.', code: 'SESSION_INVALID' }, { status: 401 });
+      return Response.json(
+        { error: 'Invalid credentials.', code: 'SESSION_INVALID' },
+        { status: 401 }
+      );
     }
   }
 
   if (kind === 'social') {
-    const provider = body.provider === 'google' || body.provider === 'microsoft' ? body.provider : null;
+    const provider =
+      body.provider === 'google' || body.provider === 'microsoft' ? body.provider : null;
     const token = typeof body.accessToken === 'string' ? body.accessToken : '';
     if (!provider || !token || !(await isValidProviderToken(provider, token))) {
       logger.warn('refused (unverified-token) requested=social');

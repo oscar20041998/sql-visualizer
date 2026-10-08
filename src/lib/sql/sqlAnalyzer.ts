@@ -16,7 +16,11 @@ import {
   getComplexityLevelFromScore,
 } from '../../app/common/sqlAnalyzerUtils';
 import { parseMapperXml, resolveStatement } from './mybatis/conversion';
-import { collectConditionalParams, collectRawText, collectReferencePaths } from './mybatis/mapperModel';
+import {
+  collectConditionalParams,
+  collectRawText,
+  collectReferencePaths,
+} from './mybatis/mapperModel';
 import { normaliseSqlText } from './mybatis/renderer';
 
 // Parsing engine: regex, not AST.
@@ -289,18 +293,21 @@ export async function analyzeSql(
   );
   metricDetails = { ...metricDetails, subqueries: enhancedSubqueries };
 
-  const metrics = computeMetrics(cleaned, ctes, extractedTables, structuralReport, metricDetails, joins.length);
+  const metrics = computeMetrics(
+    cleaned,
+    ctes,
+    extractedTables,
+    structuralReport,
+    metricDetails,
+    joins.length
+  );
   const complexity = computeComplexity(metrics);
   const t = getT(locale as 'en' | 'vi');
   const executionCost = computeExecutionCost(metrics, complexity, dialect, t);
   const mainQueryFields = extractMainQueryFields(mainQuery, ctes, tables);
 
   // New: Calculate detailed complexity score using the comprehensive scoring engine
-  const detailedComplexity = await scoreQueryComplexity(
-    cleaned,
-    locale as 'en' | 'vi',
-    mainQuery
-  );
+  const detailedComplexity = await scoreQueryComplexity(cleaned, locale as 'en' | 'vi', mainQuery);
 
   // Detail records must use the same canonical edge list as the graph and relationship metric.
   const joinAnalysisDetails = analyzeAllJoins(joins);
@@ -316,7 +323,7 @@ export async function analyzeSql(
     executionCost,
     mainQueryFields,
     dialect,
-      rawSql: sql,
+    rawSql: sql,
     structuralReport,
     metricDetails,
     hasCTE: ctes.length > 0,
@@ -583,10 +590,12 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
     const afterKeyword = topFromIdx + 4;
     const leadingWs = /^\s*/.exec(sql.slice(afterKeyword))![0];
     const lateralMatch = /^LATERAL\s+/i.exec(sql.slice(afterKeyword + leadingWs.length));
-    const contentIdx = afterKeyword + leadingWs.length + (lateralMatch ? lateralMatch[0].length : 0);
+    const contentIdx =
+      afterKeyword + leadingWs.length + (lateralMatch ? lateralMatch[0].length : 0);
     if (sql[contentIdx] === '(') {
       const closeIdx = findMatchingParenIndex(sql, contentIdx);
-      const { alias } = closeIdx >= 0 ? parseAliasAfterParen(sql, closeIdx + 1) : { alias: undefined };
+      const { alias } =
+        closeIdx >= 0 ? parseAliasAfterParen(sql, closeIdx + 1) : { alias: undefined };
       const node = ensureDerivedTableNode(tables, alias, `derived_${derivedTableCounter++}`);
       fromTable = node.name;
     } else {
@@ -767,9 +776,7 @@ function extractJoins(sql: string, tables: TableNode[]): JoinEdge[] {
   return joins;
 }
 
-export function analyzeAllJoins(
-  joins: JoinEdge[]
-): Array<{
+export function analyzeAllJoins(joins: JoinEdge[]): Array<{
   id: string;
   joinEdge: JoinEdge;
   analysis: JoinConditionAnalysis;
@@ -815,8 +822,7 @@ function countCteSourceReferences(sql: string, cteNames: Set<string>): Map<strin
   const counts = new Map<string, number>();
   cteNames.forEach((name) => counts.set(name, 0));
 
-  const sourcePattern =
-    /\b(?:FROM|JOIN)\s+((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[\w.]+))/gi;
+  const sourcePattern = /\b(?:FROM|JOIN)\s+((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[\w.]+))/gi;
   const sourceSql = maskSqlStringLiterals(sql);
   let match: RegExpExecArray | null;
 
@@ -1272,7 +1278,10 @@ function findMatchingParenIndex(text: string, openIdx: number): number {
 }
 
 /** Parses an optional `[AS] alias` right after a derived table's closing paren. */
-function parseAliasAfterParen(text: string, afterCloseIdx: number): { alias?: string; endIdx: number } {
+function parseAliasAfterParen(
+  text: string,
+  afterCloseIdx: number
+): { alias?: string; endIdx: number } {
   const match = SQL_REGEX_PATTERNS.DERIVED_TABLE_ALIAS.exec(text.slice(afterCloseIdx));
   if (!match) return { endIdx: afterCloseIdx };
   const alias = match[1].replace(SQL_REGEX_PATTERNS.QUOTED_IDENTIFIER, '');
@@ -1332,7 +1341,9 @@ function ensureDerivedTableNode(
 ): TableNode {
   const name = alias || fallbackName;
   const key = name.toLowerCase();
-  const existing = tables.find((t) => t.name.toLowerCase() === key || t.alias?.toLowerCase() === key);
+  const existing = tables.find(
+    (t) => t.name.toLowerCase() === key || t.alias?.toLowerCase() === key
+  );
   if (existing) {
     setSourceType(existing, 'SUBQUERY');
     return existing;
@@ -1704,7 +1715,8 @@ function findImplicitJoinClauses(sql: string): { parts: string[]; whereText: str
       const whereKeywordEnd = j + upper.slice(j).match(/^\s+WHERE\b/)![0].length;
       whereText = scanClauseBody(sql, whereKeywordEnd, fromDepth, whereStopPattern).body;
     }
-    if (commaParts.length > 1) clauses.push({ parts: commaParts.map((part) => part.trim()), whereText });
+    if (commaParts.length > 1)
+      clauses.push({ parts: commaParts.map((part) => part.trim()), whereText });
 
     i = j;
   }
@@ -1825,12 +1837,7 @@ function extractImplicitJoinEdges(sql: string, tables: TableNode[]): JoinEdge[] 
       return true;
     };
 
-    const addEdge = (
-      a: number,
-      b: number,
-      joinType: JoinType,
-      condition: string
-    ) => {
+    const addEdge = (a: number, b: number, joinType: JoinType, condition: string) => {
       const sourceNode = nodes[a];
       const targetNode = nodes[b];
       if (!sourceNode || !targetNode || sourceNode.id === targetNode.id) return;
@@ -1875,7 +1882,9 @@ function findEquiJoinCondition(
   b: { name: string; alias?: string }
 ): string {
   const refsFor = (ref: { name: string; alias?: string }) =>
-    [ref.alias, ref.name].filter(Boolean).map((s) => (s as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    [ref.alias, ref.name]
+      .filter(Boolean)
+      .map((s) => (s as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const aRefs = refsFor(a);
   const bRefs = refsFor(b);
   if (!aRefs.length || !bRefs.length) return '';
@@ -1890,8 +1899,6 @@ function findEquiJoinCondition(
   if (reverse) return reverse[0].trim();
   return '';
 }
-
-
 
 function countCaseWhen(sql: string): number {
   const upper = sql.toUpperCase();

@@ -1,6 +1,6 @@
-# Contract: Format Error AI (Explain & Fix)
+# Contract: Format Error AI (Combined Diagnosis & Fix)
 
-Two interfaces the feature depends on. The internal `FormatError` shape is the contract between the formatter-capture helper and the panel; the two AI contracts define the structured JSON the local model must return.
+The internal `FormatError` shape is the contract between the formatter-capture helper and the panel; one AI response contract defines the structured JSON the local model must return.
 
 ## 1. Internal: FormatError (capture → panel)
 
@@ -19,37 +19,24 @@ type FormatError = {
 
 Guarantee: when `location` is absent, `snippet` and `locationSource` are also absent (no fabricated positions). The panel renders only the fields present. `dialect` always uses this canonical set — the formatter's `tsql`/`plsql` names and the AST parser's names are mapped to it before the value reaches the model or the contract.
 
-## 2. Explain request/response
+## 2. Combined request/response
 
-Request embeds: `error.message`, `error.dialect`, `error.snippet` (or `sourceSql`), and the full `sourceSql`. When the region came from the AST cross-check fallback, the parser's error message and the bounded region snippet are added to the grounding set (FR-019).
+Request embeds: `error.message`, `error.dialect`, and the full `sourceSql`. When a bounded region was resolved, its snippet and source label are included with an instruction to confine the correction to that region. Including the cross-check parser's actual error findings in the prompt remains pending (T025/U44).
 
-Response (strict JSON, no prose/fence):
+The panel exposes one action, **Giải thích và gợi ý sửa lỗi** (localized equivalently). One request returns strict JSON, no prose/fence:
 
 ```json
 {
   "explanation": "plain-language statement of what the error is",
   "rootCause": "plain-language statement of why it happened",
-  "evidence": ["quoted SQL fragment or error text the answer relies on"]
-}
-```
-
-Rules: `explanation` and `rootCause` non-empty; `evidence` ≥ 1 item, each quoting the actual SQL/error (grounding); never contradict the captured error; no SQL execution/perf advice.
-
-## 3. Fix request/response
-
-Request embeds: `error.message`, `error.dialect`, and the full `sourceSql`, plus an explicit instruction to make only the minimal syntax correction that preserves clauses, columns, and ordering. When a region was resolved, the request also quotes that region verbatim and instructs the model to confine every change to it (FR-019).
-
-Response (strict JSON):
-
-```json
-{
+  "evidence": ["quoted SQL fragment or error text the answer relies on"],
   "correctedSql": "the minimal corrected SQL"
 }
 ```
 
-Rules: `correctedSql` must be non-empty, differ from the input, and be a minimal, semantics-preserving change (FR-015). The response is a **single complete document** — no streaming (FR-021). The client never writes `correctedSql` verbatim: it extracts the model's actual delta (§4) and splices only the allowed region.
+Rules: `explanation` and `rootCause` non-empty; `evidence` ≥ 1 item, each quoting the actual SQL/error (grounding); `correctedSql` non-empty and different from the input; never contradict the captured error; no SQL execution/perf advice. The explanation and correction are returned together, not by separate requests.
 
-## 4. Apply contract (client-side, region-bounded)
+## 3. Apply contract (client-side, region-bounded)
 
 The AI returns a whole corrected document; the editor must still receive a **region-bounded splice**. These are pure functions (see research R8/R9) and the invariants are contractual:
 

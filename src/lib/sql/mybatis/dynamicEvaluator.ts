@@ -111,9 +111,14 @@ function renderText(
   context: EvalContext,
   bindings: Record<string, string>
 ): void {
-  const scan = resolveReferencesInText(node.text, { ...context.params, ...bindings }, context.profile, {
-    line: node.line,
-  });
+  const scan = resolveReferencesInText(
+    node.text,
+    { ...context.params, ...bindings },
+    context.profile,
+    {
+      line: node.line,
+    }
+  );
   context.references.push(...scan.references);
   context.findings.push(...scan.findings);
   context.pieces.push(scan.rendered);
@@ -125,7 +130,11 @@ function evaluateGuard(
   bindings: Record<string, string>,
   depth: number
 ): void {
-  const result = evaluateCondition(node.test, { ...context.params, ...bindings }, { line: node.line });
+  const result = evaluateCondition(
+    node.test,
+    { ...context.params, ...bindings },
+    { line: node.line }
+  );
   if (!result.ok) {
     // R7: keep the guarded SQL and report the condition — never silently drop it.
     if (result.finding) context.findings.push(result.finding);
@@ -144,7 +153,11 @@ function evaluateChoose(
   depth: number
 ): void {
   for (const branch of node.branches) {
-    const result = evaluateCondition(branch.test, { ...context.params, ...bindings }, { line: node.line });
+    const result = evaluateCondition(
+      branch.test,
+      { ...context.params, ...bindings },
+      { line: node.line }
+    );
     if (result.ok && result.value === true) {
       evaluateInto(branch.children, context, bindings, depth + 1);
       return;
@@ -279,10 +292,18 @@ function evaluateBind(
   context: EvalContext,
   bindings: Record<string, string>
 ): void {
-  const result = evaluateCondition(node.expression, { ...context.params, ...bindings }, { line: node.line });
+  const result = evaluateCondition(
+    node.expression,
+    { ...context.params, ...bindings },
+    { line: node.line }
+  );
   if (result.ok) {
     bindings[node.name] =
-      result.value === true ? 'true' : result.value === false ? 'false' : String(result.value ?? '');
+      result.value === true
+        ? 'true'
+        : result.value === false
+          ? 'false'
+          : String(result.value ?? '');
     return;
   }
   // FR-022: report the binding; later references fall back to their stand-in.
@@ -300,7 +321,10 @@ function stripLeadingConnective(body: string): string {
 }
 
 function stripOverridesAtStart(body: string, overrides: string): string {
-  const parts = overrides.split('|').map((part) => part.trim()).filter(Boolean);
+  const parts = overrides
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean);
   let result = body;
   for (const part of parts) {
     if (result.toUpperCase().startsWith(part.toUpperCase())) {
@@ -312,7 +336,10 @@ function stripOverridesAtStart(body: string, overrides: string): string {
 }
 
 function stripOverridesAtEnd(body: string, overrides: string): string {
-  const parts = overrides.split('|').map((part) => part.trim()).filter(Boolean);
+  const parts = overrides
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean);
   let result = body;
   for (const part of parts) {
     if (result.toUpperCase().endsWith(part.toUpperCase())) {

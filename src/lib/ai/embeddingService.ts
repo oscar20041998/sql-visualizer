@@ -26,7 +26,8 @@ export async function tryEmbedText(
     const vector = await embedWithAI(config, trimmed, signal);
     // embedWithAI throws before this point for a provider without an embeddings API (Anthropic),
     // so config.provider is guaranteed to be a key of DEFAULT_EMBEDDING_MODELS here.
-    const model = DEFAULT_EMBEDDING_MODELS[config.provider as keyof typeof DEFAULT_EMBEDDING_MODELS];
+    const model =
+      DEFAULT_EMBEDDING_MODELS[config.provider as keyof typeof DEFAULT_EMBEDDING_MODELS];
     return { vector, model };
   } catch {
     return null;

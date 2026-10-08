@@ -51,7 +51,9 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
             {showGuestResume && (
               <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{t.guestAccessResumeTitle}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {t.guestAccessResumeTitle}
+                  </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{t.guestAccessResumeBody}</p>
                 </div>
                 <button

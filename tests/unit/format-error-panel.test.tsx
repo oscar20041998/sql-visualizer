@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { format } from 'sql-formatter';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
@@ -27,6 +28,7 @@ function makeExplanation(overrides: Partial<FormatExplanation> = {}): FormatExpl
     explanation: 'The parenthesis is never closed.',
     rootCause: 'A delimiter arrives mid-expression.',
     evidence: ['SELECT * FROM (;'],
+    correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
     ...overrides,
   };
 }
@@ -139,9 +141,8 @@ interface AiHarnessProps {
 }
 
 /**
- * Harness for the US2/US3 AI states, with injectable request outcomes. The request fns are stable
- * across `currentSql` changes so a `rerender` with new SQL exercises only the stale gate — never a
- * re-entrant request — exactly like the real page, where the handlers are `useCallback`'d.
+ * Harness for the combined AI response and apply safety states. A fix fixture is folded into the
+ * one response callback so the panel never receives separate explain/fix requests.
  */
 function AiHarness({
   explain,
@@ -153,7 +154,15 @@ function AiHarness({
   region = DEFAULT_REGION,
 }: AiHarnessProps) {
   const stableExplain = useMemo(() => explain, [explain !== undefined]);
-  const stableFix = useMemo(() => fix, [fix !== undefined]);
+  const stableCombinedResponse = useMemo(
+    () =>
+      stableExplain ??
+      (fix
+        ? async (requestError: FormatError) =>
+            makeExplanation({ correctedSql: await fix(requestError) })
+        : undefined),
+    [stableExplain, fix !== undefined]
+  );
   return (
     <FormatErrorPanel
       error={error}
@@ -163,8 +172,7 @@ function AiHarness({
       currentSql={currentSql}
       onApplyFix={onApplyFix}
       onDismissFix={onDismissFix}
-      onRequestExplain={stableExplain}
-      onRequestFix={stableFix}
+      onRequestExplain={stableCombinedResponse}
     />
   );
 }
@@ -274,11 +282,36 @@ describe('FormatErrorPanel (US1)', () => {
 });
 
 describe('FormatErrorPanel (US2 — explain)', () => {
-  it('offers an Explain action when the handler is wired', () => {
+  it('offers one combined action and uses its single response for the correction', async () => {
+    const explain = vi.fn(async () =>
+      makeExplanation({ correctedSql: 'SELECT id, name FROM users WHERE active = 1;' })
+    );
+    const fix = vi.fn(async () => 'SELECT * FROM users;');
+
+    render(<AiHarness explain={explain} fix={fix} />);
+
+    expect(screen.getByRole('button', { name: t.formatErrorPanelExplain })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: t.formatErrorPanelFix })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+
+    expect(await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel })).toBeInTheDocument();
+    expect(explain).toHaveBeenCalledTimes(1);
+    expect(fix).not.toHaveBeenCalled();
+    const correction = screen
+      .getByRole('heading', { name: t.formatErrorPanelCorrectLabel })
+      .closest('section')
+      ?.querySelector('pre code');
+    expect(correction?.textContent).toBe(
+      format('SELECT id, name FROM users WHERE active = 1;', { language: 'mysql' })
+    );
+  });
+
+  it('offers only the combined action when the handler is wired', () => {
     render(<AiHarness explain={async () => makeExplanation()} fix={async () => 'SELECT 1;'} />);
 
     expect(screen.getByRole('button', { name: t.formatErrorPanelExplain })).toBeEnabled();
-    expect(screen.getByRole('button', { name: t.formatErrorPanelFix })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: t.formatErrorPanelFix })).not.toBeInTheDocument();
   });
 
   it('offers no AI actions when neither handler is wired', () => {
@@ -308,7 +341,47 @@ describe('FormatErrorPanel (US2 — explain)', () => {
     expect(screen.getByText(t.formatErrorPanelRootCauseLabel)).toBeInTheDocument();
     expect(screen.getByText('A delimiter arrives mid-expression.')).toBeInTheDocument();
     expect(screen.getByText(t.formatErrorPanelEvidenceLabel)).toBeInTheDocument();
-    expect(screen.getByText('SELECT * FROM (;')).toBeInTheDocument();
+    expect(screen.getAllByText('SELECT * FROM (;').length).toBeGreaterThan(0);
+  });
+
+  it('shows the correction returned with the explanation as formatted, highlighted, copyable SQL', async () => {
+    render(
+      <AiHarness
+        explain={async () =>
+          makeExplanation({ correctedSql: 'SELECT id, name FROM users WHERE active = 1;' })
+        }
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
+    const code = correctHeading.closest('section')?.querySelector('pre code');
+    expect(code?.textContent).toBe(
+      format('SELECT id, name FROM users WHERE active = 1;', { language: 'mysql' })
+    );
+    expect(code?.querySelector('.text-sky-300')).toHaveTextContent('SELECT');
+    expect(screen.getByRole('button', { name: t.formatErrorPanelCopyFix })).toBeInTheDocument();
+    expect(screen.getByText(t.formatErrorPanelFixSectionTitle)).toBeInTheDocument();
+  });
+
+  it('hides the integrated correction when the editor SQL becomes stale', async () => {
+    const explain = async () => makeExplanation();
+    const view = render(<AiHarness explain={explain} />);
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+    await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel });
+
+    view.rerender(
+      <AiHarness explain={explain} currentSql="SELECT * FROM (; -- edited" />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.formatErrorPanelStale);
+    expect(
+      screen.queryByRole('heading', { name: t.formatErrorPanelCorrectLabel })
+    ).not.toBeInTheDocument();
   });
 
   it('surfaces an actionable unavailable state when the local model is down', async () => {
@@ -334,18 +407,18 @@ describe('FormatErrorPanel (US2 — explain)', () => {
 describe('FormatErrorPanel (US3 — fix)', () => {
   const proposeFix = 'SELECT * FROM (SELECT 1) t;';
 
-  it('shows a loading state while the fix is being generated', async () => {
+  it('shows a loading state while the combined response is being generated', async () => {
     render(<AiHarness fix={() => never<string>()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
 
-    expect(await screen.findByText(t.formatErrorPanelFixRunning)).toBeInTheDocument();
+    expect(await screen.findByText(t.formatErrorPanelExplainRunning)).toBeInTheDocument();
   });
 
   it('shows the proposal with Apply and Dismiss once ready', async () => {
     render(<AiHarness fix={async () => proposeFix} />);
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
 
     expect(await screen.findByText(t.formatErrorPanelFixSectionTitle)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.formatErrorPanelApplyFix })).toBeEnabled();
@@ -360,12 +433,12 @@ describe('FormatErrorPanel (US3 — fix)', () => {
 
     render(<AiHarness fix={async () => proposeFix} />);
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
 
-    expect(writeText).toHaveBeenCalledWith(proposeFix);
+    expect(writeText).toHaveBeenCalledWith(format(proposeFix, { language: 'mysql' }));
   });
 
   it('applies the correction only after explicit confirmation (FR-010)', async () => {
@@ -380,7 +453,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     // Generating a proposal must never touch the editor by itself.
@@ -401,7 +474,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelDismissFix }));
@@ -417,7 +490,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       <AiHarness fix={async () => proposeFix} onApplyFix={(sql) => applied.push(sql)} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     // The user edits the SQL after the proposal was generated.
@@ -448,7 +521,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
@@ -463,7 +536,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
   it('disables apply and says why when no region was determined', async () => {
     render(<AiHarness region={null} fix={async () => proposeFix} />);
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     // Nothing bounds the change, so the proposal is shown but cannot be applied (FR-020).
@@ -484,7 +557,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
@@ -498,7 +571,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       <AiHarness fix={async () => DIFF_PROPOSAL} onApplyFix={() => undefined} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     // The two sides are labelled, and the replaced run is marked on each of them — the original
@@ -525,7 +598,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
@@ -541,7 +614,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       <AiHarness fix={async () => proposeFix} onApplyFix={() => undefined} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByText(t.formatErrorPanelFixSectionTitle);
 
     rerender(
@@ -561,9 +634,9 @@ describe('FormatErrorPanel (US3 — fix)', () => {
       <AiHarness fix={failWith('malformed', 'same sql')} onApplyFix={(sql) => applied.push(sql)} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelFix }));
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
 
-    expect(await screen.findByText(t.formatErrorPanelInvalidFix)).toBeInTheDocument();
+    expect(await screen.findByText(t.formatErrorPanelAiMalformed)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.formatErrorPanelRetry })).toBeInTheDocument();
     expect(applied).toEqual([]);
   });

@@ -72,7 +72,9 @@ export function GeneratorTargetControls({ options, onChange, t }: GeneratorTarge
           aria-label={t.generatorNamingStrategy}
           value={options.namingStrategy}
           onChange={(event) =>
-            onChange({ namingStrategy: event.target.value as CodeGenerationOptions['namingStrategy'] })
+            onChange({
+              namingStrategy: event.target.value as CodeGenerationOptions['namingStrategy'],
+            })
           }
           className="select-control"
         >

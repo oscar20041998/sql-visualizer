@@ -5,13 +5,7 @@
  * in SQL Visualizer with different log levels and filtering options.
  */
 
-import {
-  initLogger,
-  setLogLevel,
-  setModuleLogLevel,
-  createLogger,
-  type LogLevel,
-} from './logger';
+import { initLogger, setLogLevel, setModuleLogLevel, createLogger, type LogLevel } from './logger';
 
 /**
  * EXAMPLE 1: Initialize logger on app startup

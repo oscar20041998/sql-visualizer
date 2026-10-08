@@ -74,8 +74,7 @@ export default function NestedSubqueryAnalysis({
   const goToSqlLine = useGoToSqlLine();
   const risk =
     SUBQUERY_RISK_LIMITS.find(
-      (limit) =>
-        metrics.subqueryDepth <= limit.maxDepth && metrics.subqueryCount <= limit.maxCount
+      (limit) => metrics.subqueryDepth <= limit.maxDepth && metrics.subqueryCount <= limit.maxCount
     ) ?? SUBQUERY_RISK_LIMITS[SUBQUERY_RISK_LIMITS.length - 1];
   const riskLabel = {
     LOW: t.complexityLow,

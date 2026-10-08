@@ -545,7 +545,9 @@ export default function GraphVisualizerContent() {
               </span>
               <span className="flex items-center gap-1 whitespace-nowrap">
                 <Link2 size={11} />
-                {relationshipFilter === 'all' ? analysisResult.metrics.totalJoinCount : filteredJoins.length}{' '}
+                {relationshipFilter === 'all'
+                  ? analysisResult.metrics.totalJoinCount
+                  : filteredJoins.length}{' '}
                 {t.joinCount}
               </span>
               <div className="flex items-center gap-1.5">
@@ -979,7 +981,10 @@ export default function GraphVisualizerContent() {
        * squeeze the toolbar/canvas above out of view — each panel keeps its own internal sizing,
        * but the stack as a whole is capped and scrolls instead of growing past this. */}
       {(showSuggestions || showJoinAnalysis || showExtracted) && (
-        <div className="flex-shrink-0 flex flex-col overflow-y-auto scrollbar-thin" style={{ maxHeight: '45vh' }}>
+        <div
+          className="flex-shrink-0 flex flex-col overflow-y-auto scrollbar-thin"
+          style={{ maxHeight: '45vh' }}
+        >
           {showSuggestions && visibleSuggestions.length > 0 && (
             <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
               <SuggestionPanel
