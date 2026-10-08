@@ -172,8 +172,8 @@ async function embedBatch(apiKey, baseUrl, input) {
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
   loadEnvFile();
-  const apiKey = (process.env.OPENAI_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY)?.trim();
-  const baseUrl = process.env.OPENAI_EMBEDDING_BASE_URL?.trim() || 'https://api.openai.com';
+  const apiKey = (process.env.AI_PORTAL_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY)?.trim();
+  const baseUrl = process.env.AI_PORTAL_BASE_URL?.trim() + '/jpe' || 'https://api.openai.com';
 
   const files = walkMarkdownFiles(MARKDOWN_ROOT).filter(isProductDocumentation);
   const chunks = files.flatMap((file) => {
@@ -190,7 +190,7 @@ async function main() {
 
   if (!apiKey) {
     console.error(
-      'OPENAI_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set. Add a real key to the project-root .env.local before running this script.'
+      'AI_PORTAL_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set. Add a real key to the project-root .env.local before running this script.'
     );
     process.exitCode = 1;
     return;

@@ -32,7 +32,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 
 ### Authentication
 
-- **Login / Register** - Demo credential gate (`admin` / `1234@`) plus Google/Microsoft sign-in buttons on the landing page before the query workspace is accessible
+- **Login / Register** - Demo credential gate (`admin` / `1234@`) plus Google/Microsoft sign-in buttons on the landing page before the query workspace is accessible. Setup guide: [Optional: Google and Microsoft Social Login](#optional-google-and-microsoft-social-login)
 - **Guest Access (in progress)** - A "continue without an account" path that admits a visitor as an anonymous guest for evaluation. Guests get every non-AI capability: SQL parsing and formatting, the relationship graph, complexity scoring, the metrics dashboard, CTE analysis, and all exports. **AI-backed features are reserved for signed-in users** — including ones that would run against a locally configured model, since `ollama` is the default provider and an exception for it would leave nearly every AI feature open. The only AI path left open is the format-error explain/fix, which is hard-wired to run locally and therefore costs the operator nothing. Spec: [`specs/013-guest-access-mode/`](./specs/013-guest-access-mode/). **Not yet shipped** — see the status note below.
 
 > **Guest access status:** in development (1 of 74 tracked behaviors implemented). The server-side
@@ -244,6 +244,68 @@ npm run build:database-knowledge-index
 ```
 
 This command requires Ollama to be running and the local `src/lib/ai/document_chunks.json` source dump to be available. It re-embeds about 82,000 manual excerpts with `all-minilm`, then writes a local binary index under `src/lib/ai/data/`. The index is intentionally git-ignored and takes roughly 20-30 minutes to build; rerun it only when the source dump or embedding model changes.
+
+### Optional: Google and Microsoft Social Login
+
+The sign-in page can authenticate users with a real Google or Microsoft account. The flow runs entirely
+in the browser as an OAuth 2.0 implicit flow (`response_type=token`): the button opens the provider's
+consent screen in a popup, `/oauth/callback` relays the result back to the sign-in page, and the server
+verifies the returned access token before issuing the session cookie. Only a public client ID is needed —
+no backend OAuth client and no client secret.
+
+Add the client IDs you want to enable to `.env.local`:
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
+```
+
+A provider whose variable is missing still shows an explanatory message instead of opening the popup
+(`Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID and restart the app.`).
+
+| Provider | Authorize endpoint | Scopes requested | Redirect URI to register |
+| --- | --- | --- | --- |
+| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+
+`<origin>` is the scheme, host and port serving the app — `http://localhost:4028` for `npm run dev`. The
+app requests `<origin>/oauth/callback?provider=google` (or `microsoft`); register the path
+`<origin>/oauth/callback` — if the provider reports a redirect URI mismatch, register the full URI
+including the query instead.
+
+**Google Cloud Console**
+
+1. Open [Credentials](https://console.cloud.google.com/apis/credentials) and choose
+   **Create credentials → OAuth client ID**. Create the OAuth consent screen first if prompted; while the
+   consent screen is in *Testing* status, only users you added as test users can sign in.
+2. Select **Web application** as the application type.
+3. Add `http://localhost:4028` under **Authorized JavaScript origins**.
+4. Add `http://localhost:4028/oauth/callback` under **Authorized redirect URIs**.
+5. Copy the **Client ID** (it ends with `.apps.googleusercontent.com`) into `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+
+**Microsoft Entra ID (Azure portal)**
+
+1. Open **Microsoft Entra ID → App registrations → New registration** in the
+   [Azure portal](https://portal.azure.com).
+2. Set **Supported account types** to *Accounts in any organizational directory and personal Microsoft
+   accounts* — this matches the `/common` authority the app calls.
+3. Under **Redirect URI**, choose the platform **Single-page application (SPA)** and enter
+   `http://localhost:4028/oauth/callback`.
+4. Under **API permissions**, add the delegated Microsoft Graph permission **User.Read** (the app reads
+   `https://graph.microsoft.com/v1.0/me` for the profile) and grant consent if your tenant requires it.
+5. Skip **Certificates & secrets** — this flow uses no client secret. Copy the **Application (client) ID**
+   into `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
+
+**Finish and verify**
+
+1. Restart the dev server after editing `.env.local`: `NEXT_PUBLIC_*` values are inlined when Next.js
+   starts, so otherwise the buttons keep reading the old values.
+2. Sign out, click **Google** or **Microsoft**, and approve the consent screen in the popup. Popups must
+   be allowed for the app origin (otherwise the button reports `Allow Popups to continue signing in.`).
+3. Expected result: the success toast `Signed in via Google as <name>.` and a redirect to `/query-input`.
+   Cancelling the consent screen shows `Authentication cancelled or rejected by the provider.`
+4. For a deployed instance, register its real origin as an additional entry in both consoles, e.g.
+   `https://your-domain/oauth/callback`.
 
 ## 📁 Project Structure
 

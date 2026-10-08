@@ -95,7 +95,7 @@ reversible in one place (`isLockedForGuest`) if the product owner prefers a per-
 regardless of the user's selected provider.
 
 **Evidence**: `src/app/api/ai/docs-context/route.ts:36` reads
-`process.env.OPENAI_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY` and embeds the user's question
+`process.env.AI_PORTAL_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY` and embeds the user's question
 with a hard-coded model (`DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large'`,
 `src/lib/ai/aiProviders.ts:75`). The request body carries only `{ question }` (`:18-20`) — the caller
 **cannot** redirect it. So a guest who has correctly configured their own Ollama would still have

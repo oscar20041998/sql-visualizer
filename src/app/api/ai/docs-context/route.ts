@@ -1,7 +1,7 @@
 // Retrieval step for the Docs Consultant chat: embeds the question and returns the closest
 // feature-doc chunks as a context block, exactly like /api/ai/generate proxies chat completions.
 //
-// Embeddings use their own credential (OPENAI_EMBEDDING_API_KEY, falling back to OPENAI_API_KEY),
+// Embeddings use their own credential (AI_PORTAL_EMBEDDING_API_KEY, falling back to OPENAI_API_KEY),
 // separate from the chat-completion key the answer-generation step uses via /api/ai/generate.
 // This mirrors gateways that scope a key to specific models: a key issued for
 // text-embedding-3-large has no access to chat models and vice versa.
@@ -43,22 +43,22 @@ export async function POST(request: Request) {
   }
   const question = parsed[0].slice(0, MAX_QUESTION_LENGTH);
 
-  const apiKey = (process.env.OPENAI_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY)?.trim();
+  const apiKey = (process.env.AI_PORTAL_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY)?.trim();
   if (!apiKey) {
     // 503 rather than 401: the deployment is misconfigured, the caller did nothing wrong.
     return NextResponse.json(
       {
         error:
-          'OPENAI_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set on the server. Add it to .env and restart the dev server.',
+          'AI_PORTAL_EMBEDDING_API_KEY (or OPENAI_API_KEY) is not set on the server. Add it to .env and restart the dev server.',
       },
       { status: 503 }
     );
   }
 
   // Embeddings can go through an OpenAI-compatible gateway instead of api.openai.com directly
-  // (e.g. a corporate AI portal) — same idea as AI_ALLOWED_BASE_URLS for the chat proxy, but this
+  // (e.g. a corporate AI portal) — same idea as AI_PORTAL_BASE_URL for the chat proxy, but this
   // one is server-only config, not something the browser can redirect.
-  const embeddingBaseUrl = process.env.OPENAI_EMBEDDING_BASE_URL?.trim() || DEFAULT_BASE_URLS.openai;
+  const embeddingBaseUrl = process.env.AI_PORTAL_BASE_URL?.trim() + '/jpe' || DEFAULT_BASE_URLS.openai;
 
   try {
     const [queryEmbedding] = await generateEmbeddingsWithCloudKey(

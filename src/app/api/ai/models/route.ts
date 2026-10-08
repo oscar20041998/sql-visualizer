@@ -66,7 +66,12 @@ export async function POST(request: Request) {
         ? { 'x-goog-api-key': apiKey }
         : { Authorization: `Bearer ${apiKey}` };
   // The key rides in the header, so it stays out of the URL where it would land in access logs.
-  const url = body.provider === 'gemini' ? `${baseUrl}/v1beta/models` : `${baseUrl}/v1/models`;
+  const url =
+    body.provider === 'gemini'
+      ? `${baseUrl}/v1beta/models`
+      : body.provider === 'aiportal'
+        ? `${baseUrl}/jpe/models`
+        : `${baseUrl}/v1/models`;
 
   try {
     const response = await fetch(url, { headers, signal: request.signal });
@@ -99,7 +104,12 @@ export async function POST(request: Request) {
             .filter((id) => !RETIRED_GEMINI_MODELS.some((pattern) => pattern.test(id)))
         : ((payload as { data?: Array<{ id?: string }> })?.data ?? [])
             .map((model) => model.id ?? '')
-            .filter((id) => body.provider !== 'openai' || isChatCompletionModel(id));
+            .filter((id) =>
+              body.provider === 'openai'
+                ? isChatCompletionModel(id)
+                : body.provider !== 'aiportal' ||
+                  !/(embedding|audio|transcribe|tts|image|moderation)/i.test(id)
+            );
 
     return NextResponse.json({ models: [...new Set(models)].sort() });
   } catch (error) {

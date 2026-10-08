@@ -317,6 +317,48 @@ The system supports:
 
 Authorization is enforced at the server boundary; hiding UI elements alone is not considered an authorization mechanism.
 
+### Social Sign-in Setup (Google & Microsoft)
+
+Social sign-in runs entirely in the browser as an OAuth 2.0 implicit flow (`response_type=token`) with
+no backend OAuth client: the button opens the provider's consent screen in a popup, the
+`/oauth/callback` page relays the result back to the sign-in panel with `postMessage`, and the server
+verifies the returned access token before issuing the session cookie. Each provider is enabled by a
+single public client ID in `.env.local`:
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
+```
+
+| Provider | Authorize endpoint | Scopes | Redirect URI |
+|---|---|---|---|
+| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+
+`<origin>` is the scheme, host and port serving the application (`http://localhost:4028` for the
+development server). Profile data is read from `https://www.googleapis.com/oauth2/v3/userinfo` (Google)
+or `https://graph.microsoft.com/v1.0/me` (Microsoft Graph).
+
+**Google.** In Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type
+*Web application* with `http://localhost:4028` as an authorized JavaScript origin and
+`http://localhost:4028/oauth/callback` as an authorized redirect URI, then copy the Client ID into
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. While the OAuth consent screen is in *Testing* status, only users added
+as test users can sign in.
+
+**Microsoft.** In the Azure portal, register an application under Microsoft Entra ID → App registrations
+with supported account types *Accounts in any organizational directory and personal Microsoft accounts*
+(the app calls the `/common` authority), a **Single-page application (SPA)** redirect URI of
+`http://localhost:4028/oauth/callback`, and the delegated Microsoft Graph permission **User.Read**. No
+client secret is required; copy the Application (client) ID into `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
+
+Because `NEXT_PUBLIC_*` values are inlined when Next.js starts, the development server must be restarted
+after either variable changes. Without a client ID the corresponding button reports which variable is
+missing instead of opening the popup; popups must be allowed for the application origin; and a deployed
+instance must register its real origin in both consoles, for example
+`https://your-domain/oauth/callback`.
+
+---
+
 ### Guest Access (planned)
 
 A "continue without an account" path is being added so a visitor can evaluate the product without

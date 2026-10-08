@@ -3,6 +3,7 @@ import { POST } from '@/app/api/ai/models/route';
 import {
   generateWithAI,
   generateWithCloudKey,
+  generateWithCloudKeyStream,
   resolveHintedTableReferences,
 } from '@/lib/ai/aiService';
 import { DEFAULT_AI_CONFIG } from '@/lib/store';
@@ -117,6 +118,33 @@ describe('GET /api/ai/models provider authentication', () => {
 
     expect(headers.Authorization).toBe('Bearer sk-test-openai');
     expect(headers['x-goog-api-key']).toBeUndefined();
+  });
+
+  it('fetches AI Portal models from its /jpe/models endpoint with the server key', async () => {
+    process.env.AI_PORTAL_API_KEY = 'sk-test-aiportal';
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ id: 'GPT-6-Luna' }, { id: 'GPT-5.4' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      new Request('http://localhost/api/ai/models', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'aiportal' }),
+      })
+    );
+    const payload = (await response.json()) as { models: string[] };
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+
+    expect(response.status).toBe(200);
+    expect(url).toBe('https://aiportalapi.stu-platform.live/jpe/models');
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      'Bearer sk-test-aiportal'
+    );
+    expect(payload.models).toEqual(['GPT-5.4', 'GPT-6-Luna']);
   });
 });
 
@@ -239,21 +267,99 @@ describe('generateWithCloudKey OpenAI adapter', () => {
   });
 });
 
+describe('generateWithCloudKey AI Portal adapter', () => {
+  it('uses the Responses endpoint and extracts output_text', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ output_text: 'Portal reply.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    try {
+      const answer = await generateWithCloudKey(
+        'aiportal',
+        'test-aiportal-key',
+        'GPT-6-Luna',
+        'https://aiportalapi.stu-platform.live',
+        { messages: [{ role: 'user', content: 'Hello.' }] }
+      );
+
+      expect(answer).toBe('Portal reply.');
+      const [requestUrl, requestInit] = fetchMock.mock.calls[0];
+      expect(requestUrl).toBe('https://aiportalapi.stu-platform.live/jpe/responses');
+      expect((requestInit?.headers as Record<string, string>).Authorization).toBe(
+        'Bearer test-aiportal-key'
+      );
+      expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+        model: 'GPT-6-Luna',
+        input: [{ role: 'user', content: 'Hello.' }],
+      });
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it('normalizes Responses API text deltas for streaming requests', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Portal reply."}\n\n',
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }
+      )
+    );
+
+    try {
+      const stream = await generateWithCloudKeyStream(
+        'aiportal',
+        'test-aiportal-key',
+        'GPT-6-Luna',
+        'https://aiportalapi.stu-platform.live',
+        { messages: [{ role: 'user', content: 'Hello.' }] }
+      );
+
+      const [requestUrl, requestInit] = fetchMock.mock.calls[0];
+      expect(requestUrl).toBe('https://aiportalapi.stu-platform.live/jpe/responses');
+      expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+        model: 'GPT-6-Luna',
+        input: [{ role: 'user', content: 'Hello.' }],
+        stream: true,
+      });
+
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let output = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        output += decoder.decode(value);
+      }
+      expect(output).toContain('"content":"Portal reply."');
+      expect(output).toContain('data: [DONE]');
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+});
+
 /**
  * Every provider needs a usable model without the user visiting Settings — the Database AI
  * Assistant and the Chatbot read the stored config directly, so an empty model there fails the
  * request outright instead of prompting for one.
  */
 describe('per-provider default chat models', () => {
-  it('pins a distinct default for all four providers', () => {
+  it('pins a distinct default for all five providers', () => {
     expect(DEFAULT_CHAT_MODELS).toEqual({
       ollama: 'qwen2.5-coder:3b',
       openai: 'gpt-4o',
       anthropic: 'claude-3-7-sonnet-20250219',
       gemini: 'gemini-3.8-flash',
+      aiportal: 'GPT-6-Luna',
     });
     // A shared value would mean switching provider silently kept the previous provider's model.
-    expect(new Set(Object.values(DEFAULT_CHAT_MODELS)).size).toBe(4);
+    expect(new Set(Object.values(DEFAULT_CHAT_MODELS)).size).toBe(5);
   });
 
   it('leaves the shipped config pointing at its provider default', () => {

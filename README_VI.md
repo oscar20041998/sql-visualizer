@@ -32,7 +32,7 @@ Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng
 
 ### Xác thực
 
-- **Đăng nhập / Đăng ký** - Cổng thông tin xác thực Demo (`admin` / `1234@`) cộng với các nút đăng nhập Google/Microsoft trên trang đích trước khi không gian truy vấn có thể truy cập
+- **Đăng nhập / Đăng ký** - Cổng thông tin xác thực Demo (`admin` / `1234@`) cộng với các nút đăng nhập Google/Microsoft trên trang đích trước khi không gian truy vấn có thể truy cập. Hướng dẫn cấu hình: [Tùy chọn: Đăng nhập Google và Microsoft](#tùy-chọn-đăng-nhập-google-và-microsoft)
 - **Truy cập Guest (đang phát triển)** - Một đường dẫn "tiếp tục mà không cần tài khoản" cho phép khách truy cập dưới dạng người dùng ẩn danh để đánh giá. Khách nhận được mọi khả năng không phải AI: phân tích cú pháp SQL và định dạng, biểu đồ quan hệ, xếp độ phức tạp, bảng chỉ số, phân tích CTE và tất cả xuất. **Các tính năng hỗ trợ AI được dành riêng cho người dùng đã đăng nhập** — bao gồm những tính năng chạy theo mô hình được cấu hình cục bộ. Spec: [`specs/013-guest-access-mode/`](./specs/013-guest-access-mode/). **Chưa được phát hành** — xem lưu ý trạng thái dưới đây.
 
 > **Trạng thái truy cập Guest:** đang phát triển (1 trong 74 hành vi được theo dõi được thực hiện). Việc thực thi server-side bảo vệ công suất AI được chia sẻ không có sẵn, vì vậy các tuyến đường AI hiện đó chấp nhận những người gọi không được xác thực. Không tiếp xúc một triển khai công khai cho đến khi điều đó kết thúc.
@@ -242,6 +242,68 @@ npm run build:database-knowledge-index
 ```
 
 Lệnh này yêu cầu Ollama chạy và dump nguồn `src/lib/ai/document_chunks.json` cục bộ có sẵn. Nó nhúng lại khoảng 82,000 trích dẫn sách hướng dẫn với `all-minilm`, sau đó ghi một chỉ mục nhị phân cục bộ dưới `src/lib/ai/data/`. Chỉ mục được cố ý bỏ qua git và mất khoảng 20-30 phút để xây dựng; chỉ chạy lại khi dump nguồn hoặc mô hình nhúng thay đổi.
+
+### Tùy chọn: Đăng nhập Google và Microsoft
+
+Trang đăng nhập có thể xác thực người dùng bằng tài khoản Google hoặc Microsoft thật. Luồng chạy hoàn
+toàn trong trình duyệt theo OAuth 2.0 implicit flow (`response_type=token`): nút bấm mở màn hình đồng ý
+của nhà cung cấp trong một popup, `/oauth/callback` chuyển kết quả trở lại trang đăng nhập, và máy chủ
+xác minh access token nhận được rồi mới cấp session cookie. Chỉ cần client ID công khai — không cần
+OAuth client phía máy chủ và không cần client secret.
+
+Thêm các client ID bạn muốn bật vào `.env.local`:
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
+```
+
+Nhà cung cấp nào chưa có biến tương ứng vẫn hiển thị thông báo giải thích thay vì mở popup
+(`Đăng nhập Google chưa được cấu hình. Hãy đặt NEXT_PUBLIC_GOOGLE_CLIENT_ID và khởi động lại ứng dụng.`).
+
+| Nhà cung cấp | Endpoint ủy quyền | Scope | Redirect URI cần đăng ký |
+| --- | --- | --- | --- |
+| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+
+`<origin>` là scheme, host và cổng đang phục vụ ứng dụng — `http://localhost:4028` với `npm run dev`.
+Ứng dụng gọi `<origin>/oauth/callback?provider=google` (hoặc `microsoft`); hãy đăng ký đường dẫn
+`<origin>/oauth/callback` — nếu nhà cung cấp báo sai redirect URI, hãy đăng ký URI đầy đủ kèm query.
+
+**Google Cloud Console**
+
+1. Mở [Credentials](https://console.cloud.google.com/apis/credentials) và chọn
+   **Create credentials → OAuth client ID**. Nếu được yêu cầu, hãy tạo trước OAuth consent screen; khi
+   consent screen còn ở trạng thái *Testing*, chỉ những người dùng được thêm vào danh sách test users
+   mới đăng nhập được.
+2. Chọn loại ứng dụng **Web application**.
+3. Thêm `http://localhost:4028` vào **Authorized JavaScript origins**.
+4. Thêm `http://localhost:4028/oauth/callback` vào **Authorized redirect URIs**.
+5. Copy **Client ID** (kết thúc bằng `.apps.googleusercontent.com`) vào `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+
+**Microsoft Entra ID (Azure portal)**
+
+1. Mở **Microsoft Entra ID → App registrations → New registration** trong
+   [Azure portal](https://portal.azure.com).
+2. Đặt **Supported account types** thành *Accounts in any organizational directory and personal Microsoft
+   accounts* — khớp với authority `/common` mà ứng dụng gọi.
+3. Trong **Redirect URI**, chọn nền tảng **Single-page application (SPA)** và nhập
+   `http://localhost:4028/oauth/callback`.
+4. Trong **API permissions**, thêm quyền Microsoft Graph delegated **User.Read** (ứng dụng đọc
+   `https://graph.microsoft.com/v1.0/me` để lấy hồ sơ) và cấp admin consent nếu tenant của bạn yêu cầu.
+5. Bỏ qua **Certificates & secrets** — luồng này không dùng client secret. Copy **Application (client) ID**
+   vào `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
+
+**Hoàn tất và kiểm tra**
+
+1. Khởi động lại dev server sau khi sửa `.env.local`: giá trị `NEXT_PUBLIC_*` được nhúng lúc Next.js khởi
+   động, nếu không các nút vẫn đọc giá trị cũ.
+2. Đăng xuất, bấm **Google** hoặc **Microsoft** và đồng ý màn hình consent trong popup. Phải cho phép
+   popup cho origin của ứng dụng (nếu không, nút sẽ báo `Allow Popups to continue signing in.`).
+3. Kết quả mong đợi: toast `Đã đăng nhập bằng Google với tài khoản <name>.` và chuyển hướng tới
+   `/query-input`. Hủy màn hình consent sẽ hiện `Đã hủy hoặc bị nhà cung cấp từ chối xác thực.`
+4. Với phiên bản triển khai thật, đăng ký origin thực tế làm mục bổ sung ở cả hai console, ví dụ
+   `https://your-domain/oauth/callback`.
 
 ## 📁 Cấu trúc dự án
 

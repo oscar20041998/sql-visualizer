@@ -4,7 +4,7 @@
 // anything exported from there becomes a client reference when a server file imports it — the
 // value arrives as undefined on the server. Constants both sides need must live here instead.
 
-export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'gemini';
+export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'gemini' | 'aiportal';
 
 /** Cloud providers, whose credentials live in the server environment. */
 export type CloudProvider = Exclude<AIProvider, 'ollama'>;
@@ -19,6 +19,7 @@ export const DEFAULT_BASE_URLS: Record<AIProvider, string> = {
   openai: 'https://api.openai.com',
   anthropic: 'https://api.anthropic.com',
   gemini: 'https://generativelanguage.googleapis.com',
+  aiportal: 'https://aiportalapi.stu-platform.live'
 };
 
 /** Which environment variable holds each cloud provider's credential. */
@@ -26,6 +27,7 @@ export const ENV_VAR_BY_PROVIDER: Record<CloudProvider, string> = {
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
   gemini: 'GEMINI_API_KEY',
+  aiportal: 'AI_PORTAL_API_KEY',
 };
 
 /**
@@ -42,6 +44,7 @@ export const DEFAULT_CONTEXT_TOKENS: Record<AIProvider, number> = {
   openai: 128000,
   anthropic: 200000,
   gemini: 1000000,
+  aiportal: 1000000,
 };
 
 /** Tokens reserved for the answer, per provider. */
@@ -50,6 +53,7 @@ export const DEFAULT_MAX_OUTPUT_TOKENS: Record<AIProvider, number> = {
   openai: 4096,
   anthropic: 4096,
   gemini: 8192,
+  aiportal: 8192,
 };
 
 export const CONTEXT_TOKENS_RANGE = { min: 512, max: 2000000 } as const;
@@ -72,6 +76,7 @@ export const DEFAULT_CHAT_MODELS: Record<AIProvider, string> = {
   openai: 'gpt-4o',
   anthropic: 'claude-3-7-sonnet-20250219',
   gemini: 'gemini-3.8-flash',
+  aiportal: 'GPT-6-Luna',
 };
 
 /**
@@ -110,6 +115,7 @@ export const DEFAULT_EMBEDDING_MODELS: Record<Exclude<AIProvider, 'anthropic'>, 
   ollama: 'nomic-embed-text',
   openai: 'text-embedding-3-large',
   gemini: 'text-embedding-004',
+  aiportal: 'text-embedding-3-small',
 };
 
 /**

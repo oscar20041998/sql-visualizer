@@ -319,6 +319,47 @@ Hệ thống hỗ trợ:
 
 Phân quyền được thực thi tại ranh giới máy chủ; việc chỉ ẩn giao diện không được coi là cơ chế phân quyền.
 
+### Hướng dẫn cấu hình đăng nhập Google & Microsoft
+
+Đăng nhập xã hội chạy hoàn toàn phía trình duyệt theo OAuth 2.0 implicit flow (`response_type=token`),
+không cần OAuth client phía máy chủ: nút đăng nhập mở màn hình đồng ý của nhà cung cấp trong một popup,
+trang `/oauth/callback` chuyển kết quả về bảng đăng nhập qua `postMessage`, và máy chủ xác minh access
+token nhận được rồi mới cấp session cookie. Mỗi nhà cung cấp được bật bằng một client ID công khai trong
+`.env.local`:
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
+```
+
+| Nhà cung cấp | Endpoint ủy quyền | Scope | Redirect URI |
+|---|---|---|---|
+| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+
+`<origin>` là scheme, host và cổng đang phục vụ ứng dụng (`http://localhost:4028` cho development
+server). Hồ sơ được đọc từ `https://www.googleapis.com/oauth2/v3/userinfo` (Google) hoặc
+`https://graph.microsoft.com/v1.0/me` (Microsoft Graph).
+
+**Google.** Trong Google Cloud Console → APIs & Services → Credentials, tạo OAuth client ID loại *Web
+application* với `http://localhost:4028` là Authorized JavaScript origin và
+`http://localhost:4028/oauth/callback` là Authorized redirect URI, sau đó copy Client ID vào
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. Khi OAuth consent screen còn ở trạng thái *Testing*, chỉ những người dùng
+được thêm vào danh sách test users mới đăng nhập được.
+
+**Microsoft.** Trong Azure portal, đăng ký ứng dụng tại Microsoft Entra ID → App registrations với
+supported account types là *Accounts in any organizational directory and personal Microsoft accounts*
+(ứng dụng gọi authority `/common`), redirect URI nền tảng **Single-page application (SPA)** là
+`http://localhost:4028/oauth/callback`, và quyền Microsoft Graph delegated **User.Read**. Không cần
+client secret; copy Application (client) ID vào `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
+
+Vì giá trị `NEXT_PUBLIC_*` được nhúng lúc Next.js khởi động, development server phải được khởi động lại
+sau khi thay đổi một trong hai biến. Nếu thiếu client ID, nút tương ứng sẽ báo rõ biến nào còn thiếu thay
+vì mở popup; popup phải được cho phép cho origin của ứng dụng; và phiên bản triển khai thật phải đăng ký
+origin thực tế ở cả hai console, ví dụ `https://your-domain/oauth/callback`.
+
+---
+
 ### Truy cập với tư cách khách (đang phát triển)
 
 Đang bổ sung luồng "tiếp tục dùng mà không cần tài khoản" để khách truy cập có thể đánh giá sản phẩm mà

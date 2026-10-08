@@ -20,13 +20,14 @@ const APP_HOST = 'localhost:4028';
 const GATEWAY_BASE_URL = 'https://aiportalapi.stu-platform.live/jpe';
 const GEMINI_KEY = 'AIzaTestKeyForGemini0000000';
 
-const CLOUD_PROVIDERS: CloudProvider[] = ['openai', 'anthropic', 'gemini'];
+const CLOUD_PROVIDERS: CloudProvider[] = ['openai', 'anthropic', 'gemini', 'aiportal'];
 
 /** Shaped so every adapter finds its answer field and the route returns 200. */
 const PROVIDER_RESPONSE: Record<CloudProvider, unknown> = {
   openai: { choices: [{ message: { content: 'ok' } }] },
   anthropic: { content: [{ type: 'text', text: 'ok' }] },
   gemini: { candidates: [{ content: { parts: [{ text: 'ok' }] } }] },
+  aiportal: { output_text: 'ok' },
 };
 
 let savedAllowedBaseUrls: string | undefined;
@@ -35,14 +36,15 @@ beforeEach(() => {
   process.env.OPENAI_API_KEY = 'sk-test-openai';
   process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
   process.env.GEMINI_API_KEY = GEMINI_KEY;
-  savedAllowedBaseUrls = process.env.AI_ALLOWED_BASE_URLS;
+  process.env.AI_PORTAL_API_KEY = 'sk-test-aiportal';
+  savedAllowedBaseUrls = process.env.AI_PORTAL_BASE_URL;
   // The routes log one info line per call; that would only be noise here.
   vi.spyOn(console, 'info').mockImplementation(() => {});
 });
 
 afterEach(() => {
-  if (savedAllowedBaseUrls === undefined) delete process.env.AI_ALLOWED_BASE_URLS;
-  else process.env.AI_ALLOWED_BASE_URLS = savedAllowedBaseUrls;
+  if (savedAllowedBaseUrls === undefined) delete process.env.AI_PORTAL_BASE_URL;
+  else process.env.AI_PORTAL_BASE_URL = savedAllowedBaseUrls;
   vi.restoreAllMocks();
 });
 
@@ -102,7 +104,7 @@ describe('resolveAllowedBaseUrl — Settings base URL', () => {
   });
 
   it('lets an operator allow-list the app host explicitly for a same-host gateway', () => {
-    process.env.AI_ALLOWED_BASE_URLS = `http://${APP_HOST}`;
+    process.env.AI_PORTAL_BASE_URL = `http://${APP_HOST}`;
     // Allow-list wins over the self-host special case: an intentional setup keeps working.
     expect(resolveAllowedBaseUrl('openai', `http://${APP_HOST}`, APP_HOST).ok).toBe(true);
   });
@@ -134,6 +136,12 @@ describe('POST /api/ai/generate — outbound URL follows Settings', () => {
       baseUrl: 'https://generativelanguage.googleapis.com',
       modelId: 'gemini-3.8-flash',
       expected: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_KEY}`,
+    },
+    {
+      provider: 'aiportal' as const,
+      baseUrl: 'https://aiportalapi.stu-platform.live',
+      modelId: 'GPT-6-Luna',
+      expected: 'https://aiportalapi.stu-platform.live/jpe/responses',
     },
   ])(
     'calls the $provider provider URL stored in Settings, not the app',
@@ -177,7 +185,7 @@ describe('POST /api/ai/generate — outbound URL follows Settings', () => {
   });
 
   it('honours an allow-listed gateway root from Settings, path included', async () => {
-    process.env.AI_ALLOWED_BASE_URLS = 'https://aiportalapi.stu-platform.live';
+    process.env.AI_PORTAL_BASE_URL = 'https://aiportalapi.stu-platform.live';
     const fetchMock = stubProviderFetch('openai');
 
     const response = await generatePOST(

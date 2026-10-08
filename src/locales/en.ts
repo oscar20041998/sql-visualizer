@@ -529,10 +529,11 @@ const en = {
   aiProviderOpenAI: 'OpenAI',
   aiProviderAnthropic: 'Anthropic (Claude)',
   aiProviderGemini: 'Google Gemini',
+  aiProviderAIPortal: 'AI Portal',
   aiBaseUrl: 'Base URL',
   aiBaseUrlHint: 'Address of your local Ollama server, e.g. http://localhost:11434',
   aiBaseUrlCloudHint:
-    'API root for this provider. Override it to use an OpenAI-compatible gateway — the host must also be listed in AI_ALLOWED_BASE_URLS on the server before a key is sent to it.',
+    'API root for this provider. Override it to use an OpenAI-compatible gateway — the host must also be listed in AI_PORTAL_BASE_URL on the server before a key is sent to it.',
   aiBaseUrlReset: 'Restore default',
   aiLocalModel: 'Local Model Name',
   aiLocalModelHint: 'Model tag pulled in Ollama, e.g. qwen2.5-coder:3b or llama3',
