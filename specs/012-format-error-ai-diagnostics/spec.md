@@ -45,23 +45,24 @@ A user clicks **Format** on SQL the formatter cannot parse. Instead of only a tr
 
 ### User Story 2 - AI explains the error and its root cause (Priority: P2)
 
-From the error panel, a user can request one combined diagnosis and correction. A local AI model explains, in plain language, what the error is and why it happened, grounded in the actual SQL and error message, and returns corrected SQL in that same response.
+From the error panel, a user can request one combined response. A local AI model explains what went wrong and why, cites the actual SQL and error message, provides only the replacement SQL fragment for the error region, and explains why that replacement addresses the syntax error.
 
 **Why this priority**: It upgrades the diagnostic from "what went wrong" to "why it went wrong", which is what lets non-experts and developers resolve the problem quickly. It depends on Story 1 having captured the error, but is otherwise self-contained.
 
-**Independent Test**: With a local model running, trigger a format error and select **Giải thích và gợi ý sửa lỗi**; the explanation and corrected SQL appear from one response. With no model available, a clear unavailable/retry state appears instead of a silent failure.
+**Independent Test**: With a local model running, trigger a format error and select **Giải thích và gợi ý sửa lỗi**; the diagnosis, region-only replacement, and rationale appear from one response. If replacement validation fails, the diagnosis remains visible with no Copy or Apply. With no model available, a clear unavailable/retry state appears.
 
 **Acceptance Scenarios**:
 
-1. **Given** a format error and a running local model, **When** the user selects the combined diagnosis action, **Then** one local AI response provides a plain-language explanation, root cause, grounded evidence, and corrected SQL for review.
+1. **Given** a format error and a running local model, **When** the user selects the combined diagnosis action, **Then** one local AI response provides a plain-language explanation, root cause, grounded evidence, a region-only replacement SQL fragment, and its rationale.
 2. **Given** a completed explanation, **When** it is read, **Then** it references the actual offending SQL and error (grounded in the formatter's findings), not generic advice.
 3. **Given** the local model is unavailable or the request times out, **When** the user requests an explanation, **Then** the panel shows a clear, actionable unavailable/retry state with no silent failure.
+4. **Given** the diagnosis and evidence are valid but the replacement SQL is missing or unsafe, **When** the response is rendered, **Then** the panel still shows the diagnosis and states that no safe replacement is available; Copy and Apply are unavailable.
 
 ---
 
 ### User Story 3 - AI proposes a fix the user can review and apply (Priority: P3)
 
-The combined diagnosis action returns corrected SQL alongside the explanation. The user reviews the proposed fix and explicitly applies it; the applied SQL re-formats without error.
+The combined diagnosis action returns a replacement fragment and rationale alongside the explanation. The client reconstructs and validates the full query; the user reviews the proposed change and explicitly applies it, after which the SQL re-formats without error.
 
 **Why this priority**: It closes the loop from diagnosis to resolution. It is lower priority than explanation because it must never silently rewrite the user's query — a review-before-apply gate is a required safeguard.
 
@@ -69,7 +70,7 @@ The combined diagnosis action returns corrected SQL alongside the explanation. T
 
 **Acceptance Scenarios**:
 
-1. **Given** a format error, **When** the combined diagnosis action returns, **Then** the panel shows its proposed corrected SQL side-by-side with the original (before/after) for review before applying.
+1. **Given** a format error, **When** the combined diagnosis action returns a safe replacement, **Then** the panel shows the region-only replacement SQL and its rationale separately from the diagnosis and offers review before applying.
 2. **Given** a proposed fix, **When** the user applies it, **Then** only the SQL inside the captured error's location is replaced with the corrected version, every part of the query outside that location stays unchanged, and re-formatting the result succeeds.
 3. **Given** a proposed fix, **When** the user dismisses it, **Then** the original SQL in the editor is untouched.
 4. **Given** a proposed fix that also changes SQL outside the captured error location, **When** the user tries to apply it, **Then** the editor's SQL is left unchanged, the panel reports that the proposal reaches beyond the error location, and the user is offered a corrected proposal.
@@ -114,6 +115,8 @@ The combined diagnosis action returns corrected SQL alongside the explanation. T
 - **FR-019**: When the captured format error has no position, the system MUST identify the erroneous region with the AST cross-check parser, use it as the replacement boundary, and include its findings in the AI request so the proposal is grounded in parser evidence.
 - **FR-020**: When no erroneous region can be determined from either the formatter or the AST cross-check parser, the system MUST NOT offer an applicable fix, MUST report in the panel that the erroneous region cannot be determined, and MUST offer to request a new proposal.
 - **FR-021**: The panel MUST expose one combined action labeled **Giải thích và gợi ý sửa lỗi** (localized equivalently). One request MUST return the grounded explanation and fix proposal together as a single complete response rather than in parts, and the panel MUST convey progress through explicit loading states without reloading the page.
+- **FR-022**: The combined AI response MUST provide a detailed error explanation, a replacement SQL fragment for only the resolved error region, and a rationale explaining why that replacement fixes the syntax error. The model MUST NOT return the full query as the replacement.
+- **FR-023**: Diagnosis validity MUST be evaluated independently from replacement validity. If explanation/root cause/evidence are valid but replacement SQL is missing, malformed, out of region, or rejected by the formatter, the panel MUST still render the diagnosis and MUST state that no safe replacement is available; it MUST NOT expose Copy or Apply for that response.
 
 ### Key Entities
 

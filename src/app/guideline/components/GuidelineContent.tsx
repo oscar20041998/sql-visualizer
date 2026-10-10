@@ -24,6 +24,7 @@ import {
   Database,
   FileWarning,
   History,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -320,6 +321,28 @@ function createSections(t: ReturnType<typeof getT>, theme: GraphTheme): Section[
       tips: [{ text: t.guidelineFormatErrorTip1 }, { text: t.guidelineFormatErrorTip2 }],
     },
     {
+      id: 'sql-comparison',
+      icon: ArrowLeftRight,
+      color: getGuidelineAccent('cyan', theme),
+      title: t.guidelineComparisonTitle,
+      subtitle: t.guidelineComparisonSubtitle,
+      steps: [
+        {
+          label: t.guidelineComparisonStep1Label,
+          desc: t.guidelineComparisonStep1Desc,
+        },
+        {
+          label: t.guidelineComparisonStep2Label,
+          desc: t.guidelineComparisonStep2Desc,
+        },
+        {
+          label: t.guidelineComparisonStep3Label,
+          desc: t.guidelineComparisonStep3Desc,
+        },
+      ],
+      tips: [{ text: t.guidelineComparisonTip1 }, { text: t.guidelineComparisonTip2 }],
+    },
+    {
       id: 'tools',
       icon: Zap,
       color: getGuidelineAccent('red', theme),
@@ -577,6 +600,12 @@ function createQuickRef(t: ReturnType<typeof getT>, theme: GraphTheme) {
       icon: FileCode,
       color: getGuidelineAccent('teal', theme),
       label: t.guidelineQuickRefCodeGen,
+      href: '/query-input',
+    },
+    {
+      icon: ArrowLeftRight,
+      color: getGuidelineAccent('cyan', theme),
+      label: t.guidelineQuickRefComparison,
       href: '/query-input',
     },
   ];

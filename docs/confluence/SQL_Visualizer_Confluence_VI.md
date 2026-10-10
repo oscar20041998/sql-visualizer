@@ -76,6 +76,7 @@ SQL Visualizer được tổ chức thành năm nhóm năng lực chính:
 - Chỉ số truy vấn
 - Đối chiếu dòng nguồn gốc
 - Phân tích theo thời gian thực
+- So sánh Trước / Sau SQL
 
 ### D. Trí tuệ AI
 - AI diễn giải SQL
@@ -295,13 +296,17 @@ Sau khi chuẩn hóa, SQL có thể được đưa tiếp vào các bước phâ
 
 Khi định dạng SQL gặp lỗi, hệ thống hiển thị một **bảng chẩn đoán** ở cạnh phải thay vì chỉ dùng thông báo bật lên.
 
-AI có thể:
+Một thao tác kết hợp duy nhất — **Giải thích và gợi ý sửa lỗi** — trả về trong một phản hồi AI cục bộ:
 
-1. Giải thích lỗi.
-2. Xác định nguyên nhân gốc.
-3. Đề xuất cách sửa tối thiểu.
-4. So sánh kết quả trước và sau khi sửa.
-5. Chỉ áp dụng thay đổi sau khi người dùng xác nhận.
+1. Phần giải thích lỗi là gì bằng ngôn ngữ dễ hiểu.
+2. Nguyên nhân gốc vì sao lỗi xảy ra.
+3. Căn cứ trích dẫn thực tế từ SQL và thông báo của trình định dạng.
+4. **Fragment SQL thay thế cho riêng vùng lỗi** — mô hình không bao giờ trả về toàn bộ truy vấn.
+5. Lý do vì sao cách thay thế đó khắc phục lỗi cú pháp.
+
+Sau đó client chèn fragment vào truy vấn đã chụp và xác thực kết quả trước khi bật **Sao chép** hoặc **Áp dụng**. Việc áp dụng được giới hạn theo vùng: chỉ phần văn bản bên trong vùng lỗi được xác định bị thay đổi, mọi phần bên ngoài giữ nguyên từng byte.
+
+Tính hợp lệ của chẩn đoán được đánh giá độc lập với tính hợp lệ của cách thay thế. Nếu cách thay thế bị thiếu, sai cấu trúc, nằm ngoài vùng hoặc bị trình định dạng từ chối, bảng vẫn hiển thị phần chẩn đoán và thông báo rằng không có cách thay thế an toàn; nút sao chép và áp dụng bị tắt cho phản hồi đó.
 
 Đối với tính năng này, AI chạy cục bộ thông qua **Ollama**, giúp SQL không phải rời khỏi thiết bị.
 
@@ -500,6 +505,23 @@ Việc sinh lại mã sẽ thay thế kết quả trước đó — theo mô hì
 
 ---
 
+## 5.18 So sánh Trước / Sau SQL
+
+Bảng so sánh Trước / Sau giúp nhà phát triển xem xét một thay đổi truy vấn trước khi chấp nhận. Bảng được mở từ thanh bên phải trên trang Nhập truy vấn.
+
+### Khả năng chính
+
+- Chụp một snapshot bất biến gồm SQL gốc của Smart SQL Editor làm bản **Trước**, SQL hiện tại làm bản **Sau** và phương ngữ đang chọn tại thời điểm bắt đầu so sánh. Không có quy trình lưu bản gốc riêng hoặc cập nhật lại bản gốc.
+- Hiển thị cặp SQL đã chụp trong diff Monaco có nhãn rõ ràng. Có thể duyệt cả hai phiên bản, kể cả câu lệnh dài ít nhất 8.000 dòng; dòng dài được ngắt dòng và bố cục chuyển giữa chế độ cạnh nhau với chế độ nội tuyến tùy kích thước màn hình.
+- Tóm tắt khác biệt văn bản, phát hiện cấu trúc được hỗ trợ và giới hạn phân tích trước phần kết quả chi tiết. Phát hiện bao gồm các thay đổi SQL được hỗ trợ kèm bằng chứng ngắn gọn có thể mở rộng; việc ghép CTE chưa chắc chắn và phạm vi parser chưa hỗ trợ được nêu là phân tích một phần, không khẳng định như sự thật.
+- Tách biệt phát hiện xác định với **Đánh giá bằng AI** tùy chọn, chỉ chạy khi người dùng yêu cầu. Đánh giá đã được xác thực gồm tóm tắt, tác động tiềm ẩn đến tính đúng đắn/an toàn thực thi/hiệu năng, bằng chứng gắn với SQL, giả định, giới hạn và bước xác minh đề xuất.
+- Hiển thị các trạng thái AI: chưa yêu cầu, đang phân tích, hoàn tất, một phần, không khả dụng, thất bại, không cần thiết và cũ (stale). Nội dung đang truyền được đánh dấu là tạm thời; thao tác thử lại/hủy tùy theo trạng thái. Lỗi AI không làm mất kết quả xác định; SQL giống hệt nhau không gọi AI.
+- Đánh dấu kết quả là **cũ (stale)** khi SQL trong trình chỉnh sửa hoặc phương ngữ thay đổi; loại bỏ phản hồi AI không còn khớp với snapshot so sánh. Thông báo lỗi từ nhà cung cấp được làm sạch, không tiết lộ thông tin xác thực hay nội dung SQL.
+
+Tính năng chỉ thực hiện **phân tích tĩnh**: không phiên bản SQL nào được thực thi, viết lại hay so sánh thông qua kết quả hoặc kế hoạch thực thi từ cơ sở dữ liệu trực tiếp. Diễn giải AI chỉ mang tính tham khảo; AI không thể biến phạm vi parser chưa đầy đủ thành kết quả đã xác minh hoặc chứng minh tương đương ngữ nghĩa, an toàn thực thi hay hiệu năng.
+
+---
+
 # 6. Kiến trúc kỹ thuật
 
 ## 6.1 Lớp giao diện
@@ -522,6 +544,7 @@ SQL Visualizer được thiết kế theo hướng không phụ thuộc vào nh�
 - **OpenAI**
 - **Anthropic**
 - **Gemini**
+- **AI Portal** — nhà cung cấp hosted (mô hình mặc định `GPT-6-Luna`), khóa API được cấu hình ở phía máy chủ.
 
 Các nhà cung cấp AI trên đám mây được sử dụng qua máy chủ trung gian để thông tin xác thực không bị lộ trên trình duyệt.
 
@@ -625,6 +648,7 @@ Truy vấn được cải thiện
 | SQL → Trình sinh mã (Java/JPA) | Hoàn thành | Năng suất |
 | Chuẩn hóa MyBatis XML → SQL | Hoàn thành | Cốt lõi |
 | Chẩn đoán lỗi định dạng bằng AI | Hoàn thành | AI |
+| So sánh Trước / Sau SQL | Hoàn thành | Cốt lõi |
 | Đăng nhập Google / Microsoft | Hoàn thành | Xác thực |
 | Truy cập khách (không cần tài khoản) | Đang phát triển | Xác thực |
 | Tiếng Việt / Tiếng Anh | Hoàn thành | Trải nghiệm người dùng |
@@ -645,7 +669,8 @@ Truy vấn được cải thiện
 - [x] Lịch sử cuộc trò chuyện Trợ lý AI cơ sở dữ liệu (lưu bền vững, phân theo danh tính).
 - [x] SQL → Trình sinh mã (lớp thực thể và DTO cho Java/JPA; các ngôn ngữ khác đang trong kế hoạch).
 - [x] Chuẩn hóa MyBatis.
-- [x] Chẩn đoán lỗi định dạng bằng AI.
+- [x] Chẩn đoán lỗi định dạng bằng AI (chẩn đoán kèm SQL thay thế giới hạn theo vùng, sau cổng xem lại trước khi áp dụng).
+- [x] Bảng so sánh Trước / Sau SQL (snapshot từ trình chỉnh sửa, diff Monaco đầy đủ, phát hiện xác định kèm giới hạn parser và đánh giá AI có cấu trúc tùy chọn; không thực thi hay tự động viết lại SQL).
 - [x] OAuth Google / Microsoft.
 - [ ] Truy cập khách không cần tài khoản — đang phát triển, chưa có cơ chế kiểm soát ở máy chủ.
 - [x] Đa ngôn ngữ Tiếng Việt / Tiếng Anh.

@@ -2,7 +2,7 @@
 feature: 012-format-error-ai-diagnostics
 loop: outside-in
 profile: .specify/memory/tdd-profile.md
-spec_criteria: 11
+spec_criteria: 12
 planned_at: 8878435
 updated_at: 8878435
 suite_baseline: green
@@ -42,22 +42,18 @@ One per acceptance scenario in `spec.md`, in spec order.
 | A9  | Applying a fix replaces only the SQL inside the captured error location and the result re-formats  | US3-AS2, FR-017 | example | DONE | `tests/unit/smart-sql-editor-format-error-page.test.tsx::applies a fix by writing back only the error region` |
 | A10 | Dismissing a proposal leaves the editor SQL untouched                                             | US3-AS3, FR-010 | example | DONE    | `tests/unit/format-error-panel.test.tsx::leaves the SQL untouched when the proposal is dismissed` |
 | A11 | A proposal that also changes SQL outside the error location is rejected and a corrected one is offered | US3-AS4, FR-018 | example | DONE | `tests/unit/smart-sql-editor-format-error-page.test.tsx::never writes a proposal that reaches outside the region` + `tests/unit/format-error-panel.test.tsx::reports an out-of-range proposal and offers a corrected one` |
+| A12 | A valid diagnosis remains visible when replacement SQL is missing or unsafe, with no Copy or Apply | US2-AS4, FR-023 | example | DONE | `tests/unit/format-error-panel.test.tsx::keeps the diagnosis visible and hides SQL actions when no safe replacement exists` |
 
 ### Criterion coverage
 
-All 11 acceptance scenarios have exactly one `A` behavior. Five are already proven green by
-an existing test named in the row (`A3`, `A4`, `A5`, `A7`, `A10`). Six are `PENDING`:
-
-- `A1` and `A2` need the format control itself driven through the page entry point; the existing page test emits the error through a prop, so `U62`/`U63` capture the current behavior first.
-- `A6` (grounded explanation) is a cross-cutting claim: the prompt tests prove the grounding is sent, the panel test proves it is rendered, but nothing yet ties them in one composed test.
-- `A8` was re-checked against its test: `format-error-panel.test.tsx::shows the proposal with Apply and Dismiss once ready` asserts the proposal section and the enabled actions, **not** the side-by-side presentation the criterion requires. It is therefore not credited, and the presentation itself is pinned by `U69`.
-- `A9` and `A11` depend on the region-bounded apply that is not implemented yet.
+All 12 acceptance scenarios have exactly one `A` behavior. The table currently marks ten `DONE`; `A1` and `A2` remain `PENDING` because the format control itself is not driven through the page entry point. Their characterization tasks `U62`/`U63` remain blocked on the editor/Monaco seam. `A12` is covered by the panel regression that keeps diagnosis visible and hides Copy/Apply without a safe replacement.
 
 ### Requirements with no acceptance scenario
 
 `FR-019` (AST cross-check fallback for the region), `FR-020` (no region ⇒ no applicable fix)
 and `FR-021` (one complete response, no streaming) have no scenario of their own. They are
-carried as inner behaviors `U11`, `U12`, `U20`, `U55` and `U41` rather than promoted to the
+carried as inner behaviors `U11`, `U12`, `U20`, `U55` and `U41`. `FR-022`/`FR-023` are covered
+by the revised US3-AS1 and US2-AS4 scenarios, respectively.
 
 ## Inner loop: unit behaviors
 
@@ -120,7 +116,9 @@ Grouped by the component that owns them in `plan.md`.
 | U41 | Staleness is false while the editor matches the snapshot, true once it changes or is cleared, and tolerates a trailing newline | FR-016 | example | DONE | `tests/unit/format-error-ai-fix.test.ts::tolerates a trailing newline the editor may have added` |
 | U42 | Neither AI request is ever sent to a cloud provider                                        | FR-014  | example | DONE    | `tests/unit/format-error-ai-fix.test.ts::never sends the request to a cloud provider (FR-014)` |
 | U43 | Fix prompt quotes the resolved region and instructs the model to confine changes to it     | FR-019  | example | DONE    | `tests/unit/format-error-ai.test.ts::confines the correction to the quoted region` |
-| U84 | One local AI response contains the grounded explanation and a formatter-valid corrected SQL | FR-007, FR-008, FR-009, FR-021 | example | DONE | `tests/unit/format-error-ai.test.ts::returns the explanation and corrected SQL from one local-model response` |
+| U84 | One local AI response contains a grounded diagnosis and a region-only replacement; the client reconstructs and validates the full SQL | FR-007, FR-008, FR-009, FR-021, FR-022 | example | DONE | `tests/unit/format-error-ai.test.ts::returns the explanation and locally reconstructed SQL from one region-fragment response` |
+| U86 | A diagnosis parses when replacement SQL and rationale are missing | FR-023 | example | DONE | `tests/unit/format-error-ai.test.ts::keeps a valid diagnosis when replacement SQL is missing` |
+| U87 | Formatter-invalid or unavailable replacement SQL does not discard a valid diagnosis | FR-023 | example | DONE | `tests/unit/format-error-ai.test.ts::keeps a valid diagnosis when the region replacement fails formatter validation` + `tests/unit/format-error-ai.test.ts::keeps diagnosis when no safe replacement range can be derived` |
 
 ### `src/app/smart-sql-editor/components/FormatErrorPanel.tsx`
 
@@ -200,6 +198,7 @@ are corrected.
 | U61 | Announces applicability notices in the live region and moves focus to the retry control   | FR-018  | example | DONE    | `tests/unit/format-error-panel.test.tsx::announces the applicability notice and moves focus to the retry control` |
 | U69 | Renders the proposal in a side-by-side diff with the original on the opposite side          | US3-AS1, FR-010 | example | DONE | `tests/unit/format-error-panel.test.tsx::shows the proposal as a side-by-side diff with the original on the opposite side` |
 | U85 | Exposes one combined action and uses its response for the correction                        | FR-021  | example | DONE | `tests/unit/format-error-panel.test.tsx::offers one combined action and uses its single response for the correction` |
+| U88 | Displays the replacement rationale and a diagnosis-only state without Copy or Apply when no safe SQL exists | FR-022, FR-023 | example | DONE | `tests/unit/format-error-panel.test.tsx::shows the correction returned with the explanation as formatted, highlighted, copyable SQL` + `tests/unit/format-error-panel.test.tsx::keeps the diagnosis visible and hides SQL actions when no safe replacement exists` |
 
 | U44 | Fix and explain prompts carry the cross-check parser's findings when the region came from it | FR-019 | example | PENDING | `tests/unit/format-error-ai.test.ts::grounds the request in the cross-check parser findings` |
 | U45 | The combined request is issued once as a non-streaming call and parsed once                  | FR-021  | example | DONE | `tests/unit/format-error-ai.test.ts::issues one non-streaming request containing both diagnosis and correction` |

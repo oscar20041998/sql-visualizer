@@ -36,7 +36,7 @@ export const SidePanelRail: React.FC<{ children?: React.ReactNode }> = ({ childr
  * Order of a launcher within the rail. Purely visual, and independent of DOM/portal mount order, so
  * the rail always reads the same way no matter which panels happen to be open.
  */
-export type SidePanelTabRank = 0 | 1 | 2;
+export type SidePanelTabRank = 0 | 1 | 2 | 3;
 
 /** Visual weight of a launcher. `primary` marks the main action; the rest are quiet neutrals. */
 export type SidePanelTabTone = 'primary' | 'neutral' | 'danger';

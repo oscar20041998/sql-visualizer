@@ -115,7 +115,7 @@ export const DEFAULT_EMBEDDING_MODELS: Record<Exclude<AIProvider, 'anthropic'>, 
   ollama: 'nomic-embed-text',
   openai: 'text-embedding-3-large',
   gemini: 'text-embedding-004',
-  aiportal: 'text-embedding-3-small',
+  aiportal: 'text-embedding-3-large',
 };
 
 /**

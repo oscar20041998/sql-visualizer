@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { format } from 'sql-formatter';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
@@ -28,6 +27,8 @@ function makeExplanation(overrides: Partial<FormatExplanation> = {}): FormatExpl
     explanation: 'The parenthesis is never closed.',
     rootCause: 'A delimiter arrives mid-expression.',
     evidence: ['SELECT * FROM (;'],
+    replacementSql: 'SELECT * FROM (SELECT 1) AS t;',
+    replacementReason: 'The replacement closes the parenthesized table expression.',
     correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
     ...overrides,
   };
@@ -284,7 +285,10 @@ describe('FormatErrorPanel (US1)', () => {
 describe('FormatErrorPanel (US2 — explain)', () => {
   it('offers one combined action and uses its single response for the correction', async () => {
     const explain = vi.fn(async () =>
-      makeExplanation({ correctedSql: 'SELECT id, name FROM users WHERE active = 1;' })
+      makeExplanation({
+        replacementSql: 'id, name FROM users WHERE active = 1',
+        correctedSql: 'SELECT id, name FROM users WHERE active = 1;',
+      })
     );
     const fix = vi.fn(async () => 'SELECT * FROM users;');
 
@@ -295,16 +299,16 @@ describe('FormatErrorPanel (US2 — explain)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
 
-    expect(await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel })
+    ).toBeInTheDocument();
     expect(explain).toHaveBeenCalledTimes(1);
     expect(fix).not.toHaveBeenCalled();
     const correction = screen
       .getByRole('heading', { name: t.formatErrorPanelCorrectLabel })
       .closest('section')
-      ?.querySelector('pre code');
-    expect(correction?.textContent).toBe(
-      format('SELECT id, name FROM users WHERE active = 1;', { language: 'mysql' })
-    );
+      ?.querySelectorAll('pre code')[1];
+    expect(correction?.textContent).toBe('id, name FROM users WHERE active = 1');
   });
 
   it('offers only the combined action when the handler is wired', () => {
@@ -344,11 +348,39 @@ describe('FormatErrorPanel (US2 — explain)', () => {
     expect(screen.getAllByText('SELECT * FROM (;').length).toBeGreaterThan(0);
   });
 
+  it('keeps the diagnosis visible and hides SQL actions when no safe replacement exists', async () => {
+    render(
+      <AiHarness
+        explain={async () =>
+          makeExplanation({
+            replacementSql: null,
+            replacementReason: null,
+            correctedSql: null,
+          })
+        }
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+
+    expect(await screen.findByText('The parenthesis is never closed.')).toBeInTheDocument();
+    expect(screen.getByText(t.formatErrorPanelNoSafeReplacement)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: t.formatErrorPanelCopyFix })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: t.formatErrorPanelApplyFix })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows the correction returned with the explanation as formatted, highlighted, copyable SQL', async () => {
     render(
       <AiHarness
         explain={async () =>
-          makeExplanation({ correctedSql: 'SELECT id, name FROM users WHERE active = 1;' })
+          makeExplanation({
+            replacementSql: 'id, name FROM users WHERE active = 1',
+            correctedSql: 'SELECT id, name FROM users WHERE active = 1;',
+          })
         }
       />
     );
@@ -358,13 +390,131 @@ describe('FormatErrorPanel (US2 — explain)', () => {
     const correctHeading = await screen.findByRole('heading', {
       name: t.formatErrorPanelCorrectLabel,
     });
-    const code = correctHeading.closest('section')?.querySelector('pre code');
-    expect(code?.textContent).toBe(
-      format('SELECT id, name FROM users WHERE active = 1;', { language: 'mysql' })
-    );
-    expect(code?.querySelector('.text-sky-300')).toHaveTextContent('SELECT');
+    expect(screen.getByText(t.formatErrorPanelReplacementReasonLabel)).toBeInTheDocument();
+    expect(
+      screen.getByText('The replacement closes the parenthesized table expression.')
+    ).toBeInTheDocument();
+    const code = correctHeading.closest('section')?.querySelectorAll('pre code')[1];
+    expect(code?.textContent).toBe('id, name FROM users WHERE active = 1');
+    expect(code?.querySelector('.text-sky-300')).toHaveTextContent('FROM');
     expect(screen.getByRole('button', { name: t.formatErrorPanelCopyFix })).toBeInTheDocument();
-    expect(screen.getByText(t.formatErrorPanelFixSectionTitle)).toBeInTheDocument();
+    expect(screen.queryByText(t.formatErrorPanelFixSectionTitle)).not.toBeInTheDocument();
+  });
+
+  it('renders and copies the exact replacementSql fragment returned by the AI', async () => {
+    const replacementSql = 'FROM users WHERE active = 1;';
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <AiHarness
+        explain={async () =>
+          makeExplanation({
+            replacementSql,
+            replacementReason: 'This fragment fixes the invalid predicate.',
+            correctedSql: 'SELECT id\nFROM users WHERE active = 1;',
+          })
+        }
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
+    const section = correctHeading.closest('section');
+    expect(screen.getByText(t.formatErrorPanelOriginalSqlLabel)).toBeInTheDocument();
+    expect(section?.querySelectorAll('pre code')[0]).toHaveTextContent('SELECT * FROM (;');
+    expect(section?.querySelectorAll('pre code')[1]).toHaveTextContent(replacementSql);
+    expect(screen.getByText('This fragment fixes the invalid predicate.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
+    expect(writeText).toHaveBeenCalledWith(replacementSql);
+  });
+
+  it('shows and copies only the corrected SQL region from a multi-line query', async () => {
+    const sourceSql = 'SELECT id\nFROM users WHERE active = 0;';
+    const correctedRegion = 'FROM users WHERE active = 1;';
+    const error = makeError({ sourceSql });
+    const region: ErrorRegion = {
+      startOffset: sourceSql.indexOf('FROM'),
+      endOffset: sourceSql.length,
+      startLine: 2,
+      endLine: 2,
+      source: 'formatter',
+      snippet: 'FROM users WHERE active = 0;',
+      anchorOffset: sourceSql.indexOf('active'),
+    };
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <AiHarness
+        error={error}
+        currentSql={sourceSql}
+        region={region}
+        explain={async () =>
+          makeExplanation({
+            replacementSql: correctedRegion,
+            correctedSql: 'SELECT id\n' + correctedRegion,
+          })
+        }
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
+    const section = correctHeading.closest('section');
+    expect(section?.querySelectorAll('pre code')[1]?.textContent).toBe(correctedRegion);
+    expect(section?.textContent).not.toContain('SELECT id');
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
+    expect(writeText).toHaveBeenCalledWith(correctedRegion);
+  });
+
+  it('copies the corrected line when the fix only removes invalid syntax', async () => {
+    const sourceSql = 'SELECT id\nFROM users FOR UPDATE;';
+    const correctedSql = 'SELECT id\nFROM users;';
+    const error = makeError({ sourceSql });
+    const region: ErrorRegion = {
+      startOffset: 0,
+      endOffset: sourceSql.length,
+      startLine: 1,
+      endLine: 2,
+      source: 'formatter',
+      snippet: sourceSql,
+      anchorOffset: sourceSql.indexOf('FOR UPDATE'),
+    };
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <AiHarness
+        error={error}
+        currentSql={sourceSql}
+        region={region}
+        explain={async () =>
+          makeExplanation({
+            replacementSql: 'FROM users;',
+            correctedSql,
+          })
+        }
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
+    const section = correctHeading.closest('section');
+    expect(section?.querySelectorAll('pre code')[1]?.textContent).toBe('FROM users;');
+    expect(section?.querySelectorAll('pre code')[0]?.textContent).toContain('FOR UPDATE');
+    expect(section?.querySelectorAll('pre code')[1]?.textContent).not.toContain('FOR UPDATE');
+
+    fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
+    expect(writeText).toHaveBeenCalledWith('FROM users;');
   });
 
   it('hides the integrated correction when the editor SQL becomes stale', async () => {
@@ -374,9 +524,7 @@ describe('FormatErrorPanel (US2 — explain)', () => {
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
     await screen.findByRole('heading', { name: t.formatErrorPanelCorrectLabel });
 
-    view.rerender(
-      <AiHarness explain={explain} currentSql="SELECT * FROM (; -- edited" />
-    );
+    view.rerender(<AiHarness explain={explain} currentSql="SELECT * FROM (; -- edited" />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(t.formatErrorPanelStale);
     expect(
@@ -420,25 +568,31 @@ describe('FormatErrorPanel (US3 — fix)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
 
-    expect(await screen.findByText(t.formatErrorPanelFixSectionTitle)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: t.formatErrorPanelApplyFix })).toBeEnabled();
     expect(screen.getByRole('button', { name: t.formatErrorPanelApplyFix })).toBeEnabled();
     expect(screen.getByRole('button', { name: t.formatErrorPanelDismissFix })).toBeEnabled();
   });
 
-  it('copies the proposed correction to the clipboard', async () => {
+  it('copies the replacementSql response to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, {
       clipboard: { writeText },
     });
 
-    render(<AiHarness fix={async () => proposeFix} />);
+    render(
+      <AiHarness
+        explain={async () =>
+          makeExplanation({ replacementSql: 'SELECT 1) t', correctedSql: proposeFix })
+        }
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelCopyFix });
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelCopyFix }));
 
-    expect(writeText).toHaveBeenCalledWith(format(proposeFix, { language: 'mysql' }));
+    expect(writeText).toHaveBeenCalledWith('SELECT 1) t');
   });
 
   it('applies the correction only after explicit confirmation (FR-010)', async () => {
@@ -454,7 +608,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
 
     // Generating a proposal must never touch the editor by itself.
     expect(applied).toEqual([]);
@@ -475,13 +629,15 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelDismissFix });
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelDismissFix }));
 
     expect(applied).toEqual([]);
     expect(dismissed).toHaveLength(1);
-    expect(screen.queryByText(t.formatErrorPanelFixSectionTitle)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: t.formatErrorPanelCorrectLabel })
+    ).not.toBeInTheDocument();
   });
 
   it('flags the proposal stale and blocks Apply once the editor SQL changes (FR-016)', async () => {
@@ -491,7 +647,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
 
     // The user edits the SQL after the proposal was generated.
     rerender(
@@ -522,7 +678,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
     // The audit line names the single character replaced in the malformed predicate (FR-017).
@@ -534,10 +690,16 @@ describe('FormatErrorPanel (US3 — fix)', () => {
   });
 
   it('disables apply and says why when no region was determined', async () => {
-    render(<AiHarness region={null} fix={async () => proposeFix} />);
+    render(
+      <AiHarness
+        error={makeError({ location: undefined, snippet: undefined })}
+        region={null}
+        fix={async () => proposeFix}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
 
     // Nothing bounds the change, so the proposal is shown but cannot be applied (FR-020).
     expect(screen.getByText(t.formatErrorPanelFixNoRegion)).toBeInTheDocument();
@@ -558,7 +720,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
     expect(await screen.findByText(t.formatErrorPanelFixOutOfRange)).toBeInTheDocument();
@@ -566,26 +728,29 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     expect(applied).toEqual([]);
   });
 
-  it('shows the proposal as a side-by-side diff with the original on the opposite side', async () => {
+  it('shows replacementSql without a duplicate before/after section', async () => {
     const { container } = render(
-      <AiHarness fix={async () => DIFF_PROPOSAL} onApplyFix={() => undefined} />
+      <AiHarness
+        explain={async () =>
+          makeExplanation({ replacementSql: 'users)', correctedSql: DIFF_PROPOSAL })
+        }
+        onApplyFix={() => undefined}
+      />
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    const correctHeading = await screen.findByRole('heading', {
+      name: t.formatErrorPanelCorrectLabel,
+    });
 
-    // The two sides are labelled, and the replaced run is marked on each of them — the original
-    // shows what was there, the proposal shows what belongs there (FR-010).
-    expect(screen.getByText(t.formatErrorPanelFixBeforeLabel)).toBeInTheDocument();
-    expect(screen.getByText(t.formatErrorPanelFixAfterLabel)).toBeInTheDocument();
-    expect(container.querySelector('[data-diff="removed"]')).toHaveTextContent(';');
-    expect(container.querySelector('[data-diff="added"]')).toHaveTextContent('users)');
-
-    // Marking a run must not disturb the text around it on either side.
-    const before = container.querySelector('[data-diff="removed"]')?.closest('pre');
-    const after = container.querySelector('[data-diff="added"]')?.closest('pre');
-    expect(before).toHaveTextContent('SELECT * FROM (;');
-    expect(after).toHaveTextContent('SELECT * FROM (users)');
+    expect(screen.queryByText(t.formatErrorPanelFixBeforeLabel)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.formatErrorPanelFixAfterLabel)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.formatErrorPanelFixSectionTitle)).not.toBeInTheDocument();
+    expect(correctHeading.closest('section')?.querySelectorAll('pre code')[1]).toHaveTextContent(
+      'users)'
+    );
+    expect(container.querySelector('[data-diff="removed"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-diff="added"]')).not.toBeInTheDocument();
   });
 
   it('announces the applicability notice and moves focus to the retry control', async () => {
@@ -599,7 +764,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelApplyFix }));
 
     // The refusal is announced (an alert is an assertive live region) and the keyboard is put on
@@ -615,7 +780,7 @@ describe('FormatErrorPanel (US3 — fix)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelExplain }));
-    await screen.findByText(t.formatErrorPanelFixSectionTitle);
+    await screen.findByRole('button', { name: t.formatErrorPanelApplyFix });
 
     rerender(
       <AiHarness

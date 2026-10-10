@@ -14,6 +14,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **Metrics Dashboard** - Real-time complexity scoring (0-100) with detailed breakdowns of keywords, SELECT fields, JOINs, CTEs, subqueries, and window functions. Every metric card and subquery entry shows the source line number and can jump straight to that line in the Smart SQL Editor
 - **CTE Analysis** - Explore Common Table Expressions and field origins with visual tree structure, including per-CTE nested subquery detection with accurate nesting depth
 - **Smart SQL Editor** - Multi-dialect Monaco-based query editor with formatting, original-vs-edited diff view, and real-time analysis
+- **SQL Before/After Comparison** - Capture the current query as an explicit "Before" baseline (kept for the browser tab session, cleared when the tab closes), edit freely, then compare: Monaco Before/After diff, deterministic structural changes (projection, sources, JOINs, filters, grouping, ordering, pagination, data-modification statements) with evidence and severity, and a separate assessment of semantic equivalence, execution safety, performance and verification. An optional AI interpretation is labeled and rendered apart from the deterministic results, results are marked stale when the SQL changes, and neither version is ever executed. Spec: [`specs/017-sql-before-after-comparison/`](./specs/017-sql-before-after-comparison/)
 
 ### Code Generation
 
@@ -23,11 +24,12 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 
 - **AI SQL Explainer** - Turns a query into a structured, plain-language explanation (objective, filters, output, referenced tables)
 - **AI Optimize** - Streams optimization suggestions and a rewritten query, grounded in the local parser's verified facts (tables, joins, CTE graph)
+- **AI Format Error Diagnostics** - When the formatter cannot parse your SQL, a persistent error report panel explains the failure and, in one combined local AI request, returns the diagnosis plus a replacement SQL fragment for the error region only — never the full query. The client re-validates and splices the fragment behind a review-before-apply gate; an invalid replacement keeps the diagnosis visible with Copy/Apply disabled. Spec: [`specs/012-format-error-ai-diagnostics/`](./specs/012-format-error-ai-diagnostics/)
 - **Docs Consultant Chat** - RAG-style chat over the app's own feature docs (embeds the question, retrieves the closest doc chunks, answers with citations)
 - **Database AI Assistant** - General database chat for SQL, schema design, indexes, transactions, and performance. When its local RAG index is available, answers are grounded in relevant excerpts from official SQL Server, MySQL, PostgreSQL, and Oracle manuals, with source labels shown below the answer
 - **Database AI Assistant Chat History** - Persistent, multi-conversation history for the Database AI Assistant. Conversations survive a page reload, navigating away, and a browser restart, are titled automatically from the first question, grouped by recency, and can be searched, renamed, deleted or cleared. History is stored on the device and partitioned per signed-in identity; guests keep no stored history by design
 - **Query History with Semantic Search** - Every analyzed query is saved (server-side Excel-backed store) and searchable by meaning, not just substring, via embeddings
-- **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini) proxied through the app server so credentials never reach the browser
+- **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini, AI Portal) proxied through the app server so credentials never reach the browser
 - **Text-to-Speech** - Reads AI explanations/optimization notes aloud (browser speech synthesis, with optional Piper local voices)
 
 ### Authentication
@@ -66,7 +68,7 @@ flowchart TD
     D --> E["explainSqlStructuredStream()"]
     E --> F{Provider}
     F -->|Ollama| G["Direct call to local Ollama"]
-    F -->|OpenAI / Anthropic / Gemini| H["/api/ai/generate proxy<br/>(server holds the credential)"]
+    F -->|OpenAI / Anthropic / Gemini / AI Portal| H["/api/ai/generate proxy<br/>(server holds the credential)"]
     G --> I["Streamed JSON answer"]
     H --> I
     I --> J["Partial-JSON parser<br/>renders growing sections live, not raw JSON"]
@@ -413,7 +415,7 @@ sql-visualizer/
 ## 🎯 Key Pages
 
 - **Dashboard** (`/`) - Overview and quick access to all analysis tools
-- **Query Input** (`/query-input`) - Paste SQL, configure parameters, select dialect, or generate Java/JPA code from SQL in the **SQL → Code Generator** tab
+- **Query Input** (`/query-input`) - Paste SQL, configure parameters, select dialect, generate Java/JPA code from SQL in the **SQL → Code Generator** tab, or review query changes in the **Before/After comparison** panel
 - **Relationship Graph** (`/relationship-graph-visualizer`) - Visualize tables, JOINs, and deep-dive JOIN analysis
 - **CTE Analysis** (`/cte-analysis`) - Explore CTEs and field data flow
 - **Metrics Dashboard** (`/sql-metrics-dashboard`) - View complexity scores, breakdowns, and jump from any metric/subquery to its line in the editor

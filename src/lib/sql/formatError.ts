@@ -116,7 +116,7 @@ export function offsetFromLineColumn(source: string, line: number, column: numbe
   let offset = 0;
   for (let index = 0; index < targetLine - 1; index += 1) offset += lines[index].length + 1;
   const maxColumn = lines[targetLine - 1]?.length ?? 0;
-  return Math.min(offset + Math.max(0, column - 1), source.length);
+  return Math.min(offset + Math.min(Math.max(0, column - 1), maxColumn), source.length);
 }
 
 /** A short SQL window around `offset`, marked with `…` when it is a slice of a longer query. */
@@ -133,31 +133,32 @@ function buildSnippet(source: string, offset: number): string | undefined {
 /**
  * Derives the error position and a matching snippet from the formatter's thrown value.
  *
- * Preference order: the structural `offset` (exact — nearley parser errors) → a `line N column M`
- * embedded in the message by the lexer (approximate, but still reported by the formatter itself).
- * When neither exists the location stays empty and no snippet is produced, per the contract's
- * "no fabricated positions" guarantee.
+ * Preference order: an explicit `line N column M` in the formatter message, then its `offset`.
+ * sql-formatter can expose an `offset` that does not index the original SQL, while its message
+ * still carries the correct source line and column. When neither exists the location stays empty
+ * and no snippet is produced, per the contract's "no fabricated positions" guarantee.
  */
 export function deriveLocationAndSnippet(
   sourceSql: string,
   thrown: unknown
 ): { location: FormatErrorLocation; snippet?: string } {
-  const offset = readOffset(thrown);
-  if (offset !== undefined) {
-    const { line, column } = lineColumnFromOffset(sourceSql, offset);
-    return { location: { offset, line, column }, snippet: buildSnippet(sourceSql, offset) };
-  }
-
   const match = MESSAGE_POSITION_PATTERN.exec(readRawMessage(thrown));
   if (match) {
     const line = Number.parseInt(match[1], 10);
     const column = Number.parseInt(match[2], 10);
     if (Number.isFinite(line) && Number.isFinite(column) && line >= 1 && column >= 1) {
+      const offset = offsetFromLineColumn(sourceSql, line, column);
       return {
-        location: { line, column },
-        snippet: buildSnippet(sourceSql, offsetFromLineColumn(sourceSql, line, column)),
+        location: { offset, line, column },
+        snippet: buildSnippet(sourceSql, offset),
       };
     }
+  }
+
+  const offset = readOffset(thrown);
+  if (offset !== undefined) {
+    const { line, column } = lineColumnFromOffset(sourceSql, offset);
+    return { location: { offset, line, column }, snippet: buildSnippet(sourceSql, offset) };
   }
 
   return { location: {} };

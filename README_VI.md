@@ -14,6 +14,7 @@ Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng
 - **Bảng chỉ số (Metrics Dashboard)** - Xếp độ phức tạp thời gian thực (0-100) với các phân tích chi tiết về từ khóa, trường SELECT, JOIN, CTE, subquery và window functions. Mỗi thẻ metric và mục subquery hiển thị số dòng nguồn và có thể nhảy trực tiếp đến dòng đó trong Smart SQL Editor
 - **Phân tích CTE** - Khám phá Common Table Expressions và nguồn gốc trường với cấu trúc cây trực quan, bao gồm phát hiện subquery lồng nhau per-CTE với độ sâu chính xác
 - **Smart SQL Editor** - Trình soạn thảo truy vấn dựa trên Monaco với hỗ trợ đa-dialect, định dạng, xem so sánh trước/sau và phân tích thời gian thực
+- **So sánh Trước / Sau SQL** - Lưu truy vấn hiện tại làm bản "Trước" tường minh (giữ trong phiên thẻ trình duyệt, xóa khi đóng thẻ), chỉnh sửa tự do, rồi so sánh: diff Trước/Sau bằng Monaco, các thay đổi cấu trúc xác định (dựng bảng, nguồn, JOIN, bộ lọc, gom nhóm, sắp xếp, phân trang, các câu lệnh sửa dữ liệu) kèm bằng chứng và mức độ, cùng đánh giá riêng cho tương đương ngữ nghĩa, an toàn thực thi, hiệu năng và xác minh. Diễn giải AI tùy chọn được gắn nhãn và hiển thị tách biệt với kết quả xác định, kết quả bị đánh dấu cũ (stale) khi SQL thay đổi, và không phiên bản SQL nào được thực thi. Spec: [`specs/017-sql-before-after-comparison/`](./specs/017-sql-before-after-comparison/)
 
 ### Sinh mã (Code Generation)
 
@@ -23,11 +24,12 @@ Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng
 
 - **AI SQL Explainer** - Chuyển truy vấn thành giải thích rõ ràng bằng ngôn ngữ tự nhiên (mục tiêu, bộ lọc, đầu ra, bảng được tham chiếu)
 - **AI Optimize** - Truyền phát các đề xuất tối ưu hóa và truy vấn được viết lại, dựa trên các sự kiện được xác minh của trình phân tích cục bộ (bảng, join, CTE graph)
+- **AI Chẩn đoán lỗi định dạng** - Khi trình định dạng không thể phân tích SQL của bạn, một bảng báo cáo lỗi cố định giải thích lỗi và, trong một yêu cầu AI cục bộ duy nhất, trả về phần chẩn đoán cộng fragment SQL thay thế cho riêng vùng lỗi — không bao giờ là toàn bộ truy vấn. Client tự xác thực lại và chèn fragment sau cổng "xem lại trước khi áp dụng"; nếu cách thay thế không hợp lệ, phần chẩn đoán vẫn hiển thị trong khi nút sao chép/áp dụng bị tắt. Spec: [`specs/012-format-error-ai-diagnostics/`](./specs/012-format-error-ai-diagnostics/)
 - **Docs Consultant Chat** - Chat kiểu RAG trên tài liệu tính năng của chính ứng dụng (nhúng câu hỏi, lấy các chunk tài liệu gần nhất, trả lời có trích dẫn)
 - **Database AI Assistant** - Chat cơ sở dữ liệu chung cho SQL, thiết kế schema, indexes, transactions và hiệu năng. Khi chỉ mục RAG cục bộ có sẵn, các câu trả lời dựa trên các trích dẫn liên quan từ các sách hướng dẫn chính thức SQL Server, MySQL, PostgreSQL và Oracle, với nhãn nguồn được hiển thị dưới câu trả lời
 - **Lịch sử hội thoại Database AI Assistant** - Lịch sử nhiều cuộc trò chuyện, bền vững, cho Trợ lý AI Cơ sở dữ liệu. Cuộc trò chuyện vẫn còn sau khi tải lại trang, điều hướng đi nơi khác và khởi động lại trình duyệt, được đặt tiêu đề tự động từ câu hỏi đầu tiên, nhóm theo tính gần đây, và có thể tìm kiếm, đổi tên, xóa hoặc xóa toàn bộ. Lịch sử được lưu trên thiết bị và phân chia theo danh tính đã đăng nhập; khách không có lịch sử lưu sẵn theo thiết kế
 - **Lịch sử truy vấn với Tìm kiếm theo ngữ nghĩa** - Mỗi truy vấn được phân tích được lưu (kho lưu trữ Excel server-side) và có thể tìm kiếm theo ý nghĩa chứ không chỉ substring thông qua embeddings
-- **Hỗ trợ nhiều nhà cung cấp** - Ollama cục bộ (không cần khóa API) hoặc các nhà cung cấp cloud (OpenAI, Anthropic, Gemini) được xác nhận thông qua máy chủ ứng dụng để thông tin xác thực không bao giờ tiếp cận trình duyệt
+- **Hỗ trợ nhiều nhà cung cấp** - Ollama cục bộ (không cần khóa API) hoặc các nhà cung cấp cloud (OpenAI, Anthropic, Gemini, AI Portal) được xác nhận thông qua máy chủ ứng dụng để thông tin xác thực không bao giờ tiếp cận trình duyệt
 - **Text-to-Speech** - Đọc thành tiếng các giải thích/ghi chú tối ưu hóa AI (tổng hợp giọng nói của trình duyệt, với các giọng nói Piper cục bộ tùy chọn)
 
 ### Xác thực
@@ -64,7 +66,7 @@ flowchart TD
     D --> E["explainSqlStructuredStream()"]
     E --> F{Nhà cung cấp}
     F -->|Ollama| G["Cuộc gọi trực tiếp tới Ollama cục bộ"]
-    F -->|OpenAI / Anthropic / Gemini| H["/api/ai/generate proxy<br/>(máy chủ giữ thông tin xác thực)"]
+    F -->|OpenAI / Anthropic / Gemini / AI Portal| H["/api/ai/generate proxy<br/>(máy chủ giữ thông tin xác thực)"]
     G --> I["Câu trả lời JSON được phát truyền"]
     H --> I
     I --> J["Trình phân tích JSON một phần<br/>hiển thị các phần đang phát triển trực tiếp, không phải JSON thô"]

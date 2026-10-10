@@ -1122,3 +1122,13 @@ and failed before the implementation. `/speckit-tdd-plan` writes the baseline en
 - task sync: T048 and U83 marked complete. Apply contract §4 now records the full-document fallback guard.
 - commit: none — see cycle 1.
 
+### Cycle 45 - U86/U87/U88 (diagnosis survives an unusable replacement)
+
+- tests: `tests/unit/format-error-ai.test.ts::keeps a valid diagnosis when replacement SQL is missing`, `::keeps a valid diagnosis when the region replacement fails formatter validation`, and `tests/unit/format-error-panel.test.tsx::keeps the diagnosis visible and hides SQL actions when no safe replacement exists`.
+- red: `npx vitest run tests/unit/format-error-ai.test.ts -t "region-only replacement|diagnosis when replacement SQL is missing" --reporter=dot` -> 2 failed, 29 skipped. The prompt still requested `correctedSql`, and parsing returned `null` for a grounded diagnosis without SQL. The expanded focused run then showed the panel had no no-safe-replacement state and the service discarded formatter-invalid candidates.
+- green: `src/lib/ai/formatErrorAi.ts` now parses diagnosis independently, accepts nullable replacement fields, composes the complete candidate from the bounded fragment locally, requires the existing scoped-apply guard, then validates with `sql-formatter`. Invalid, absent, out-of-region, unchanged, or guard-rejected correction data leaves the diagnosis intact with `correctedSql: null`. `FormatErrorPanel.tsx` renders the diagnosis and localized no-safe-replacement notice without Copy/Apply; safe results show a separate replacement fragment and rationale.
+- additional safety regression: a one-line whole-query proposal that parses is refused by the scoped guard. Its test was added after the guard was identified during review, so no red is claimed for that test; the earlier missing/invalid response regressions were observed failing before implementation.
+- verification: focused AI/panel suites -> 67 tests passed; `npm run type-check` -> clean; full `npm run test -- --reporter=dot` -> 68 files, 615 tests passed before the final scoped-guard addition. Targeted ESLint -> 0 errors, 5 existing React Hook warnings; full suite and focused tests are rerun after the scoped-guard addition.
+- task sync: FR-022/FR-023 added; T050-T052 and T054, U86-U88, and acceptance A12 recorded complete. Manual quickstart T032 remains pending; A1/A2 remain pending as already documented.
+- commit: none — see cycle 1.
+

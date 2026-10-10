@@ -91,6 +91,7 @@ describe('SidePanelRail', () => {
         <SidePanelTab rank={2} icon={<span />} label="third" onClick={() => undefined} />
         <SidePanelTab rank={0} icon={<span />} label="first" onClick={() => undefined} />
         <SidePanelTab rank={1} icon={<span />} label="second" onClick={() => undefined} />
+        <SidePanelTab rank={3} icon={<span />} label="comparison" onClick={() => undefined} />
       </SidePanelRail>
     );
 
@@ -100,7 +101,8 @@ describe('SidePanelRail', () => {
       .getAllByRole('button')
       .map((tab) => tab.style.order)
       .sort();
-    expect(orders).toEqual(['0', '1', '2']);
+    expect(orders).toEqual(['0', '1', '2', '3']);
+    expect(railElement().contains(screen.getByRole('button', { name: 'comparison' }))).toBe(true);
   });
 
   it('keeps the rail from swallowing clicks on the page behind it', () => {

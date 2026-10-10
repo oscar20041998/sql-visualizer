@@ -554,6 +554,29 @@
   }
 }
 
+@keyframes chat-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes chat-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 @keyframes routeProgressSweep {
   0% {
     transform: translateX(-100%) scaleX(0.35);
@@ -575,6 +598,11 @@
     animation: none;
     transform: translateX(0) scaleX(1);
     opacity: 0.7;
+  }
+
+  .chat-float-motion,
+  .chat-online-dot {
+    animation: none !important;
   }
 }
 

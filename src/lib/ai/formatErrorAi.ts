@@ -12,7 +12,8 @@ import { format } from 'sql-formatter';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale } from '@/lib/i18n';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
-import type { ErrorRegion } from '@/lib/sql/formatErrorRegion';
+import { resolveErrorRegion, type ErrorRegion } from '@/lib/sql/formatErrorRegion';
+import { applyFormatFix } from '@/lib/sql/formatFixScope';
 
 /** How an AI request failed, so the panel can pick a message and a retry affordance. */
 export type FormatAiFailureKind = 'unavailable' | 'malformed' | 'error';
@@ -44,8 +45,12 @@ export interface FormatExplanation {
   rootCause: string;
   /** SQL fragments / error text the answer cites. Never empty. */
   evidence: string[];
-  /** Full corrected SQL returned alongside the diagnosis in the same model response. */
-  correctedSql: string;
+  /** Model-provided replacement for the bounded error region, if available. */
+  replacementSql: string | null;
+  /** Why the region replacement addresses the syntax error, if available. */
+  replacementReason: string | null;
+  /** Full query reconstructed and formatter-validated by the client; never returned by the model. */
+  correctedSql: string | null;
 }
 
 /** The editor SQL captured when a fix was requested, used for the stale check (FR-016). */
@@ -54,7 +59,7 @@ export interface FormatFixSnapshot {
   proposedSql: string;
 }
 
-/** The complete response includes a full corrected query as well as the explanation. */
+/** The response is bounded to a region fragment; the validated whole query is composed locally. */
 const EXPLAIN_MAX_TOKENS = 3000;
 const FIX_MAX_TOKENS = 1200;
 
@@ -90,32 +95,31 @@ export function buildExplainFormatErrorPrompt(
   locale: Locale = 'en',
   region?: ErrorRegion | null
 ): string {
+  const replacementRegion = region ?? resolveErrorRegion(error, error.sourceSql);
   const languageInstruction =
     locale === 'vi'
-      ? 'Write the "explanation" and "rootCause" fields in Vietnamese (tiếng Việt), using simple, beginner-friendly language. Keep the JSON keys exactly as named.'
-      : 'Write the "explanation" and "rootCause" fields in English, using plain language.';
-  const regionBlock = region
-    ? `\nErroneous region (lines ${region.startLine}-${region.endLine}, from the ${region.source}): ${region.snippet}\n`
+      ? 'Write the "explanation", "rootCause", and "replacementReason" fields in Vietnamese (tiếng Việt), using simple, beginner-friendly language. Keep the JSON keys exactly as named.'
+      : 'Write the "explanation", "rootCause", and "replacementReason" fields in English, using plain language.';
+  const regionBlock = replacementRegion
+    ? `\nReplacement range: lines ${replacementRegion.startLine}-${replacementRegion.endLine}. Replace only this exact original SQL fragment:\n\`\`\`sql\n${replacementRegion.snippet}\n\`\`\`\n`
     : '';
-  const correctionScope = region
-    ? 'Change only the erroneous region above and preserve every character outside it byte for byte.'
-    : 'Make the smallest syntax-only correction possible.';
+  const sqlContext = replacementRegion
+    ? ''
+    : '\nNo safe replacement range could be determined. Do not return a SQL correction.\n';
+  const correctionScope = replacementRegion
+    ? `Replace only lines ${replacementRegion.startLine}-${replacementRegion.endLine}. Preserve every character outside that range byte for byte. Return only the corrected replacement fragment in "replacementSql", explain why it fixes the syntax error in "replacementReason", and state this exact line range in "explanation". Do not repeat the full query.`
+    : 'Do not return a corrected query or replacement fragment because no safe replacement range is available.';
 
-  return `A SQL formatter failed to parse a query. Explain the failure and provide a corrected query in one response.
+  return `A SQL formatter failed to parse a query. Explain the failure and provide only a bounded SQL replacement fragment in one response.
 
-${groundingBlock(error)}${regionBlock}
-
-SQL that failed to format:
-\`\`\`sql
-${fitSqlForPrompt(error.sourceSql)}
-\`\`\`
+${groundingBlock(error)}${regionBlock}${sqlContext}
 
 Rules:
 - Ground every statement in the formatter message and the SQL above. Do not contradict the formatter.
 - Explain the syntax failure only. Do not give performance, indexing, or query-rewrite advice.
 - Be specific about the offending token, clause, or delimiter. Never invent a code fragment that is not in the SQL above.
-- Provide "correctedSql" as the full query with only the minimal syntax correction needed for the stated dialect.
-- Preserve the query's meaning, clauses, tables, columns, joins, filters, and ordering. Do not reformat unrelated SQL.
+- ${replacementRegion ? 'Provide "replacementSql" as only the corrected replacement fragment for the exact range shown above, and provide "replacementReason".' : 'Return empty "replacementSql" and "replacementReason" because no safe replacement range is available.'}
+- Preserve the meaning and all SQL outside the replacement range. Do not reformat unrelated SQL.
 - ${correctionScope}
 - ${languageInstruction}
 - Return only one JSON object with exactly these keys, in this order:
@@ -123,10 +127,11 @@ Rules:
   "explanation": "plain-language statement of what the error is",
   "rootCause": "plain-language statement of why it happened",
   "evidence": ["quoted SQL fragment or error text this answer relies on"],
-  "correctedSql": "the full corrected SQL query"
+  "replacementSql": "${replacementRegion ? 'the corrected SQL replacement fragment only' : 'empty because no safe replacement range is available'}",
+  "replacementReason": "${replacementRegion ? 'why this replacement fixes the syntax error' : 'empty because no safe replacement range is available'}"
 }
 
-Both "explanation" and "rootCause" must be non-empty, "evidence" must quote the actual SQL or error text, and "correctedSql" must be non-empty SQL.`;
+Both "explanation" and "rootCause" must be non-empty, "evidence" must quote the actual SQL or error text, and any replacement must contain only the corrected region plus a non-empty rationale.`;
 }
 
 /**
@@ -274,16 +279,27 @@ function asStringList(value: unknown): string[] {
  * a described `malformed` failure instead of rendering an empty explanation.
  */
 export function parseFormatExplanation(raw: string): FormatExplanation | null {
-  const parsed = extractJsonObject(raw);
+  let parsed = extractJsonObject(raw);
+  while (parsed && !('explanation' in parsed) && typeof parsed.content === 'string') {
+    parsed = extractJsonObject(parsed.content);
+  }
   if (!parsed) return null;
 
   const explanation = asTrimmedString(parsed.explanation);
   const rootCause = asTrimmedString(parsed.rootCause);
   const evidence = asStringList(parsed.evidence);
-  const correctedSql = asTrimmedString(parsed.correctedSql);
+  const replacementSql = asTrimmedString(parsed.replacementSql) || null;
+  const replacementReason = asTrimmedString(parsed.replacementReason) || null;
 
-  if (!explanation || !rootCause || evidence.length === 0 || !correctedSql) return null;
-  return { explanation, rootCause, evidence, correctedSql };
+  if (!explanation || !rootCause || evidence.length === 0) return null;
+  return {
+    explanation,
+    rootCause,
+    evidence,
+    replacementSql,
+    replacementReason,
+    correctedSql: null,
+  };
 }
 
 /**
@@ -385,14 +401,19 @@ function isGroundedInError(explanation: FormatExplanation, error: FormatError): 
   const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
   const sources = [normalize(error.sourceSql), normalize(error.message)];
   return explanation.evidence.some((item) => {
-    const quoted = normalize(item);
-    return quoted.length > 0 && sources.some((source) => source.includes(quoted));
+    const codeQuotes = Array.from(item.matchAll(/`([^`]+)`/g), (match) => match[1]);
+    const candidates = [item.replace(/`/g, ''), ...codeQuotes].map(normalize);
+    return candidates.some(
+      (candidate) =>
+        candidate.length >= 8 &&
+        sources.some((source) => source.includes(candidate) || candidate.includes(source))
+    );
   });
 }
 
 /**
- * Asks the configured model to explain a format error. Rejects with a {@link FormatAiError} carrying a
- * renderable state — never resolves with a partial, empty or ungrounded explanation (FR-012).
+ * Asks the configured model to explain a format error. Diagnosis is required and grounded;
+ * replacement validation is independent so an unsafe correction cannot erase a usable diagnosis.
  */
 export async function requestFormatExplanation(
   error: FormatError,
@@ -400,9 +421,10 @@ export async function requestFormatExplanation(
   locale: Locale = 'en',
   region?: ErrorRegion | null
 ): Promise<FormatExplanation> {
+  const replacementRegion = region ?? resolveErrorRegion(error, error.sourceSql);
   const raw = await runRequest(
     config,
-    buildExplainFormatErrorPrompt(error, locale, region),
+    buildExplainFormatErrorPrompt(error, locale, replacementRegion),
     EXPLAIN_MAX_TOKENS
   );
   const parsed = parseFormatExplanation(raw);
@@ -416,23 +438,43 @@ export async function requestFormatExplanation(
       retryable: true,
     });
   }
-  if (parsed.correctedSql === error.sourceSql.trim()) {
-    throw new FormatAiError({
-      kind: 'malformed',
-      message: 'The model did not provide a correction to the SQL syntax error.',
-      retryable: true,
-    });
+  if (
+    !replacementRegion ||
+    replacementRegion.startOffset < 0 ||
+    replacementRegion.endOffset < replacementRegion.startOffset ||
+    replacementRegion.endOffset > error.sourceSql.length
+  ) {
+    return parsed;
   }
+  if (!parsed.replacementSql || !parsed.replacementReason) {
+    return parsed;
+  }
+
+  const sourcePrefix = error.sourceSql.slice(0, replacementRegion.startOffset);
+  const sourceSuffix = error.sourceSql.slice(replacementRegion.endOffset);
+  const replacementLineCount = replacementRegion.snippet.match(/\n/g)?.length ?? 0;
+  const responseLineCount = parsed.replacementSql.match(/\n/g)?.length ?? 0;
+  const looksLikeFullQuery =
+    (sourcePrefix.length >= 24 && parsed.replacementSql.startsWith(sourcePrefix)) ||
+    (sourceSuffix.length >= 24 && parsed.replacementSql.endsWith(sourceSuffix)) ||
+    responseLineCount > replacementLineCount;
+  if (looksLikeFullQuery) return parsed;
+
+  const correctedSql = sourcePrefix + parsed.replacementSql + sourceSuffix;
+  if (correctedSql === error.sourceSql.trim()) return parsed;
+  const scopedResult = applyFormatFix({
+    snapshotSql: error.sourceSql,
+    currentSql: error.sourceSql,
+    proposedSql: correctedSql,
+    region: replacementRegion,
+  });
+  if (!scopedResult.ok) return parsed;
   try {
-    validateFormatFix(parsed.correctedSql, error.dialect);
+    validateFormatFix(scopedResult.sql, error.dialect);
   } catch {
-    throw new FormatAiError({
-      kind: 'malformed',
-      message: 'The model did not return a corrected query that the formatter can parse.',
-      retryable: true,
-    });
+    return parsed;
   }
-  return parsed;
+  return { ...parsed, correctedSql: scopedResult.sql };
 }
 
 /**

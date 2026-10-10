@@ -76,6 +76,7 @@ SQL Visualizer is organized around five major capability areas:
 - Query metrics
 - Source-line mapping
 - Real-time analysis
+- SQL Before/After comparison
 
 ### D. AI Intelligence
 - AI SQL Explainer
@@ -293,13 +294,17 @@ Once normalized, the resulting SQL can proceed to analysis and optimization.
 
 When SQL formatting fails, the system displays a dedicated **diagnostic panel** rather than relying on a transient toast message.
 
-AI can:
+A single combined action — **Explain and suggest a fix** — returns in one local AI response:
 
-1. Explain the formatting error.
-2. Identify the root cause.
-3. Suggest a minimal correction.
-4. Show before/after changes.
-5. Apply the change only after user confirmation.
+1. A plain-language explanation of what the error is.
+2. The root cause of why it happened.
+3. Grounded evidence quoting the actual SQL and formatter message.
+4. A **replacement SQL fragment for the error region only** — the model never returns the full query.
+5. The reason why that replacement fixes the syntax error.
+
+The client then splices the fragment into the captured query and validates the result before offering **Copy** or **Apply**. Apply is region-bounded: only the text inside the resolved error region is replaced, and everything outside it stays byte-identical.
+
+Diagnosis validity is evaluated independently from replacement validity. If the replacement is missing, malformed, out of region, or rejected by the formatter, the panel still shows the diagnosis and states that no safe replacement is available; Copy and Apply are disabled for that response.
 
 For this capability, AI runs locally through **Ollama**, keeping the SQL on the device.
 
@@ -500,6 +505,23 @@ Regeneration replaces the previous output — a real-time preview paradigm rathe
 
 ---
 
+## 5.18 SQL Before/After Comparison
+
+The Before/After comparison panel helps developers review a query change before accepting it. It is opened from the right-edge rail on the Query Input page.
+
+### Key capabilities
+
+- Capture one immutable snapshot of the main Smart SQL Editor's original SQL as **Before**, its current SQL as **After**, and the selected dialect when comparison starts. There is no separate saved baseline or refresh-baseline workflow.
+- Show the captured pair in a clearly labeled Monaco diff. Both SQL versions remain navigable, including statements of at least 8,000 lines; long lines wrap, and the diff adapts between side-by-side and inline layouts.
+- Summarize text differences, supported structural findings, and analysis limitations before detailed results. Findings cover supported SQL changes and provide concise, expandable evidence; uncertain CTE matching and unsupported parser coverage are disclosed as partial rather than asserted as fact.
+- Keep deterministic findings separate from the optional, explicitly requested **AI Assessment**. The validated assessment presents a summary, potential correctness/execution-safety/performance impacts, SQL-grounded evidence, assumptions, limitations, and recommended verification steps.
+- Show AI lifecycle states for not requested, analyzing, completed, partial, unavailable, failed, not needed, and stale. Streamed text is provisional; retry/cancel actions are state-appropriate. AI failures retain deterministic results, and identical SQL does not trigger an AI request.
+- Mark results stale when the editor SQL or dialect changes; discard an AI response that no longer matches its captured comparison. Provider errors use sanitized messages and do not expose credentials or SQL text.
+
+The feature performs **static analysis only**: neither SQL version is executed, rewritten, or compared through live database results or execution plans. AI interpretation is advisory and cannot upgrade incomplete parser coverage into a verified result or prove semantic equivalence, execution safety, or performance.
+
+---
+
 # 6. Technical Architecture
 
 ## 6.1 Frontend
@@ -522,6 +544,7 @@ SQL Visualizer follows an AI-provider-agnostic approach:
 - **OpenAI**
 - **Anthropic**
 - **Gemini**
+- **AI Portal** — hosted provider (default model `GPT-6-Luna`), with the API key configured on the server.
 
 Cloud AI providers are accessed through a proxy server so credentials are not exposed in the browser.
 
@@ -624,6 +647,7 @@ Improved Query
 | SQL → Code Generator (Java/JPA) | Completed | Productivity |
 | MyBatis XML → SQL | Completed | Core |
 | AI Format Error Diagnostics | Completed | AI |
+| SQL Before/After Comparison | Completed | Core |
 | Google / Microsoft Login | Completed | Auth |
 | Guest Access (no account) | In development | Auth |
 | Vietnamese / English | Completed | UX |
@@ -644,7 +668,8 @@ Improved Query
 - [x] Database AI Assistant chat history (persistent, per-identity).
 - [x] SQL → Code Generator (Java/JPA entities and DTOs; further languages planned).
 - [x] MyBatis normalization.
-- [x] AI format-error diagnostics.
+- [x] AI format-error diagnostics (diagnosis plus region-bounded replacement SQL with a review-before-apply gate).
+- [x] SQL Before/After comparison panel (immutable editor snapshot, full Monaco diff, deterministic findings with parser limitations, and optional structured AI assessment; no SQL execution or automatic rewrite).
 - [x] Google / Microsoft OAuth.
 - [ ] Guest access without an account — in development, not yet enforced at the server boundary.
 - [x] Vietnamese / English internationalization.

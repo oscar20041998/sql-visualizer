@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Braces, FileCode2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'sql-formatter';
-import { useAppStore } from '@/lib/store';
+import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
@@ -14,8 +14,11 @@ import SmartSQLEditor, {
 } from '@/app/smart-sql-editor/components/SmartSQLEditor';
 import AiSqlExplainer from '@/app/smart-sql-editor/components/AiSqlExplainer';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
+import SqlComparisonPanel from '@/app/smart-sql-editor/components/SqlComparisonPanel';
 import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import type { FormatError } from '@/lib/sql/formatError';
+import { resolveErrorRegion, type ErrorRegion } from '@/lib/sql/formatErrorRegion';
+import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import { requestFormatExplanation, type FormatExplanation } from '@/lib/ai/formatErrorAi';
 import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
@@ -31,6 +34,12 @@ import {
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
 import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
 import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
+import { compareSqlSnapshots, type ComparisonResult } from '@/lib/sql/sqlComparison';
+import {
+  extractPartialSqlComparisonExplanation,
+  requestSqlComparisonExplanation,
+  SqlComparisonAiError,
+} from '@/lib/ai/sqlComparisonAi';
 
 // Import sub-components
 import { Header } from './components/Header';
@@ -161,6 +170,10 @@ export default function QueryInputContent() {
   // content still lives in the store, so this adds no new state semantics.
   const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
+  // Last converted SQL already pushed into the editor, so tab switches alone never
+  // clobber edits the user made inside the Smart Editor.
+  const lastSyncedResolvedSqlRef = useRef<string | null>(null);
   const analysisRunRef = useRef(0);
 
   // Detect params when MyBatis XML changes
@@ -187,13 +200,15 @@ export default function QueryInputContent() {
     }
   }, [myBatisXml, inputMode, myBatisParams, setMyBatisParams]);
 
-  // Resolve params in real-time
+  // Resolve params in real-time. The converted SQL is preserved when the user
+  // opens the Smart Editor tab so the SQL review panel and the editor show the
+  // same statement after a MyBatis upload/paste + convert.
   useEffect(() => {
-    if (inputMode === 'sql' || inputMode === 'smart-editor') {
+    if (myBatisXml) {
+      setResolvedSql(resolveMyBatisParams(myBatisXml, myBatisParams));
+    } else if (inputMode === 'sql' || inputMode === 'smart-editor') {
       // For SQL mode, don't use resolved SQL - clear it
       setResolvedSql('');
-    } else if ((inputMode === 'mybatis' || inputMode === 'import-xml') && myBatisXml) {
-      setResolvedSql(resolveMyBatisParams(myBatisXml, myBatisParams));
     } else {
       // No XML content yet
       setResolvedSql('');
@@ -364,6 +379,27 @@ export default function QueryInputContent() {
       setCodeGeneratorInitialSql(initialSql);
       setCodeGeneratorSql(initialSql);
     }
+    if (newMode === 'smart-editor' && !jumpSql) {
+      // Fall back to the SQL review content of the mode we come from when the
+      // editor has never received converted SQL yet: converted MyBatis SQL for
+      // mybatis/import-xml, raw SQL paste for sql mode. The live sync effect
+      // above already seeded smartEditorSql, so this never clobbers edits made
+      // inside the editor. Skip when a go-to-line jump owns the content.
+      const syncedSql =
+        lastSyncedResolvedSqlRef.current !== null
+          ? smartEditorSqlRef.current
+          : inputMode === 'sql'
+            ? rawSql || resolvedSql || smartEditorSqlRef.current
+            : inputMode === 'mybatis' || inputMode === 'import-xml'
+              ? resolvedSql || rawSql || smartEditorSqlRef.current
+              : smartEditorSqlRef.current;
+      if (syncedSql) {
+        smartEditorSqlRef.current = syncedSql;
+        setSmartEditorSql(syncedSql);
+        setSmartEditorInitialSql(syncedSql);
+        editorApiRef.current?.setSql(syncedSql);
+      }
+    }
     setInputMode(newMode);
     // Switching tabs manually means the pending jump no longer applies to what's shown.
     setJumpSql(null);
@@ -392,6 +428,12 @@ export default function QueryInputContent() {
   const [smartEditorSql, setSmartEditorSql] = useState(
     jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'
   );
+  // Stable seed passed as `initialSql`: only updated by MyBatis convert sync or
+  // tab-switch fallback, never by keystrokes inside the editor, so the editor's
+  // own change tracking is not reset on every edit.
+  const [smartEditorInitialSql, setSmartEditorInitialSql] = useState(
+    jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'
+  );
   const [optimizationResult, setOptimizationResult] = useState<
     null | import('@/lib/ai/aiService').SqlOptimizationResult
   >(null);
@@ -402,7 +444,192 @@ export default function QueryInputContent() {
   // page exposes, so the panel must be wired here too — not only on the standalone editor page.
   const [formatError, setFormatError] = useState<FormatError | null>(null);
   const [isErrorPanelOpen, setIsErrorPanelOpen] = useState(false);
-  const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
+  const formatErrorRegion = formatError
+    ? resolveErrorRegion(formatError, formatError.sourceSql)
+    : null;
+  const [isComparisonPanelOpen, setIsComparisonPanelOpen] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
+  const [isComparisonRunning, setIsComparisonRunning] = useState(false);
+  const comparisonRunRef = useRef(0);
+  const comparisonAiAbortRef = useRef<AbortController | null>(null);
+
+  const handleRunComparison = useCallback(async () => {
+    comparisonAiAbortRef.current?.abort();
+    comparisonAiAbortRef.current = null;
+    const runNumber = ++comparisonRunRef.current;
+    const runId = `comparison-${runNumber}`;
+    const beforeSql = editorApiRef.current?.getOriginalSql() ?? smartEditorInitialSql;
+    const afterSql = editorApiRef.current?.getSql() ?? smartEditorSqlRef.current;
+    smartEditorSqlRef.current = afterSql;
+    setSmartEditorSql(afterSql);
+    const snapshot = {
+      runId,
+      beforeSql,
+      afterSql,
+      dialect,
+      startedAt: new Date().toISOString(),
+    };
+    setIsComparisonRunning(true);
+    try {
+      const result = await compareSqlSnapshots(snapshot);
+      if (comparisonRunRef.current !== runNumber) return;
+      setComparisonResult(result);
+      setIsComparisonPanelOpen(true);
+      if (result.status === 'no_changes') {
+        toast.info(t.comparisonNoChanges);
+      } else if (result.status === 'failed') {
+        toast.error(t.comparisonFailed);
+      } else {
+        toast.success(
+          result.changes.length > 0
+            ? `${t.comparisonChanges}: ${result.changes.length}`
+            : t.comparisonStaticCompleted
+        );
+      }
+    } catch {
+      if (comparisonRunRef.current === runNumber) {
+        toast.error(t.comparisonFailed);
+      }
+    } finally {
+      if (comparisonRunRef.current === runNumber) {
+        setIsComparisonRunning(false);
+      }
+    }
+  }, [dialect, smartEditorInitialSql, t]);
+
+  const isComparisonStale = Boolean(
+    comparisonResult &&
+    (comparisonResult.snapshot.beforeSql !==
+      (editorApiRef.current?.getOriginalSql() ?? smartEditorInitialSql) ||
+      comparisonResult.snapshot.afterSql !== smartEditorSql ||
+      comparisonResult.snapshot.dialect !== dialect)
+  );
+
+  useEffect(() => {
+    if (!isComparisonStale || !comparisonAiAbortRef.current) return;
+    comparisonAiAbortRef.current.abort();
+    comparisonAiAbortRef.current = null;
+    setComparisonResult((current) =>
+      current?.ai.status === 'pending'
+        ? { ...current, ai: { status: 'skipped', explanation: null, assessment: null } }
+        : current
+    );
+  }, [isComparisonStale]);
+
+  const handleRequestComparisonAi = useCallback(async () => {
+    if (!comparisonResult || comparisonResult.status === 'no_changes' || isComparisonStale) return;
+    comparisonAiAbortRef.current?.abort();
+    const controller = new AbortController();
+    comparisonAiAbortRef.current = controller;
+    const { snapshot } = comparisonResult;
+    setComparisonResult((current) =>
+      current?.snapshot.runId === snapshot.runId
+        ? { ...current, ai: { status: 'pending', explanation: null, assessment: null } }
+        : current
+    );
+
+    try {
+      let streamedResponse = '';
+      const assessment = await requestSqlComparisonExplanation(
+        snapshot,
+        settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig!,
+        settings.locale,
+        controller.signal,
+        (fragment) => {
+          streamedResponse += fragment;
+          const partialExplanation = extractPartialSqlComparisonExplanation(streamedResponse);
+          if (!partialExplanation || controller.signal.aborted) return;
+          setComparisonResult((current) =>
+            current?.snapshot.runId === snapshot.runId
+              ? {
+                  ...current,
+                  ai: { status: 'pending', explanation: partialExplanation, assessment: null },
+                }
+              : current
+          );
+        },
+        {
+          changes: comparisonResult.changes,
+          findings: comparisonResult.findings.filter(
+            (finding) => finding.origin === 'deterministic'
+          ),
+          limitations: comparisonResult.limitations,
+        }
+      );
+      const stillCurrent =
+        !controller.signal.aborted &&
+        comparisonRunRef.current === Number(snapshot.runId.replace('comparison-', '')) &&
+        smartEditorSqlRef.current === snapshot.afterSql &&
+        (editorApiRef.current?.getOriginalSql() ?? smartEditorInitialSql) === snapshot.beforeSql &&
+        dialect === snapshot.dialect;
+      setComparisonResult((current) =>
+        current?.snapshot.runId === snapshot.runId
+          ? {
+              ...current,
+              ai: stillCurrent
+                ? {
+                    status: current.status === 'partial' ? 'partial' : 'completed',
+                    explanation: null,
+                    assessment,
+                  }
+                : { status: 'skipped', explanation: null, assessment: null },
+            }
+          : current
+      );
+    } catch (error) {
+      const status =
+        error instanceof SqlComparisonAiError
+          ? error.kind === 'cancelled'
+            ? 'skipped'
+            : error.kind
+          : 'failed';
+      setComparisonResult((current) =>
+        current?.snapshot.runId === snapshot.runId
+          ? { ...current, ai: { status, explanation: null, assessment: null } }
+          : current
+      );
+    } finally {
+      if (comparisonAiAbortRef.current === controller) comparisonAiAbortRef.current = null;
+    }
+  }, [
+    comparisonResult,
+    dialect,
+    isComparisonStale,
+    settings.aiConfig,
+    settings.locale,
+    smartEditorInitialSql,
+  ]);
+
+  const handleCancelComparisonAi = useCallback(() => {
+    comparisonAiAbortRef.current?.abort();
+    comparisonAiAbortRef.current = null;
+    setComparisonResult((current) =>
+      current?.ai.status === 'pending'
+        ? { ...current, ai: { status: 'skipped', explanation: null, assessment: null } }
+        : current
+    );
+  }, []);
+
+  // Keep the SQL review panel and the Smart Editor on the same statement: right
+  // after a MyBatis upload/paste + convert, the resolved SQL is pushed into the
+  // editor state (and its imperative API when mounted) unless a go-to-line jump
+  // owns the content. Only a *new* converted value syncs, so moving between tabs
+  // preserves whatever the user typed in the editor.
+  useEffect(() => {
+    if (jumpSql) return;
+    if (inputMode !== 'mybatis' && inputMode !== 'import-xml') return;
+    if (!resolvedSql) return;
+    if (lastSyncedResolvedSqlRef.current === resolvedSql) return;
+    if (editorApiRef.current?.getSql() === resolvedSql) {
+      lastSyncedResolvedSqlRef.current = resolvedSql;
+      return;
+    }
+    lastSyncedResolvedSqlRef.current = resolvedSql;
+    smartEditorSqlRef.current = resolvedSql;
+    setSmartEditorSql(resolvedSql);
+    setSmartEditorInitialSql(resolvedSql);
+    editorApiRef.current?.setSql(resolvedSql);
+  }, [inputMode, jumpSql, resolvedSql]);
 
   /** A new failure replaces the previous report and forces the panel open (FR-003). */
   const handleFormatError = useCallback((error: FormatError) => {
@@ -412,8 +639,8 @@ export default function QueryInputContent() {
 
   /** One AI response provides both the explanation and corrected SQL (FR-021). */
   const handleRequestExplain = useCallback(
-    (error: FormatError): Promise<FormatExplanation> => {
-      return requestFormatExplanation(error, settings.aiConfig, settings.locale);
+    (error: FormatError, region?: ErrorRegion | null): Promise<FormatExplanation> => {
+      return requestFormatExplanation(error, settings.aiConfig, settings.locale, region);
     },
     [settings.aiConfig, settings.locale]
   );
@@ -421,20 +648,29 @@ export default function QueryInputContent() {
   /** Applies a confirmed AI fix, re-formats it, and clears the report (FR-010). */
   const handleApplyFormatFix = useCallback(
     (sql: string) => {
-      const language = toFormatterLanguage(formatError?.dialect ?? 'mysql');
-      let applied = sql;
+      if (!formatError || !formatErrorRegion) return;
+      const result = applyFormatFix({
+        snapshotSql: formatError.sourceSql,
+        currentSql: smartEditorSql,
+        proposedSql: sql,
+        region: formatErrorRegion,
+      });
+      if (!result.ok) return;
+
+      const language = toFormatterLanguage(formatError.dialect);
       try {
-        applied = format(sql, { language });
+        format(result.sql, { language });
       } catch {
-        // Keep the user's confirmed proposal; the panel already validated a re-format.
+        return;
       }
-      editorApiRef.current?.setSql(applied);
-      setSmartEditorSql(applied);
+      smartEditorSqlRef.current = result.sql;
+      editorApiRef.current?.setSql(result.sql);
+      setSmartEditorSql(result.sql);
       setFormatError(null);
       setIsErrorPanelOpen(false);
       toast.success(t.formatErrorPanelFixApplied);
     },
-    [formatError?.dialect, t]
+    [formatError, formatErrorRegion, smartEditorSql, t]
   );
 
   /** Dismissing a proposal keeps the editor untouched (FR-010). */
@@ -489,7 +725,9 @@ export default function QueryInputContent() {
                 <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
                   <div className="flex min-h-[620px] flex-1 flex-col">
                     <SmartSQLEditor
-                      initialSql={jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'}
+                      initialSql={
+                        jumpSql || smartEditorInitialSql || 'SELECT * FROM table LIMIT 10;'
+                      }
                       jumpToLine={jumpLine}
                       onJumpHandled={() => {
                         setJumpLine(null);
@@ -510,12 +748,24 @@ export default function QueryInputContent() {
                       error={formatError}
                       isOpen={isErrorPanelOpen}
                       onToggle={setIsErrorPanelOpen}
+                      region={formatErrorRegion}
                       currentSql={smartEditorSql}
                       onRequestExplain={handleRequestExplain}
                       onApplyFix={handleApplyFormatFix}
                       onDismissFix={handleDismissFormatFix}
                     />
                   )}
+                  <SqlComparisonPanel
+                    locale={settings.locale}
+                    isOpen={isComparisonPanelOpen}
+                    onToggle={setIsComparisonPanelOpen}
+                    result={comparisonResult}
+                    isStale={isComparisonStale}
+                    isRunning={isComparisonRunning}
+                    onRunComparison={handleRunComparison}
+                    onRequestAi={handleRequestComparisonAi}
+                    onCancelAi={handleCancelComparisonAi}
+                  />
                 </div>
 
                 {/* SQL → natural language, same panel as the standalone Smart SQL Editor page. */}

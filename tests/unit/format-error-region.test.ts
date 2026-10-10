@@ -123,7 +123,7 @@ describe('resolveErrorRegion', () => {
   it('resolves a region when the formatter reports only a line and column', () => {
     // A lexer failure carries its position in the message and no `offset` property at all.
     const error = captureFormatError(
-      new Error(`Parse error: Unexpected "'abc;" at line 2 column 12.\nSQL dialect used: "mysql".`),
+      new Error(`Parse error: Unexpected "'abc;" at line 3 column 12.\nSQL dialect used: "mysql".`),
       { sourceSql: "SELECT *\nFROM users\nWHERE name = 'abc;", dialect: 'mysql' }
     );
 
@@ -183,4 +183,3 @@ describe('resolveErrorRegion with a cross-check position', () => {
     });
   });
 });
-
