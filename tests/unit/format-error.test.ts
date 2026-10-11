@@ -3,6 +3,7 @@ import { format } from 'sql-formatter';
 import {
   captureFormatError,
   deriveLocationAndSnippet,
+  offsetFromLineColumn,
   type SqlFormatDialect,
 } from '@/lib/sql/formatError';
 
@@ -123,11 +124,11 @@ describe('captureFormatError', () => {
 
     expect(error.message).toContain('line 1 column 34');
     expect(error.dialect).toBe('sqlserver');
-    expect(error.location).toEqual({ line: 1, column: 34 });
+    expect(error.location).toEqual({ offset: 33, line: 1, column: 34 });
     expect(error.snippet).toBeTruthy();
   });
 
-  it('derives a 1-based line/column from the exact offset sql-formatter reports', () => {
+  it('prefers the source line and column in the formatter message over its parser offset', () => {
     for (const dialect of Object.keys(FORMATTER_LANGUAGES) as SqlFormatDialect[]) {
       const sql = 'SELECT * FROM (;';
       let thrown: unknown;
@@ -140,13 +141,31 @@ describe('captureFormatError', () => {
       const error = captureFormatError(thrown, { sourceSql: sql, dialect });
       expect(error.message).toContain('Parse error');
       expect(error.dialect).toBe(dialect);
-      // Verified against sql-formatter 15.8.2: `offset = 4` (after `SELECT `) and the offending
-      // `;` token at index 15, i.e. line 1 column 16 — identical across all four dialects.
-      expect(error.location?.offset).toBe(4);
+      // sql-formatter 15.8.2 reports offset 4 here, but its message correctly points to the `;`.
+      expect(error.location?.offset).toBe(sql.indexOf(';'));
       expect(error.location?.line).toBe(1);
-      expect(error.location?.column).toBe(5);
+      expect(error.location?.column).toBe(16);
       expect(error.snippet).toBeTruthy();
     }
+  });
+
+  it('uses the formatter message line when its offset points to a different SQL line', () => {
+    const sql = ['SELECT id, name', 'FROM users', 'WHERE id = (;'].join('\n');
+    let thrown: unknown;
+    try {
+      format(sql, { language: 'mysql' });
+    } catch (error) {
+      thrown = error;
+    }
+
+    const error = captureFormatError(thrown, { sourceSql: sql, dialect: 'mysql' });
+
+    expect(error.location).toEqual({
+      offset: sql.indexOf(';'),
+      line: 3,
+      column: 13,
+    });
+    expect(error.snippet).toContain('WHERE id = (;');
   });
 });
 
@@ -165,5 +184,11 @@ describe('deriveLocationAndSnippet', () => {
 
     expect(derived.location).toEqual({});
     expect(derived.snippet).toBeUndefined();
+  });
+
+  it('clamps an oversized column to the end of its own line', () => {
+    const sql = 'SELECT id\nFROM users\nWHERE id = 1;';
+
+    expect(offsetFromLineColumn(sql, 2, 999)).toBe(sql.indexOf('\n', sql.indexOf('FROM')));
   });
 });

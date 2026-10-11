@@ -6,11 +6,11 @@
 
 ## Summary
 
-Replace the toast-only format-error handling in the Smart SQL Editor with a dedicated, toggleable error panel docked on the right side of the screen. The panel captures a structured format error (message, dialect, location when available) and offers one on-demand, local-Ollama action: **Giải thích và gợi ý sửa lỗi**. Its single response contains a grounded plain-language explanation, root cause, evidence, and minimal corrected SQL shown for review.
+Replace the toast-only format-error handling in the Smart SQL Editor with a dedicated, toggleable error panel docked on the right side of the screen. The panel captures a structured format error (message, dialect, location when available) and offers one on-demand, local-Ollama action: **Giải thích và gợi ý sửa lỗi**. Its response separates a grounded explanation, root cause, and evidence from a region-only replacement SQL fragment and rationale. A valid diagnosis remains visible when no replacement passes local safety checks.
 
 Applying a fix is **region-bounded** (FR-017): the system resolves the erroneous region from the captured error location — falling back to the AST cross-check parser when the formatter reports no position (FR-019) — and splices only that region into the editor, leaving every character outside it untouched. A proposal that changes SQL outside the region is rejected with a retry affordance (FR-018), and when no region can be determined at all, no applicable fix is offered (FR-020). Format success behaviour is unchanged.
 
-Technical approach: capture the `sql-formatter` throw in `handleFormatSQL`, resolve a contiguous error region with a small pure module, extract the model's actual change by common-prefix/suffix diff, and gate the splice on region containment. Reuse the existing AI adapter (`aiService.ts`, direct on-device call to Ollama) with one structured prompt returning explanation and corrected SQL, and the existing Monaco `DiffEditor` for review.
+Technical approach: capture the `sql-formatter` throw in `handleFormatSQL`, resolve a contiguous error region with a small pure module, ask the model for only that region's replacement and rationale, then splice it into the captured SQL locally and validate the complete candidate. Diagnosis parsing does not depend on correction success. Reuse the existing AI adapter (`aiService.ts`, direct on-device call to Ollama) and the existing Monaco `DiffEditor` for review.
 
 ## Technical Context
 
@@ -30,9 +30,9 @@ Technical approach: capture the `sql-formatter` throw in `handleFormatSQL`, reso
 
 **Observability**: Each AI request records phase, duration and outcome (ready / unavailable / malformed / rejected-by-guard) through the existing `aiService` failure classification, so SC-004 latency and guard-rejection counts can be measured locally.
 
-**Verification**: `npm run type-check`, `npm run test`, targeted `vitest run` for the new modules, plus the manual `quickstart.md` scenarios S1–S12. SC-005 (≥70% first-proposal fix success) and SC-006 (satisfaction rating) are **not** verifiable as written — a fixture-corpus measurement task plus SC-003/SC-005/006 rewording are carried into `/speckit-tasks` and a follow-up `/speckit-clarify`.
+**Verification**: `npm run type-check`, `npm run test`, targeted `vitest run` for the touched AI and panel tests, plus the manual `quickstart.md` scenarios S1–S13. SC-005 (≥70% first-proposal fix success) and SC-006 (satisfaction rating) are **not** verifiable as written — a fixture-corpus measurement task plus SC-003/SC-005/006 rewording are carried into `/speckit-tasks` and a follow-up `/speckit-clarify`.
 
-**Constraints**: Local Ollama only (no cloud); an on-device direct call is allowed but no credential may live in the browser (FR-011, FR-014); review-before-apply with a region-bounded splice; out-of-region and undeterminable-region proposals are never applied; a single complete AI response, no streaming (FR-021); TypeScript strict (no unjustified `any`); reuse the existing design system (EN/VI locales, light/dark themes).
+**Constraints**: Local Ollama only (no cloud); an on-device direct call is allowed but no credential may live in the browser (FR-011, FR-014); review-before-apply with a region-bounded splice; out-of-region and undeterminable-region proposals are never applied; one response includes diagnosis, region replacement, and rationale, while diagnosis validity is independent of replacement validity (FR-021–FR-023); TypeScript strict (no unjustified `any`); reuse the existing design system (EN/VI locales, light/dark themes).
 
 **Scale/Scope**: Single-user editor; queries up to several hundred/thousand lines; one error per format attempt (first failure).
 

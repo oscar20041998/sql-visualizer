@@ -1,0 +1,24 @@
+{
+  "workflow": "speckit",
+  "specName": "SQL Before/After Comparison",
+  "branch": "master",
+  "currentStep": "plan",
+  "status": "planned",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-09T12:59:49.983Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-09T13:17:13.908Z"
+    }
+  ],
+  "telemetryInstanceId": "1885f5b6-9b81-4927-b16b-128889795776"
+}

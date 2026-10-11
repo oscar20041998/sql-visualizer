@@ -78,7 +78,7 @@ Single Next.js app: `src/app/`, `src/lib/`, `src/locales/` and `tests/unit/` at 
 
 ## Phase 4: User Story 2 - AI explains the error and its root cause (Priority: P2) (delivered)
 
-**Goal**: From the panel, request a plain-language, grounded explanation + root cause via local Ollama, now also grounded in the resolved region and — when the formatter had no position — the AST parser's findings.
+**Goal**: From the panel, request a plain-language, grounded explanation + root cause, a region-only SQL replacement, and its rationale via local Ollama. Diagnosis remains available if replacement validation fails.
 
 **Independent Test**: With an error open and Ollama running → Explain → grounded explanation appears; with Ollama stopped → unavailable/retry state (quickstart S4, S7, S9, S11).
 
@@ -91,7 +91,11 @@ Single Next.js app: `src/app/`, `src/lib/`, `src/locales/` and `tests/unit/` at 
 - [x] T009 [US2] Implement `explainFormatError` prompt builder and response parser (embeds error message + dialect + SQL; parses `explanation`/`rootCause`/`evidence`) reusing `aiService` for the local Ollama call in `src/lib/ai/formatErrorAi.ts`
 - [x] T010 [US2] Add the "Explain" action and its loading/ready/unavailable/error states (render explanation, root cause, evidence) to `src/app/smart-sql-editor/components/FormatErrorPanel.tsx`
 - [ ] T025 [US2] Ground the explain and fix prompts with the bounded region snippet and, when the position came from the cross-check parser, its error findings; assert the grounding in `tests/unit/format-error-ai.test.ts` and implement in `src/lib/ai/formatErrorAi.ts` (FR-019, `research.md` R10) [U43] [U44]
-- [x] T049 [US2] Return the grounded explanation and formatter-valid corrected SQL from one local AI response, and expose the workflow through one combined action in `src/lib/ai/formatErrorAi.ts` and `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` [U84, U85] [FR-021]
+- [x] T049 [US2] Return the grounded explanation, region-only replacement, and rationale from one local AI response; reconstruct and formatter-validate the full query locally, and expose the workflow through one combined action in `src/lib/ai/formatErrorAi.ts` and `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` [U84, U85] [FR-021, FR-022]
+- [x] T050 [P] [US2] Write failing parser/service and panel tests for missing, formatter-invalid, and unsafe replacement SQL while preserving valid diagnosis in `tests/unit/format-error-ai.test.ts` and `tests/unit/format-error-panel.test.tsx` [U86, U87, U88] [FR-023]
+- [x] T051 [US2] Parse diagnosis independently from replacement fields and retain it when replacement SQL is missing, outside the bounded region, unchanged, or rejected by `sql-formatter` in `src/lib/ai/formatErrorAi.ts` [U86, U87] [FR-022, FR-023]
+- [x] T052 [US2] Render the replacement fragment and rationale only for a locally validated candidate; otherwise show a no-safe-replacement notice and omit Copy/Apply, with EN/VI strings in `FormatErrorPanel.tsx`, `src/locales/en.ts`, and `src/locales/vi.ts` [U88] [FR-022, FR-023]
+- [x] T054 [P] Align the spec, plan, data model, contract, quickstart and TDD test list with the region-fragment response and diagnosis-preserving correction behavior in `specs/012-format-error-ai-diagnostics/` [FR-022, FR-023]
 
 ---
 
@@ -143,7 +147,7 @@ Single Next.js app: `src/app/`, `src/lib/`, `src/locales/` and `tests/unit/` at 
 - [x] T014 [P] Add accessibility polish (keyboard toggle, `aria-expanded`, visible focus, ARIA live region for loading/error) to `src/app/smart-sql-editor/components/FormatErrorPanel.tsx`
 - [x] T030 [P] Extend accessibility to the new states: announce applicability notices in the live region and move focus to the new-proposal affordance in `src/app/smart-sql-editor/components/FormatErrorPanel.tsx` [U61]
 - [x] T031 Run `npm run type-check`, `npm run lint` and `npm run test` and fix any failures — type-check clean; the feature's own files are lint-clean after a prettier fix; the repo-wide prettier debt (~74 files) is pre-existing and left out of scope (see cycle-log)
-- [ ] T032 Run the `quickstart.md` scenarios S1–S12 end-to-end and record the outcomes (replaces the first pass's open quickstart task, which covered S1–S7 only)
+- [ ] T032 Run the `quickstart.md` scenarios S1–S13 end-to-end and record the outcomes (replaces the first pass's open quickstart task, which covered S1–S7 only)
 - [ ] T033 [P] Build a per-dialect broken-SQL fixture corpus and a repeatable measurement command for SC-005 (≥70% first-proposal fix success) in `tests/fixtures/format-error/` and `scripts/measure-format-fix-success.mjs`
 - [x] T034 Rewrite SC-003, SC-005 and SC-006 in `specs/012-format-error-ai-diagnostics/spec.md` so each success criterion is measurable (or explicitly reclassify it as a post-launch metric) and re-validate `specs/012-format-error-ai-diagnostics/checklists/requirements.md` — done 2026-09-25: SC-003/SC-005 made measurable, SC-006's 4/5 rating reclassified as a post-launch metric, checklist back to 16/16
 

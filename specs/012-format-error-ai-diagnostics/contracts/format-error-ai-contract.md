@@ -21,7 +21,7 @@ Guarantee: when `location` is absent, `snippet` and `locationSource` are also ab
 
 ## 2. Combined request/response
 
-Request embeds: `error.message`, `error.dialect`, and the full `sourceSql`. When a bounded region was resolved, its snippet and source label are included with an instruction to confine the correction to that region. Including the cross-check parser's actual error findings in the prompt remains pending (T025/U44).
+Request embeds: `error.message`, `error.dialect`, and the bounded error-region snippet. The model is asked to return only a replacement fragment for that region, never the full query. The client splices this fragment into the captured source SQL for formatter validation and the existing region-bounded Apply guard. Including the cross-check parser's actual error findings in the prompt remains pending (T025/U44).
 
 The panel exposes one action, **Giải thích và gợi ý sửa lỗi** (localized equivalently). One request returns strict JSON, no prose/fence:
 
@@ -30,15 +30,18 @@ The panel exposes one action, **Giải thích và gợi ý sửa lỗi** (locali
   "explanation": "plain-language statement of what the error is",
   "rootCause": "plain-language statement of why it happened",
   "evidence": ["quoted SQL fragment or error text the answer relies on"],
-  "correctedSql": "the minimal corrected SQL"
+  "replacementSql": "only the corrected SQL for the error region",
+  "replacementReason": "why this replacement fixes the syntax error"
 }
 ```
 
-Rules: `explanation` and `rootCause` non-empty; `evidence` ≥ 1 item, each quoting the actual SQL/error (grounding); `correctedSql` non-empty and different from the input; never contradict the captured error; no SQL execution/perf advice. The explanation and correction are returned together, not by separate requests.
+Rules: `explanation` and `rootCause` non-empty; `evidence` ≥ 1 item, quoting the actual SQL/error (grounding); `replacementSql` and `replacementReason` are required for a usable correction; `replacementSql` contains only the bounded region. The model never returns a full query. Never contradict the captured error; no SQL execution/performance advice. The explanation and correction are requested together, not by separate requests.
+
+The client parses diagnosis fields independently. Missing or invalid `replacementSql`/`replacementReason`, an out-of-region change, a refusal by the existing scoped-apply guard, or a formatter rejection MUST NOT discard a valid diagnosis. In that case the panel renders the diagnosis, displays the localized no-safe-replacement state, and offers neither Copy nor Apply. The client may expose Copy/Apply only after splicing `replacementSql` into the captured query, passing the scoped-apply guard, and validating the complete result.
 
 ## 3. Apply contract (client-side, region-bounded)
 
-The AI returns a whole corrected document; the editor must still receive a **region-bounded splice**. These are pure functions (see research R8/R9) and the invariants are contractual:
+The model returns only a region replacement fragment. The client constructs a whole-query candidate, and the editor must still receive a **region-bounded splice**. These are pure functions (see research R8/R9) and the invariants are contractual:
 
 ```ts
 // Longest common prefix + longest non-overlapping common suffix.
@@ -66,7 +69,8 @@ Invariants: the text outside `[startOffset, endOffset)` is byte-identical to the
 
 ## Validation responsibilities
 
-- The client validates structure (non-empty fields, `evidence` array, `correctedSql` present) before rendering.
+- The client validates diagnosis structure (`explanation`, `rootCause`, and grounded `evidence`) independently from correction structure.
+- The client validates correction structure (`replacementSql` and `replacementReason`) and retains a valid diagnosis when correction validation fails.
 - The client validates fix viability by re-running the formatter on the **spliced** SQL.
 - The client — not the model — owns the region: the model's text is evidence, the guard is policy. Every rejection is surfaced as a state, never as a silent partial apply.
 - The panel surfaces `unavailable`/`error` states when the model is unreachable, times out, or returns malformed JSON.

@@ -1,0 +1,31 @@
+{
+  "workflow": "speckit",
+  "specName": "AI SQL Comparison Results",
+  "branch": "develop",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-10T09:13:25.996Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-10T09:24:08.191Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-10T09:53:21.076Z"
+    }
+  ],
+  "telemetryInstanceId": "75054a20-5383-4d9e-8701-6ebb3d8dc65f"
+}

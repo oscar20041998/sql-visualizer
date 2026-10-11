@@ -6,7 +6,6 @@ import {
   FormatAiError,
   parseFormatExplanation,
   requestFormatExplanation,
-  requestFormatFix,
 } from '@/lib/ai/formatErrorAi';
 import {
   jsonResponse,
@@ -37,7 +36,6 @@ describe('buildFormatFixPrompt', () => {
     expect(prompt).toMatch(/confine every change to it/i);
   });
 });
-
 describe('buildExplainFormatErrorPrompt', () => {
   it('embeds the exact error message, the dialect and the failing SQL (grounding)', () => {
     const prompt = buildExplainFormatErrorPrompt(makeFormatError());
@@ -48,13 +46,15 @@ describe('buildExplainFormatErrorPrompt', () => {
     expect(prompt).toContain('1:5');
   });
 
-  it('asks for explanation, evidence and correctedSql in one JSON contract', () => {
+  it('asks for explanation and a region-only replacement with its rationale in one JSON contract', () => {
     const prompt = buildExplainFormatErrorPrompt(makeFormatError());
 
     expect(prompt).toContain('"explanation"');
     expect(prompt).toContain('"rootCause"');
     expect(prompt).toContain('"evidence"');
-    expect(prompt).toContain('"correctedSql"');
+    expect(prompt).toContain('"replacementSql"');
+    expect(prompt).toContain('"replacementReason"');
+    expect(prompt).not.toContain('"correctedSql"');
     expect(prompt).toMatch(/in one response/i);
   });
 
@@ -71,7 +71,8 @@ describe('buildExplainFormatErrorPrompt', () => {
     );
 
     expect(prompt).not.toMatch(/Location:\s*\d/);
-    expect(prompt).toContain('SELECT * FROM (;');
+    expect(prompt).toContain('Do not return a SQL correction');
+    expect(prompt).not.toContain('SQL that failed to format:');
   });
 
   it('instructs the model to answer in Vietnamese when locale is vi, English otherwise', () => {
@@ -80,8 +81,44 @@ describe('buildExplainFormatErrorPrompt', () => {
 
     expect(vi).toContain('Vietnamese');
     expect(vi).toContain('tiếng Việt');
+    expect(vi).toContain('"replacementReason" fields in Vietnamese');
     expect(en).toContain('in English');
     expect(en).not.toContain('Vietnamese');
+  });
+
+  it('asks the model for only the corrected error region when one is known', () => {
+    const prompt = buildExplainFormatErrorPrompt(makeFormatError(), 'en', {
+      startOffset: 0,
+      endOffset: 16,
+      startLine: 1,
+      endLine: 1,
+      source: 'formatter',
+      snippet: 'SELECT * FROM (;',
+      anchorOffset: 15,
+    });
+
+    expect(prompt).toMatch(/return only the corrected replacement fragment/i);
+    expect(prompt).toMatch(/do not repeat the full query/i);
+  });
+
+  it('derives the replacement range and omits unrelated SQL when no region is passed', () => {
+    const sourceSql = 'SELECT id FROM users;\nSELECT * FROM (;';
+    const error = makeFormatError({
+      sourceSql,
+      location: {
+        offset: sourceSql.indexOf('('),
+        line: 2,
+        column: 15,
+      },
+      snippet: 'SELECT * FROM (;',
+    });
+
+    const prompt = buildExplainFormatErrorPrompt(error);
+
+    expect(prompt).toContain('Replacement range: lines 2-2');
+    expect(prompt).toContain('SELECT * FROM (');
+    expect(prompt).not.toContain('SELECT id FROM users;');
+    expect(prompt).toMatch(/replacementSql.*replacement fragment only/i);
   });
 });
 
@@ -92,7 +129,8 @@ describe('parseFormatExplanation', () => {
         explanation: 'The parenthesis opened before the semicolon is never closed.',
         rootCause: 'The query ends with a delimiter while an expression is still open.',
         evidence: ['SELECT * FROM (;', 'Parse error at token: ;'],
-        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
+        replacementSql: 'SELECT * FROM (SELECT 1) AS t;',
+        replacementReason: 'The replacement closes the parenthesized table expression.',
       })
     );
 
@@ -100,19 +138,38 @@ describe('parseFormatExplanation', () => {
     expect(parsed?.explanation).toContain('parenthesis');
     expect(parsed?.rootCause).toContain('delimiter');
     expect(parsed?.evidence).toHaveLength(2);
-    expect(parsed?.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
+    expect(parsed?.replacementSql).toBe('SELECT * FROM (SELECT 1) AS t;');
+    expect(parsed?.replacementReason).toContain('closes the parenthesized');
+  });
+
+  it('keeps a valid diagnosis when replacement SQL is missing', () => {
+    const parsed = parseFormatExplanation(
+      JSON.stringify({
+        explanation: 'The parenthesis is never closed.',
+        rootCause: 'The query ends before the expression is complete.',
+        evidence: ['SELECT * FROM (;'],
+      })
+    );
+
+    expect(parsed).toMatchObject({
+      explanation: 'The parenthesis is never closed.',
+      replacementSql: null,
+      replacementReason: null,
+    });
   });
 
   it('tolerates a markdown fence and surrounding prose', () => {
     const parsed = parseFormatExplanation(
-      'Here is the diagnosis:\n```json\n{"explanation":"a","rootCause":"b","evidence":["c"],"correctedSql":"SELECT 1;"}\n```'
+      'Here is the diagnosis:\n```json\n{"explanation":"a","rootCause":"b","evidence":["c"],"replacementSql":"SELECT 1;","replacementReason":"Completes the expression."}\n```'
     );
 
     expect(parsed).toEqual({
       explanation: 'a',
       rootCause: 'b',
       evidence: ['c'],
-      correctedSql: 'SELECT 1;',
+      replacementSql: 'SELECT 1;',
+      replacementReason: 'Completes the expression.',
+      correctedSql: null,
     });
   });
 
@@ -124,7 +181,8 @@ describe('parseFormatExplanation', () => {
           explanation: 'a',
           rootCause: '',
           evidence: ['SELECT * FROM (;'],
-          correctedSql: 'SELECT 1;',
+          replacementSql: 'SELECT 1;',
+          replacementReason: 'Completes the expression.',
         })
       )
     ).toBeNull();
@@ -137,7 +195,8 @@ describe('parseFormatExplanation', () => {
           explanation: 'a',
           rootCause: 'b',
           evidence: [],
-          correctedSql: 'SELECT 1;',
+          replacementSql: 'SELECT 1;',
+          replacementReason: 'Completes the expression.',
         })
       )
     ).toBeNull();
@@ -195,49 +254,204 @@ describe('describeAiFailure', () => {
 describe('requestFormatExplanation', () => {
   const config = makeOllamaConfig();
 
-  it('returns the explanation and corrected SQL from one local-model response', async () => {
+  it('returns the explanation and locally reconstructed SQL from one region-fragment response', async () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const sourceSql = 'SELECT id\nFROM (;';
+    const error = makeFormatError({
+      sourceSql,
+      location: { offset: sourceSql.indexOf('('), line: 2, column: 6 },
+      snippet: 'FROM (;',
+    });
     const fetchImpl = (async (url: string, init: RequestInit) => {
       calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
       return jsonResponse({
         explanation: 'Unclosed parenthesis.',
         rootCause: 'The delimiter arrives mid-expression.',
-        evidence: ['SELECT * FROM (;'],
-        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
+        evidence: ['SELECT id FROM (;'],
+        replacementSql: 'FROM (SELECT 1) AS t;',
+        replacementReason: 'Closes the parenthesized table expression.',
       });
     }) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () => requestFormatExplanation(error, config));
+
+    expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls[0].body)).toContain('replacementSql');
+    expect(result.correctedSql).toBe('SELECT id\nFROM (SELECT 1) AS t;');
+    expect(result.replacementSql).toBe('FROM (SELECT 1) AS t;');
+  });
+
+  it('parses a content-wrapped response with labeled Markdown evidence', async () => {
+    const sourceSql = 'SELECT id\nFROM (;';
+    const error = makeFormatError({
+      sourceSql,
+      location: { offset: sourceSql.indexOf('('), line: 2, column: 6 },
+      snippet: 'FROM (;',
+    });
+    const content = JSON.stringify({
+      explanation: 'The parenthesis is never closed.',
+      rootCause: 'The opening parenthesis has no matching closing parenthesis.',
+      evidence: [
+        'Dòng lỗi: `Parse error at token: ; at line 1 column 16`',
+        'SQL gốc: `SELECT * FROM (;`',
+      ],
+      replacementSql: 'FROM (SELECT 1) AS t;',
+      replacementReason: 'Closes the parenthesized table expression.',
+    });
+    const fetchImpl = (async () => jsonResponse({ content })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () => requestFormatExplanation(error, config));
+
+    expect(result.explanation).toBe('The parenthesis is never closed.');
+    expect(result.correctedSql).toBe('SELECT id\nFROM (SELECT 1) AS t;');
+  });
+
+  it('reconstructs the full query from a region-only model correction', async () => {
+    const sourceSql = 'SELECT id\nFROM users WHERE active = 0;';
+    const correctedRegion = 'FROM users WHERE active = 1;';
+    const error = makeFormatError({ sourceSql });
+    const region = {
+      startOffset: sourceSql.indexOf('FROM'),
+      endOffset: sourceSql.length,
+      startLine: 2,
+      endLine: 2,
+      source: 'formatter' as const,
+      snippet: 'FROM users WHERE active = 0;',
+      anchorOffset: sourceSql.indexOf('active'),
+    };
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The predicate uses the wrong value.',
+        rootCause: 'The active flag is set to zero.',
+        evidence: ['FROM users WHERE active = 0;'],
+        replacementSql: correctedRegion,
+        replacementReason: 'Corrects the invalid predicate value.',
+      })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () =>
+      requestFormatExplanation(error, config, 'en', region)
+    );
+
+    expect(result.correctedSql).toBe('SELECT id\nFROM users WHERE active = 1;');
+  });
+
+  it('keeps a valid diagnosis when the region replacement fails formatter validation', async () => {
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The parenthesis is never closed.',
+        rootCause: 'The query ends before the parenthesized expression is complete.',
+        evidence: ['SELECT * FROM (;'],
+        replacementSql: 'SELECT * FROM (',
+        replacementReason: 'This would close the expression.',
+      })) as unknown as typeof fetch;
 
     const result = await withStubbedFetch(fetchImpl, () =>
       requestFormatExplanation(makeFormatError(), config)
     );
 
-    expect(calls).toHaveLength(1);
-    expect(JSON.stringify(calls[0].body)).toContain('correctedSql');
-    expect(result.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
+    expect(result.explanation).toContain('parenthesis');
+    expect(result.correctedSql).toBeNull();
+  });
+
+  it('keeps diagnosis but refuses a broad rewrite when a one-line region covers the query', async () => {
+    const sourceSql = 'SELECT * FROM (;';
+    const error = makeFormatError({ sourceSql });
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The parenthesis is never closed.',
+        rootCause: 'The query ends before the expression is complete.',
+        evidence: ['SELECT * FROM (;'],
+        replacementSql: 'SELECT * FROM (SELECT 1) AS t;',
+        replacementReason: 'Completes the parenthesized expression.',
+      })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () => requestFormatExplanation(error, config));
+
+    expect(result.explanation).toContain('parenthesis');
+    expect(result.correctedSql).toBeNull();
+  });
+
+  it('derives a replacement region when the caller does not provide one', async () => {
+    const sourceSql = 'SELECT id\nFROM (;';
+    const error = makeFormatError({
+      sourceSql,
+      location: {
+        offset: sourceSql.indexOf('('),
+        line: 2,
+        column: 6,
+      },
+      snippet: 'FROM (',
+    });
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The opening parenthesis is never closed.',
+        rootCause: 'The FROM expression is incomplete.',
+        evidence: ['SELECT id FROM (;'],
+        replacementSql: 'FROM (SELECT 1) AS t;',
+        replacementReason: 'Completes the FROM expression.',
+      })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () => requestFormatExplanation(error, config));
+
+    expect(result.correctedSql).toBe('SELECT id\nFROM (SELECT 1) AS t;');
+  });
+
+  it('preserves diagnosis but rejects a full-query response instead of a region fragment', async () => {
+    const sourceSql = 'SELECT id\nFROM users WHERE active = 0;';
+    const error = makeFormatError({ sourceSql });
+    const region = {
+      startOffset: sourceSql.indexOf('FROM'),
+      endOffset: sourceSql.length,
+      startLine: 2,
+      endLine: 2,
+      source: 'formatter' as const,
+      snippet: 'FROM users WHERE active = 0;',
+      anchorOffset: sourceSql.indexOf('active'),
+    };
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The predicate uses the wrong value.',
+        rootCause: 'The active flag is set to zero.',
+        evidence: ['SQL gốc: `FROM users WHERE active = 0;`'],
+        replacementSql: 'SELECT id\nFROM users WHERE active = 1;',
+        replacementReason: 'Corrects the invalid predicate value.',
+      })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () =>
+      requestFormatExplanation(error, config, 'en', region)
+    );
+
+    expect(result.explanation).toContain('predicate');
+    expect(result.correctedSql).toBeNull();
   });
 
   it('posts to the local Ollama chat endpoint and parses the explanation', async () => {
+    const sourceSql = 'SELECT id\nFROM (;';
+    const error = makeFormatError({
+      sourceSql,
+      location: { offset: sourceSql.indexOf('('), line: 2, column: 6 },
+      snippet: 'FROM (;',
+    });
     const calls: Array<{ url: string; body: { model?: string } }> = [];
     const fetchImpl = (async (url: string, init: RequestInit) => {
       calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
       return jsonResponse({
         explanation: 'Unclosed parenthesis.',
         rootCause: 'The delimiter arrives mid-expression.',
-        evidence: ['SELECT * FROM (;'],
-        correctedSql: 'SELECT * FROM (SELECT 1) AS t;',
+        evidence: ['SELECT id FROM (;'],
+        replacementSql: 'FROM (SELECT 1) AS t;',
+        replacementReason: 'Closes the parenthesized table expression.',
       });
     }) as unknown as typeof fetch;
 
-    const result = await withStubbedFetch(fetchImpl, () =>
-      requestFormatExplanation(makeFormatError(), config)
-    );
+    const result = await withStubbedFetch(fetchImpl, () => requestFormatExplanation(error, config));
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('http://localhost:11434/v1/chat/completions');
     expect(calls[0].body.model).toBe('qwen2.5-coder:3b');
     expect(result.explanation).toContain('Unclosed parenthesis');
-    expect(result.evidence).toEqual(['SELECT * FROM (;']);
-    expect(result.correctedSql).toBe('SELECT * FROM (SELECT 1) AS t;');
+    expect(result.evidence).toEqual(['SELECT id FROM (;']);
+    expect(result.correctedSql).toBe('SELECT id\nFROM (SELECT 1) AS t;');
   });
 
   it('rejects an explanation whose evidence quotes SQL the editor never held', async () => {
@@ -270,6 +484,23 @@ describe('requestFormatExplanation', () => {
     ).rejects.toMatchObject({ kind: 'malformed', retryable: true });
   });
 
+  it('keeps diagnosis when no safe replacement range can be derived', async () => {
+    const fetchImpl = (async () =>
+      jsonResponse({
+        explanation: 'The SQL is syntactically incomplete.',
+        rootCause: 'A required expression is missing.',
+        evidence: ['Parse error at token: ;'],
+        replacementSql: '',
+        replacementReason: '',
+      })) as unknown as typeof fetch;
+
+    const result = await withStubbedFetch(fetchImpl, () =>
+      requestFormatExplanation(makeFormatError({ location: undefined, snippet: undefined }), config)
+    );
+    expect(result.explanation).toContain('syntactically incomplete');
+    expect(result.correctedSql).toBeNull();
+  });
+
   it('rejects when the model answers with an incomplete JSON contract', async () => {
     const fetchImpl = (async () =>
       jsonResponse({ explanation: 'only this' })) as unknown as typeof fetch;
@@ -279,7 +510,6 @@ describe('requestFormatExplanation', () => {
     ).rejects.toMatchObject({ kind: 'malformed' });
   });
 });
-
 describe('request shape (FR-021)', () => {
   const config = makeOllamaConfig();
 
@@ -291,7 +521,8 @@ describe('request shape (FR-021)', () => {
         explanation: 'Unclosed parenthesis.',
         rootCause: 'The delimiter arrives mid-expression.',
         evidence: ['SELECT * FROM (;'],
-        correctedSql: 'SELECT * FROM (1);',
+        replacementSql: 'SELECT * FROM (1);',
+        replacementReason: 'Completes the expression.',
       });
     }) as unknown as typeof fetch;
 
@@ -301,8 +532,7 @@ describe('request shape (FR-021)', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toMatchObject({ stream: false });
-    expect(JSON.stringify(calls[0].body)).toContain('correctedSql');
+    expect(JSON.stringify(calls[0].body)).toContain('replacementSql');
     expect(result.correctedSql).toBe('SELECT * FROM (1);');
   });
 });
-

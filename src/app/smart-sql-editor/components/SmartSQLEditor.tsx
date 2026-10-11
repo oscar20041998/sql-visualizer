@@ -181,6 +181,8 @@ const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
 export interface SmartSQLEditorApi {
   /** The editor's live SQL — the source of truth for the stale-proposal check (FR-016). */
   getSql: () => string;
+  /** The SQL loaded into this editor before the user's edits. */
+  getOriginalSql: () => string;
   /** Replaces the editor SQL and mirrors the change into the owner's `onSqlChange` callback. */
   setSql: (sql: string) => void;
 }
@@ -220,6 +222,7 @@ export const SmartSQLEditor: React.FC<{
   const jumpDecorationsRef = useRef<string[]>([]);
   /** Mirror of `state.currentSql` so imperative callers read the latest SQL, not a stale closure. */
   const currentSqlRef = useRef(initialSql);
+  const originalSqlRef = useRef(initialSql);
 
   const dialect = useAppStore((store) => store.dialect);
   const settings = useAppStore((store) => store.settings);
@@ -425,6 +428,8 @@ export const SmartSQLEditor: React.FC<{
 
   // Sync editor content when initialSql prop changes
   useEffect(() => {
+    originalSqlRef.current = initialSql;
+    currentSqlRef.current = initialSql;
     setState((prev) => ({
       ...prev,
       originalSql: initialSql,
@@ -455,7 +460,11 @@ export const SmartSQLEditor: React.FC<{
     if (!apiRef) return;
     apiRef.current = {
       getSql: () => currentSqlRef.current,
-      setSql: (sql: string) => setState((prev) => ({ ...prev, currentSql: sql })),
+      getOriginalSql: () => originalSqlRef.current,
+      setSql: (sql: string) => {
+        currentSqlRef.current = sql;
+        setState((prev) => ({ ...prev, currentSql: sql }));
+      },
     };
     return () => {
       apiRef.current = null;
@@ -1269,7 +1278,7 @@ export const SmartSQLEditor: React.FC<{
             modified={state.currentSql}
             language="sql"
             theme={monacoTheme}
-            options={{ ...diffEditorOptions, readOnly: state.isOptimizing }}
+            options={{ ...diffEditorOptions, readOnly: true }}
             className="min-h-0 w-full"
             height="100vh"
           />
@@ -1282,6 +1291,7 @@ export const SmartSQLEditor: React.FC<{
             saveViewState={true}
             onMount={handleEditorMount}
             onChange={(value) => {
+              currentSqlRef.current = value ?? '';
               setState((prev) => ({
                 ...prev,
                 currentSql: value ?? '',

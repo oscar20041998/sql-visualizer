@@ -13,7 +13,6 @@
  * editor SQL has moved on (FR-010 / FR-016).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format } from 'sql-formatter';
 import {
   AlertTriangle,
   Bug,
@@ -26,14 +25,13 @@ import {
   MapPin,
   RefreshCw,
   Sparkles,
-  Wand2,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
 import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
-import type { ErrorRegion } from '@/lib/sql/formatErrorRegion';
-import { applyFormatFix, extractChange } from '@/lib/sql/formatFixScope';
+import { resolveErrorRegion, type ErrorRegion } from '@/lib/sql/formatErrorRegion';
+import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import {
   FormatAiError,
   isStale,
@@ -130,16 +128,6 @@ const DIALECT_LABELS: Record<FormatError['dialect'], string> = {
   oracle: 'Oracle',
 };
 
-const FORMATTER_LANGUAGES: Record<
-  FormatError['dialect'],
-  'mysql' | 'postgresql' | 'tsql' | 'plsql'
-> = {
-  mysql: 'mysql',
-  postgresql: 'postgresql',
-  sqlserver: 'tsql',
-  oracle: 'plsql',
-};
-
 const SQL_HIGHLIGHT_PATTERN =
   /(--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|\b(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|USING|AS|WITH|RECURSIVE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|VIEW|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|FETCH|UNION|ALL|DISTINCT|AND|OR|NOT|NULL|IS|IN|EXISTS|CASE|WHEN|THEN|ELSE|END|COUNT|SUM|AVG|MIN|MAX|COALESCE|CAST|OVER|PARTITION|ROWS|RANGE|BETWEEN|LIKE|TRUE|FALSE)\b|\b\d+(?:\.\d+)?\b)/gi;
 
@@ -202,6 +190,10 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
    * `FormatError` object, so keying on `occurredAt` covers a genuinely new capture event.
    */
   const error = useMemo(() => rawError, [rawError.occurredAt]);
+  const replacementRegion = useMemo(
+    () => region ?? resolveErrorRegion(error, error.sourceSql),
+    [error, region]
+  );
 
   // --- Explain state (US2) -------------------------------------------------------------------
   const [explanation, setExplanation] = useState<FormatExplanation | null>(null);
@@ -241,57 +233,11 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
   }, [error]);
 
   /** True once the editor SQL diverged from the SQL the proposal was built from (FR-016). */
-  /**
-   * The proposal's own delta against the SQL it was given, used to render the two diff sides so the
-   * changed run is marked on each of them (FR-010).
-   */
-  const proposalChange = useMemo(() => {
-    if (proposedSql === null || fixSnapshotSql === null) return null;
-    return extractChange(fixSnapshotSql, proposedSql);
-  }, [proposedSql, fixSnapshotSql]);
-
-  /**
-   * One side of the diff, with its changed run marked. `kind` selects which run of the change that
-   * side carries: the original shows what it loses, the proposal shows what it gains. The cut after
-   * the run is expressed in each side's own coordinates, because a replacement makes them differ.
-   */
-  const diffSide = (text: string | null, kind: 'removed' | 'added'): React.ReactNode => {
-    if (text === null || proposalChange === null) return text;
-    const run = kind === 'removed' ? proposalChange.originalFragment : proposalChange.replacement;
-    const tailStart =
-      kind === 'removed' ? proposalChange.endOffset : proposalChange.startOffset + run.length;
-    return (
-      <>
-        {text.slice(0, proposalChange.startOffset)}
-        <span
-          data-diff={kind}
-          className={
-            kind === 'removed'
-              ? 'rounded bg-danger/20 px-0.5 text-danger line-through'
-              : 'rounded bg-success/20 px-0.5 text-success'
-          }
-        >
-          {run}
-        </span>
-        {text.slice(tailStart)}
-      </>
-    );
-  };
-
   const proposalIsStale = useMemo(() => {
     if (proposedSql === null || fixSnapshotSql === null) return false;
     if (currentSql === undefined) return false;
     return isStale({ originalSql: fixSnapshotSql, proposedSql }, currentSql);
   }, [proposedSql, fixSnapshotSql, currentSql]);
-
-  const formattedProposedSql = useMemo(() => {
-    if (proposedSql === null) return null;
-    try {
-      return format(proposedSql, { language: FORMATTER_LANGUAGES[error.dialect] });
-    } catch {
-      return proposedSql;
-    }
-  }, [proposedSql, error.dialect]);
 
   const handleExplain = useCallback(async () => {
     if (!onRequestExplain) return;
@@ -301,33 +247,33 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     setProposedSql(null);
     setFixPhase('loading');
     try {
-      const result = await onRequestExplain(error, region);
+      const result = await onRequestExplain(error, replacementRegion);
       setExplanation(result);
       setProposedSql(result.correctedSql);
-      setFixSnapshotSql(error.sourceSql);
+      setFixSnapshotSql(result.correctedSql ? error.sourceSql : null);
       setExplainPhase('ready');
-      setFixPhase('ready');
+      setFixPhase(result.correctedSql ? 'ready' : 'idle');
     } catch (thrown) {
       setExplainFailure(thrown instanceof FormatAiError ? thrown.kind : 'error');
       setExplainPhase('failed');
       setFixPhase('idle');
     }
-  }, [onRequestExplain, error, region]);
+  }, [onRequestExplain, error, replacementRegion]);
 
   const handleApplyFix = useCallback(() => {
     // Defence in depth: the Apply control is hidden while stale, and this guard makes applying a
     // stale proposal impossible even if some other path calls it (FR-016).
     if (!proposedSql || proposalIsStale) return;
     // The panel asks the same guard the page does, so the verdict is shown where the user is
-    // looking instead of vanishing silently (FR-018). With no region there is nothing to bound the
+    // looking instead of vanishing silently (FR-018). With no replacement region there is nothing to bound the
     // change against — that case is reported by its own state; the page's guard still refuses the
     // write, so nothing unsafe reaches the editor.
-    if (region) {
+    if (replacementRegion) {
       const result = applyFormatFix({
         snapshotSql: fixSnapshotSql ?? error.sourceSql,
         currentSql: currentSql ?? fixSnapshotSql ?? error.sourceSql,
         proposedSql,
-        region,
+        region: replacementRegion,
       });
       if (!result.ok) {
         if (result.reason === 'out-of-range') setRefusalReason('out-of-range');
@@ -340,7 +286,15 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     setProposedSql(null);
     setFixSnapshotSql(null);
     setFixPhase('idle');
-  }, [proposedSql, proposalIsStale, fixSnapshotSql, error, currentSql, region, onApplyFix]);
+  }, [
+    proposedSql,
+    proposalIsStale,
+    fixSnapshotSql,
+    error,
+    currentSql,
+    replacementRegion,
+    onApplyFix,
+  ]);
 
   const handleDismissFix = useCallback(() => {
     setProposedSql(null);
@@ -351,18 +305,18 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
     onDismissFix?.();
   }, [onDismissFix]);
 
-  /** Copies the proposed correction to the clipboard, mirroring the SQL Explainer's copy UX. */
+  /** Copies the validated replacement fragment so it can be pasted into the editor manually. */
   const handleCopyFix = useCallback(async () => {
-    if (!formattedProposedSql) return;
+    if (!explanation?.replacementSql) return;
     try {
-      await navigator.clipboard.writeText(formattedProposedSql);
+      await navigator.clipboard.writeText(explanation.replacementSql);
       setFixCopied(true);
       toast.success(t.formatErrorPanelCopyFixDone);
       window.setTimeout(() => setFixCopied(false), 2000);
     } catch {
       toast.error(t.smartEditorFailedToCopy);
     }
-  }, [formattedProposedSql, t]);
+  }, [explanation, t]);
 
   const position = useMemo(() => formatErrorPosition(error), [error]);
 
@@ -470,16 +424,16 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 {t.formatErrorPanelLocationLabel}
               </h3>
               <p className="font-mono text-xs text-foreground">{renderPosition()}</p>
-              {region && (
+              {replacementRegion && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   <span className="font-semibold text-foreground">{t.formatErrorRegionLabel}</span>{' '}
                   <span className="font-mono">
-                    {region.startLine === region.endLine
-                      ? `${region.startLine}`
-                      : `${region.startLine}-${region.endLine}`}
+                    {replacementRegion.startLine === replacementRegion.endLine
+                      ? `${replacementRegion.startLine}`
+                      : `${replacementRegion.startLine}-${replacementRegion.endLine}`}
                   </span>{' '}
                   <span>
-                    {region.source === 'ast-parser'
+                    {replacementRegion.source === 'ast-parser'
                       ? t.formatErrorRegionSourceAstParser
                       : t.formatErrorRegionSourceFormatter}
                   </span>
@@ -563,126 +517,137 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                   </li>
                 ))}
               </ul>
+              {!explanation.correctedSql && (
+                <p
+                  role="status"
+                  className="mt-3 rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+                >
+                  {t.formatErrorPanelNoSafeReplacement}
+                </p>
+              )}
             </section>
           )}
 
-          {fixPhase === 'ready' && formattedProposedSql && !proposalIsStale && (
+          {fixPhase === 'ready' && explanation && proposedSql && !proposalIsStale && (
             <section className="rounded border border-success/50 bg-success/10 p-3">
+              {replacementRegion?.snippet && (
+                <div className="mb-3">
+                  <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
+                    {t.formatErrorPanelOriginalSqlLabel}
+                  </h4>
+                  <pre className="max-h-72 overflow-auto rounded border border-border bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
+                    <code>{renderHighlightedSql(replacementRegion.snippet)}</code>
+                  </pre>
+                </div>
+              )}
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-success">
                   <Check size={13} aria-hidden="true" />
-                  {t.formatErrorPanelCorrectLabel}
+                  {t.formatErrorPanelReplacementSqlLabel}
                 </h3>
-                <button
-                  type="button"
-                  onClick={handleCopyFix}
-                  aria-label={t.formatErrorPanelCopyFix}
-                  title={t.formatErrorPanelCopyFix}
-                  className="flex items-center gap-1 rounded border border-success/40 bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {fixCopied ? (
-                    <Check size={12} aria-hidden="true" />
-                  ) : (
-                    <Copy size={12} aria-hidden="true" />
-                  )}
-                  {fixCopied ? t.copied : t.formatErrorPanelCopyFix}
-                </button>
-              </div>
-              <pre className="max-h-72 overflow-auto rounded border border-success/30 bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
-                <code>{renderHighlightedSql(formattedProposedSql)}</code>
-              </pre>
-            </section>
-          )}
-
-          {fixPhase === 'ready' && proposedSql && (
-            <section className="rounded border border-border bg-muted/40 p-3">
-              <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-foreground">
-                <Wand2 size={12} aria-hidden="true" />
-                {t.formatErrorPanelFixSectionTitle}
-              </h3>
-
-              {proposalIsStale ? (
-                /* A stale proposal is shown as a notice only — Apply is never offered (FR-016). */
-                <p
-                  role="alert"
-                  className="whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
-                >
-                  {t.formatErrorPanelStale}
-                </p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div>
-                      <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        {t.formatErrorPanelFixBeforeLabel}
-                      </h4>
-                      <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-2 font-mono text-xs text-foreground scrollbar-thin scrollbar-thumb-rounded">
-                        {diffSide(fixSnapshotSql, 'removed')}
-                      </pre>
-                    </div>
-                    <div>
-                      <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        {t.formatErrorPanelFixAfterLabel}
-                      </h4>
-                      <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-success/40 bg-success/5 p-2 font-mono text-xs text-foreground scrollbar-thin scrollbar-thumb-rounded">
-                        {diffSide(proposedSql, 'added')}
-                      </pre>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {refusalReason === 'out-of-range' ? (
-                      <>
-                        {/* Refused by the region guard: say so and offer another proposal (FR-018). */}
-                        <p
-                          role="alert"
-                          className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
-                        >
-                          {t.formatErrorPanelFixOutOfRange}
-                        </p>
-                        <button
-                          type="button"
-                          ref={refusalRetryRef}
-                          onClick={handleExplain}
-                          className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <RefreshCw size={12} aria-hidden="true" />
-                          {t.formatErrorPanelRetry}
-                        </button>
-                      </>
+                {explanation.replacementSql && (
+                  <button
+                    type="button"
+                    onClick={handleCopyFix}
+                    aria-label={t.formatErrorPanelCopyFix}
+                    title={t.formatErrorPanelCopyFix}
+                    className="flex items-center gap-1 rounded border border-success/40 bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {fixCopied ? (
+                      <Check size={12} className="shrink-0" aria-hidden="true" />
                     ) : (
-                      <>
-                        {/* No region means nothing bounds the change: say so and disable Apply (FR-020). */}
-                        {!region && (
-                          <p
-                            role="alert"
-                            className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
-                          >
-                            {t.formatErrorPanelFixNoRegion}
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleApplyFix}
-                          disabled={!region}
-                          className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Sparkles size={12} aria-hidden="true" />
-                          {t.formatErrorPanelApplyFix}
-                        </button>
-                      </>
+                      <Copy size={12} className="shrink-0" aria-hidden="true" />
+                    )}
+                    {fixCopied ? t.copied : t.formatErrorPanelCopyFix}
+                  </button>
+                )}
+              </div>
+              {explanation.replacementSql && (
+                <>
+                  {explanation.replacementReason && (
+                    <div className="mb-2">
+                      <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
+                        {t.formatErrorPanelReplacementReasonLabel}
+                      </h4>
+                      <p className="whitespace-pre-wrap break-words text-xs text-foreground">
+                        {explanation.replacementReason}
+                      </p>
+                    </div>
+                  )}
+                  <pre className="max-h-72 overflow-auto rounded border border-success/30 bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
+                    <code>{renderHighlightedSql(explanation.replacementSql)}</code>
+                  </pre>
+                </>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {refusalReason === 'out-of-range' ? (
+                  <>
+                    {/* Refused by the region guard: say so and offer another proposal (FR-018). */}
+                    <p
+                      role="alert"
+                      className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+                    >
+                      {t.formatErrorPanelFixOutOfRange}
+                    </p>
+                    <button
+                      type="button"
+                      ref={refusalRetryRef}
+                      onClick={handleExplain}
+                      className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <RefreshCw size={12} aria-hidden="true" />
+                      {t.formatErrorPanelRetry}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* No region means nothing bounds the change: say so and disable Apply (FR-020). */}
+                    {!replacementRegion && (
+                      <p
+                        role="alert"
+                        className="w-full whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+                      >
+                        {t.formatErrorPanelFixNoRegion}
+                      </p>
                     )}
                     <button
                       type="button"
-                      onClick={handleDismissFix}
-                      className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={handleApplyFix}
+                      disabled={!replacementRegion}
+                      className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {t.formatErrorPanelDismissFix}
+                      <Sparkles size={12} aria-hidden="true" />
+                      {t.formatErrorPanelApplyFix}
                     </button>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDismissFix}
+                  className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t.formatErrorPanelDismissFix}
+                </button>
+              </div>
             </section>
+          )}
+
+          {fixPhase === 'ready' && proposedSql && proposalIsStale && (
+            <div className="space-y-2">
+              <p
+                role="alert"
+                className="whitespace-pre-wrap break-words rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
+              >
+                {t.formatErrorPanelStale}
+              </p>
+              <button
+                type="button"
+                onClick={handleDismissFix}
+                className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t.formatErrorPanelDismissFix}
+              </button>
+            </div>
           )}
 
           {/* The audit line outlives the proposal it describes: it records what was written (FR-017). */}

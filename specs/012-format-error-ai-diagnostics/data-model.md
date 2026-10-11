@@ -47,6 +47,9 @@ The model's explanation of an error.
 | `explanation` | string | yes | Plain-language "what the error is". |
 | `rootCause` | string | yes | Plain-language "why it happened". |
 | `groundedEvidence` | string[] | yes | The SQL fragments / error text the answer cites (grounding). May include the AST cross-check parser's findings when the formatter reported no position (FR-019). |
+| `replacementSql` | string \| null | yes | Model-provided corrected fragment for the bounded error region; null when missing or unusable. |
+| `replacementReason` | string \| null | yes | Why the replacement fixes the syntax error; null when missing or unusable. |
+| `correctedSql` | string \| null | yes | Full query reconstructed and formatter-validated by the client; never returned by the model. Null means no safe replacement is available. |
 | `status` | `'loading' \| 'ready' \| 'unavailable' \| 'error'` | yes | Lifecycle state. |
 | `errorRef` | FormatError | yes | The originating error. |
 | `createdAt` | string (ISO) | yes | Timestamp. |
@@ -60,7 +63,7 @@ A corrected SQL suggestion.
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `originalSql` | string | yes | SQL snapshot at request time. |
-| `proposedSql` | string | yes | Corrected SQL from the model. **Never applied verbatim** — only its `change` is written. |
+| `proposedSql` | string | yes | Full candidate reconstructed from the model's region fragment and validated locally. **Never applied verbatim** — only its `change` is written. |
 | `change` | `{ startOffset, endOffset, originalFragment, replacement }` | yes | The model's actual delta, extracted as the longest common prefix/suffix (research R9). |
 | `region` | ErrorRegion | no | The boundary `change` must stay inside. Absent ⇒ `applicability: 'undetermined-region'`. |
 | `appliedRange` | `{ startOffset, endOffset }` | no | The range actually written, recorded on apply for the audit line in the panel. |

@@ -27,6 +27,132 @@ interface AiFollowUpChatProps {
 
 const SQL_CODE_FENCE_RE = /```(?:sql)?\s*\n?([\s\S]*?)```/gi;
 
+const INLINE_MARKDOWN_TOKEN = /(`[^`]+`|\*\*\*[^*\n]+?\*\*\*|\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g;
+
+function renderInlineMarkdown(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const tokens = text.split(INLINE_MARKDOWN_TOKEN);
+  tokens.forEach((part, index) => {
+    const key = `${keyPrefix}-${index}`;
+    const isCode = part.startsWith('`') && part.endsWith('`') && part.length >= 2;
+    const isBoldItalic = part.startsWith('***') && part.endsWith('***') && part.length >= 7;
+    const isBold =
+      !isBoldItalic && part.startsWith('**') && part.endsWith('**') && part.length >= 5;
+    const isItalic =
+      !isBold && !isBoldItalic && part.startsWith('*') && part.endsWith('*') && part.length >= 3;
+
+    if (isCode) {
+      parts.push(
+        <code
+          key={key}
+          className="rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-primary"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+      return;
+    }
+    if (isBoldItalic) {
+      parts.push(
+        <strong key={key} className="font-bold italic text-foreground">
+          {renderInlineMarkdown(part.slice(3, -3), `${key}-bi`)}
+        </strong>
+      );
+      return;
+    }
+    if (isBold) {
+      parts.push(
+        <strong key={key} className="font-bold text-foreground">
+          {renderInlineMarkdown(part.slice(2, -2), `${key}-b`)}
+        </strong>
+      );
+      return;
+    }
+    if (isItalic) {
+      parts.push(
+        <em key={key} className="italic">
+          {renderInlineMarkdown(part.slice(1, -1), `${key}-i`)}
+        </em>
+      );
+      return;
+    }
+    parts.push(<React.Fragment key={key}>{part}</React.Fragment>);
+  });
+  return parts;
+}
+
+function MarkdownText({ content, keyPrefix }: { content: string; keyPrefix: string }) {
+  const blocks: React.ReactNode[] = [];
+  const lines = content.split('\n');
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index];
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line.trim());
+    if (heading) {
+      const level = heading[1].length;
+      const headingClass =
+        level === 1
+          ? 'text-base font-bold text-primary'
+          : level === 2
+            ? 'text-sm font-bold text-primary'
+            : 'text-xs font-bold uppercase tracking-wide text-primary';
+      blocks.push(
+        <p key={`${keyPrefix}-h-${index}`} className={headingClass}>
+          {renderInlineMarkdown(heading[2], `${keyPrefix}-h-${index}`)}
+        </p>
+      );
+      index += 1;
+      continue;
+    }
+
+    const unordered = /^\s*[-*+]\s+(.+)$/.exec(line);
+    const ordered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
+    if (unordered || ordered) {
+      const matcher = unordered ? /^\s*[-*+]\s+(.+)$/ : /^\s*\d+[.)]\s+(.+)$/;
+      const items: string[] = [];
+      const start = index;
+      while (index < lines.length) {
+        const match = matcher.exec(lines[index]);
+        if (!match) break;
+        items.push(match[1]);
+        index += 1;
+      }
+      const List = unordered ? 'ul' : 'ol';
+      blocks.push(
+        <List
+          key={`${keyPrefix}-list-${start}`}
+          className={`space-y-1 pl-5 text-sm leading-relaxed text-foreground ${
+            unordered ? 'list-disc' : 'list-decimal'
+          }`}
+        >
+          {items.map((item, itemIndex) => (
+            <li key={itemIndex}>
+              {renderInlineMarkdown(item, `${keyPrefix}-list-${start}-${itemIndex}`)}
+            </li>
+          ))}
+        </List>
+      );
+      continue;
+    }
+
+    blocks.push(
+      line.trim() ? (
+        <p
+          key={`${keyPrefix}-p-${index}`}
+          className="whitespace-pre-wrap text-sm leading-relaxed text-foreground"
+        >
+          {renderInlineMarkdown(line, `${keyPrefix}-p-${index}`)}
+        </p>
+      ) : (
+        <div key={`${keyPrefix}-space-${index}`} className="h-1" />
+      )
+    );
+    index += 1;
+  }
+
+  return <div className="space-y-1.5">{blocks}</div>;
+}
+
 function SqlCodeBlock({ sql, t }: { sql: string; t: Translations }) {
   const [copied, setCopied] = useState(false);
   const copySql = async () => {
@@ -65,9 +191,11 @@ function AssistantMessage({ content, t }: { content: string; t: Translations }) 
   while ((match = SQL_CODE_FENCE_RE.exec(content))) {
     if (match.index > lastIndex) {
       parts.push(
-        <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-          {content.slice(lastIndex, match.index)}
-        </p>
+        <MarkdownText
+          key={key++}
+          content={content.slice(lastIndex, match.index)}
+          keyPrefix={`chat-${key}`}
+        />
       );
     }
     parts.push(<SqlCodeBlock key={key++} sql={match[1].trim()} t={t} />);
@@ -75,12 +203,10 @@ function AssistantMessage({ content, t }: { content: string; t: Translations }) 
   }
   if (lastIndex < content.length) {
     parts.push(
-      <p key={key++} className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-        {content.slice(lastIndex)}
-      </p>
+      <MarkdownText key={key++} content={content.slice(lastIndex)} keyPrefix={`chat-${key}`} />
     );
   }
-  return <div>{parts}</div>;
+  return <div className="space-y-2">{parts}</div>;
 }
 
 function buildSuggestions(sql: string, t: Translations): string[] {

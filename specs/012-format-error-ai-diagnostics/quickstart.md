@@ -38,7 +38,7 @@ Navigate to the Smart SQL Editor.
 
 ### S4 — Combined explanation and correction (FR-007/008/021, SC-004)
 1. With an error open, click **Giải thích và gợi ý sửa lỗi**.
-2. Expect: one loading state, then a plain-language explanation, root cause, grounded evidence, and corrected SQL from one response.
+2. Expect: one loading state, then a detailed explanation, root cause, grounded evidence, only the replacement SQL for the error region, and a rationale for that replacement from one response. The full query is not shown as the replacement.
 
 ### S5 — Fix with review-before-apply, applied only inside the error region (FR-009/010/015/017, SC-005)
 1. With an error open, click **Giải thích và gợi ý sửa lỗi**.
@@ -78,6 +78,12 @@ Navigate to the Smart SQL Editor.
 ### S12 — On-device request, no browser credential (FR-011/FR-014, SC-007)
 1. Inspect the network tab while requesting the combined diagnosis and correction.
 2. Expect: requests target the configured local Ollama endpoint only, no cloud host is contacted, and no credential is stored in or sent from the browser.
+
+### S13 — Diagnosis survives an unusable replacement (FR-023)
+1. Stub a valid, grounded explanation response with a missing replacement, an out-of-region replacement, or SQL rejected by the formatter.
+2. Expect: the explanation, root cause, and evidence remain visible; the panel says no safe replacement is available; Copy and Apply are absent.
+3. Return a valid region replacement and rationale.
+4. Expect: the panel displays only that replacement fragment and its rationale; Copy copies only the fragment, and Apply remains gated by the client-side splice and formatter validation.
 
 ## Measurements (SC-001 / SC-004 / SC-005)
 
