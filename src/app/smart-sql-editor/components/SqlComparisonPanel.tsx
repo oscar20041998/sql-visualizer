@@ -5,9 +5,61 @@ import { ArrowLeftRight, ChevronRight } from 'lucide-react';
 import { DiffEditor } from '@monaco-editor/react';
 import { getT, type Locale } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
-import type { ComparisonResult, SqlEvidence } from '@/lib/sql/sqlComparison';
+import type {
+  ComparisonResult,
+  SqlComparisonAiStreamedFields,
+  SqlEvidence,
+} from '@/lib/sql/sqlComparison';
 import { LIMITATION_EMPTY_STATEMENT } from '@/lib/sql/sqlComparison';
 import SidePanelTab from './SidePanelTab';
+
+const aiFieldClass = 'space-y-1 rounded border-l-2 border-primary bg-muted p-3';
+const aiHeadingClass = 'text-xs font-semibold uppercase tracking-wide text-primary';
+
+// Shows all five AI fields; fields not streamed yet show a placeholder.
+function AiCoreFields({
+  fields,
+  t,
+}: {
+  fields: SqlComparisonAiStreamedFields;
+  t: ReturnType<typeof getT>;
+}) {
+  const placeholder = '…';
+  const items = [
+    { label: t.comparisonAiChangeExplanation, value: fields.changeExplanation },
+    { label: t.comparisonAiImpactAfterChange, value: fields.impactAfterChange },
+    { label: t.comparisonAiExtraRisk, value: fields.extraRiskToVerify },
+    { label: t.comparisonAiExtraRecommendation, value: fields.extraRecommendation },
+  ];
+  return (
+    <>
+      <div className={aiFieldClass}>
+        <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
+        <p
+          className={
+            fields.verdict === undefined
+              ? 'font-semibold text-muted-foreground'
+              : fields.verdict === 'good'
+                ? 'font-semibold text-success'
+                : 'font-semibold text-destructive'
+          }
+        >
+          {fields.verdict === undefined
+            ? placeholder
+            : fields.verdict === 'good'
+              ? t.comparisonAiVerdictGood
+              : t.comparisonAiVerdictNotGood}
+        </p>
+      </div>
+      {items.map(({ label, value }) => (
+        <div key={label} className={aiFieldClass}>
+          <h4 className={aiHeadingClass}>{label}</h4>
+          <p className="whitespace-pre-wrap">{value || placeholder}</p>
+        </div>
+      ))}
+    </>
+  );
+}
 
 export interface SqlComparisonPanelProps {
   locale: Locale;
@@ -384,7 +436,7 @@ export default function SqlComparisonPanel({
                 aria-label={t.comparisonAiTitle}
                 className="space-y-2 border-t border-border pt-4"
               >
-                <h3 className="text-sm font-semibold">{t.comparisonAiTitle}</h3>
+                <h3 className="text-base font-semibold text-primary">{t.comparisonAiTitle}</h3>
                 {isStale || result.status === 'stale' ? (
                   <p role="status" className="text-sm text-muted-foreground">
                     {t.comparisonAiStale}
@@ -411,11 +463,9 @@ export default function SqlComparisonPanel({
                         </button>
                       )}
                     </div>
-                    {result.ai.explanation && (
-                      <p aria-live="polite" className="whitespace-pre-wrap text-sm">
-                        {result.ai.explanation}
-                      </p>
-                    )}
+                    <div aria-live="polite" className="space-y-3 text-sm">
+                      <AiCoreFields fields={result.ai.streaming ?? {}} t={t} />
+                    </div>
                   </div>
                 ) : result.ai.assessment ? (
                   <div className="space-y-3 text-sm">
@@ -429,28 +479,40 @@ export default function SqlComparisonPanel({
                         {t.comparisonAiCompleted}
                       </p>
                     )}
-                    <div>
-                      <h4 className="font-medium">{t.comparisonAiSummary}</h4>
-                      <p className="whitespace-pre-wrap">{result.ai.assessment.summary}</p>
+                    <div className={aiFieldClass}>
+                      <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
+                      <p
+                        className={
+                          result.ai.assessment.verdict === 'good'
+                            ? 'font-semibold text-success'
+                            : 'font-semibold text-destructive'
+                        }
+                      >
+                        {result.ai.assessment.verdict === 'good'
+                          ? t.comparisonAiVerdictGood
+                          : t.comparisonAiVerdictNotGood}
+                      </p>
                     </div>
-                    {result.ai.assessment.potentialCorrectnessImpact && (
-                      <div>
-                        <h4 className="font-medium">{t.comparisonAiCorrectnessImpact}</h4>
-                        <p>{result.ai.assessment.potentialCorrectnessImpact}</p>
-                      </div>
-                    )}
-                    {result.ai.assessment.executionSafetyConcerns && (
-                      <div>
-                        <h4 className="font-medium">{t.comparisonAiSafetyConcerns}</h4>
-                        <p>{result.ai.assessment.executionSafetyConcerns}</p>
-                      </div>
-                    )}
-                    {result.ai.assessment.potentialPerformanceImpact && (
-                      <div>
-                        <h4 className="font-medium">{t.comparisonAiPerformanceImpact}</h4>
-                        <p>{result.ai.assessment.potentialPerformanceImpact}</p>
-                      </div>
-                    )}
+                    <div className={aiFieldClass}>
+                      <h4 className={aiHeadingClass}>{t.comparisonAiChangeExplanation}</h4>
+                      <p className="whitespace-pre-wrap">
+                        {result.ai.assessment.changeExplanation}
+                      </p>
+                    </div>
+                    <div className={aiFieldClass}>
+                      <h4 className={aiHeadingClass}>{t.comparisonAiImpactAfterChange}</h4>
+                      <p className="whitespace-pre-wrap">{result.ai.assessment.impactAfterChange}</p>
+                    </div>
+                    <div className={aiFieldClass}>
+                      <h4 className={aiHeadingClass}>{t.comparisonAiExtraRisk}</h4>
+                      <p className="whitespace-pre-wrap">{result.ai.assessment.extraRiskToVerify}</p>
+                    </div>
+                    <div className={aiFieldClass}>
+                      <h4 className={aiHeadingClass}>{t.comparisonAiExtraRecommendation}</h4>
+                      <p className="whitespace-pre-wrap">
+                        {result.ai.assessment.extraRecommendation}
+                      </p>
+                    </div>
                     {(
                       [
                         ['comparisonAiEvidence', result.ai.assessment.evidence],
@@ -460,8 +522,8 @@ export default function SqlComparisonPanel({
                       ] as const
                     ).map(([label, items]) =>
                       items.length ? (
-                        <div key={label}>
-                          <h4 className="font-medium">{t[label]}</h4>
+                        <div key={label} className={aiFieldClass}>
+                          <h4 className={aiHeadingClass}>{t[label]}</h4>
                           <ul className="list-disc space-y-1 pl-5">
                             {items.map((item, index) => (
                               <li key={`${label}-${index}`}>{item}</li>

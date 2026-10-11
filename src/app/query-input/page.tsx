@@ -36,7 +36,7 @@ import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
 import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 import { compareSqlSnapshots, type ComparisonResult } from '@/lib/sql/sqlComparison';
 import {
-  extractPartialSqlComparisonExplanation,
+  extractPartialSqlComparisonFields,
   requestSqlComparisonExplanation,
   SqlComparisonAiError,
 } from '@/lib/ai/sqlComparisonAi';
@@ -537,13 +537,18 @@ export default function QueryInputContent() {
         controller.signal,
         (fragment) => {
           streamedResponse += fragment;
-          const partialExplanation = extractPartialSqlComparisonExplanation(streamedResponse);
-          if (!partialExplanation || controller.signal.aborted) return;
+          const streaming = extractPartialSqlComparisonFields(streamedResponse);
+          if (Object.keys(streaming).length === 0 || controller.signal.aborted) return;
           setComparisonResult((current) =>
             current?.snapshot.runId === snapshot.runId
               ? {
                   ...current,
-                  ai: { status: 'pending', explanation: partialExplanation, assessment: null },
+                  ai: {
+                    status: 'pending',
+                    explanation: streaming.changeExplanation ?? null,
+                    assessment: null,
+                    streaming,
+                  },
                 }
               : current
           );

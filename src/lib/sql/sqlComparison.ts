@@ -84,15 +84,26 @@ export interface ComparisonAssessment {
   limitations: string[];
 }
 
+export type SqlComparisonAiVerdict = 'good' | 'not_good';
+
 export interface SqlComparisonAiAssessment {
-  summary: string;
-  potentialCorrectnessImpact: string | null;
-  executionSafetyConcerns: string | null;
-  potentialPerformanceImpact: string | null;
+  verdict: SqlComparisonAiVerdict;
+  changeExplanation: string;
+  impactAfterChange: string;
+  extraRiskToVerify: string;
+  extraRecommendation: string;
   evidence: string[];
   assumptions: string[];
   verificationSteps: string[];
   limitations: string[];
+}
+
+export interface SqlComparisonAiStreamedFields {
+  verdict?: SqlComparisonAiVerdict;
+  changeExplanation?: string;
+  impactAfterChange?: string;
+  extraRiskToVerify?: string;
+  extraRecommendation?: string;
 }
 
 export interface ComparisonResult {
@@ -113,6 +124,7 @@ export interface ComparisonResult {
       | 'skipped';
     explanation: string | null;
     assessment: SqlComparisonAiAssessment | null;
+    streaming?: SqlComparisonAiStreamedFields | null;
   };
 }
 

@@ -14,10 +14,11 @@ import { resetTestStorage, signInAsDemoUser } from '../utils/test-setup';
 
 const { requestComparisonAiMock } = vi.hoisted(() => ({ requestComparisonAiMock: vi.fn() }));
 const testAiAssessment = {
-  summary: 'The comparison suggests a possible change.',
-  potentialCorrectnessImpact: null,
-  executionSafetyConcerns: null,
-  potentialPerformanceImpact: null,
+  verdict: 'not_good' as const,
+  changeExplanation: 'The comparison suggests a possible change.',
+  impactAfterChange: 'The row scope may differ.',
+  extraRiskToVerify: 'Row scope.',
+  extraRecommendation: 'Review the changed row scope.',
   evidence: ["WHERE status = 'open'"],
   assumptions: ['The supplied SQL represents the intended change.'],
   verificationSteps: ['Review the changed row scope.'],
@@ -315,7 +316,7 @@ describe('Query Input SQL comparison editor source', () => {
     expect(screen.getAllByText(/could not be fully parsed|unsupported/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
     expect(await screen.findByText(t.comparisonAiPartial)).toBeInTheDocument();
-    expect(screen.getByText(testAiAssessment.summary)).toBeInTheDocument();
+    expect(screen.getByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
     expect(screen.getByText(t.comparisonNotVerified)).toBeInTheDocument();
   });
 
@@ -476,7 +477,7 @@ describe('Query Input SQL comparison editor source', () => {
     const afterSql = "SELECT id FROM orders WHERE status = 'closed';";
     requestComparisonAiMock.mockResolvedValue({
       ...testAiAssessment,
-      summary: 'Review the changed filter.',
+      changeExplanation: 'Review the changed filter.',
     });
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     try {
@@ -579,7 +580,7 @@ describe('Query Input SQL comparison editor source', () => {
   it('renders AI interpretation separately from deterministic findings', async () => {
     requestComparisonAiMock.mockResolvedValue({
       ...testAiAssessment,
-      summary: 'AI interpretation with grounded evidence.',
+      changeExplanation: 'AI interpretation with grounded evidence.',
     });
     const { t } = await renderPage();
     await openComparison(t);
@@ -602,7 +603,7 @@ describe('Query Input SQL comparison editor source', () => {
     let finishResponse!: (assessment: typeof testAiAssessment) => void;
     requestComparisonAiMock.mockImplementation((...args: unknown[]) => {
       const onDelta = args[4] as (fragment: string) => void;
-      onDelta('{"summary":"The filter was removed, so more rows may be returned');
+      onDelta('{"changeExplanation":"The filter was removed, so more rows may be returned');
       return new Promise<typeof testAiAssessment>((resolve) => {
         finishResponse = resolve;
       });
@@ -624,7 +625,7 @@ describe('Query Input SQL comparison editor source', () => {
     await act(async () =>
       finishResponse({
         ...testAiAssessment,
-        summary: 'Final AI interpretation with grounded evidence.',
+        changeExplanation: 'Final AI interpretation with grounded evidence.',
       })
     );
     expect(
@@ -634,10 +635,11 @@ describe('Query Input SQL comparison editor source', () => {
 
   it('renders validated AI assessment fields separately from deterministic findings', async () => {
     const assessment = {
-      summary: 'Removing the filter may broaden the returned rows.',
-      potentialCorrectnessImpact: 'Rows outside the original status may be included.',
-      executionSafetyConcerns: null,
-      potentialPerformanceImpact: 'A broader scan may require more work.',
+      verdict: 'not_good' as const,
+      changeExplanation: 'Removing the filter may broaden the returned rows.',
+      impactAfterChange: 'Rows outside the original status may be included.',
+      extraRiskToVerify: 'A broader scan may require more work.',
+      extraRecommendation: 'Confirm the required status scope with a representative test.',
       evidence: ["WHERE status = 'open'"],
       assumptions: ['The status predicate represents an intended row boundary.'],
       verificationSteps: ['Confirm the required status scope with a representative test.'],
@@ -654,9 +656,9 @@ describe('Query Input SQL comparison editor source', () => {
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
     const aiAssessment = await screen.findByRole('region', { name: t.comparisonAiTitle });
-    expect(aiAssessment).toHaveTextContent(assessment.summary);
-    expect(aiAssessment).toHaveTextContent(assessment.potentialCorrectnessImpact!);
-    expect(aiAssessment).toHaveTextContent(assessment.potentialPerformanceImpact!);
+    expect(aiAssessment).toHaveTextContent(assessment.changeExplanation);
+    expect(aiAssessment).toHaveTextContent(assessment.impactAfterChange);
+    expect(aiAssessment).toHaveTextContent(assessment.extraRiskToVerify);
     expect(aiAssessment).toHaveTextContent(assessment.evidence[0]);
     expect(aiAssessment).toHaveTextContent(assessment.assumptions[0]);
     expect(aiAssessment).toHaveTextContent(assessment.verificationSteps[0]);
@@ -707,7 +709,7 @@ describe('Query Input SQL comparison editor source', () => {
     expect(screen.getByText('WHERE clause changed.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRetryAi }));
 
-    expect(await screen.findByText(testAiAssessment.summary)).toBeInTheDocument();
+    expect(await screen.findByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
     expect(requestComparisonAiMock).toHaveBeenCalledTimes(3);
   });
 
@@ -767,7 +769,7 @@ describe('Query Input SQL comparison editor source', () => {
     });
     expect(requestComparisonAiMock.mock.calls[0][3].aborted).toBe(true);
     await act(async () =>
-      resolveAi({ ...testAiAssessment, summary: 'This explanation belongs to the older SQL.' })
+      resolveAi({ ...testAiAssessment, changeExplanation: 'This explanation belongs to the older SQL.' })
     );
 
     expect(await screen.findByText(t.comparisonStale)).toBeInTheDocument();

@@ -19,10 +19,11 @@ const snapshot: ComparisonSnapshot = {
 };
 
 const validResponse = JSON.stringify({
-  summary: 'The filter was removed, so more rows may be returned.',
-  potentialCorrectnessImpact: 'Rows outside the original status may be included.',
-  executionSafetyConcerns: null,
-  potentialPerformanceImpact: 'A broader scan may require more work.',
+  verdict: 'not_good',
+  changeExplanation: 'The filter was removed, so more rows may be returned.',
+  impactAfterChange: 'Rows outside the original status may be included.',
+  extraRiskToVerify: 'A broader scan may require more work.',
+  extraRecommendation: 'Confirm the intended row scope before accepting the change.',
   evidence: ["WHERE status = 'open'"],
   assumptions: ['The selected columns and table are intended to remain unchanged.'],
   verificationSteps: ['Confirm the intended row scope before accepting the change.'],
@@ -95,7 +96,8 @@ describe('SQL comparison AI adapter', () => {
 
   it('accepts only structured, non-empty responses grounded in supplied SQL', () => {
     expect(parseSqlComparisonAiResponse(validResponse, snapshot)).toMatchObject({
-      summary: 'The filter was removed, so more rows may be returned.',
+      verdict: 'not_good',
+      changeExplanation: 'The filter was removed, so more rows may be returned.',
       evidence: ["WHERE status = 'open'"],
       assumptions: ['The selected columns and table are intended to remain unchanged.'],
       verificationSteps: ['Confirm the intended row scope before accepting the change.'],
@@ -104,10 +106,11 @@ describe('SQL comparison AI adapter', () => {
     expect(() =>
       parseSqlComparisonAiResponse(
         JSON.stringify({
-          summary: 'The database definitely returns fewer rows.',
-          potentialCorrectnessImpact: null,
-          executionSafetyConcerns: null,
-          potentialPerformanceImpact: null,
+          verdict: 'good',
+          changeExplanation: 'The database definitely returns fewer rows.',
+          impactAfterChange: 'Fewer rows.',
+          extraRiskToVerify: 'None.',
+          extraRecommendation: 'None.',
           evidence: ['DROP TABLE users'],
           assumptions: [],
           verificationSteps: [],
@@ -124,7 +127,7 @@ describe('SQL comparison AI adapter', () => {
   it('accepts a valid JSON response wrapped in a markdown code fence', () => {
     expect(
       parseSqlComparisonAiResponse(`\`\`\`json\n${validResponse}\n\`\`\``, snapshot)
-    ).toMatchObject({ summary: 'The filter was removed, so more rows may be returned.' });
+    ).toMatchObject({ verdict: 'not_good' });
   });
 
   it('extracts readable partial explanation text while the JSON response streams', () => {
@@ -180,10 +183,11 @@ describe('SQL comparison AI adapter', () => {
       afterSql: "SELECT 'after_marker' AS value;",
     };
     const response = JSON.stringify({
-      summary: 'The compared statements differ.',
-      potentialCorrectnessImpact: null,
-      executionSafetyConcerns: null,
-      potentialPerformanceImpact: null,
+      verdict: 'good',
+      changeExplanation: 'The compared statements differ.',
+      impactAfterChange: 'Results may differ.',
+      extraRiskToVerify: 'Predicate scope.',
+      extraRecommendation: 'Review the change.',
       evidence: ['before_marker'],
       assumptions: ['The supplied SQL is complete enough for this summary.'],
       verificationSteps: ['Review the statement change.'],

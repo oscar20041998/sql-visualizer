@@ -290,10 +290,11 @@ describe('SQL comparison result panel', () => {
       onCancelAi,
     };
     const assessment = {
-      summary: 'The filter change may broaden the result set.',
-      potentialCorrectnessImpact: 'Rows outside the former filter may appear.',
-      executionSafetyConcerns: null,
-      potentialPerformanceImpact: null,
+      verdict: 'not_good' as const,
+      changeExplanation: 'The filter change may broaden the result set.',
+      impactAfterChange: 'Rows outside the former filter may appear.',
+      extraRiskToVerify: 'Scope of returned rows.',
+      extraRecommendation: 'Confirm the intended row scope.',
       evidence: ["WHERE status = 'open'"],
       assumptions: ['The predicate represents intended scope.'],
       verificationSteps: ['Confirm the intended row scope.'],
@@ -316,7 +317,12 @@ describe('SQL comparison result panel', () => {
         {...props}
         result={{
           ...RESULT,
-          ai: { status: 'pending', explanation: 'Streaming summary', assessment: null },
+          ai: {
+            status: 'pending',
+            explanation: 'Streaming summary',
+            assessment: null,
+            streaming: { changeExplanation: 'Streaming summary' },
+          },
         }}
       />
     );
@@ -334,7 +340,7 @@ describe('SQL comparison result panel', () => {
       />
     );
     expect(screen.getByText('AI assessment complete.')).toHaveAttribute('role', 'status');
-    expect(screen.getByText(assessment.summary)).toBeInTheDocument();
+    expect(screen.getByText(assessment.changeExplanation)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry AI assessment' })).not.toBeInTheDocument();
 
     rerender(
@@ -414,10 +420,11 @@ describe('SQL comparison result panel', () => {
 
   it('renders comparison labels and AI states in English and Vietnamese', () => {
     const assessment = {
-      summary: 'Bộ lọc đã thay đổi.',
-      potentialCorrectnessImpact: 'Phạm vi hàng có thể rộng hơn.',
-      executionSafetyConcerns: 'Cần xem xét phạm vi thực thi.',
-      potentialPerformanceImpact: 'Có thể cần xử lý thêm hàng.',
+      verdict: 'good' as const,
+      changeExplanation: 'Bộ lọc đã thay đổi.',
+      impactAfterChange: 'Phạm vi hàng có thể rộng hơn.',
+      extraRiskToVerify: 'Cần xem xét phạm vi thực thi.',
+      extraRecommendation: 'Có thể cần xử lý thêm hàng.',
       evidence: ["WHERE status = 'open'"],
       assumptions: ['Điều kiện này thể hiện phạm vi mong muốn.'],
       verificationSteps: ['Xác nhận phạm vi hàng dự kiến.'],
@@ -435,10 +442,11 @@ describe('SQL comparison result panel', () => {
     expect(screen.getByText('Sau (Bản đã sửa)')).toBeInTheDocument();
     expect(screen.getByText('Đánh giá bằng AI')).toBeInTheDocument();
     expect(screen.getByText('Đã hoàn tất đánh giá AI.')).toHaveAttribute('role', 'status');
-    expect(screen.getByText('Tóm tắt')).toBeInTheDocument();
-    expect(screen.getByText('Ảnh hưởng tiềm ẩn đến tính đúng đắn')).toBeInTheDocument();
-    expect(screen.getByText('Quan ngại về an toàn thực thi')).toBeInTheDocument();
-    expect(screen.getByText('Ảnh hưởng tiềm ẩn đến hiệu năng')).toBeInTheDocument();
+    expect(screen.getByText('Đánh giá thay đổi')).toBeInTheDocument();
+    expect(screen.getByText('Giải thích về sự thay đổi')).toBeInTheDocument();
+    expect(screen.getByText('Tác động sau khi thay đổi')).toBeInTheDocument();
+    expect(screen.getByText('Thông tin thêm 1: Rủi ro cần kiểm tra')).toBeInTheDocument();
+    expect(screen.getByText('Thông tin thêm 2: Khuyến nghị')).toBeInTheDocument();
     expect(screen.getByText('Bằng chứng từ AI')).toBeInTheDocument();
     expect(screen.getByText('Giả định')).toBeInTheDocument();
     expect(screen.getByText('Đề xuất xác minh')).toBeInTheDocument();
