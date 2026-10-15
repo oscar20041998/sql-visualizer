@@ -100,7 +100,8 @@ const ExtractedTablesPanel = memo(function ExtractedTablesPanelComponent({
     <div
       className="flex-shrink-0 border-t border-border bg-card overflow-hidden"
       style={{
-        height: showExtracted ? '320px' : '44px',
+        maxHeight: showExtracted ? '100%' : '44px',
+        height: showExtracted ? 'auto' : '44px',
         transition: 'height 0.2s ease-out',
         willChange: 'height',
       }}

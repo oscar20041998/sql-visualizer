@@ -1,12 +1,22 @@
 'use client';
 
-import React, { useCallback, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ReactFlow,
   useNodesState,
   useEdgesState,
   type Node,
   type Edge,
+  type ReactFlowInstance,
+  type NodeChange,
   MarkerType,
   Background,
   Controls,
@@ -21,6 +31,13 @@ import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sql/sq
 import TableNode, { type TableNodeData } from './TableNode';
 import LabeledEdge from './LabeledEdge';
 import { getJoinColor } from '@/app/common/colorConstant';
+import { CATEGORY_CHROME } from '../lib/graphVisibility';
+import {
+  computePlacements,
+  queryFingerprint,
+  reducePlacement,
+  type PlacementState,
+} from '../lib/graphLayout';
 
 const CHART_BG_DARK = '#0f172a';
 const CHART_BG_LIGHT = '#f8fafc';
@@ -94,6 +111,8 @@ function computeLayout(
 export interface FlowCanvasHandle {
   getNodes: () => Node[];
   getEdges: () => Edge[];
+  fitView: () => void;
+  relayout: () => void;
 }
 
 interface FlowCanvasProps {
@@ -105,6 +124,9 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   const { analysisResult, selectedNodeId, setSelectedNodeId, settings } = useAppStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<TableNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const placementRef = useRef<PlacementState | null>(null);
+  const instanceRef = useRef<ReactFlowInstance | null>(null);
+  const [placementVersion, setPlacementVersion] = useState(0);
   const graphTheme = settings.theme === 'light' ? 'light' : 'dark';
   const chartBg = graphTheme === 'light' ? CHART_BG_LIGHT : CHART_BG_DARK;
   const chartDot = graphTheme === 'light' ? CHART_DOT_LIGHT : CHART_DOT_DARK;
@@ -120,10 +142,86 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     [settings.performanceMode, graphTables.length]
   );
 
+  const placementTables = analysisResult?.tables ?? graphTables;
+  const placementJoins = analysisResult?.joins ?? graphJoins;
+  const fingerprint = queryFingerprint(analysisResult?.rawSql ?? '', analysisResult?.dialect ?? '');
+
+  const relayout = useCallback(() => {
+    const current = placementRef.current ?? {
+      fingerprint,
+      layout: settings.graphLayout,
+      spacing: settings.nodeSpacing,
+      positions: new Map(),
+    };
+    placementRef.current = reducePlacement(current, {
+      type: 'relayout',
+      layout: settings.graphLayout,
+      spacing: settings.nodeSpacing,
+      tables: placementTables,
+      joins: placementJoins,
+    });
+    setPlacementVersion((version) => version + 1);
+  }, [fingerprint, placementJoins, placementTables, settings.graphLayout, settings.nodeSpacing]);
+
   useImperativeHandle(ref, () => ({
     getNodes: () => nodes,
     getEdges: () => edges,
+    fitView: () => instanceRef.current?.fitView({ padding: 0.3 }),
+    relayout,
   }));
+
+  useEffect(() => {
+    const current = placementRef.current;
+    const next = !current
+      ? {
+          fingerprint,
+          layout: settings.graphLayout,
+          spacing: settings.nodeSpacing,
+          positions: computePlacements(
+            placementTables,
+            placementJoins,
+            settings.graphLayout,
+            settings.nodeSpacing
+          ),
+        }
+      : current.fingerprint !== fingerprint
+        ? reducePlacement(current, {
+            type: 'query',
+            fingerprint,
+            layout: settings.graphLayout,
+            spacing: settings.nodeSpacing,
+            tables: placementTables,
+            joins: placementJoins,
+          })
+        : current.layout !== settings.graphLayout
+          ? reducePlacement(current, {
+              type: 'layout',
+              layout: settings.graphLayout,
+              spacing: settings.nodeSpacing,
+              tables: placementTables,
+              joins: placementJoins,
+            })
+          : current.spacing !== settings.nodeSpacing
+            ? reducePlacement(current, {
+                type: 'spacing',
+                layout: settings.graphLayout,
+                spacing: settings.nodeSpacing,
+                tables: placementTables,
+                joins: placementJoins,
+              })
+            : reducePlacement(current, {
+                type: 'query',
+                fingerprint,
+                layout: settings.graphLayout,
+                spacing: settings.nodeSpacing,
+                tables: placementTables,
+                joins: placementJoins,
+              });
+    if (next !== current) {
+      placementRef.current = next;
+      setPlacementVersion((version) => version + 1);
+    }
+  }, [fingerprint, placementJoins, placementTables, settings.graphLayout, settings.nodeSpacing]);
 
   useEffect(() => {
     if (!analysisResult && !tables && !joins) {
@@ -132,11 +230,13 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
       return;
     }
 
-    const positions = computeLayout(graphTables, graphJoins);
+    const positions =
+      placementRef.current?.positions ??
+      computePlacements(graphTables, graphJoins, settings.graphLayout, settings.nodeSpacing);
 
     // Build nodes
     const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
-      const nodeColor = getTableColor(table.id, graphJoins, graphTheme);
+      const nodeColor = CATEGORY_CHROME[table.sourceType];
       const isHighlighted =
         selectedNodeId === null ||
         selectedNodeId === table.id ||
@@ -216,6 +316,9 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
     selectedNodeId,
     graphTheme,
     settings.edgeStyle,
+    settings.graphLayout,
+    settings.nodeSpacing,
+    placementVersion,
     isPerformanceMode,
     setNodes,
     setEdges,
@@ -237,7 +340,23 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onInit={(instance) => {
+          instanceRef.current = instance;
+        }}
+        onNodesChange={(changes: NodeChange[]) => {
+          onNodesChange(changes);
+          if (!placementRef.current) return;
+          for (const change of changes) {
+            if (change.type === 'position' && change.position) {
+              placementRef.current = reducePlacement(placementRef.current, {
+                type: 'drag',
+                id: change.id,
+                x: change.position.x,
+                y: change.position.y,
+              });
+            }
+          }
+        }}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}

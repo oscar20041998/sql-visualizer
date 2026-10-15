@@ -4,7 +4,8 @@ import React, { memo, useState, useCallback, useMemo } from 'react';
 import { GitFork, ChevronDown, ChevronUp, Tag, Zap, Search, X, Database } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
-import type { JoinConditionAnalysis, JoinEdge } from '@/lib/sql/sqlAnalyzer';
+import type { JoinConditionAnalysis, JoinEdge, TableNode } from '@/lib/sql/sqlAnalyzer';
+import { conditionPreview, formatEndpoint } from '../lib/graphExport';
 
 export interface JoinAnalysisItem {
   id: string;
@@ -14,7 +15,13 @@ export interface JoinAnalysisItem {
 
 interface JoinAnalysisPanelProps {
   joinAnalysisDetails?: JoinAnalysisItem[];
+  tables?: TableNode[];
   locale: 'en' | 'vi';
+}
+
+function endpointLabel(tables: TableNode[] | undefined, id: string): string {
+  const table = tables?.find((candidate) => candidate.id === id);
+  return table ? formatEndpoint(table.name, table.alias) : id;
 }
 
 const JoinDetailsCard = memo(function JoinDetailsCardComponent({
@@ -23,12 +30,14 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
   t,
   allExpanded,
   searchQuery,
+  tables,
 }: {
   item: JoinAnalysisItem;
   index: number;
   t: ReturnType<typeof getT>;
   allExpanded: boolean | null;
   searchQuery: string;
+  tables?: TableNode[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const { joinEdge, analysis } = item;
@@ -79,7 +88,7 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
               {joinEdge.condition
-                ? `ON: ${joinEdge.condition.substring(0, 40)}...`
+                ? `ON: ${conditionPreview(joinEdge.condition)}`
                 : 'No condition'}
             </p>
           </div>
@@ -107,7 +116,7 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
               <div className="flex items-center gap-1.5">
                 <Database size={12} className="text-primary flex-shrink-0" />
                 <code className="text-xs font-mono text-foreground truncate">
-                  {joinEdge.source}
+                  {endpointLabel(tables, joinEdge.source)}
                 </code>
               </div>
             </div>
@@ -118,7 +127,7 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
               <div className="flex items-center gap-1.5">
                 <Database size={12} className="text-accent flex-shrink-0" />
                 <code className="text-xs font-mono text-foreground truncate">
-                  {joinEdge.target}
+                  {endpointLabel(tables, joinEdge.target)}
                 </code>
               </div>
             </div>
@@ -231,6 +240,7 @@ JoinDetailsCard.displayName = 'JoinDetailsCard';
 
 const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
   joinAnalysisDetails,
+  tables,
   locale,
 }: JoinAnalysisPanelProps) {
   const t = getT(locale);
@@ -362,6 +372,7 @@ const JoinAnalysisPanel = memo(function JoinAnalysisPanelComponent({
                 t={t}
                 allExpanded={allExpanded}
                 searchQuery={searchQuery}
+                tables={tables}
               />
             ))}
           </div>

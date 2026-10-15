@@ -445,8 +445,10 @@ describe('SQL comparison result panel', () => {
     expect(screen.getByText('Đánh giá thay đổi')).toBeInTheDocument();
     expect(screen.getByText('Giải thích về sự thay đổi')).toBeInTheDocument();
     expect(screen.getByText('Tác động sau khi thay đổi')).toBeInTheDocument();
-    expect(screen.getByText('Thông tin thêm 1: Rủi ro cần kiểm tra')).toBeInTheDocument();
-    expect(screen.getByText('Thông tin thêm 2: Khuyến nghị')).toBeInTheDocument();
+    // bc0c4bd renders these as plain uppercase section headings (no numbered
+    // "Thông tin thêm N:" prefix; that prefix never existed in src/locales).
+    expect(screen.getByRole('heading', { name: 'Rủi ro cần kiểm tra' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Khuyến nghị' })).toBeInTheDocument();
     expect(screen.getByText('Bằng chứng từ AI')).toBeInTheDocument();
     expect(screen.getByText('Giả định')).toBeInTheDocument();
     expect(screen.getByText('Đề xuất xác minh')).toBeInTheDocument();

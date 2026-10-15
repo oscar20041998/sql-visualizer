@@ -23,6 +23,14 @@ import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult, SqlSourceType, TableNode } from '@/lib/sql/sqlAnalyzer';
 import type { FlowCanvasHandle } from './FlowCanvas';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
+import { prepareImageExport } from '../lib/graphExport';
+import {
+  DEFAULT_INCLUDE_NEIGHBORS,
+  categoryLabelKey,
+  clearSelectionIfHidden,
+  filterVisibleJoins,
+  filterVisibleTables,
+} from '../lib/graphVisibility';
 import SuggestionPanel, { type Suggestion } from './SuggestionPanel';
 import ExtractedTablesPanel, { type ExtractedTableRow } from './ExtractedTablesPanel';
 import JoinAnalysisPanel from './JoinAnalysisPanel';
@@ -54,10 +62,12 @@ export function filterJoinsBySourceType(
 function CopyButton({
   getText,
   label,
+  copiedLabel,
   icon,
 }: {
   getText: () => string;
   label: string;
+  copiedLabel: string;
   icon?: React.ReactNode;
 }) {
   const [copied, setCopied] = React.useState(false);
@@ -83,7 +93,7 @@ function CopyButton({
       }}
     >
       {copied ? <Check size={12} /> : icon || <Copy size={12} />}
-      {copied ? 'Copied!' : label}
+      {copied ? copiedLabel : label}
     </button>
   );
 }
@@ -183,6 +193,7 @@ function generateSuggestions(result: AnalysisResult, t: ReturnType<typeof getT>)
       severity: 'info',
       title: `${t.suggIsolatedTablesTitle}: ${isolatedTables.map((tbl) => tbl.name).join(', ')}`,
       detail: t.suggIsolatedTablesDetail,
+      relatedSourceIds: isolatedTables.map((tbl) => tbl.id),
     });
   }
 
@@ -338,7 +349,8 @@ export default function GraphVisualizerContent() {
   const [showJoinAnalysis, setShowJoinAnalysis] = useState(false);
   const [showJoinLegend, setShowJoinLegend] = useState(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [tableSearch, setTableSearch] = useState('');
+  const [includeNeighbors, setIncludeNeighbors] = useState(DEFAULT_INCLUDE_NEIGHBORS);
+  const [imageExportError, setImageExportError] = useState<string | null>(null);
 
   // ── Graph search state ──
   const [graphSearch, setGraphSearch] = useState('');
@@ -348,8 +360,13 @@ export default function GraphVisualizerContent() {
 
   const filteredTables = useMemo(() => {
     if (!analysisResult) return [];
-    return filterTablesBySourceType(analysisResult.tables, relationshipFilter);
-  }, [analysisResult, relationshipFilter]);
+    return filterVisibleTables(
+      analysisResult.tables,
+      analysisResult.joins,
+      relationshipFilter,
+      includeNeighbors
+    );
+  }, [analysisResult, relationshipFilter, includeNeighbors]);
 
   const filteredTableIdSet = useMemo(
     () => new Set(filteredTables.map((table) => table.id)),
@@ -358,13 +375,12 @@ export default function GraphVisualizerContent() {
 
   const filteredJoins = useMemo(() => {
     if (!analysisResult) return [];
-
-    return filterJoinsBySourceType(analysisResult.joins, analysisResult.tables, relationshipFilter);
-  }, [analysisResult, relationshipFilter, filteredTableIdSet]);
+    return filterVisibleJoins(analysisResult.joins, filteredTables);
+  }, [analysisResult, filteredTables]);
 
   useEffect(() => {
     if (!selectedNodeId) return;
-    if (!filteredTableIdSet.has(selectedNodeId)) {
+    if (!clearSelectionIfHidden(selectedNodeId, filteredTableIdSet)) {
       setSelectedNodeId(null);
     }
   }, [selectedNodeId, filteredTableIdSet, setSelectedNodeId]);
@@ -498,9 +514,31 @@ export default function GraphVisualizerContent() {
     return [header, ...rows].join('\n');
   }, [extractedRows]);
 
+  const downloadVisibleImage = useCallback(() => {
+    const svgEl = document.querySelector('.react-flow__renderer svg');
+    const markup = svgEl ? new XMLSerializer().serializeToString(svgEl) : null;
+    const result = prepareImageExport(
+      markup,
+      settings.theme === 'light' ? 'light' : 'dark',
+      filteredTables.map((table) => table.id)
+    );
+    if (!result.ok || !result.markup) {
+      setImageExportError(t.graphImageExportFailed);
+      return;
+    }
+    const blob = new Blob([result.markup], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = result.filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setImageExportError(null);
+  }, [filteredTables, settings.theme, t.graphImageExportFailed]);
+
   if (!analysisResult) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-64px)] gap-4">
+      <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
           <GitFork size={28} className="text-muted-foreground" />
         </div>
@@ -522,7 +560,7 @@ export default function GraphVisualizerContent() {
   const warnCount = visibleSuggestions.filter((s) => s.severity === 'warning').length;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-0px)] overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Main area: canvas + sidebar */}
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas */}
@@ -545,23 +583,35 @@ export default function GraphVisualizerContent() {
               </span>
               <span className="flex items-center gap-1 whitespace-nowrap">
                 <Link2 size={11} />
-                {relationshipFilter === 'all'
-                  ? analysisResult.metrics.totalJoinCount
-                  : filteredJoins.length}{' '}
-                {t.joinCount}
+                {filteredJoins.length} {t.joinCount}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="whitespace-nowrap">{t.graphFilterLabel}</span>
                 <select
+                  aria-label={t.graphFilterLabel}
                   value={relationshipFilter}
                   onChange={(e) => setRelationshipFilter(e.target.value as RelationshipFilterMode)}
                   className="select-control select-control-sm font-mono"
                 >
                   <option value="all">{t.graphFilterAll}</option>
-                  <option value="cte">{t.graphFilterCte}</option>
-                  <option value="table">{t.graphFilterTable}</option>
-                  <option value="subquery">{t.graphFilterSubquery}</option>
+                  <option value="cte">
+                    {includeNeighbors ? t.graphFilterCteNeighbors : t.graphFilterCte}
+                  </option>
+                  <option value="table">
+                    {includeNeighbors ? t.graphFilterTableNeighbors : t.graphFilterTable}
+                  </option>
+                  <option value="subquery">
+                    {includeNeighbors ? t.graphFilterSubqueryNeighbors : t.graphFilterSubquery}
+                  </option>
                 </select>
+                <label className="flex items-center gap-1 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={includeNeighbors}
+                    onChange={(event) => setIncludeNeighbors(event.target.checked)}
+                  />
+                  {t.graphIncludeNeighbors}
+                </label>
               </div>
             </div>
 
@@ -587,6 +637,7 @@ export default function GraphVisualizerContent() {
                   onChange={(e) => setGraphSearch(e.target.value)}
                   onFocus={() => setGraphSearchFocused(true)}
                   onBlur={() => setTimeout(() => setGraphSearchFocused(false), 150)}
+                  aria-label={t.searchTables}
                   placeholder={t.searchTables}
                   className="flex-1 bg-transparent text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
                 />
@@ -659,11 +710,9 @@ export default function GraphVisualizerContent() {
                             {table.name}
                           </span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {table.sourceType === 'CTE' && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-accent/20 text-accent">
-                                CTE
-                              </span>
-                            )}
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-accent/20 text-accent">
+                              {t[categoryLabelKey(table.sourceType) as keyof typeof t]}
+                            </span>
                             {relCount > 0 && (
                               <span className="text-[10px] font-mono text-muted-foreground flex items-center gap-0.5">
                                 <Link2 size={9} />
@@ -693,9 +742,11 @@ export default function GraphVisualizerContent() {
                   borderColor: showSuggestions ? '#ef4444' : 'var(--border)',
                   color: showSuggestions ? '#ef4444' : 'var(--muted-foreground)',
                 }}
-                title="Toggle Suggestions Panel"
+                aria-label={t.graphSuggestions}
+                title={t.graphSuggestions}
               >
                 <AlertCircle size={12} />
+                <span>{t.graphSuggestions}</span>
                 {errorCount + warnCount > 0 && (
                   <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
                     {errorCount + warnCount}
@@ -712,9 +763,11 @@ export default function GraphVisualizerContent() {
                   borderColor: showJoinAnalysis ? '#3b82f6' : 'var(--border)',
                   color: showJoinAnalysis ? '#3b82f6' : 'var(--muted-foreground)',
                 }}
-                title="Toggle Join Analysis Panel"
+                aria-label={t.graphJoinAnalysis}
+                title={t.graphJoinAnalysis}
               >
                 <TrendingUp size={12} />
+                <span>{t.graphJoinAnalysis}</span>
               </button>
 
               {/* Extracted Tables Toggle */}
@@ -726,9 +779,11 @@ export default function GraphVisualizerContent() {
                   borderColor: showExtracted ? '#22c55e' : 'var(--border)',
                   color: showExtracted ? '#22c55e' : 'var(--muted-foreground)',
                 }}
-                title="Toggle Extracted Tables Panel"
+                aria-label={t.graphExtractedTables}
+                title={t.graphExtractedTables}
               >
                 <Layers size={12} />
+                <span>{t.graphExtractedTables}</span>
                 {extractedRows.length > 0 && (
                   <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] font-bold">
                     {extractedRows.length}
@@ -754,12 +809,42 @@ export default function GraphVisualizerContent() {
                 <Zap size={12} />
                 {t.performanceMode || 'Performance'}
               </button>
+              <button
+                type="button"
+                onClick={() => flowRef.current?.fitView()}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+              >
+                {t.graphFit}
+              </button>
+              <button
+                type="button"
+                onClick={() => flowRef.current?.relayout()}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+              >
+                {t.graphRearrange}
+              </button>
               <CopyButton
                 getText={getMermaidText}
                 label={t.convertMermaid}
+                copiedLabel={t.copiedLabel}
                 icon={<Code2 size={12} />}
               />
-              <CopyButton getText={getChartSvg} label={t.copyChart} icon={<Copy size={12} />} />
+              <button
+                type="button"
+                onClick={downloadVisibleImage}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+              >
+                <Copy size={12} />
+                {t.graphDownloadImage}
+              </button>
+              {imageExportError && (
+                <span role="status" className="text-xs text-destructive">
+                  {imageExportError}
+                </span>
+              )}
             </div>
           </div>
 
@@ -785,11 +870,9 @@ export default function GraphVisualizerContent() {
                       <span className="font-semibold text-sm text-foreground font-mono">
                         {selectedNode.name}
                       </span>
-                      {selectedNode.sourceType === 'CTE' && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent/20 text-accent font-mono">
-                          CTE
-                        </span>
-                      )}
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent/20 text-accent font-mono">
+                        {t[categoryLabelKey(selectedNode.sourceType) as keyof typeof t]}
+                      </span>
                     </div>
                     {selectedNode.alias && (
                       <p className="text-xs text-muted-foreground font-mono">
@@ -913,36 +996,8 @@ export default function GraphVisualizerContent() {
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 {t.allTables}
               </h3>
-              {/* Search input */}
-              <div className="relative mb-2">
-                <Search
-                  size={11}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-                <input
-                  type="text"
-                  value={tableSearch}
-                  onChange={(e) => setTableSearch(e.target.value)}
-                  placeholder={t.searchTables}
-                  className="w-full pl-6 pr-2 py-1.5 rounded text-xs font-mono bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-                />
-                {tableSearch && (
-                  <button
-                    onClick={() => setTableSearch('')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X size={10} />
-                  </button>
-                )}
-              </div>
               <div className="space-y-1">
-                {filteredTables
-                  .filter(
-                    (table) =>
-                      tableSearch.trim() === '' ||
-                      table.name.toLowerCase().includes(tableSearch.toLowerCase())
-                  )
-                  .map((table) => (
+                {filteredTables.map((table) => (
                     <button
                       key={`table-list-${table.id}`}
                       onClick={() =>
@@ -956,17 +1011,12 @@ export default function GraphVisualizerContent() {
                     >
                       <Table2 size={11} className="flex-shrink-0" />
                       {table.name}
-                      {table.sourceType === 'CTE' && (
-                        <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1 rounded">
-                          CTE
-                        </span>
-                      )}
+                      <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1 rounded">
+                        {t[categoryLabelKey(table.sourceType) as keyof typeof t]}
+                      </span>
                     </button>
                   ))}
-                {tableSearch.trim() !== '' &&
-                  filteredTables.filter((table) =>
-                    table.name.toLowerCase().includes(tableSearch.toLowerCase())
-                  ).length === 0 && (
+                {filteredTables.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-2">
                       {t.noTablesFound}
                     </p>
@@ -991,6 +1041,13 @@ export default function GraphVisualizerContent() {
                 suggestions={visibleSuggestions}
                 dismissedIds={dismissedIds}
                 onDismiss={dismissSuggestion}
+                locale={settings.locale}
+                onActivate={(suggestion) => {
+                  const nextId = suggestion.relatedSourceIds?.find((id) =>
+                    filteredTables.some((table) => table.id === id)
+                  );
+                  if (nextId) setSelectedNodeId(nextId);
+                }}
               />
             </div>
           )}
@@ -999,6 +1056,7 @@ export default function GraphVisualizerContent() {
             <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
               <JoinAnalysisPanel
                 joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
+                tables={analysisResult?.tables}
                 locale={settings.locale}
               />
             </div>

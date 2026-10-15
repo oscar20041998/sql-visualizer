@@ -75,6 +75,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
           >
             {name}
           </span>
+          <span style={{ fontSize: 9, color: nodeColor }}>{sourceType}</span>
         </div>
       </div>
     );

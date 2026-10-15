@@ -20,6 +20,7 @@ interface Suggestion {
   severity: SuggestionSeverity;
   title: string;
   detail: string;
+  relatedSourceIds?: string[];
 }
 
 const SEVERITY_CONFIG: Record<
@@ -47,10 +48,26 @@ const SEVERITY_CONFIG: Record<
 };
 
 const SuggestionCard = memo(
-  ({ suggestion, onDismiss }: { suggestion: Suggestion; onDismiss: (id: string) => void }) => {
+  ({
+    suggestion,
+    onDismiss,
+    onActivate,
+    dismissLabel,
+  }: {
+    suggestion: Suggestion;
+    onDismiss: (id: string) => void;
+    onActivate?: (suggestion: Suggestion) => void;
+    dismissLabel: string;
+  }) => {
     const cfg = SEVERITY_CONFIG[suggestion.severity];
     return (
       <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onActivate?.(suggestion)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') onActivate?.(suggestion);
+        }}
         className="relative group rounded-lg p-3 text-xs scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
         style={{
           background: cfg.bg,
@@ -64,16 +81,21 @@ const SuggestionCard = memo(
             <p className="font-semibold font-mono leading-tight" style={{ color: cfg.color }}>
               {suggestion.title}
             </p>
-            <p className="mt-1 leading-relaxed" style={{ color: '#8b9ab5' }}>
+            <p className="mt-1 leading-relaxed text-muted-foreground">
               {suggestion.detail}
             </p>
           </div>
         </div>
         <button
-          onClick={() => onDismiss(suggestion.id)}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/10"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDismiss(suggestion.id);
+          }}
+          type="button"
+          aria-label={dismissLabel}
+          className="absolute top-2 right-2 p-0.5 rounded hover:bg-white/10"
           style={{ color: '#5a6a85' }}
-          title="Dismiss"
+          title={dismissLabel}
         >
           <X size={10} />
         </button>
@@ -82,18 +104,20 @@ const SuggestionCard = memo(
   }
 );
 
-SuggestionCard.displayName = 'SuggestionCard';
-
 interface SuggestionPanelProps {
   suggestions: Suggestion[];
   dismissedIds: Set<string>;
   onDismiss: (id: string) => void;
+  onActivate?: (suggestion: Suggestion) => void;
+  locale?: 'en' | 'vi';
 }
 
 const SuggestionPanel = memo(function SuggestionPanelComponent({
   suggestions,
   dismissedIds,
   onDismiss,
+  onActivate,
+  locale = 'en',
 }: SuggestionPanelProps) {
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -101,7 +125,7 @@ const SuggestionPanel = memo(function SuggestionPanelComponent({
   const errorCount = visibleSuggestions.filter((s) => s.severity === 'error').length;
   const warnCount = visibleSuggestions.filter((s) => s.severity === 'warning').length;
 
-  const t = getT('en');
+  const t = getT(locale);
 
   if (visibleSuggestions.length === 0) return null;
 
@@ -109,7 +133,8 @@ const SuggestionPanel = memo(function SuggestionPanelComponent({
     <div
       className="flex-shrink-0 border-t border-border bg-card overflow-hidden"
       style={{
-        height: showSuggestions ? '280px' : '44px',
+        maxHeight: showSuggestions ? '100%' : '44px',
+        height: showSuggestions ? 'auto' : '44px',
         transition: 'height 0.2s ease-out',
         willChange: 'height',
       }}
@@ -143,7 +168,13 @@ const SuggestionPanel = memo(function SuggestionPanelComponent({
         <div className="overflow-auto p-3 scrollbar-thin" style={{ maxHeight: '232px' }}>
           <div className="flex flex-col gap-2">
             {visibleSuggestions.map((s) => (
-              <SuggestionCard key={s.id} suggestion={s} onDismiss={onDismiss} />
+              <SuggestionCard
+                key={s.id}
+                suggestion={s}
+                onDismiss={onDismiss}
+                onActivate={onActivate}
+                dismissLabel={t.graphDismissSuggestion}
+              />
             ))}
           </div>
         </div>
