@@ -11,9 +11,16 @@ import { generateWithAI } from './aiService';
 import { format } from 'sql-formatter';
 import type { AIModelConfig } from '@/lib/store';
 import type { Locale } from '@/lib/i18n';
-import { formatErrorPosition, type FormatError } from '@/lib/sql/formatError';
+import type { FormatError } from '@/lib/sql/formatError';
 import { resolveErrorRegion, type ErrorRegion } from '@/lib/sql/formatErrorRegion';
 import { applyFormatFix } from '@/lib/sql/formatFixScope';
+import { renderPrompt } from './prompts/render';
+import {
+  explainFormatErrorParams,
+  formatFixParams,
+  formatFixRetryParams,
+  FORMAT_ERROR_PROMPTS,
+} from './prompts/templates/formatError';
 
 /** How an AI request failed, so the panel can pick a message and a retry affordance. */
 export type FormatAiFailureKind = 'unavailable' | 'malformed' | 'error';
@@ -63,27 +70,11 @@ export interface FormatFixSnapshot {
 const EXPLAIN_MAX_TOKENS = 3000;
 const FIX_MAX_TOKENS = 1200;
 
-/** Cap on how much of the failing SQL is embedded verbatim, so the prompt fits a small context. */
-const MAX_SQL_CHARS = 6000;
-
 // ---------------------------------------------------------------------------------------------
-// Prompt building
+// Prompt building — the wording lives in `prompts/templates/formatError.ts`. These wrappers keep
+// the feature's existing exported signatures (and the tests that import them) while every prompt
+// text now reaches a provider only through `renderPrompt` (specs/020 SC-002 / SC-005).
 // ---------------------------------------------------------------------------------------------
-
-/** Truncates the failing SQL for the prompt, stating clearly when it was cut. */
-function fitSqlForPrompt(sql: string): string {
-  if (sql.length <= MAX_SQL_CHARS) return sql;
-  return `${sql.slice(0, MAX_SQL_CHARS)}\n-- [truncated: ${sql.length - MAX_SQL_CHARS} more characters]`;
-}
-
-/** Shared grounding block: what the formatter said, where, and on which SQL. */
-function groundingBlock(error: FormatError): string {
-  const position = formatErrorPosition(error);
-  const lines = [`Formatter error message: ${error.message}`, `SQL dialect: ${error.dialect}`];
-  if (position) lines.push(`Reported location: ${position}`);
-  if (error.snippet) lines.push(`SQL around the reported location: ${error.snippet}`);
-  return lines.join('\n');
-}
 
 /**
  * Explain prompt (contract §2). The model must ground its answer in the message and SQL above and
@@ -95,105 +86,34 @@ export function buildExplainFormatErrorPrompt(
   locale: Locale = 'en',
   region?: ErrorRegion | null
 ): string {
-  const replacementRegion = region ?? resolveErrorRegion(error, error.sourceSql);
-  const languageInstruction =
-    locale === 'vi'
-      ? 'Write the "explanation", "rootCause", and "replacementReason" fields in Vietnamese (tiếng Việt), using simple, beginner-friendly language. Keep the JSON keys exactly as named.'
-      : 'Write the "explanation", "rootCause", and "replacementReason" fields in English, using plain language.';
-  const regionBlock = replacementRegion
-    ? `\nReplacement range: lines ${replacementRegion.startLine}-${replacementRegion.endLine}. Replace only this exact original SQL fragment:\n\`\`\`sql\n${replacementRegion.snippet}\n\`\`\`\n`
-    : '';
-  const sqlContext = replacementRegion
-    ? ''
-    : '\nNo safe replacement range could be determined. Do not return a SQL correction.\n';
-  const correctionScope = replacementRegion
-    ? `Replace only lines ${replacementRegion.startLine}-${replacementRegion.endLine}. Preserve every character outside that range byte for byte. Return only the corrected replacement fragment in "replacementSql", explain why it fixes the syntax error in "replacementReason", and state this exact line range in "explanation". Do not repeat the full query.`
-    : 'Do not return a corrected query or replacement fragment because no safe replacement range is available.';
-
-  return `A SQL formatter failed to parse a query. Explain the failure and provide only a bounded SQL replacement fragment in one response.
-
-${groundingBlock(error)}${regionBlock}${sqlContext}
-
-Rules:
-- Ground every statement in the formatter message and the SQL above. Do not contradict the formatter.
-- Explain the syntax failure only. Do not give performance, indexing, or query-rewrite advice.
-- Be specific about the offending token, clause, or delimiter. Never invent a code fragment that is not in the SQL above.
-- ${replacementRegion ? 'Provide "replacementSql" as only the corrected replacement fragment for the exact range shown above, and provide "replacementReason".' : 'Return empty "replacementSql" and "replacementReason" because no safe replacement range is available.'}
-- Preserve the meaning and all SQL outside the replacement range. Do not reformat unrelated SQL.
-- ${correctionScope}
-- ${languageInstruction}
-- Return only one JSON object with exactly these keys, in this order:
-{
-  "explanation": "plain-language statement of what the error is",
-  "rootCause": "plain-language statement of why it happened",
-  "evidence": ["quoted SQL fragment or error text this answer relies on"],
-  "replacementSql": "${replacementRegion ? 'the corrected SQL replacement fragment only' : 'empty because no safe replacement range is available'}",
-  "replacementReason": "${replacementRegion ? 'why this replacement fixes the syntax error' : 'empty because no safe replacement range is available'}"
-}
-
-Both "explanation" and "rootCause" must be non-empty, "evidence" must quote the actual SQL or error text, and any replacement must contain only the corrected region plus a non-empty rationale.`;
+  return renderPrompt(
+    FORMAT_ERROR_PROMPTS.explain,
+    explainFormatErrorParams(error, locale, region)
+  )[0].content;
 }
 
 /**
  * Fix prompt (contract §3 / FR-015). The minimal-change constraint is stated as an explicit list so
  * a small local model cannot read it as "rewrite the query".
+ *
+ * When a region was resolved the prompt quotes it and names the confinement rule, so a small local
+ * model is told where the correction may happen instead of being trusted to stay there (FR-019).
+ * The guard enforces it either way; the prompt only reduces rejected proposals.
  */
 export function buildFormatFixPrompt(error: FormatError, region?: ErrorRegion | null): string {
-  // When a region was resolved the prompt quotes it and names the confinement rule, so a small
-  // local model is told where the correction may happen instead of being trusted to stay there
-  // (FR-019). The guard enforces it either way; the prompt only reduces rejected proposals.
-  const regionBlock = region
-    ? `\nErroneous region (lines ${region.startLine}-${region.endLine}, from the ${region.source}): ${region.snippet}\n`
-    : '';
-  const confinementRule = region
-    ? '- Change ONLY the erroneous region quoted above. Every character you change must be inside it, and you must return the rest of the query byte for byte. Confine every change to it.\n'
-    : '';
-
-  return `A SQL formatter failed to parse a query. Correct ONLY the syntax error so the formatter can parse it.
-
-${groundingBlock(error)}${regionBlock}
-SQL that failed to format:
-\`\`\`sql
-${fitSqlForPrompt(error.sourceSql)}
-\`\`\`
-
-Make the minimal correction:
-${confinementRule}- Fix only the offending syntax. Change as few characters as possible.
-- Do NOT change, add, or remove any clause, table, column, alias, join, filter, or expression.
-- Do NOT reorder anything. Keep the original statement order exactly.
-- Do NOT reformat, re-indent, or add comments. Do NOT change keywords to upper/lower case.
-- Keep the dialect (${error.dialect}) valid.
-- If the query cannot be corrected without changing its meaning, return the original SQL unchanged.
-
-Return only a JSON object with exactly this key — no explanation, no prose:
-{
-  "correctedSql": "the minimally corrected SQL"
-}`;
+  return renderPrompt(FORMAT_ERROR_PROMPTS.fix, formatFixParams(error, region))[0].content;
 }
 
+/** Retry prompt: the previous correction is fed back together with the formatter's new message. */
 function buildFormatFixRetryPrompt(
   error: FormatError,
   rejectedSql: string,
   formatterMessage: string
 ): string {
-  return `Your previous SQL correction still failed the SQL formatter. Correct the syntax using the formatter's feedback below.
-
-SQL dialect: ${error.dialect}
-Original formatter error: ${error.message}
-Formatter error for your previous correction: ${formatterMessage}
-
-Original SQL:
-00sql
-${fitSqlForPrompt(error.sourceSql)}
-00
-
-Your previous correction:
-00sql
-${fitSqlForPrompt(rejectedSql)}
-00
-
-Return only a JSON object with exactly this key, containing a corrected SQL statement valid for the stated dialect:
-{ "correctedSql": "..." }`;
+  return renderPrompt(
+    FORMAT_ERROR_PROMPTS.fixRetry,
+    formatFixRetryParams(error, rejectedSql, formatterMessage)
+  )[0].content;
 }
 
 function formatterLanguage(

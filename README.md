@@ -200,11 +200,11 @@ yarn dev
 
 SQL Visualizer uses Ollama locally at `http://localhost:11434` by default. The application currently uses these models:
 
-| Purpose | Model | Used by |
-| --- | --- | --- |
-| Chat, SQL explanation, SQL optimization, and Database AI Assistant answers | `qwen2.5-coder:3b` | Default Ollama chat model, configurable in **Settings > AI Model Configuration** |
-| Database-manual RAG retrieval | `all-minilm` | Required for Database AI Assistant grounding; must match the local index embedding space |
-| Query History semantic search | `nomic-embed-text` | Finds previously analyzed SQL with similar meaning |
+| Purpose                                                                    | Model              | Used by                                                                                  |
+| -------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| Chat, SQL explanation, SQL optimization, and Database AI Assistant answers | `qwen2.5-coder:3b` | Default Ollama chat model, configurable in **Settings > AI Model Configuration**         |
+| Database-manual RAG retrieval                                              | `all-minilm`       | Required for Database AI Assistant grounding; must match the local index embedding space |
+| Query History semantic search                                              | `nomic-embed-text` | Finds previously analyzed SQL with similar meaning                                       |
 
 Install the complete local setup:
 
@@ -216,15 +216,15 @@ ollama pull nomic-embed-text
 
 For a responsive single-user development workflow, use these settings in **Settings > AI Model Configuration**:
 
-| Setting | Recommended value | Why |
-| --- | --- | --- |
-| Provider | `Ollama` | Keeps SQL prompts and RAG embeddings on the local machine |
-| Base URL | `http://localhost:11434` | Default local Ollama service address |
-| Chat model | `qwen2.5-coder:3b` | Balanced SQL quality, streaming speed, and memory use |
-| Temperature | `0.1` | Produces more deterministic SQL explanations and optimization suggestions |
-| Context window | `8192` | Supports a SQL query, parser context, conversation history, and retrieved manual excerpts |
-| Maximum output tokens | `1200` | Keeps streamed answers concise and reduces generation latency |
-| Batch explain concurrency | `1` on CPU, `2` on a capable GPU | Prevents multiple local inference jobs from competing for the same RAM/VRAM |
+| Setting                   | Recommended value                | Why                                                                                       |
+| ------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| Provider                  | `Ollama`                         | Keeps SQL prompts and RAG embeddings on the local machine                                 |
+| Base URL                  | `http://localhost:11434`         | Default local Ollama service address                                                      |
+| Chat model                | `qwen2.5-coder:3b`               | Balanced SQL quality, streaming speed, and memory use                                     |
+| Temperature               | `0.1`                            | Produces more deterministic SQL explanations and optimization suggestions                 |
+| Context window            | `8192`                           | Supports a SQL query, parser context, conversation history, and retrieved manual excerpts |
+| Maximum output tokens     | `1200`                           | Keeps streamed answers concise and reduces generation latency                             |
+| Batch explain concurrency | `1` on CPU, `2` on a capable GPU | Prevents multiple local inference jobs from competing for the same RAM/VRAM               |
 
 The configured context window must match the Ollama server. Before setting the application context to `8192`, run Ollama with the same limit (or configure an equivalent `num_ctx` value in a Modelfile):
 
@@ -265,9 +265,9 @@ NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
 A provider whose variable is missing still shows an explanatory message instead of opening the popup
 (`Google sign-in is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID and restart the app.`).
 
-| Provider | Authorize endpoint | Scopes requested | Redirect URI to register |
-| --- | --- | --- | --- |
-| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Provider  | Authorize endpoint                                               | Scopes requested                 | Redirect URI to register  |
+| --------- | ---------------------------------------------------------------- | -------------------------------- | ------------------------- |
+| Google    | `https://accounts.google.com/o/oauth2/v2/auth`                   | `openid profile email`           | `<origin>/oauth/callback` |
 | Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
 
 `<origin>` is the scheme, host and port serving the app — `http://localhost:4028` for `npm run dev`. The
@@ -279,7 +279,7 @@ including the query instead.
 
 1. Open [Credentials](https://console.cloud.google.com/apis/credentials) and choose
    **Create credentials → OAuth client ID**. Create the OAuth consent screen first if prompted; while the
-   consent screen is in *Testing* status, only users you added as test users can sign in.
+   consent screen is in _Testing_ status, only users you added as test users can sign in.
 2. Select **Web application** as the application type.
 3. Add `http://localhost:4028` under **Authorized JavaScript origins**.
 4. Add `http://localhost:4028/oauth/callback` under **Authorized redirect URIs**.
@@ -289,8 +289,8 @@ including the query instead.
 
 1. Open **Microsoft Entra ID → App registrations → New registration** in the
    [Azure portal](https://portal.azure.com).
-2. Set **Supported account types** to *Accounts in any organizational directory and personal Microsoft
-   accounts* — this matches the `/common` authority the app calls.
+2. Set **Supported account types** to _Accounts in any organizational directory and personal Microsoft
+   accounts_ — this matches the `/common` authority the app calls.
 3. Under **Redirect URI**, choose the platform **Single-page application (SPA)** and enter
    `http://localhost:4028/oauth/callback`.
 4. Under **API permissions**, add the delegated Microsoft Graph permission **User.Read** (the app reads
@@ -361,6 +361,10 @@ sql-visualizer/
 │   │   │   ├── aiQueue.ts         # Batched AI request queue
 │   │   │   ├── aiRouteValidation.ts # Shared validation for AI proxy API routes
 │   │   │   ├── aiService.ts       # AI generation/embedding/streaming adapter (Ollama/cloud)
+│   │   │   ├── prompts/           # **Centralized AI prompt templates** — single source of truth
+│   │   │   │   ├── registry.ts    # PromptEntry / ParamSchema types + the assembled registry (36 entries)
+│   │   │   │   ├── render.ts      # renderPrompt() — validated, pure, single-pass placeholder fill
+│   │   │   │   └── templates/     # One module per AI feature (formatError, sqlExplainer, optimize, ...)
 │   │   │   ├── aiSqlContext.ts    # SQL context brief builder for AI prompts
 │   │   │   ├── aiSpeech.ts / aiSpeechEngine.ts # Text-to-speech playback
 │   │   │   ├── aiTokens.ts        # Token estimation helpers
@@ -403,6 +407,10 @@ sql-visualizer/
 │   └── styles/
 │       ├── index.css              # Global styles
 │       └── tailwind.css           # Tailwind CSS configuration
+├── tests/
+│   ├── unit/                       # Vitest suites (prompt parity, renderer contract, feature tests)
+│   └── utils/                      # Shared test setup
+├── specs/                          # Spec Kit artifacts, one directory per feature
 ├── next.config.mjs                # Next.js configuration
 ├── package.json                   # Project dependencies and scripts
 ├── postcss.config.js              # PostCSS configuration
@@ -410,7 +418,6 @@ sql-visualizer/
 ├── vitest.config.ts               # Vitest test runner configuration
 └── tsconfig.json                  # TypeScript configuration
 ```
-
 
 ## 🎯 Key Pages
 
@@ -442,8 +449,8 @@ All repeated values, thresholds, and patterns are organized in a single source o
 
 ### Constant Groups
 
-| Category                    | Examples                                             | Purpose                                                |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| Category              | Examples                                             | Purpose                                                |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
 | **Complexity Levels** | LOW, MEDIUM, HIGH, SUPER_HIGH                        | Query complexity classification                        |
 | **Join Types**        | INNER JOIN, LEFT JOIN, FULL OUTER JOIN, LATERAL JOIN | SQL join type normalization                            |
 | **Operators**         | =, <>, !=, <=, >=, IN, LIKE, BETWEEN                 | SQL operator symbols                                   |
@@ -494,6 +501,71 @@ const level = getComplexityLevelFromScore(6); // 'HIGH'
 - **Consistency** - Prevents duplicate magic numbers and regex patterns
 - **Scalability** - Simple to add new constants and helper functions
 
+## 🧠 Centralized AI Prompt Management
+
+Every AI prompt sent to a provider lives in one place, so prompt wording can be updated in a single
+location without touching request-handling logic.
+
+**Files:** `src/lib/ai/prompts/registry.ts` (the registry), `src/lib/ai/prompts/render.ts` (the
+renderer), `src/lib/ai/prompts/templates/*.ts` (one module per feature)
+
+### How It Works
+
+```typescript
+import { renderPrompt, localizedPromptId } from './prompts/render';
+import { OPTIMIZE_PROMPTS, optimizeSqlStructuredParams } from './prompts/templates/optimize';
+
+// Resolve a locale variant, then render the exact messages the provider receives.
+const [message] = renderPrompt(
+  localizedPromptId(OPTIMIZE_PROMPTS.optimizeSqlStructured, locale),
+  optimizeSqlStructuredParams(sql, userInstruction, locale)
+);
+```
+
+`renderPrompt(id, params)` is a pure function — no network, no filesystem, no logging of SQL or
+prompt payloads. It validates parameters **before** any provider call, so a missing required
+parameter or an unknown prompt id fails fast with an actionable error instead of sending a
+half-filled prompt.
+
+### Rules That Keep Output Unchanged
+
+| Rule                                                                                                          | Why                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Template text is **byte-identical** to the pre-centralization wording                                         | Prompt parity is enforced by characterization tests; wording is never "improved" as part of a refactor |
+| Only genuinely dynamic values become named parameters                                                         | No new parameters or semantic changes for cosmetic consistency                                         |
+| An omitted optional parameter takes its declared default; an explicitly supplied **empty string stays empty** | Preserves the original conditional behavior exactly                                                    |
+| Values are inserted in a single pass and never re-scanned                                                     | A `{{...}}` sequence inside your SQL is treated as content, not as a placeholder                       |
+| Locale is resolved from the app's existing language setting                                                   | Language behavior is unchanged; a missing variant falls back to English as before                      |
+
+### Editing a Prompt
+
+1. Open the owning module under `src/lib/ai/prompts/templates/`.
+2. Change the `text` (and the `params` schema if you added a placeholder).
+3. Run `npm run test` — the feature's parity suite fails if the change is unintended, and the
+   registry audit fails if a placeholder is not declared in `params`.
+
+### Known Exceptions
+
+Two prompt-like strings are deliberately **not** in the registry, and each is documented with its
+compatibility risk in [`specs/020-prompt-manager-refactor/prompt-inventory.md`](./specs/020-prompt-manager-refactor/prompt-inventory.md):
+
+- The **default system prompt** in `src/lib/store.ts` — it is persisted user settings, not just
+  prompt text.
+- **`SPEECH_INSTRUCTIONS`** in `src/lib/ai/aiSpeech.ts` — it is the text-to-speech `instructions`
+  field, not a chat message, so it has no message role.
+
+Note also that the format-error diagnostics prompts are intentionally written in English even for
+Vietnamese users: only the model's _prose output_ is asked to be Vietnamese, because the JSON keys it
+returns are a parsing contract. See the comment above `FORMAT_ERROR_TEMPLATES` for the full reasoning.
+
+### Benefits
+
+- **Single Source of Truth** - One editable location per prompt; no duplicated prompt text in services
+- **Validated Before Sending** - Missing parameters and unknown ids fail fast, before a provider call
+- **Provably Unchanged Outputs** - Characterization tests pin the exact bytes each feature sends
+- **Traceable** - Every entry records its feature and pre-migration source location
+- **Safe to Extend** - Add a feature by creating one `templates/*.ts` module and spreading it into the registry
+
 ## 📦 Available Scripts
 
 - `npm run dev` - Start development server on port 4028
@@ -507,6 +579,7 @@ const level = getComplexityLevelFromScore(6); // 'HIGH'
 - `npm run test` - Run the Vitest test suite
 - `npm run setup:piper` - Download/configure local Piper TTS voices
 - `npm run build:docs-index` - Rebuild the embeddings index used by the Docs Consultant chat
+- `npm run build:database-knowledge-index` - Re-embed the official database manuals for the Database AI Assistant RAG index
 
 ## 🌍 Supported SQL Dialects
 
@@ -593,6 +666,24 @@ The project includes comprehensive, modularized documentation to keep guides foc
 - [Complexity Scoring Engine](public/assets/markdown/features/core-analysis-tools/COMPLEXITY_SCORING.md) - How scoring works with weight matrix
 - [Complexity Score Median Evaluation](public/assets/markdown/features/core-analysis-tools/COMPLEXITY_SCORE_MEDIAN_EVALUATION.md) - How the dynamic complexity baseline is derived
 - [Advanced Topics](public/assets/markdown/features/core-analysis-tools/ADVANCED_TOPICS.md) - Enterprise patterns and customization
+- [AI Prompt Management](specs/020-prompt-manager-refactor/prompt-inventory.md) - Every AI prompt, its parameters, and its migration status
+- [AI Prompt Refactor — Completion Report](specs/020-prompt-manager-refactor/completion-report.md) - What changed, tests run, and remaining documented exceptions
+
+### Product & Architecture Overview
+
+Business-facing capability documentation, for management, analysts and technical leads:
+
+- [Confluence EN](docs/confluence/SQL_Visualizer_Confluence_EN.md) - Executive summary, capability map, architecture, product status
+- [Confluence VI](docs/confluence/SQL_Visualizer_Confluence_VI.md) - Vietnamese version
+
+### Spec Kit Artifacts
+
+Each non-trivial feature is specified, planned and tracked under [`specs/`](./specs/):
+
+- [specs/020-prompt-manager-refactor/](./specs/020-prompt-manager-refactor/) - Centralized AI prompt templates (latest)
+- [specs/017-sql-before-after-comparison/](./specs/017-sql-before-after-comparison/) - SQL Before/After comparison
+- [specs/013-guest-access-mode/](./specs/013-guest-access-mode/) - Guest access mode
+- [specs/012-format-error-ai-diagnostics/](./specs/012-format-error-ai-diagnostics/) - AI format-error diagnostics
 
 ### Quick Navigation
 

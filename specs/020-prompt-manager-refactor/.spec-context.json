@@ -1,0 +1,52 @@
+{
+  "workflow": "speckit",
+  "specName": "AI Prompt Management Refactor (Centralized Prompt Templates)",
+  "branch": "develop",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-15T15:00:58.000Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-15T15:08:00.685Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-15T15:17:14.411Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-15T15:35:45.696Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-15T15:36:26.663Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-15T15:44:19.649Z"
+    }
+  ],
+  "telemetryInstanceId": "6d980abe-c50c-4326-9b16-5dc7a1344aa5"
+}

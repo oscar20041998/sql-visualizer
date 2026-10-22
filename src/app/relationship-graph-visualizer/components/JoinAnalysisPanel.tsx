@@ -87,9 +87,7 @@ const JoinDetailsCard = memo(function JoinDetailsCardComponent({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
-              {joinEdge.condition
-                ? `ON: ${conditionPreview(joinEdge.condition)}`
-                : 'No condition'}
+              {joinEdge.condition ? `ON: ${conditionPreview(joinEdge.condition)}` : 'No condition'}
             </p>
           </div>
         </div>

@@ -1,4 +1,5 @@
 # SQL Visualizer
+
 ## Nền tảng phân tích, trực quan hóa và tối ưu hóa SQL bằng AI
 
 > **Tài liệu tổng quan sản phẩm dành cho Ban quản lý, chuyên viên phân tích nghiệp vụ, trưởng nhóm kỹ thuật và nhóm phát triển**  
@@ -44,13 +45,13 @@ SQL Visualizer chuyển truy vấn từ một **dạng văn bản thuần** thà
 
 ## 3. Người dùng mục tiêu
 
-| Đối tượng | Nhu cầu chính | Giá trị từ SQL Visualizer |
-|---|---|---|
-| **Lập trình viên phía máy chủ** | Hiểu, gỡ lỗi và tối ưu hóa SQL | Phân tích cấu trúc, chỉ số, AI diễn giải, AI tối ưu |
-| **Lập trình viên cấp cao / Trưởng nhóm kỹ thuật** | Rà soát chất lượng và độ phức tạp của SQL | Biểu đồ quan hệ, phân tích CTE, chấm điểm và so sánh trước/sau |
-| **Chuyên viên cơ sở dữ liệu** | Phân tích truy vấn và cơ hội tối ưu | Phân tích JOIN, phân tích CTE và truy vấn con, trợ lý tối ưu hóa |
-| **Lập trình viên mới / chưa có nhiều kinh nghiệm** | Học và hiểu SQL phức tạp | Giải thích bằng ngôn ngữ tự nhiên và trực quan hóa |
-| **Quản lý kỹ thuật** | Hiểu về năng lực kỹ thuật và hiệu quả vận hành | Tổng quan năng lực, chỉ số và giá trị kinh doanh |
+| Đối tượng                                          | Nhu cầu chính                                  | Giá trị từ SQL Visualizer                                        |
+| -------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
+| **Lập trình viên phía máy chủ**                    | Hiểu, gỡ lỗi và tối ưu hóa SQL                 | Phân tích cấu trúc, chỉ số, AI diễn giải, AI tối ưu              |
+| **Lập trình viên cấp cao / Trưởng nhóm kỹ thuật**  | Rà soát chất lượng và độ phức tạp của SQL      | Biểu đồ quan hệ, phân tích CTE, chấm điểm và so sánh trước/sau   |
+| **Chuyên viên cơ sở dữ liệu**                      | Phân tích truy vấn và cơ hội tối ưu            | Phân tích JOIN, phân tích CTE và truy vấn con, trợ lý tối ưu hóa |
+| **Lập trình viên mới / chưa có nhiều kinh nghiệm** | Học và hiểu SQL phức tạp                       | Giải thích bằng ngôn ngữ tự nhiên và trực quan hóa               |
+| **Quản lý kỹ thuật**                               | Hiểu về năng lực kỹ thuật và hiệu quả vận hành | Tổng quan năng lực, chỉ số và giá trị kinh doanh                 |
 
 ---
 
@@ -59,6 +60,7 @@ SQL Visualizer chuyển truy vấn từ một **dạng văn bản thuần** thà
 SQL Visualizer được tổ chức thành năm nhóm năng lực chính:
 
 ### A. Hiểu SQL
+
 - Nhập truy vấn & phân tích SQL
 - Phân tích CTE
 - Ánh xạ nguồn gốc trường dữ liệu
@@ -66,12 +68,14 @@ SQL Visualizer được tổ chức thành năm nhóm năng lực chính:
 - Trình soạn thảo SQL thông minh
 
 ### B. Trực quan hóa SQL
+
 - Biểu đồ quan hệ
 - Quan hệ tương tác giữa các bảng
 - Phân tích điều kiện JOIN
 - Xuất hình Mermaid / hình ảnh
 
 ### C. Chất lượng & độ phức tạp của SQL
+
 - Điểm độ phức tạp 0–100
 - Chỉ số truy vấn
 - Đối chiếu dòng nguồn gốc
@@ -79,6 +83,7 @@ SQL Visualizer được tổ chức thành năm nhóm năng lực chính:
 - So sánh Trước / Sau SQL
 
 ### D. Trí tuệ AI
+
 - AI diễn giải SQL
 - AI tối ưu hóa truy vấn
 - Trợ lý AI cơ sở dữ liệu
@@ -86,6 +91,7 @@ SQL Visualizer được tổ chức thành năm nhóm năng lực chính:
 - Trợ lý tư vấn tài liệu
 
 ### E. Năng suất
+
 - Lịch sử truy vấn
 - Tìm kiếm ngữ nghĩa
 - Lịch sử cuộc trò chuyện Trợ lý AI cơ sở dữ liệu
@@ -337,23 +343,23 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
 ```
 
-| Nhà cung cấp | Endpoint ủy quyền | Scope | Redirect URI |
-|---|---|---|---|
-| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
-| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+| Nhà cung cấp | Endpoint ủy quyền                                                | Scope                            | Redirect URI              |
+| ------------ | ---------------------------------------------------------------- | -------------------------------- | ------------------------- |
+| Google       | `https://accounts.google.com/o/oauth2/v2/auth`                   | `openid profile email`           | `<origin>/oauth/callback` |
+| Microsoft    | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
 
 `<origin>` là scheme, host và cổng đang phục vụ ứng dụng (`http://localhost:4028` cho development
 server). Hồ sơ được đọc từ `https://www.googleapis.com/oauth2/v3/userinfo` (Google) hoặc
 `https://graph.microsoft.com/v1.0/me` (Microsoft Graph).
 
-**Google.** Trong Google Cloud Console → APIs & Services → Credentials, tạo OAuth client ID loại *Web
-application* với `http://localhost:4028` là Authorized JavaScript origin và
+**Google.** Trong Google Cloud Console → APIs & Services → Credentials, tạo OAuth client ID loại _Web
+application_ với `http://localhost:4028` là Authorized JavaScript origin và
 `http://localhost:4028/oauth/callback` là Authorized redirect URI, sau đó copy Client ID vào
-`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. Khi OAuth consent screen còn ở trạng thái *Testing*, chỉ những người dùng
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. Khi OAuth consent screen còn ở trạng thái _Testing_, chỉ những người dùng
 được thêm vào danh sách test users mới đăng nhập được.
 
 **Microsoft.** Trong Azure portal, đăng ký ứng dụng tại Microsoft Entra ID → App registrations với
-supported account types là *Accounts in any organizational directory and personal Microsoft accounts*
+supported account types là _Accounts in any organizational directory and personal Microsoft accounts_
 (ứng dụng gọi authority `/common`), redirect URI nền tảng **Single-page application (SPA)** là
 `http://localhost:4028/oauth/callback`, và quyền Microsoft Graph delegated **User.Read**. Không cần
 client secret; copy Application (client) ID vào `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
@@ -377,13 +383,13 @@ chấm điểm độ phức tạp, bảng chỉ số, phân tích CTE, và mọi
 
 Các tính năng dùng AI được dành riêng cho người đã đăng nhập:
 
-| Loại tính năng | Trải nghiệm của khách |
-|---|---|
-| Không dùng mô hình (phân tích cú pháp, chấm điểm, đồ thị, xuất tệp) | Sử dụng được |
-| **Mọi** tính năng có dùng mô hình, bất kể nhà cung cấp | Bị khóa, kèm giải thích và đường dẫn đăng nhập một chạm |
-| Chỉ riêng tính năng giải thích và sửa lỗi định dạng | Sử dụng được — luôn chạy cục bộ nên không tốn chi phí của nhà vận hành |
+| Loại tính năng                                                      | Trải nghiệm của khách                                                  |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Không dùng mô hình (phân tích cú pháp, chấm điểm, đồ thị, xuất tệp) | Sử dụng được                                                           |
+| **Mọi** tính năng có dùng mô hình, bất kể nhà cung cấp              | Bị khóa, kèm giải thích và đường dẫn đăng nhập một chạm                |
+| Chỉ riêng tính năng giải thích và sửa lỗi định dạng                 | Sử dụng được — luôn chạy cục bộ nên không tốn chi phí của nhà vận hành |
 
-Dòng giữa là chủ ý. Mô hình cục bộ là nhà cung cấp *mặc định*, nên nếu mở ngoại lệ cho nó thì gần như mọi
+Dòng giữa là chủ ý. Mô hình cục bộ là nhà cung cấp _mặc định_, nên nếu mở ngoại lệ cho nó thì gần như mọi
 tính năng AI vẫn mở với khách mới, trong khi trông như là đã bị hạn chế. Ngoại lệ duy nhất là con
 đường luôn chạy cục bộ nên không phát sinh chi phí nào cần bảo vệ.
 
@@ -426,7 +432,7 @@ Lịch sử cuộc trò chuyện cung cấp một hệ thống quản lý hội 
 
 - **Lưu trữ cuộc trò chuyện**: Cuộc trò chuyện được tự động lưu vào bộ nhớ trình duyệt theo từng danh tính người dùng, đảm bảo dữ liệu được lưu trữ an toàn và độc lập.
 - **Nhiều cuộc trò chuyện**: Người dùng có thể tạo và duy trì nhiều cuộc trò chuyện riêng biệt, mỗi cuộc có lịch sử và ngữ cảnh của riêng nó.
-- **Quản lý cuộc trò chuyện**: 
+- **Quản lý cuộc trò chuyện**:
   - Tạo cuộc trò chuyện mới
   - Tìm kiếm cuộc trò chuyện theo tiêu đề và nội dung tin nhắn người dùng
   - Đổi tên cuộc trò chuyện với tiêu đề tùy chỉnh
@@ -448,11 +454,13 @@ Lịch sử cuộc trò chuyện cung cấp một hệ thống quản lý hội 
 Bảng lịch sử trò chuyện có sẵn trong Trợ lý AI cơ sở dữ liệu:
 
 **Máy tính (≥1024px)**:
+
 - Thanh bên cố định ở bên trái
 - Hiển thị danh sách cuộc trò chuyện, tìm kiếm và các điều khiển quản lý
 - Ẩn/hiện bảng mà không mất ngữ cảnh cuộc trò chuyện
 
 **Điện thoại (<1024px)**:
+
 - Hộp trượt có thể thu gọn
 - Truy cập qua nút bật/tắt ở thanh đầu trang
 - Bố cục được tối ưu cho thao tác trên màn hình cảm ứng
@@ -526,15 +534,15 @@ Tính năng chỉ thực hiện **phân tích tĩnh**: không phiên bản SQL n
 
 ## 6.1 Lớp giao diện
 
-| Lớp | Công nghệ |
-|---|---|
-| Nền tảng | Next.js 15 — App Router |
-| Giao diện | React 19, Tailwind CSS |
-| Quản lý trạng thái | Zustand |
-| Trình soạn thảo SQL | Monaco Editor |
-| Trực quan hóa | ReactFlow |
-| Trình phân tích cú pháp SQL | dt-sql-parser |
-| Kiểm thử | Vitest |
+| Lớp                         | Công nghệ               |
+| --------------------------- | ----------------------- |
+| Nền tảng                    | Next.js 15 — App Router |
+| Giao diện                   | React 19, Tailwind CSS  |
+| Quản lý trạng thái          | Zustand                 |
+| Trình soạn thảo SQL         | Monaco Editor           |
+| Trực quan hóa               | ReactFlow               |
+| Trình phân tích cú pháp SQL | dt-sql-parser           |
+| Kiểm thử                    | Vitest                  |
 
 ## 6.2 AI & lớp máy chủ
 
@@ -547,6 +555,27 @@ SQL Visualizer được thiết kế theo hướng không phụ thuộc vào nh�
 - **AI Portal** — nhà cung cấp hosted (mô hình mặc định `GPT-6-Luna`), khóa API được cấu hình ở phía máy chủ.
 
 Các nhà cung cấp AI trên đám mây được sử dụng qua máy chủ trung gian để thông tin xác thực không bị lộ trên trình duyệt.
+
+### Quản lý prompt
+
+Mọi prompt AI gửi tới nhà cung cấp đều được định nghĩa một lần duy nhất trong một registry prompt tập
+trung (`src/lib/ai/prompts/`), thay vì nằm rải rác trong đoạn mã dựng từng request.
+
+- **Mỗi prompt chỉ có một vị trí để sửa** — đổi câu chữ sẽ có hiệu lực cho mọi request của tính năng
+  đó mà không phải chạm vào logic xử lý request.
+- **Kiểm tra trước khi gửi** — thiếu tham số hoặc tham chiếu prompt không tồn tại sẽ báo lỗi rõ ràng
+  trước khi gọi nhà cung cấp, nên không bao giờ gửi đi một prompt điền dở.
+- **Hành vi không đổi theo cấu trúc** — việc tập trung hóa là trích xuất thuần túy: nội dung prompt,
+  message role, cấu hình nhà cung cấp, schema đầu ra và hành vi ngôn ngữ đều giống hệt bản trước khi
+  refactor, và tính tương đương này được bảo đảm bằng test tự động.
+- **Ngôn ngữ** — prompt vẫn tuân theo cài đặt ngôn ngữ sẵn có của ứng dụng; ở những tính năng cố ý
+  giữ phần hướng dẫn bằng tiếng Anh (để các JSON key trả về vẫn parse được), điều đó được ghi nhận
+  chứ không bị thay đổi.
+- **Truy vết được** — mỗi prompt ghi rõ tính năng sở hữu và vị trí nguồn ban đầu; prompt nào cố ý
+  không đưa vào registry đều được ghi kèm rủi ro cụ thể.
+
+Với người bảo trì, toàn bộ inventory prompt và báo cáo hoàn thành của đợt refactor nằm trong
+`specs/020-prompt-manager-refactor/`.
 
 ### Kiến trúc RAG
 
@@ -583,21 +612,27 @@ Bảo mật được xem là một phần của kiến trúc hệ thống, khôn
 SQL Visualizer mang lại giá trị ở nhiều lớp:
 
 ### 8.1 Năng suất kỹ thuật
+
 Giảm thời gian cần thiết để đọc, phân tích và hiểu SQL phức tạp.
 
 ### 8.2 Chất lượng SQL
+
 Cung cấp chỉ số, trực quan hóa và phân tích có AI hỗ trợ để nâng cao chất lượng truy vấn.
 
 ### 8.3 Nhận thức về hiệu năng
+
 Giúp đội kỹ thuật nhận diện các điểm cần xem xét về hiệu năng và cung cấp các đề xuất tối ưu hóa có thể so sánh trước/sau.
 
 ### 8.4 Phổ cập kiến thức
+
 Biến kiến thức về SQL và cơ sở dữ liệu thành thông tin dễ tiếp cận hơn thông qua giải thích bằng ngôn ngữ tự nhiên và RAG.
 
 ### 8.5 Bảo mật & linh hoạt trong triển khai
+
 Cho phép lựa chọn AI cục bộ hoặc đám mây tùy theo yêu cầu về bảo mật và chính sách triển khai.
 
 ### 8.6 Khả năng tiếp cận toàn cầu
+
 Hỗ trợ song ngữ Việt/Anh để mở rộng khả năng tiếp cận cho người dùng quốc tế.
 
 ---
@@ -632,27 +667,27 @@ Truy vấn được cải thiện
 
 # 10. Trạng thái sản phẩm
 
-| Năng lực | Trạng thái | Nhóm |
-|---|---|---|
-| Nhập truy vấn & phân tích SQL | Hoàn thành | Cốt lõi |
-| Biểu đồ quan hệ | Hoàn thành | Cốt lõi |
-| Bảng chỉ số | Hoàn thành | Cốt lõi |
-| Phân tích CTE & nguồn gốc trường | Hoàn thành | Cốt lõi |
-| Soạn thảo SQL thông minh | Hoàn thành | Cốt lõi |
-| AI diễn giải SQL | Hoàn thành | AI |
-| Tối ưu hóa truy vấn bằng AI | Hoàn thành | AI |
-| Trợ lý AI cơ sở dữ liệu | Hoàn thành | AI |
-| Trợ lý tư vấn tài liệu | Hoàn thành | AI |
-| Lịch sử truy vấn & tìm kiếm ngữ nghĩa | Hoàn thành | AI |
-| Lịch sử cuộc trò chuyện Trợ lý AI cơ sở dữ liệu | Hoàn thành | AI |
-| SQL → Trình sinh mã (Java/JPA) | Hoàn thành | Năng suất |
-| Chuẩn hóa MyBatis XML → SQL | Hoàn thành | Cốt lõi |
-| Chẩn đoán lỗi định dạng bằng AI | Hoàn thành | AI |
-| So sánh Trước / Sau SQL | Hoàn thành | Cốt lõi |
-| Đăng nhập Google / Microsoft | Hoàn thành | Xác thực |
-| Truy cập khách (không cần tài khoản) | Đang phát triển | Xác thực |
-| Tiếng Việt / Tiếng Anh | Hoàn thành | Trải nghiệm người dùng |
-| Đọc nội dung bằng giọng nói | Hoàn thành | AI |
+| Năng lực                                        | Trạng thái      | Nhóm                   |
+| ----------------------------------------------- | --------------- | ---------------------- |
+| Nhập truy vấn & phân tích SQL                   | Hoàn thành      | Cốt lõi                |
+| Biểu đồ quan hệ                                 | Hoàn thành      | Cốt lõi                |
+| Bảng chỉ số                                     | Hoàn thành      | Cốt lõi                |
+| Phân tích CTE & nguồn gốc trường                | Hoàn thành      | Cốt lõi                |
+| Soạn thảo SQL thông minh                        | Hoàn thành      | Cốt lõi                |
+| AI diễn giải SQL                                | Hoàn thành      | AI                     |
+| Tối ưu hóa truy vấn bằng AI                     | Hoàn thành      | AI                     |
+| Trợ lý AI cơ sở dữ liệu                         | Hoàn thành      | AI                     |
+| Trợ lý tư vấn tài liệu                          | Hoàn thành      | AI                     |
+| Lịch sử truy vấn & tìm kiếm ngữ nghĩa           | Hoàn thành      | AI                     |
+| Lịch sử cuộc trò chuyện Trợ lý AI cơ sở dữ liệu | Hoàn thành      | AI                     |
+| SQL → Trình sinh mã (Java/JPA)                  | Hoàn thành      | Năng suất              |
+| Chuẩn hóa MyBatis XML → SQL                     | Hoàn thành      | Cốt lõi                |
+| Chẩn đoán lỗi định dạng bằng AI                 | Hoàn thành      | AI                     |
+| So sánh Trước / Sau SQL                         | Hoàn thành      | Cốt lõi                |
+| Đăng nhập Google / Microsoft                    | Hoàn thành      | Xác thực               |
+| Truy cập khách (không cần tài khoản)            | Đang phát triển | Xác thực               |
+| Tiếng Việt / Tiếng Anh                          | Hoàn thành      | Trải nghiệm người dùng |
+| Đọc nội dung bằng giọng nói                     | Hoàn thành      | AI                     |
 
 ---
 
@@ -691,4 +726,4 @@ Bằng cách đưa phân tích cấu trúc, trực quan hóa, độ phức tạp
 
 ---
 
-*Nguồn: Tài liệu tính năng nội bộ của SQL Visualizer. Các chi tiết kỹ thuật và phạm vi đã hoàn thành dựa trên tài liệu sản phẩm được cung cấp.*
+_Nguồn: Tài liệu tính năng nội bộ của SQL Visualizer. Các chi tiết kỹ thuật và phạm vi đã hoàn thành dựa trên tài liệu sản phẩm được cung cấp._

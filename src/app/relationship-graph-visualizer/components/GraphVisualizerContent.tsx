@@ -998,29 +998,27 @@ export default function GraphVisualizerContent() {
               </h3>
               <div className="space-y-1">
                 {filteredTables.map((table) => (
-                    <button
-                      key={`table-list-${table.id}`}
-                      onClick={() =>
-                        setSelectedNodeId(table.id === selectedNodeId ? null : table.id)
-                      }
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono text-left transition-colors ${
-                        selectedNodeId === table.id
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      <Table2 size={11} className="flex-shrink-0" />
-                      {table.name}
-                      <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1 rounded">
-                        {t[categoryLabelKey(table.sourceType) as keyof typeof t]}
-                      </span>
-                    </button>
-                  ))}
+                  <button
+                    key={`table-list-${table.id}`}
+                    onClick={() => setSelectedNodeId(table.id === selectedNodeId ? null : table.id)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono text-left transition-colors ${
+                      selectedNodeId === table.id
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Table2 size={11} className="flex-shrink-0" />
+                    {table.name}
+                    <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1 rounded">
+                      {t[categoryLabelKey(table.sourceType) as keyof typeof t]}
+                    </span>
+                  </button>
+                ))}
                 {filteredTables.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      {t.noTablesFound}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    {t.noTablesFound}
+                  </p>
+                )}
               </div>
             </div>
           </div>

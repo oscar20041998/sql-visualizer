@@ -6,6 +6,13 @@
 
 import type { Locale } from '../../i18n';
 import type { ComplexityContributor } from './types';
+import { localizedPromptId, renderPrompt } from '../../ai/prompts/render';
+import {
+  DASHBOARD_PROMPTS,
+  explainComplexityParams,
+  explainFindingParams,
+  optimizationOpportunitiesParams,
+} from '../../ai/prompts/templates/dashboard';
 
 export interface ExplainComplexityInput {
   normalizedScore: number;
@@ -13,41 +20,41 @@ export interface ExplainComplexityInput {
   contributors: ComplexityContributor[];
 }
 
+// ---------------------------------------------------------------------------------------------
+// Prompt building — the wording lives in `src/lib/ai/prompts/templates/dashboard.ts`, registered as
+// `dashboard.*.en` / `dashboard.*.vi` pairs because the pre-migration source branched per locale on
+// the WHOLE text. These wrappers keep this module's existing exported signatures (and the tests
+// that import them) while every prompt text reaches a provider only through `renderPrompt`
+// (specs/020 SC-002 / SC-005). The contributor-list formatting also produces prompt text, so it
+// moved to the template module as `complexityContributorLines`.
+// ---------------------------------------------------------------------------------------------
+
+/** Explains a complexity score together with its top contributors (contracts/ai-insights.md U23). */
 export function buildExplainComplexityPrompt(
   input: ExplainComplexityInput,
   locale: Locale
 ): string {
-  const contributorLines = input.contributors
-    .slice(0, 5)
-    .map(
-      (contributor) =>
-        `- ${contributor.construct}: ${contributor.points} points (${Math.round(
-          contributor.shareOfTotal * 100
-        )}% of total)`
-    )
-    .join('\n');
-
-  if (locale === 'vi') {
-    return `Giải thích bằng tiếng Việt, ngôn ngữ đơn giản, vì sao truy vấn SQL này có độ phức tạp ${input.normalizedScore}/100 (mức ${input.level}).\nCác cấu trúc đóng góp nhiều nhất:\n${contributorLines}\nDựa câu trả lời trên các dữ kiện phân tích tĩnh ở trên; không được mâu thuẫn với chúng.`;
-  }
-  return `Explain in plain language why this SQL query has a complexity of ${input.normalizedScore}/100 (level ${input.level}).\nThe top contributing structures:\n${contributorLines}\nGround your answer in the static analysis facts above; never contradict them.`;
+  return renderPrompt(
+    localizedPromptId(DASHBOARD_PROMPTS.explainComplexity, locale),
+    explainComplexityParams(input)
+  )[0].content;
 }
 
+/** Explains one lint finding, embedding its location only when one is present (U24). */
 export function buildExplainFindingPrompt(
   finding: { rule: string; message: string; location?: string },
   locale: Locale
 ): string {
-  const location = finding.location ? `\nLocation: ${finding.location}` : '';
-
-  if (locale === 'vi') {
-    return `Giải thích bằng tiếng Việt, dễ hiểu: quy tắc "${finding.rule}" phát hiện: ${finding.message}.${location}\nNói rõ vì sao điều này quan trọng và cách khắc phục; không bịa thêm dữ kiện.`;
-  }
-  return `Explain in plain language what the rule "${finding.rule}" found: ${finding.message}.${location}\nSay why it matters and how to address it; do not invent facts.`;
+  return renderPrompt(
+    localizedPromptId(DASHBOARD_PROMPTS.explainFinding, locale),
+    explainFindingParams(finding)
+  )[0].content;
 }
 
+/** Requests optimization opportunities as the documented JSON object only (U25). */
 export function buildOptimizationOpportunitiesPrompt(sql: string, locale: Locale): string {
-  if (locale === 'vi') {
-    return `Phát hiện cơ hội tối ưu hóa cho truy vấn SQL sau đây. Chỉ trả về DUY NHẤT một đối tượng JSON, không kèm lời dẫn, theo đúng cấu trúc:\n{"items":[{"title":"...","rationale":"...","suggestedSql":"... (tùy chọn)"}]}\nKhông thay đổi ngữ nghĩa của truy vấn; không hứa hẹn phần trăm cải thiện hiệu năng.\n\nTruy vấn:\n${sql}`;
-  }
-  return `Identify optimization opportunities for the following SQL. Reply with ONLY a JSON object — no prose — using exactly this shape:\n{"items":[{"title":"...","rationale":"...","suggestedSql":"... (optional)"}]}\nDo not change the query's semantics; do not promise performance improvement percentages.\n\nQuery:\n${sql}`;
+  return renderPrompt(
+    localizedPromptId(DASHBOARD_PROMPTS.optimizationOpportunities, locale),
+    optimizationOpportunitiesParams(sql)
+  )[0].content;
 }

@@ -1,4 +1,5 @@
 # SQL Visualizer
+
 ## An AI-Powered Platform for SQL Analysis, Visualization and Optimization
 
 > **Product overview for Management, Business Analysts, Technical Leads and Engineering Teams**  
@@ -44,13 +45,13 @@ SQL Visualizer transforms the query from a **text-based artifact** into an **int
 
 ## 3. Target Users
 
-| Persona | Primary Need | SQL Visualizer Value |
-|---|---|---|
-| **Backend Developer** | Understand, debug and optimize SQL | Structural analysis, metrics, AI Explainer, AI Optimize |
-| **Senior Developer / Tech Lead** | Review SQL quality and complexity | Relationship Graph, CTE Analysis, scoring and before/after comparison |
-| **DBA / Database Engineer** | Analyze queries and optimization opportunities | JOIN analysis, CTE/subquery analysis, optimization assistant |
-| **Junior Developer** | Learn and understand complex SQL | Natural-language explanation and visualization |
-| **Technical Manager** | Understand engineering capabilities and efficiency | Capability overview, metrics and business value |
+| Persona                          | Primary Need                                       | SQL Visualizer Value                                                  |
+| -------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
+| **Backend Developer**            | Understand, debug and optimize SQL                 | Structural analysis, metrics, AI Explainer, AI Optimize               |
+| **Senior Developer / Tech Lead** | Review SQL quality and complexity                  | Relationship Graph, CTE Analysis, scoring and before/after comparison |
+| **DBA / Database Engineer**      | Analyze queries and optimization opportunities     | JOIN analysis, CTE/subquery analysis, optimization assistant          |
+| **Junior Developer**             | Learn and understand complex SQL                   | Natural-language explanation and visualization                        |
+| **Technical Manager**            | Understand engineering capabilities and efficiency | Capability overview, metrics and business value                       |
 
 ---
 
@@ -59,6 +60,7 @@ SQL Visualizer transforms the query from a **text-based artifact** into an **int
 SQL Visualizer is organized around five major capability areas:
 
 ### A. SQL Understanding
+
 - Query Input & Analysis
 - CTE Analysis
 - Field Origin Mapping
@@ -66,12 +68,14 @@ SQL Visualizer is organized around five major capability areas:
 - Smart SQL Editor
 
 ### B. SQL Visualization
+
 - Relationship Graph
 - Interactive table relationships
 - JOIN condition analysis
 - Mermaid / image export
 
 ### C. SQL Quality & Complexity
+
 - Complexity Score 0–100
 - Query metrics
 - Source-line mapping
@@ -79,6 +83,7 @@ SQL Visualizer is organized around five major capability areas:
 - SQL Before/After comparison
 
 ### D. AI Intelligence
+
 - AI SQL Explainer
 - AI Query Optimizer
 - Database AI Assistant
@@ -86,6 +91,7 @@ SQL Visualizer is organized around five major capability areas:
 - Docs Consultant Chat
 
 ### E. Productivity
+
 - Query History
 - Semantic Search
 - Database AI Assistant Chat History
@@ -335,9 +341,9 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
 ```
 
-| Provider | Authorize endpoint | Scopes | Redirect URI |
-|---|---|---|---|
-| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
+| Provider  | Authorize endpoint                                               | Scopes                           | Redirect URI              |
+| --------- | ---------------------------------------------------------------- | -------------------------------- | ------------------------- |
+| Google    | `https://accounts.google.com/o/oauth2/v2/auth`                   | `openid profile email`           | `<origin>/oauth/callback` |
 | Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
 
 `<origin>` is the scheme, host and port serving the application (`http://localhost:4028` for the
@@ -345,13 +351,13 @@ development server). Profile data is read from `https://www.googleapis.com/oauth
 or `https://graph.microsoft.com/v1.0/me` (Microsoft Graph).
 
 **Google.** In Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type
-*Web application* with `http://localhost:4028` as an authorized JavaScript origin and
+_Web application_ with `http://localhost:4028` as an authorized JavaScript origin and
 `http://localhost:4028/oauth/callback` as an authorized redirect URI, then copy the Client ID into
-`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. While the OAuth consent screen is in *Testing* status, only users added
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`. While the OAuth consent screen is in _Testing_ status, only users added
 as test users can sign in.
 
 **Microsoft.** In the Azure portal, register an application under Microsoft Entra ID → App registrations
-with supported account types *Accounts in any organizational directory and personal Microsoft accounts*
+with supported account types _Accounts in any organizational directory and personal Microsoft accounts_
 (the app calls the `/common` authority), a **Single-page application (SPA)** redirect URI of
 `http://localhost:4028/oauth/callback`, and the delegated Microsoft Graph permission **User.Read**. No
 client secret is required; copy the Application (client) ID into `NEXT_PUBLIC_MICROSOFT_CLIENT_ID`.
@@ -376,13 +382,13 @@ scoring, the metrics dashboard, CTE analysis, and all export formats.
 
 AI-backed features are reserved for signed-in users:
 
-| Capability type | Guest experience |
-|---|---|
-| No model involved (parsing, scoring, graph, exports) | Available |
-| **All** model-backed features, whatever provider is selected | Locked, with an explanation and a one-click sign-in path |
-| Format-error explain/fix only | Available — hard-wired to run locally, so it costs the operator nothing |
+| Capability type                                              | Guest experience                                                        |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| No model involved (parsing, scoring, graph, exports)         | Available                                                               |
+| **All** model-backed features, whatever provider is selected | Locked, with an explanation and a one-click sign-in path                |
+| Format-error explain/fix only                                | Available — hard-wired to run locally, so it costs the operator nothing |
 
-The middle row is deliberate. A local model is the *default* provider, so carving out an exception for
+The middle row is deliberate. A local model is the _default_ provider, so carving out an exception for
 it would leave almost every AI feature open to a brand-new guest while appearing to restrict them. The
 single exception is the one path that is hard-wired to local inference and therefore has no cost to
 protect.
@@ -426,7 +432,7 @@ Chat History provides a persistent conversation management system for the Databa
 
 - **Conversation Persistence**: Conversations are automatically saved to browser localStorage with identity-based partitioning, ensuring user data is stored securely and independently.
 - **Multiple Conversations**: Users can create and maintain multiple separate conversations, each with its own message history and context.
-- **Conversation Management**: 
+- **Conversation Management**:
   - Create new conversations
   - Search conversations by title and user message content
   - Rename conversations with custom titles
@@ -447,12 +453,14 @@ Chat History provides a persistent conversation management system for the Databa
 
 The Chat History panel is available in the Database AI Assistant:
 
-**Desktop (≥1024px)**: 
+**Desktop (≥1024px)**:
+
 - Persistent sidebar on the left
 - Shows conversation list, search, and management controls
 - Toggle visibility without losing conversation context
 
 **Mobile (<1024px)**:
+
 - Collapsible drawer overlay
 - Accessible via toggle button in the header
 - Optimized layout for touch interaction
@@ -526,15 +534,15 @@ The feature performs **static analysis only**: neither SQL version is executed, 
 
 ## 6.1 Frontend
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 15 — App Router |
-| UI | React 19, Tailwind CSS |
-| State Management | Zustand |
-| SQL Editor | Monaco Editor |
-| Visualization | ReactFlow |
-| SQL Parser | dt-sql-parser |
-| Testing | Vitest |
+| Layer            | Technology              |
+| ---------------- | ----------------------- |
+| Framework        | Next.js 15 — App Router |
+| UI               | React 19, Tailwind CSS  |
+| State Management | Zustand                 |
+| SQL Editor       | Monaco Editor           |
+| Visualization    | ReactFlow               |
+| SQL Parser       | dt-sql-parser           |
+| Testing          | Vitest                  |
 
 ## 6.2 AI & Backend
 
@@ -547,6 +555,27 @@ SQL Visualizer follows an AI-provider-agnostic approach:
 - **AI Portal** — hosted provider (default model `GPT-6-Luna`), with the API key configured on the server.
 
 Cloud AI providers are accessed through a proxy server so credentials are not exposed in the browser.
+
+### Prompt Management
+
+Every AI prompt sent to a provider is defined once, in a centralized prompt registry
+(`src/lib/ai/prompts/`), rather than being embedded in the code that builds each request.
+
+- **One editable location per prompt** — a wording change takes effect for every request of that
+  feature without modifying request-handling logic.
+- **Validated before sending** — a missing parameter or an unknown prompt reference produces an
+  actionable error before any provider call, so a partially filled prompt is never sent.
+- **Unchanged behaviour by construction** — the centralization was a pure extraction: prompt text,
+  message roles, provider settings, output schemas and language behaviour are all identical to the
+  pre-refactor implementation, and this parity is enforced by automated tests.
+- **Language** — prompts continue to follow the application's existing language setting; where a
+  feature deliberately keeps English instructions (so that the JSON keys it returns stay parseable),
+  that is documented rather than changed.
+- **Traceability** — every prompt records the feature it belongs to and its original source location,
+  and any prompt intentionally left outside the registry is documented together with its risk.
+
+For maintainers, the full prompt inventory and the refactor's completion report live under
+`specs/020-prompt-manager-refactor/`.
 
 ### RAG Architecture
 
@@ -582,21 +611,27 @@ Security is treated as an architectural concern rather than only a UI feature.
 SQL Visualizer creates value across multiple dimensions:
 
 ### 8.1 Engineering Productivity
+
 Reduces the time required to read, analyze and understand complex SQL.
 
 ### 8.2 SQL Quality
+
 Provides metrics, visualization and AI-assisted analysis to support higher-quality query development and review.
 
 ### 8.3 Performance Awareness
+
 Helps teams identify areas that may require performance review and provides optimization suggestions that can be compared before and after changes.
 
 ### 8.4 Knowledge Enablement
+
 Makes SQL and database knowledge easier to access through natural-language explanations and RAG-powered assistance.
 
 ### 8.5 Security & Deployment Flexibility
+
 Supports local or cloud AI deployment depending on security requirements and organizational policies.
 
 ### 8.6 Global Accessibility
+
 Vietnamese and English support broadens accessibility for international users.
 
 ---
@@ -631,27 +666,27 @@ Improved Query
 
 # 10. Product Status
 
-| Capability | Status | Category |
-|---|---|---|
-| Query Input & Analysis | Completed | Core |
-| Relationship Graph | Completed | Core |
-| Metrics Dashboard | Completed | Core |
-| CTE & Field Origin Analysis | Completed | Core |
-| Smart SQL Editor | Completed | Core |
-| AI SQL Explainer | Completed | AI |
-| AI Query Optimization | Completed | AI |
-| Database AI Assistant | Completed | AI |
-| Docs Consultant Chat | Completed | AI |
-| Query History & Semantic Search | Completed | AI |
-| Database AI Assistant Chat History | Completed | AI |
-| SQL → Code Generator (Java/JPA) | Completed | Productivity |
-| MyBatis XML → SQL | Completed | Core |
-| AI Format Error Diagnostics | Completed | AI |
-| SQL Before/After Comparison | Completed | Core |
-| Google / Microsoft Login | Completed | Auth |
-| Guest Access (no account) | In development | Auth |
-| Vietnamese / English | Completed | UX |
-| Text-to-Speech | Completed | AI |
+| Capability                         | Status         | Category     |
+| ---------------------------------- | -------------- | ------------ |
+| Query Input & Analysis             | Completed      | Core         |
+| Relationship Graph                 | Completed      | Core         |
+| Metrics Dashboard                  | Completed      | Core         |
+| CTE & Field Origin Analysis        | Completed      | Core         |
+| Smart SQL Editor                   | Completed      | Core         |
+| AI SQL Explainer                   | Completed      | AI           |
+| AI Query Optimization              | Completed      | AI           |
+| Database AI Assistant              | Completed      | AI           |
+| Docs Consultant Chat               | Completed      | AI           |
+| Query History & Semantic Search    | Completed      | AI           |
+| Database AI Assistant Chat History | Completed      | AI           |
+| SQL → Code Generator (Java/JPA)    | Completed      | Productivity |
+| MyBatis XML → SQL                  | Completed      | Core         |
+| AI Format Error Diagnostics        | Completed      | AI           |
+| SQL Before/After Comparison        | Completed      | Core         |
+| Google / Microsoft Login           | Completed      | Auth         |
+| Guest Access (no account)          | In development | Auth         |
+| Vietnamese / English               | Completed      | UX           |
+| Text-to-Speech                     | Completed      | AI           |
 
 ---
 
@@ -690,4 +725,4 @@ By bringing structural analysis, visualization, measurable complexity, natural-l
 
 ---
 
-*Source: Internal SQL Visualizer feature documentation. Technical details and delivered scope are based on the supplied product document.*
+_Source: Internal SQL Visualizer feature documentation. Technical details and delivered scope are based on the supplied product document._

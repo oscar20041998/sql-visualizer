@@ -33,7 +33,11 @@ function connectedIds(tables: TableNode[], joins: JoinEdge[]): Set<string> {
   return ids;
 }
 
-function gridPositions(tables: TableNode[], joins: JoinEdge[], spacing: NodeSpacing): Map<string, Point> {
+function gridPositions(
+  tables: TableNode[],
+  joins: JoinEdge[],
+  spacing: NodeSpacing
+): Map<string, Point> {
   const { xGap, yGap } = spacingGaps(spacing);
   const linked = connectedIds(tables, joins);
   const connected = tables.filter((table) => linked.has(table.id));
@@ -112,7 +116,11 @@ function hierarchicalPositions(
   return positions;
 }
 
-function forcePositions(tables: TableNode[], joins: JoinEdge[], spacing: NodeSpacing): Map<string, Point> {
+function forcePositions(
+  tables: TableNode[],
+  joins: JoinEdge[],
+  spacing: NodeSpacing
+): Map<string, Point> {
   const { xGap } = spacingGaps(spacing);
   const seeded = gridPositions(tables, joins, spacing);
   const nodes = tables.map((table) => ({
@@ -250,7 +258,13 @@ export function reducePlacement(state: PlacementState, event: PlacementEvent): P
       ) {
         return {
           ...state,
-          positions: fillMissing(state.positions, event.tables, event.joins, event.layout, event.spacing),
+          positions: fillMissing(
+            state.positions,
+            event.tables,
+            event.joins,
+            event.layout,
+            event.spacing
+          ),
         };
       }
 

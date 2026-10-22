@@ -22,41 +22,18 @@ import {
 } from './aiService';
 import { DATABASE_KNOWLEDGE_EMBEDDING_MODEL } from './aiProviders';
 import { estimateTokens, trimMessagesForBudget } from './aiTokens';
-
-const DATABASE_ASSISTANT_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: 'You are an expert database assistant embedded in SQL Visualizer. You can be asked about anything database-related: SQL across dialects (MySQL, PostgreSQL, SQL Server, Oracle), schema design, normalization, indexing, query performance/optimization, transactions, locking, replication, backups, migrations, NoSQL vs relational trade-offs, and security best practices. Answer clearly and practically, use short code blocks for SQL examples when helpful, and say plainly when something depends on the specific database engine or version.',
-  vi: 'Bạn là trợ lý cơ sở dữ liệu chuyên nghiệp được tích hợp trong SQL Visualizer. Bạn có thể được hỏi bất cứ điều gì liên quan đến cơ sở dữ liệu: SQL trên nhiều dialect (MySQL, PostgreSQL, SQL Server, Oracle), thiết kế schema, chuẩn hóa dữ liệu, đánh chỉ mục, tối ưu hiệu năng truy vấn, transaction, khóa, replication, sao lưu, migration, so sánh NoSQL với quan hệ, và các thực hành bảo mật tốt nhất. Hãy trả lời bằng tiếng Việt một cách rõ ràng, thực tế, dùng khối mã ngắn cho ví dụ SQL khi cần, và nói rõ khi điều gì đó phụ thuộc vào loại/phiên bản cơ sở dữ liệu cụ thể.',
-};
-
-/** Appended to the system prompt only when retrieval actually found relevant excerpts. */
-const DATABASE_KNOWLEDGE_ADDENDUM: Record<Locale, string> = {
-  en: '\n\nSome official database manual excerpts (SQL Server, MySQL, PostgreSQL, and/or Oracle) relevant to the question are provided below as reference material. Prefer and cite this reference material when it applies; fall back to your general knowledge for anything it does not cover.',
-  vi: '\n\nBên dưới là một số đoạn trích từ tài liệu chính thức của các hệ cơ sở dữ liệu (SQL Server, MySQL, PostgreSQL và/hoặc Oracle) liên quan đến câu hỏi, được cung cấp làm tài liệu tham khảo. Hãy ưu tiên và trích dẫn tài liệu này khi phù hợp; với những gì tài liệu không đề cập, hãy dùng kiến thức chung của bạn.',
-};
+import { localizedPromptId, renderPrompt } from './prompts/render';
+import {
+  DATABASE_ASSISTANT_PROMPTS,
+  databaseAssistantStaticParams,
+  followUpSuggestionsParams,
+} from './prompts/templates/databaseAssistant';
 
 /** Retrieval settings for the RAG step; keep the corpus's own embedding model fixed regardless of the user's chat provider. */
 const RAG_TOP_N = 5;
 
 /** Older turns get at most this share of the remaining prompt budget. */
 const HISTORY_BUDGET_RATIO = 0.6;
-
-/** Keeps follow-up suggestions grounded in the latest turn only, cheap enough to run after every answer. */
-const FOLLOW_UP_SUGGESTIONS_PROMPT: Record<Locale, (question: string, answer: string) => string> = {
-  en: (question, answer) => `Conversation so far:
-Q: ${question}
-A: ${answer}
-
-Suggest exactly 4 diverse, short follow-up questions the user might naturally ask next. Cover different angles: a deeper dive into a detail just mentioned, a related database topic, a practical example, and a common pitfall or edge case. Each question must be under 12 words and phrased in English.
-
-Reply with ONLY a JSON array of 4 strings — no prose, no markdown fence — e.g. ["...", "...", "...", "..."]`,
-  vi: (question, answer) => `Cuộc trò chuyện cho đến nay:
-Hỏi: ${question}
-Đáp: ${answer}
-
-Hãy gợi ý chính xác 4 câu hỏi tiếp theo ngắn gọn, đa dạng mà người dùng có thể tự nhiên muốn hỏi tiếp. Bao quát các góc độ khác nhau: đào sâu một chi tiết vừa đề cập, một chủ đề cơ sở dữ liệu liên quan, một ví dụ thực tế, và một lỗi/trường hợp đặc biệt thường gặp. Mỗi câu hỏi dưới 12 từ, bằng tiếng Việt.
-
-Chỉ trả về DUY NHẤT một mảng JSON gồm 4 chuỗi — không thêm lời dẫn, không dùng khối markdown — ví dụ: ["...", "...", "...", "..."]`,
-};
 
 /** Pulls a JSON string array out of an answer that may be fenced or padded with prose. */
 function extractJsonStringArray(text: string): string[] {
@@ -229,9 +206,15 @@ export class DatabaseAssistantService {
 
     const budget = resolveBudget(this.config);
     const systemPrompt =
-      (DATABASE_ASSISTANT_SYSTEM_PROMPT[this.locale] ?? DATABASE_ASSISTANT_SYSTEM_PROMPT.en) +
+      renderPrompt(
+        localizedPromptId(DATABASE_ASSISTANT_PROMPTS.system, this.locale),
+        databaseAssistantStaticParams()
+      )[0].content +
       (hasKnowledge
-        ? (DATABASE_KNOWLEDGE_ADDENDUM[this.locale] ?? DATABASE_KNOWLEDGE_ADDENDUM.en)
+        ? renderPrompt(
+            localizedPromptId(DATABASE_ASSISTANT_PROMPTS.knowledgeAddendum, this.locale),
+            databaseAssistantStaticParams()
+          )[0].content
         : '');
     const available = Math.max(128, budget.promptTokens - estimateTokens(systemPrompt));
     const historyBudget = Math.floor(available * HISTORY_BUDGET_RATIO);
@@ -355,9 +338,12 @@ export async function suggestFollowUpQuestions({
   if (!question.trim() || !answer.trim()) return [];
 
   try {
-    const buildPrompt = FOLLOW_UP_SUGGESTIONS_PROMPT[locale] ?? FOLLOW_UP_SUGGESTIONS_PROMPT.en;
+    const prompt = renderPrompt(
+      localizedPromptId(DATABASE_ASSISTANT_PROMPTS.followUpSuggestions, locale),
+      followUpSuggestionsParams(question, answer)
+    )[0].content;
     const raw = await generateWithAI(config, {
-      prompt: buildPrompt(question, answer),
+      prompt,
       jsonMode: true,
       maxTokens: 220,
       signal,

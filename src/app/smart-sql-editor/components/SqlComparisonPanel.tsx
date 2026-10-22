@@ -501,11 +501,15 @@ export default function SqlComparisonPanel({
                     </div>
                     <div className={aiFieldClass}>
                       <h4 className={aiHeadingClass}>{t.comparisonAiImpactAfterChange}</h4>
-                      <p className="whitespace-pre-wrap">{result.ai.assessment.impactAfterChange}</p>
+                      <p className="whitespace-pre-wrap">
+                        {result.ai.assessment.impactAfterChange}
+                      </p>
                     </div>
                     <div className={aiFieldClass}>
                       <h4 className={aiHeadingClass}>{t.comparisonAiExtraRisk}</h4>
-                      <p className="whitespace-pre-wrap">{result.ai.assessment.extraRiskToVerify}</p>
+                      <p className="whitespace-pre-wrap">
+                        {result.ai.assessment.extraRiskToVerify}
+                      </p>
                     </div>
                     <div className={aiFieldClass}>
                       <h4 className={aiHeadingClass}>{t.comparisonAiExtraRecommendation}</h4>

@@ -198,11 +198,11 @@ yarn dev
 
 SQL Visualizer sử dụng Ollama cục bộ tại `http://localhost:11434` theo mặc định. Ứng dụng hiện sử dụng các mô hình này:
 
-| Mục đích | Mô hình | Được sử dụng bởi |
-| --- | --- | --- |
-| Chat, giải thích SQL, tối ưu hóa SQL, và Database AI Assistant answers | `qwen2.5-coder:3b` | Mô hình Ollama chat mặc định, có thể cấu hình trong **Settings > AI Model Configuration** |
-| Truy xuất RAG sách hướng dẫn cơ sở dữ liệu | `all-minilm` | Bắt buộc cho grounding Database AI Assistant; phải khớp với không gian nhúng chỉ mục cục bộ |
-| Tìm kiếm ngữ nghĩa lịch sử truy vấn | `nomic-embed-text` | Tìm SQL được phân tích trước đó với ý nghĩa tương tự |
+| Mục đích                                                               | Mô hình            | Được sử dụng bởi                                                                            |
+| ---------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
+| Chat, giải thích SQL, tối ưu hóa SQL, và Database AI Assistant answers | `qwen2.5-coder:3b` | Mô hình Ollama chat mặc định, có thể cấu hình trong **Settings > AI Model Configuration**   |
+| Truy xuất RAG sách hướng dẫn cơ sở dữ liệu                             | `all-minilm`       | Bắt buộc cho grounding Database AI Assistant; phải khớp với không gian nhúng chỉ mục cục bộ |
+| Tìm kiếm ngữ nghĩa lịch sử truy vấn                                    | `nomic-embed-text` | Tìm SQL được phân tích trước đó với ý nghĩa tương tự                                        |
 
 Cài đặt hoàn chỉnh:
 
@@ -214,15 +214,15 @@ ollama pull nomic-embed-text
 
 Đối với quy trình công việc phát triển đơn người dùng phản ứng nhanh, sử dụng các cài đặt này trong **Settings > AI Model Configuration**:
 
-| Cài đặt | Giá trị được khuyến nghị | Tại sao |
-| --- | --- | --- |
-| Nhà cung cấp (Provider) | `Ollama` | Giữ SQL prompts và RAG embeddings trên máy cục bộ |
-| Base URL | `http://localhost:11434` | Địa chỉ dịch vụ Ollama cục bộ mặc định |
-| Chat model | `qwen2.5-coder:3b` | Cân bằng chất lượng SQL, tốc độ streaming và mức sử dụng bộ nhớ |
-| Nhiệt độ (Temperature) | `0.1` | Tạo ra các giải thích SQL và đề xuất tối ưu hóa xác định hơn |
-| Cửa sổ ngữ cảnh (Context window) | `8192` | Hỗ trợ truy vấn SQL, ngữ cảnh trình phân tích, lịch sử cuộc trò chuyện và trích dẫn sách hướng dẫn được truy xuất |
-| Token đầu ra tối đa (Maximum output tokens) | `1200` | Giữ các câu trả lời được phát truyền ngắn gọn và giảm độ trễ tạo |
-| Batch explain concurrency | `1` trên CPU, `2` trên GPU có khả năng | Ngăn chặn nhiều công việc inference cục bộ cạnh tranh cho cùng RAM/VRAM |
+| Cài đặt                                     | Giá trị được khuyến nghị               | Tại sao                                                                                                           |
+| ------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Nhà cung cấp (Provider)                     | `Ollama`                               | Giữ SQL prompts và RAG embeddings trên máy cục bộ                                                                 |
+| Base URL                                    | `http://localhost:11434`               | Địa chỉ dịch vụ Ollama cục bộ mặc định                                                                            |
+| Chat model                                  | `qwen2.5-coder:3b`                     | Cân bằng chất lượng SQL, tốc độ streaming và mức sử dụng bộ nhớ                                                   |
+| Nhiệt độ (Temperature)                      | `0.1`                                  | Tạo ra các giải thích SQL và đề xuất tối ưu hóa xác định hơn                                                      |
+| Cửa sổ ngữ cảnh (Context window)            | `8192`                                 | Hỗ trợ truy vấn SQL, ngữ cảnh trình phân tích, lịch sử cuộc trò chuyện và trích dẫn sách hướng dẫn được truy xuất |
+| Token đầu ra tối đa (Maximum output tokens) | `1200`                                 | Giữ các câu trả lời được phát truyền ngắn gọn và giảm độ trễ tạo                                                  |
+| Batch explain concurrency                   | `1` trên CPU, `2` trên GPU có khả năng | Ngăn chặn nhiều công việc inference cục bộ cạnh tranh cho cùng RAM/VRAM                                           |
 
 Cửa sổ ngữ cảnh được cấu hình phải khớp với máy chủ Ollama. Trước khi đặt ngữ cảnh ứng dụng thành `8192`, hãy chạy Ollama với cùng giới hạn (hoặc cấu hình giá trị `num_ctx` tương đương trong Modelfile):
 
@@ -263,10 +263,10 @@ NEXT_PUBLIC_MICROSOFT_CLIENT_ID=your-azure-app-client-id
 Nhà cung cấp nào chưa có biến tương ứng vẫn hiển thị thông báo giải thích thay vì mở popup
 (`Đăng nhập Google chưa được cấu hình. Hãy đặt NEXT_PUBLIC_GOOGLE_CLIENT_ID và khởi động lại ứng dụng.`).
 
-| Nhà cung cấp | Endpoint ủy quyền | Scope | Redirect URI cần đăng ký |
-| --- | --- | --- | --- |
-| Google | `https://accounts.google.com/o/oauth2/v2/auth` | `openid profile email` | `<origin>/oauth/callback` |
-| Microsoft | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
+| Nhà cung cấp | Endpoint ủy quyền                                                | Scope                            | Redirect URI cần đăng ký  |
+| ------------ | ---------------------------------------------------------------- | -------------------------------- | ------------------------- |
+| Google       | `https://accounts.google.com/o/oauth2/v2/auth`                   | `openid profile email`           | `<origin>/oauth/callback` |
+| Microsoft    | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` | `openid profile email User.Read` | `<origin>/oauth/callback` |
 
 `<origin>` là scheme, host và cổng đang phục vụ ứng dụng — `http://localhost:4028` với `npm run dev`.
 Ứng dụng gọi `<origin>/oauth/callback?provider=google` (hoặc `microsoft`); hãy đăng ký đường dẫn
@@ -276,7 +276,7 @@ Nhà cung cấp nào chưa có biến tương ứng vẫn hiển thị thông b�
 
 1. Mở [Credentials](https://console.cloud.google.com/apis/credentials) và chọn
    **Create credentials → OAuth client ID**. Nếu được yêu cầu, hãy tạo trước OAuth consent screen; khi
-   consent screen còn ở trạng thái *Testing*, chỉ những người dùng được thêm vào danh sách test users
+   consent screen còn ở trạng thái _Testing_, chỉ những người dùng được thêm vào danh sách test users
    mới đăng nhập được.
 2. Chọn loại ứng dụng **Web application**.
 3. Thêm `http://localhost:4028` vào **Authorized JavaScript origins**.
@@ -287,8 +287,8 @@ Nhà cung cấp nào chưa có biến tương ứng vẫn hiển thị thông b�
 
 1. Mở **Microsoft Entra ID → App registrations → New registration** trong
    [Azure portal](https://portal.azure.com).
-2. Đặt **Supported account types** thành *Accounts in any organizational directory and personal Microsoft
-   accounts* — khớp với authority `/common` mà ứng dụng gọi.
+2. Đặt **Supported account types** thành _Accounts in any organizational directory and personal Microsoft
+   accounts_ — khớp với authority `/common` mà ứng dụng gọi.
 3. Trong **Redirect URI**, chọn nền tảng **Single-page application (SPA)** và nhập
    `http://localhost:4028/oauth/callback`.
 4. Trong **API permissions**, thêm quyền Microsoft Graph delegated **User.Read** (ứng dụng đọc
@@ -352,6 +352,10 @@ sql-visualizer/
 │   │   └── ...
 │   ├── lib/
 │   │   ├── ai/
+│   │   │   ├── prompts/                      # **Prompt AI tập trung** — nguồn chân lý duy nhất
+│   │   │   │   ├── registry.ts               # Kiểu PromptEntry / ParamSchema + registry (36 entry)
+│   │   │   │   ├── render.ts                 # renderPrompt() — kiểm tra tham số, thuần, điền 1 lượt
+│   │   │   │   └── templates/                # Mỗi tính năng AI một module (formatError, sqlExplainer, ...)
 │   │   │   └── databaseAssistant/            # Chat History: storage contract + helpers
 │   │   │       ├── chatHistoryStorage.ts        # Storage contract cho Chat History
 │   │   │       ├── chatHistoryLocalStorage.ts   # localStorage implementation
@@ -378,10 +382,91 @@ sql-visualizer/
 └── package.json
 ```
 
+## 🧠 Quản lý Prompt AI tập trung
+
+Mọi prompt AI gửi tới nhà cung cấp đều nằm ở một chỗ, nên chỉ cần sửa nội dung prompt tại một vị trí
+duy nhất mà không phải chạm vào logic xử lý request.
+
+**Tệp:** `src/lib/ai/prompts/registry.ts` (registry), `src/lib/ai/prompts/render.ts` (renderer),
+`src/lib/ai/prompts/templates/*.ts` (mỗi tính năng một module)
+
+### Cách hoạt động
+
+```typescript
+import { renderPrompt, localizedPromptId } from './prompts/render';
+import { OPTIMIZE_PROMPTS, optimizeSqlStructuredParams } from './prompts/templates/optimize';
+
+// Chọn biến thể theo ngôn ngữ, rồi render đúng messages mà nhà cung cấp nhận được.
+const [message] = renderPrompt(
+  localizedPromptId(OPTIMIZE_PROMPTS.optimizeSqlStructured, locale),
+  optimizeSqlStructuredParams(sql, userInstruction, locale)
+);
+```
+
+`renderPrompt(id, params)` là hàm thuần — không gọi mạng, không đọc/ghi tệp, không ghi log SQL hay
+nội dung prompt. Hàm kiểm tra tham số **trước khi** gọi nhà cung cấp, nên thiếu tham số bắt buộc hoặc
+sai prompt id sẽ báo lỗi rõ ràng ngay, thay vì gửi đi một prompt điền dở.
+
+### Các quy tắc giữ nguyên kết quả đầu ra
+
+| Quy tắc                                                                                | Lý do                                                                                                                   |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Nội dung template **giống hệt từng byte** so với trước khi tập trung hóa               | Tính tương đương được các test đặc tả (characterization test) bảo đảm; không "cải thiện" câu chữ trong một lần refactor |
+| Chỉ những giá trị thực sự động mới thành tham số có tên                                | Không thêm tham số hay đổi ngữ nghĩa chỉ để cho đẹp                                                                     |
+| Tham số tuỳ chọn bị bỏ qua thì dùng giá trị mặc định; nhưng **chuỗi rỗng vẫn là rỗng** | Giữ đúng hành vi điều kiện ban đầu                                                                                      |
+| Giá trị được điền trong một lượt và không quét lại                                     | Chuỗi `{{...}}` nằm trong SQL của bạn được coi là nội dung, không phải placeholder                                      |
+| Ngôn ngữ lấy từ cài đặt ngôn ngữ sẵn có của ứng dụng                                   | Hành vi ngôn ngữ không đổi; thiếu biến thể thì fallback về tiếng Anh như trước                                          |
+
+### Sửa một prompt
+
+1. Mở module tương ứng trong `src/lib/ai/prompts/templates/`.
+2. Sửa `text` (và cập nhật `params` nếu bạn thêm placeholder).
+3. Chạy `npm run test` — test tương đương của tính năng sẽ báo lỗi nếu thay đổi ngoài ý muốn, và
+   registry audit sẽ báo lỗi nếu placeholder chưa được khai báo trong `params`.
+
+### Các trường hợp ngoại lệ đã biết
+
+Hai chuỗi dạng prompt **cố ý không** đưa vào registry, mỗi trường hợp đều được ghi rõ rủi ro tương
+thích trong [`specs/020-prompt-manager-refactor/prompt-inventory.md`](./specs/020-prompt-manager-refactor/prompt-inventory.md):
+
+- **System prompt mặc định** trong `src/lib/store.ts` — đây là cài đặt người dùng được lưu lại, không
+  chỉ là nội dung prompt.
+- **`SPEECH_INSTRUCTIONS`** trong `src/lib/ai/aiSpeech.ts` — đây là trường `instructions` của
+  text-to-speech, không phải chat message, nên không có message role.
+
+Lưu ý thêm: prompt chẩn đoán lỗi định dạng cố ý viết bằng tiếng Anh kể cả với người dùng Việt Nam —
+chỉ phần _văn xuôi đầu ra_ của model được yêu cầu là tiếng Việt, vì các JSON key trả về là một hợp
+đồng parsing. Xem comment phía trên `FORMAT_ERROR_TEMPLATES` để biết lý do đầy đủ.
+
+### Lợi ích
+
+- **Một nguồn chân lý** - Mỗi prompt một vị trí sửa; không còn nội dung prompt trùng lặp trong service
+- **Kiểm tra trước khi gửi** - Thiếu tham số hay sai id báo lỗi ngay, trước khi gọi nhà cung cấp
+- **Kết quả đầu ra được chứng minh không đổi** - Characterization test ghim chính xác từng byte mỗi tính năng gửi đi
+- **Truy vết được** - Mỗi entry ghi rõ tính năng và vị trí nguồn trước khi migration
+- **Dễ mở rộng** - Thêm tính năng bằng cách tạo một module `templates/*.ts` rồi spread vào registry
+
+## 📦 Scripts có sẵn
+
+- `npm run dev` - Chạy server phát triển ở cổng 4028
+- `npm run build` - Build ứng dụng cho production
+- `npm run start` - Chạy server phát triển
+- `npm run serve` - Chạy server production
+- `npm run lint` - Chạy ESLint kiểm tra chất lượng mã
+- `npm run lint:fix` - Tự động sửa lỗi ESLint
+- `npm run format` - Định dạng mã bằng Prettier
+- `npm run type-check` - Kiểm tra kiểu TypeScript
+- `npm run test` - Chạy bộ test Vitest
+- `npm run setup:piper` - Tải xuống/cấu hình giọng nói Piper TTS cục bộ
+- `npm run build:docs-index` - Xây dựng lại chỉ mục embeddings cho chat Docs Consultant
+- `npm run build:database-knowledge-index` - Nhúng lại sách hướng dẫn cơ sở dữ liệu chính thức cho chỉ mục RAG của Database AI Assistant
+
 ## 📖 Tài liệu
 
 - **[Confluence EN](docs/confluence/SQL_Visualizer_Confluence_EN.md)** - Tài liệu Confluence (Tiếng Anh)
 - **[Confluence VI](docs/confluence/SQL_Visualizer_Confluence_VI.md)** - Tài liệu Confluence (Tiếng Việt)
+- **[Prompt Inventory](specs/020-prompt-manager-refactor/prompt-inventory.md)** - Mọi prompt AI, tham số và trạng thái migration
+- **[Báo cáo hoàn thành Prompt Refactor](specs/020-prompt-manager-refactor/completion-report.md)** - Đã thay đổi gì, test đã chạy, và các ngoại lệ còn lại
 
 ## 🤝 Đóng góp
 

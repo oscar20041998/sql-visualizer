@@ -81,9 +81,7 @@ const SuggestionCard = memo(
             <p className="font-semibold font-mono leading-tight" style={{ color: cfg.color }}>
               {suggestion.title}
             </p>
-            <p className="mt-1 leading-relaxed text-muted-foreground">
-              {suggestion.detail}
-            </p>
+            <p className="mt-1 leading-relaxed text-muted-foreground">{suggestion.detail}</p>
           </div>
         </div>
         <button

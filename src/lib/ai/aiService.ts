@@ -19,108 +19,25 @@ import {
 import { fitContextBrief } from './aiSqlContext';
 import { getCapability, isLockedForGuest } from '../capabilities';
 import { isGuestSession } from '../demoAuth';
+import { localizedPromptId, renderPrompt } from './prompts/render';
+import {
+  SQL_EXPLAINER_PROMPTS,
+  explainCteParams,
+  explainSqlParams,
+  explainSqlStructuredParams,
+} from './prompts/templates/sqlExplainer';
+import { SEMANTIC_BRIEF_PROMPTS, semanticBriefParams } from './prompts/templates/semanticBrief';
+import { OPTIMIZE_PROMPTS, optimizeSqlStructuredParams } from './prompts/templates/optimize';
+import { REQUIREMENT_PROMPTS, requirementCandidateParams } from './prompts/templates/requirement';
+import { REPAIR_PROMPTS, repairProposalsParams } from './prompts/templates/repair';
+import { FOLLOW_UP_PROMPTS } from './prompts/templates/followUp';
+import {
+  DOCS_CONSULTANT_PROMPTS,
+  docsConsultantNoContextParams,
+  docsConsultantSystemParams,
+} from './prompts/templates/docsConsultant';
 
 export type { CloudProvider };
-
-const EXPLAIN_SQL_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (sql) => `Explain the following SQL query in plain language:\n\n${sql}`,
-  vi: (sql) => `Hãy giải thích truy vấn SQL sau đây bằng ngôn ngữ đơn giản, dễ hiểu:\n\n${sql}`,
-};
-
-/** A deliberately text-only contract for explaining one CTE in a long query pipeline. */
-const EXPLAIN_CTE_PROMPT: Record<
-  Locale,
-  (name: string, sql: string, dependencies: string) => string
-> = {
-  en: (
-    name,
-    sql,
-    dependencies
-  ) => `Explain the SQL query step named '${name}' to a reader who does not write SQL. Reply with compact Markdown, never JSON. Use ### headings to separate short sections, **bold** only for essential conclusions, short - lists when helpful, and backticks around SQL keywords, table names, CTE names, and field names. Do not use links or HTML.
-
-State its role in the overall data flow, what information it produces, and its important conditions or transformations. Explain SQL meaning, not execution performance. Do not invent business definitions that the SQL does not prove.
-
-${dependencies ? `Direct upstream query steps for context:\n${dependencies}\n\n` : ''}Target query step '${name}':
-\`\`\`sql
-${sql}
-\`\`\``,
-  vi: (
-    name,
-    sql,
-    dependencies
-  ) => `Hãy giải thích bước truy vấn có tên '${name}' cho người không biết SQL. Trả lời bằng Markdown ngắn gọn, không trả JSON. Dùng tiêu đề ### để phân tách các phần ngắn, **in đậm** chỉ cho kết luận quan trọng, danh sách - ngắn khi phù hợp, và đặt từ khóa SQL, tên bảng, tên CTE và tên trường trong dấu backticks. Không dùng liên kết hoặc HTML.
-
-Nêu rõ vai trò của bước này trong luồng dữ liệu, thông tin nó tạo ra, cùng các điều kiện hoặc phép biến đổi quan trọng. Giải thích ý nghĩa SQL, không phân tích hiệu năng thực thi. Không tự suy diễn ý nghĩa nghiệp vụ khi SQL không chứng minh được.
-
-${dependencies ? `Các bước truy vấn đầu vào trực tiếp để tham chiếu:\n${dependencies}\n\n` : ''}Bước truy vấn '${name}':
-\`\`\`sql
-${sql}
-\`\`\``,
-};
-
-/** Asks for a JSON payload so the UI can render a business-friendly query explanation in sections. */
-const EXPLAIN_SQL_STRUCTURED_PROMPT: Record<Locale, (sql: string) => string> = {
-  en: (
-    sql
-  ) => `You translate SQL into plain business language for a reader who does not write SQL. Keep it concise, business-focused, and free of SQL jargon.
-
-SQL query:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Reply with ONLY a JSON object — no prose, no markdown fence — using exactly these keys in this order:
-
-{
-  "query_objective": "a detailed plain-language explanation of the query's purpose, between 500 and 1,000 characters (up to 1,500 for a complex query)",
-  "result_bullets": ["one plain-language bullet each for the returned columns and rows, plus sorting and row limits"],
-  "report_grain": "one sentence stating what a single result row represents, e.g. 'one row per customer per month'",
-  "filter_categories": [ { "category": "time range | status | region | other constraints", "items": ["one plain-language sentence per condition in this category"] } ],
-  "data_sources": [ { "name": "table or CTE name the query reads", "purpose": "its business purpose as supported by the query, or the literal string 'unknown'" } ]
-}
-
-Rules:
-- "query_objective" and "report_grain" must be non-empty; "report_grain" is always present.
-- "result_bullets" must have at least one item.
-- "filter_categories" must have at least one category; when the query has no filters, return a single category (e.g. category "other constraints") with one item stating that no filters apply — never omit this section.
-- "data_sources" must have at least one entry; set "purpose" to the literal string "unknown" when the query does not support a business purpose.
-- A CTE entry is its name plus a one-phrase role only; do NOT describe a CTE's inner query logic.
-- Do NOT include join explanations, query execution logic, calculations, data lineage, or performance analysis.
-- Avoid SQL keywords; describe meaning instead.
-- Wrap every column or field name in single quotes (e.g. 'total_inbound_units') so it reads distinctly from the prose.
-- The "query_objective" section alone must measure between 500 and 1,000 characters — up to 1,500 for a complex query; keep every other section concise.
-- Do not invent business definitions the SQL or verified facts cannot support; state that a name or code's exact meaning is unknown when necessary.`,
-  vi: (
-    sql
-  ) => `Bạn diễn giải SQL thành ngôn ngữ nghiệp vụ dễ hiểu cho người không viết SQL. Toàn bộ nội dung trả về phải bằng tiếng Việt. Hãy viết ngắn gọn, tập trung vào nghiệp vụ và tránh thuật ngữ SQL.
-
-Truy vấn SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng các khóa và thứ tự sau:
-
-{
-  "query_objective": "phần giải thích chi tiết bằng ngôn ngữ tự nhiên về mục đích của truy vấn, dài từ 500 đến 1.000 ký tự (tối đa 1.500 nếu truy vấn phức tạp)",
-  "result_bullets": ["mỗi phần tử mô tả cột và dòng dữ liệu trả về, kèm cách sắp xếp và giới hạn số dòng"],
-  "report_grain": "một câu nêu rõ một dòng kết quả đại diện cho điều gì, ví dụ 'một dòng cho mỗi khách hàng mỗi tháng'",
-  "filter_categories": [ { "category": "khoảng thời gian | trạng thái | khu vực | ràng buộc khác", "items": ["mỗi phần tử là một câu mô tả một điều kiện trong nhóm này"] } ],
-  "data_sources": [ { "name": "tên bảng hoặc CTE mà truy vấn đọc", "purpose": "vai trò nghiệp vụ được truy vấn chứng minh, hoặc chuỗi ký tự 'unknown'" } ]
-}
-
-Quy tắc:
-- "query_objective" và "report_grain" không được rỗng; "report_grain" luôn phải có.
-- "result_bullets" phải có ít nhất một phần tử.
-- "filter_categories" phải có ít nhất một nhóm; khi truy vấn không có điều kiện lọc, trả về một nhóm (ví dụ category "ràng buộc khác") với một phần tử nói rõ không có điều kiện lọc — không được bỏ mục này.
-- "data_sources" phải có ít nhất một mục; đặt "purpose" là chuỗi ký tự "unknown" khi truy vấn không chứng minh được vai trò nghiệp vụ.
-- Một mục CTE chỉ gồm tên và vai trò một cụm từ; KHÔNG mô tả logic truy vấn bên trong CTE.
-- KHÔNG nêu giải thích join, logic thực thi truy vấn, phép tính, nguồn gốc dữ liệu hay phân tích hiệu năng.
-- Tránh từ khóa SQL; hãy diễn giải ý nghĩa.
-- Đặt tên cột hoặc field trong dấu nháy đơn (ví dụ 'total_inbound_units') để phân biệt với phần mô tả xung quanh.
-- Chỉ mục "query_objective" phải dài từ 500 đến 1.000 ký tự — tối đa 1.500 nếu truy vấn phức tạp; giữ các mục còn lại ngắn gọn.
-- Không tự đặt nghĩa nghiệp vụ nếu SQL hoặc dữ kiện đã xác thực không chứng minh được; khi cần, nói rõ không xác định được ý nghĩa chính xác của tên hoặc mã.`,
-};
 
 export class AIServiceError extends Error {
   constructor(message: string) {
@@ -1562,67 +1479,6 @@ export interface SqlSemanticBrief {
   budget: AIBudgetReport;
 }
 
-const SEMANTIC_BRIEF_PROMPT: Record<Locale, (sql: string, userInstruction?: string) => string> = {
-  en: (
-    sql,
-    userInstruction
-  ) => `Before any optimization, read the following SQL query and describe your understanding of it. Do not suggest or perform any changes here.
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-${
-  userInstruction
-    ? `
-The user has asked for this optimization goal, in their own words: "${userInstruction}"
-Keep this goal in mind while describing the query, but do not act on it yet — this step is read-only.
-`
-    : ''
-}
-Return only a JSON object with exactly these keys:
-{
-  "purpose": "Clearly and specifically explain what business purpose this query serves and what outcome it is intended to provide.",
-  "relationships": [{"tables": "the two tables/CTEs involved", "description": "what this join/relationship means and why it must be preserved"}],
-  "critical_filters": ["every WHERE/HAVING condition, in plain language, that determines which rows are included or excluded"],
-  "risks": ["specific ways a careless rewrite of this query could silently change its result set or business meaning"]
-}
-
-Rules:
-- List every JOIN and every CTE-to-CTE dependency as a relationship, even ones that look removable.
-- Do not omit a filter just because it looks redundant — state what it does.
-- This is a read-only understanding step; "relationships" and "critical_filters" become the constraints a later optimization step must not violate.`,
-  vi: (
-    sql,
-    userInstruction
-  ) => `Trước khi tối ưu hóa, hãy đọc truy vấn SQL sau và mô tả hiểu biết của bạn về nó. Không đề xuất hay thực hiện bất kỳ thay đổi nào ở bước này.
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-${
-  userInstruction
-    ? `
-Người dùng đã nêu mục tiêu tối ưu hóa sau, bằng lời của họ: "${userInstruction}"
-Hãy ghi nhớ mục tiêu này khi mô tả truy vấn, nhưng chưa hành động theo nó — bước này chỉ để hiểu, không thay đổi gì.
-`
-    : ''
-}
-Chỉ trả về một đối tượng JSON với đúng các khóa sau:
-{
-  "purpose": "Hãy giải thích chi tiết và cụ thể về mục đích kinh doanh của truy vấn này và kết quả mà nó hướng tới.",
-  "relationships": [{"tables": "hai bảng/CTE liên quan", "description": "quan hệ JOIN này có ý nghĩa gì và vì sao phải giữ nguyên"}],
-  "critical_filters": ["mọi điều kiện WHERE/HAVING, bằng ngôn ngữ dễ hiểu, quyết định dòng nào được giữ hoặc loại"],
-  "risks": ["những cách cụ thể mà một bản viết lại bất cẩn có thể âm thầm thay đổi tập kết quả hoặc ý nghĩa nghiệp vụ"]
-}
-
-Quy tắc:
-- Liệt kê mọi JOIN và mọi quan hệ phụ thuộc CTE-CTE như một relationship, kể cả những quan hệ trông như có thể loại bỏ.
-- Không bỏ qua điều kiện lọc nào dù trông thừa — hãy nêu rõ nó làm gì.
-- Đây là bước hiểu chỉ đọc; "relationships" và "critical_filters" sẽ trở thành ràng buộc mà bước tối ưu sau này không được vi phạm.`,
-};
-
 /** Builds the prompt + budget report for the semantic-brief pre-analysis call. */
 function prepareSemanticBriefPrompt(
   sql: string,
@@ -1641,10 +1497,11 @@ function prepareSemanticBriefPrompt(
   const briefTokens = estimateTokens(brief);
   const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
 
-  const buildPrompt = SEMANTIC_BRIEF_PROMPT[locale] ?? SEMANTIC_BRIEF_PROMPT.en;
-  const prompt = brief
-    ? `${brief}\n\n${buildPrompt(fitted.sql, userInstruction)}`
-    : buildPrompt(fitted.sql, userInstruction);
+  const rendered = renderPrompt(
+    localizedPromptId(SEMANTIC_BRIEF_PROMPTS.brief, locale),
+    semanticBriefParams(fitted.sql, userInstruction, locale)
+  )[0].content;
+  const prompt = brief ? `${brief}\n\n${rendered}` : rendered;
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -1761,102 +1618,6 @@ export function formatSemanticBriefForOptimizePrompt(
   return lines.join('\n');
 }
 
-const OPTIMIZE_SQL_STRUCTURED_PROMPT: Record<
-  Locale,
-  (sql: string, userInstruction?: string) => string
-> = {
-  en: (
-    sql,
-    userInstruction
-  ) => `Optimize the following SQL query for performance. Fix ONLY the specific issues listed below the query under "Linting alerts" (if that section is present) — every other clause, alias, formatting choice, and ordering must stay character-for-character identical to the original. Do not perform a general rewrite.
-${
-  userInstruction
-    ? `
-The user additionally asked, in their own words: "${userInstruction}"
-Apply this instruction ONLY to the extent it does not change which rows, tables, joins, filters, or output columns the query returns:
-- If it can be fully satisfied without changing result semantics, apply it and set "instruction_status" to "applied".
-- If only part of it can be applied without changing semantics, apply that part only and set "instruction_status" to "partial", explaining in "instruction_note" what was left out and why.
-- If applying it would necessarily change the query's result semantics (e.g. it asks to drop a filter, change a JOIN's row inclusion, or remove an output column), do NOT apply that part — set "instruction_status" to "refused" and explain why in "instruction_note", proposing no change (or only a safe subset) instead.
-`
-    : ''
-}
-Return only a JSON object with exactly these keys, in this order:
-{
-  "analysis": "a short summary of what you changed and why, naming the specific issue(s) fixed",
-  "suggestions": ["one specific improvement per issue actually fixed"],
-  "proposals": [{"id": "unique-short-id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original to replace", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}],
-  "semantic_impact": "plain-language statement of why the approved local changes preserve rows, columns, aggregates and relationships"${
-    userInstruction
-      ? `,
-  "instruction_status": "\"applied\", \"partial\", or \"refused\" — see rules above",
-  "instruction_note": "explanation shown to the user when instruction_status is not \"applied\""`
-      : ''
-  }
-}
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Rules:
-- If a "Linting alerts" section is provided above, only touch the clause(s) needed to resolve those specific alerts. Leave every unrelated part of the query untouched.
-- If no linting alerts are provided, apply only the smallest set of high-confidence performance fixes and leave the rest of the query untouched.
-- Do not change business logic or result semantics.
-- Never delete, merge, or rewrite a table, JOIN, WHERE/HAVING condition, CASE branch, subquery, or CTE that is not the specific target of a listed issue — this holds even when a bigger rewrite would look "cleaner". A correct fix for one flagged issue is almost always a small, local edit, not a rewrite of large parts of the query.
-- Do not remove or add tables, columns, joins, filters, or grouping unless the same result set is preserved.
-- Do not change NULL handling or DISTINCT semantics.
-- Do not reformat, rename aliases, or reorder clauses that are not part of a fix.
-- Each proposal must contain one exact, unique \`find\` snippet from the original and one narrow \`replace\` snippet. Never propose a full-query replacement.
-- Before returning a proposal, verify it preserves every table, join relationship, filter condition, output column, NULL rule and DISTINCT/GROUP BY behavior. If this cannot be proven from the query, do not propose the change; explain the uncertainty in "analysis".
-- If the query has no fixable issues, return an empty "proposals" array and explain why in "analysis".`,
-  vi: (
-    sql,
-    userInstruction
-  ) => `Tối ưu hóa truy vấn SQL sau đây về hiệu suất. CHỈ sửa những vấn đề cụ thể được liệt kê bên dưới truy vấn trong phần "Linting alerts" (nếu có) — mọi mệnh đề, bí danh, cách định dạng và thứ tự khác phải giữ nguyên tuyệt đối so với bản gốc. Không viết lại toàn bộ.
-${
-  userInstruction
-    ? `
-Người dùng cũng đã yêu cầu thêm, bằng lời của họ: "${userInstruction}"
-Chỉ áp dụng yêu cầu này trong phạm vi KHÔNG làm thay đổi những dòng, bảng, phép nối, điều kiện lọc hoặc cột đầu ra mà truy vấn trả về:
-- Nếu có thể đáp ứng đầy đủ mà không đổi ngữ nghĩa kết quả, hãy áp dụng và đặt "instruction_status" là "applied".
-- Nếu chỉ một phần có thể áp dụng mà không đổi ngữ nghĩa, chỉ áp dụng phần đó và đặt "instruction_status" là "partial", giải thích trong "instruction_note" phần nào đã bỏ qua và vì sao.
-- Nếu áp dụng yêu cầu chắc chắn sẽ làm thay đổi ngữ nghĩa kết quả (ví dụ yêu cầu bỏ một điều kiện lọc, đổi loại JOIN làm thay đổi số dòng, hoặc bỏ một cột đầu ra), KHÔNG áp dụng phần đó — đặt "instruction_status" là "refused" và giải thích lý do trong "instruction_note", chỉ đề xuất không thay đổi (hoặc một phần an toàn) thay vào đó.
-`
-    : ''
-}
-Chỉ trả về một đối tượng JSON với đúng các khóa sau, theo đúng thứ tự này:
-{
-  "analysis": "tóm tắt ngắn gọn những gì bạn đã thay đổi và lý do, nêu rõ (các) vấn đề đã sửa",
-  "suggestions": ["mỗi cải tiến cụ thể tương ứng với từng vấn đề đã thực sự được sửa"],
-  "proposals": [{"id": "ma-dinh-danh-ngan", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL duy nhất, chính xác trong bản gốc cần thay", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, JOIN và aggregate không thay đổi"}],
-  "semantic_impact": "giải thích vì sao các thay đổi cục bộ đã duyệt vẫn giữ nguyên số dòng, cột, aggregate và quan hệ"${
-    userInstruction
-      ? `,
-  "instruction_status": "\"applied\", \"partial\", hoặc \"refused\" — xem quy tắc ở trên",
-  "instruction_note": "giải thích hiển thị cho người dùng khi instruction_status không phải \"applied\""`
-      : ''
-  }
-}
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Quy tắc:
-- Nếu có phần "Linting alerts" ở trên, chỉ chạm vào (các) mệnh đề cần thiết để khắc phục những cảnh báo đó. Giữ nguyên mọi phần không liên quan.
-- Nếu không có cảnh báo linting nào được cung cấp, chỉ áp dụng tập hợp nhỏ nhất các cải tiến hiệu suất đáng tin cậy và giữ nguyên phần còn lại.
-- Không thay đổi logic nghiệp vụ hoặc ngữ nghĩa kết quả.
-- Tuyệt đối không xóa, gộp hay viết lại bất kỳ bảng, JOIN, điều kiện WHERE/HAVING, nhánh CASE, subquery hay CTE nào không phải là mục tiêu cụ thể của một vấn đề đã liệt kê — kể cả khi một bản viết lại lớn hơn trông "gọn gàng" hơn. Cách sửa đúng cho một vấn đề được gắn cờ gần như luôn là một chỉnh sửa nhỏ, cục bộ, không phải viết lại phần lớn truy vấn.
-- Không loại bỏ hoặc thêm bảng, cột, phép nối, bộ lọc hoặc nhóm trừ khi vẫn giữ nguyên tập kết quả.
-- Không thay đổi cách xử lý NULL hoặc ngữ nghĩa DISTINCT.
-- Không định dạng lại, đổi tên bí danh, hay sắp xếp lại các mệnh đề không thuộc phần cần sửa.
-- Mỗi proposal phải có đúng một đoạn \`find\` duy nhất, chính xác từ SQL gốc và một đoạn \`replace\` cục bộ. Tuyệt đối không đề xuất thay toàn bộ truy vấn.
-- Trước khi trả proposal, hãy xác minh nó giữ nguyên mọi bảng, quan hệ JOIN, điều kiện lọc, cột đầu ra, quy tắc NULL và DISTINCT/GROUP BY. Nếu không thể chứng minh từ truy vấn, không đề xuất thay đổi đó; hãy nêu sự không chắc chắn trong "analysis".
-- Nếu truy vấn không có vấn đề nào cần sửa, trả về mảng "proposals" rỗng và giải thích lý do trong "analysis".`,
-};
-
 /** Resolves the effective context budget for the active provider from the saved settings. */
 export function resolveBudget(config: AIModelConfig) {
   return buildContextBudget(
@@ -1878,8 +1639,10 @@ function prepareExplainPrompt(
   const systemTokens = estimateTokens(resolveSystemPrompt(config, {}) ?? '');
   const available = Math.max(128, budget.promptTokens - systemTokens);
 
-  const buildPrompt = EXPLAIN_SQL_STRUCTURED_PROMPT[locale] ?? EXPLAIN_SQL_STRUCTURED_PROMPT.en;
-  const promptOverhead = estimateTokens(buildPrompt(''));
+  const structuredExplainId = localizedPromptId(SQL_EXPLAINER_PROMPTS.explainSqlStructured, locale);
+  const promptOverhead = estimateTokens(
+    renderPrompt(structuredExplainId, explainSqlStructuredParams(''))[0].content
+  );
   const contentBudget = Math.max(128, available - promptOverhead);
   const briefBudget = Math.floor(contentBudget * EXPLAIN_CONTEXT_BRIEF_BUDGET_RATIO);
   const sqlTokens = estimateTokens(sql);
@@ -1890,7 +1653,9 @@ function prepareExplainPrompt(
   const brief = fitContextBrief(contextBrief, Math.min(briefBudget, remainingBriefBudget), {
     truncate: true,
   });
-  const prompt = brief ? `${brief}\n\n${buildPrompt(fitted.sql)}` : buildPrompt(fitted.sql);
+  const rendered = renderPrompt(structuredExplainId, explainSqlStructuredParams(fitted.sql))[0]
+    .content;
+  const prompt = brief ? `${brief}\n\n${rendered}` : rendered;
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -2201,10 +1966,11 @@ function prepareOptimizePrompt(
   const briefTokens = estimateTokens(brief);
   const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
 
-  const buildPrompt = OPTIMIZE_SQL_STRUCTURED_PROMPT[locale] ?? OPTIMIZE_SQL_STRUCTURED_PROMPT.en;
-  const prompt = brief
-    ? `${brief}\n\n${buildPrompt(fitted.sql, userInstruction)}`
-    : buildPrompt(fitted.sql, userInstruction);
+  const rendered = renderPrompt(
+    localizedPromptId(OPTIMIZE_PROMPTS.optimizeSqlStructured, locale),
+    optimizeSqlStructuredParams(fitted.sql, userInstruction, locale)
+  )[0].content;
+  const prompt = brief ? `${brief}\n\n${rendered}` : rendered;
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -2221,7 +1987,8 @@ function prepareOptimizePrompt(
 
 /** Turns the model's raw answer into a {@link SqlOptimizationResult}, shared by both optimize calls. */
 /**
- * Schema-description phrases from OPTIMIZE_SQL_STRUCTURED_PROMPT (both locales). A weak/small
+ * Schema-description phrases from the optimize template (both locales, see
+ * `src/lib/ai/prompts/templates/optimize.ts`). A weak/small
  * local model sometimes fills a JSON field with the field's own instructional description
  * instead of real content — this is indistinguishable from real text by shape alone, so it must
  * be matched literally and treated as "no answer" rather than shown to the user as if genuine.
@@ -2415,64 +2182,6 @@ export interface SqlRequirementCandidateResult {
   budget: AIBudgetReport;
 }
 
-const REQUIREMENT_CANDIDATE_PROMPT: Record<
-  Locale,
-  (sql: string, requirementText: string, hintedTables: string[]) => string
-> = {
-  en: (
-    sql,
-    requirementText,
-    hintedTables
-  ) => `The user wants to add a new requirement to the following SQL query. Unlike a normal optimization pass, you MAY change which tables, joins, filters, or output columns the query uses if that is what the requirement needs — but only to satisfy the stated requirement, nothing else.
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Requirement, in the user's own words: "${requirementText}"
-${hintedTables.length ? `The user specifically named these tables/columns to consider: ${hintedTables.join(', ')}.` : ''}
-
-Reply with ONLY a JSON object — no prose, no markdown fence — using exactly this shape:
-{
-  "optimized_sql": "the full candidate query that satisfies the requirement",
-  "analysis": "plain-language explanation of what was added or changed and why, compared to the original query",
-  "unresolved_references": ["any table or column name from the requirement that you could not find evidence for in the SQL or the verified facts above, and therefore did not use"]
-}
-
-Rules:
-- Only change what is needed to satisfy the stated requirement. Do not perform an unrelated general rewrite.
-- Never invent a table or column name that does not appear in the SQL, the verified facts above, or the user's own hinted names — if you cannot resolve a needed reference, list it in "unresolved_references" and do not use it in "optimized_sql".
-- If the requirement cannot be satisfied at all without an unresolvable reference, return the original query unchanged in "optimized_sql" and explain why in "analysis".
-- "analysis" must clearly state which tables, joins, filters, or output columns were added, removed, or changed.`,
-  vi: (
-    sql,
-    requirementText,
-    hintedTables
-  ) => `Người dùng muốn thêm một yêu cầu mới vào truy vấn SQL sau đây. Khác với một lượt tối ưu hóa thông thường, bạn ĐƯỢC PHÉP thay đổi bảng, phép nối, điều kiện lọc hoặc cột đầu ra của truy vấn nếu yêu cầu cần như vậy — nhưng chỉ để đáp ứng đúng yêu cầu đã nêu, không hơn.
-
-SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Yêu cầu, theo lời của người dùng: "${requirementText}"
-${hintedTables.length ? `Người dùng đã nêu rõ các bảng/cột sau cần xem xét: ${hintedTables.join(', ')}.` : ''}
-
-Chỉ trả về DUY NHẤT một đối tượng JSON — không thêm lời dẫn, không dùng khối markdown — theo đúng cấu trúc sau:
-{
-  "optimized_sql": "toàn bộ truy vấn mẫu đáp ứng yêu cầu",
-  "analysis": "giải thích bằng ngôn ngữ dễ hiểu về những gì đã được thêm hoặc thay đổi và vì sao, so với truy vấn gốc",
-  "unresolved_references": ["tên bảng hoặc cột trong yêu cầu mà bạn không tìm thấy bằng chứng trong SQL hoặc các dữ kiện đã xác thực ở trên, và do đó không sử dụng"]
-}
-
-Quy tắc:
-- Chỉ thay đổi những gì cần thiết để đáp ứng yêu cầu đã nêu. Không viết lại toàn bộ một cách không liên quan.
-- Tuyệt đối không tự đặt ra tên bảng hoặc cột không xuất hiện trong SQL, trong các dữ kiện đã xác thực ở trên, hoặc trong tên người dùng đã nêu — nếu không thể xác định một tham chiếu cần thiết, hãy liệt kê nó trong "unresolved_references" và không sử dụng nó trong "optimized_sql".
-- Nếu yêu cầu hoàn toàn không thể đáp ứng được vì thiếu tham chiếu không xác định, hãy trả về truy vấn gốc không đổi trong "optimized_sql" và giải thích lý do trong "analysis".
-- "analysis" phải nêu rõ những bảng, phép nối, điều kiện lọc hoặc cột đầu ra nào đã được thêm, loại bỏ hoặc thay đổi.`,
-};
-
 /** Builds the prompt + budget report shared by the blocking and streaming requirement-candidate calls. */
 function prepareRequirementCandidatePrompt(
   sql: string,
@@ -2493,10 +2202,11 @@ function prepareRequirementCandidatePrompt(
   const fitted = truncateSqlForBudget(sql, Math.max(128, available - briefTokens - 220));
 
   const hintedTables = requirementInput.hintedTables ?? [];
-  const buildPrompt = REQUIREMENT_CANDIDATE_PROMPT[locale] ?? REQUIREMENT_CANDIDATE_PROMPT.en;
-  const prompt = brief
-    ? `${brief}\n\n${buildPrompt(fitted.sql, requirementInput.text, hintedTables)}`
-    : buildPrompt(fitted.sql, requirementInput.text, hintedTables);
+  const rendered = renderPrompt(
+    localizedPromptId(REQUIREMENT_PROMPTS.candidate, locale),
+    requirementCandidateParams(fitted.sql, requirementInput.text, hintedTables, locale)
+  )[0].content;
+  const prompt = brief ? `${brief}\n\n${rendered}` : rendered;
 
   const report: AIBudgetReport = {
     contextTokens: budget.contextTokens,
@@ -2654,52 +2364,6 @@ export function isProposalApplicable(
   return countExactOccurrences(sql, proposal.find) === 1;
 }
 
-const REPAIR_PROPOSALS_PROMPT: Record<
-  Locale,
-  (sql: string, invalid: { issue: string; find: string; occurrences: number }[]) => string
-> = {
-  en: (
-    sql,
-    invalid
-  ) => `You previously proposed targeted SQL edits for the query below, but some of them cannot be applied because their "find" text does not match the ORIGINAL query exactly once (occurrences=0 means it was not found at all; occurrences>1 means it matched more than once and is ambiguous — a repeated expression like an aggregate reused in HAVING/ORDER BY is a common cause).
-
-Re-emit ONLY the proposals listed below, corrected. Keep each one's original intent (the same issue/fix) — only correct "find"/"replace" so that:
-- "find" is copied character-for-character from the SQL below (same whitespace, casing, line breaks).
-- "find" occurs in the SQL EXACTLY ONCE. If the expression repeats, widen "find" to include enough surrounding text (a neighboring keyword, clause, alias, or operand) to make it unique.
-- If a proposal genuinely cannot be made both valid and unique from this exact SQL, omit it from the output array entirely rather than guessing.
-
-Original SQL:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Proposals to correct:
-${invalid.map((p, i) => `${i + 1}. issue: ${p.issue || '(none)'} | previous find (occurrences=${p.occurrences}): ${JSON.stringify(p.find)}`).join('\n')}
-
-Return only a JSON object with exactly this key:
-{"proposals": [{"id": "short id", "location": "clause and affected expression", "issue": "specific anti-pattern", "reason": "why it is costly or risky", "recommendation": "what this targeted change does", "find": "exact unique SQL text from the original", "replace": "replacement SQL text", "semantic_impact": "why rows, columns, joins and aggregates stay unchanged"}]}`,
-  vi: (
-    sql,
-    invalid
-  ) => `Bạn đã đề xuất các thay đổi SQL cục bộ cho truy vấn bên dưới, nhưng một số đề xuất không thể áp dụng vì đoạn "find" không khớp CHÍNH XÁC MỘT LẦN với truy vấn GỐC (occurrences=0 nghĩa là không tìm thấy; occurrences>1 nghĩa là khớp nhiều lần nên không rõ ràng — nguyên nhân thường gặp là một biểu thức lặp lại, ví dụ hàm aggregate được dùng lại ở HAVING/ORDER BY).
-
-Chỉ trả lại các đề xuất được liệt kê bên dưới, đã sửa. Giữ nguyên mục đích ban đầu của từng đề xuất (cùng vấn đề/cách sửa) — chỉ sửa "find"/"replace" sao cho:
-- "find" được copy nguyên văn từng ký tự từ SQL bên dưới (giữ nguyên khoảng trắng, chữ hoa/thường, xuống dòng).
-- "find" xuất hiện trong SQL ĐÚNG MỘT LẦN. Nếu biểu thức bị lặp lại, hãy mở rộng "find" để bao gồm đủ ngữ cảnh xung quanh (từ khóa lân cận, mệnh đề, alias, hoặc toán hạng) để nó trở nên duy nhất.
-- Nếu một đề xuất thực sự không thể vừa hợp lệ vừa duy nhất từ SQL này, hãy bỏ hẳn nó khỏi mảng kết quả thay vì đoán bừa.
-
-SQL gốc:
-\`\`\`sql
-${sql}
-\`\`\`
-
-Các đề xuất cần sửa:
-${invalid.map((p, i) => `${i + 1}. issue: ${p.issue || '(không có)'} | find cũ (occurrences=${p.occurrences}): ${JSON.stringify(p.find)}`).join('\n')}
-
-Chỉ trả về một đối tượng JSON với đúng khóa sau:
-{"proposals": [{"id": "id ngắn", "location": "mệnh đề và biểu thức bị ảnh hưởng", "issue": "anti-pattern cụ thể", "reason": "vì sao gây tốn chi phí hoặc rủi ro", "recommendation": "thay đổi cục bộ này thực hiện gì", "find": "đoạn SQL chính xác và duy nhất từ bản gốc", "replace": "đoạn SQL thay thế", "semantic_impact": "vì sao số dòng, cột, join và aggregate không thay đổi"}]}`,
-};
-
 export interface RepairProposalsOptions {
   /** The exact current editor SQL every proposal's `find` must match against. */
   sql: string;
@@ -2737,17 +2401,20 @@ export async function repairInvalidProposals(
     return { proposals: validProposals, droppedCount: 0 };
   }
 
-  const buildPrompt = REPAIR_PROPOSALS_PROMPT[locale] ?? REPAIR_PROPOSALS_PROMPT.en;
   const budget = resolveBudget(config);
   const fitted = truncateSqlForBudget(sql, Math.max(128, Math.floor(budget.promptTokens * 0.6)));
-  const prompt = buildPrompt(
-    fitted.sql,
-    invalidProposals.map((proposal) => ({
-      issue: proposal.issue,
-      find: proposal.find,
-      occurrences: countExactOccurrences(sql, proposal.find),
-    }))
-  );
+  const prompt = renderPrompt(
+    localizedPromptId(REPAIR_PROMPTS.proposals, locale),
+    repairProposalsParams(
+      fitted.sql,
+      invalidProposals.map((proposal) => ({
+        issue: proposal.issue,
+        find: proposal.find,
+        occurrences: countExactOccurrences(sql, proposal.find),
+      })),
+      locale
+    )
+  )[0].content;
 
   try {
     const raw = (
@@ -2797,11 +2464,6 @@ export async function repairInvalidProposals(
   }
 }
 
-const FOLLOW_UP_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: 'You are a SQL expert answering any question about one specific query. Explain the query’s intent, fields, expressions, filters, joins, returned data, and likely business impact in plain language suitable for non-technical staff. Stay grounded in the SQL and verified parser facts. Clearly distinguish what the query proves from a reasonable inference, and say when an exact business definition or answer is not present. Give detail when the question calls for it; otherwise be concise.',
-  vi: 'Bạn là chuyên gia SQL đang trả lời mọi câu hỏi về một truy vấn cụ thể. Hãy giải thích mục đích, field, biểu thức, điều kiện, phép nối, dữ liệu trả về và tác động nghiệp vụ có thể suy ra từ truy vấn bằng tiếng Việt dễ hiểu cho cả người không chuyên. Chỉ dựa trên SQL và các dữ kiện đã được parser xác thực. Phân biệt rõ điều truy vấn chứng minh được với suy luận hợp lý, và nói rõ khi truy vấn không có định nghĩa nghiệp vụ hoặc câu trả lời chính xác. Trả lời chi tiết khi câu hỏi cần; các trường hợp khác giữ ngắn gọn.',
-};
-
 export interface FollowUpOptions {
   question: string;
   sql: string;
@@ -2835,7 +2497,8 @@ export async function askFollowUp({
   if (!question.trim()) throw new AIServiceError('There is no question to ask.');
 
   const budget = resolveBudget(config);
-  const systemPrompt = `${FOLLOW_UP_SYSTEM_PROMPT[locale] ?? FOLLOW_UP_SYSTEM_PROMPT.en}`;
+  const systemPrompt = renderPrompt(localizedPromptId(FOLLOW_UP_PROMPTS.system, locale), {})[0]
+    .content;
   const available = Math.max(128, budget.promptTokens - estimateTokens(systemPrompt));
 
   // Reserve room for the query anchor first: without it later turns lose their subject.
@@ -2894,16 +2557,6 @@ export async function askFollowUp({
   };
 }
 
-const DOCS_CONSULTANT_SYSTEM_PROMPT: Record<Locale, string> = {
-  en: "You are the SQL Visualizer documentation assistant. Answer only about the app's existing features using the retrieved documentation below. Treat the retrieved documentation as relevant and synthesize its direct answer. Answer in English, with at most three short sentences. Do not add unrelated features, generic database advice, alternatives, or follow-up questions.",
-  vi: 'Bạn là trợ lý tài liệu của SQL Visualizer. Chỉ trả lời về các tính năng hiện có của ứng dụng dựa vào tài liệu được truy xuất bên dưới. Hãy coi tài liệu được truy xuất là liên quan và diễn giải câu trả lời trực tiếp. Trả lời bằng tiếng Việt, tối đa ba câu ngắn. Không thêm tính năng không liên quan, lời khuyên cơ sở dữ liệu chung, phương án thay thế hoặc câu hỏi tiếp theo.',
-};
-
-const DOCS_CONSULTANT_NO_CONTEXT_PROMPT: Record<Locale, string> = {
-  en: 'The current SQL Visualizer documentation does not cover this.',
-  vi: 'Tài liệu SQL Visualizer hiện tại chưa đề cập nội dung này.',
-};
-
 export interface DocSource {
   title: string;
   file: string;
@@ -2957,14 +2610,19 @@ function buildDocsConsultantMessages(
   context: string,
   locale: Locale
 ): AIMessage[] {
-  const basePrompt = DOCS_CONSULTANT_SYSTEM_PROMPT[locale] ?? DOCS_CONSULTANT_SYSTEM_PROMPT.en;
-  const noContextPrompt =
-    DOCS_CONSULTANT_NO_CONTEXT_PROMPT[locale] ?? DOCS_CONSULTANT_NO_CONTEXT_PROMPT.en;
+  // The context/no-context BRANCH selects which registered entry to render; both are system
+  // messages, and the retrieved-documentation heading is part of the `system` entry's own text.
+  const systemMessage = context
+    ? renderPrompt(
+        localizedPromptId(DOCS_CONSULTANT_PROMPTS.system, locale),
+        docsConsultantSystemParams(context)
+      )[0]
+    : renderPrompt(
+        localizedPromptId(DOCS_CONSULTANT_PROMPTS.noContext, locale),
+        docsConsultantNoContextParams()
+      )[0];
   return [
-    {
-      role: 'system',
-      content: context ? `${basePrompt}\n\nRetrieved documentation:\n${context}` : noContextPrompt,
-    },
+    systemMessage,
     // Keep the user message free of retrieved content: Ollama receives exactly the typed question.
     { role: 'user', content: question },
   ];
@@ -3023,8 +2681,11 @@ export async function explainSqlWithAI(
   config: AIModelConfig,
   locale: Locale = 'en'
 ): Promise<string> {
-  const buildPrompt = EXPLAIN_SQL_PROMPT[locale] ?? EXPLAIN_SQL_PROMPT.en;
-  return generateWithAI(config, { prompt: buildPrompt(sql) });
+  const prompt = renderPrompt(
+    localizedPromptId(SQL_EXPLAINER_PROMPTS.explainSql, locale),
+    explainSqlParams(sql)
+  )[0].content;
+  return generateWithAI(config, { prompt });
 }
 
 function readableCteJsonFallback(raw: string): string | null {
@@ -3069,10 +2730,13 @@ export async function explainCteWithAI(
 ): Promise<CteExplanation> {
   if (!cteSql.trim()) throw new AIServiceError('There is no CTE SQL to explain.');
 
-  const buildPrompt = EXPLAIN_CTE_PROMPT[locale] ?? EXPLAIN_CTE_PROMPT.en;
+  const prompt = renderPrompt(
+    localizedPromptId(SQL_EXPLAINER_PROMPTS.explainCte, locale),
+    explainCteParams(cteName, cteSql, dependencyContext, locale)
+  )[0].content;
   const raw = (
     await generate(config, {
-      prompt: buildPrompt(cteName, cteSql, dependencyContext),
+      prompt,
       jsonMode: false,
       signal,
     })
