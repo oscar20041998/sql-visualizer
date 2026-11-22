@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { parseOAuthCallback } from '@/lib/oauthUtils';
 
 export default function OAuthCallbackPage() {
@@ -17,8 +18,15 @@ export default function OAuthCallbackPage() {
   }, []);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background text-sm text-foreground">
-      Completing sign in...
+    <main
+      role="status"
+      aria-live="polite"
+      className="grid min-h-screen place-items-center bg-background text-sm text-foreground"
+    >
+      <span className="flex items-center gap-3">
+        <Loader2 size={16} className="motion-safe:animate-spin text-primary" aria-hidden="true" />
+        Completing sign in…
+      </span>
     </main>
   );
 }

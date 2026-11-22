@@ -37,19 +37,16 @@ function MetricCard({
 }) {
   return (
     <div
-      className={`bg-card border rounded-xl p-5 flex flex-col gap-3 hover:border-primary/30 ${
-        alert ? 'border-danger/30 bg-danger/5' : 'border-border'
+      className={`min-w-0 border-l-2 px-4 py-1 flex flex-col gap-3 ${
+        alert ? 'border-danger' : 'border-border'
       }}`}
       style={{ containment: 'layout style paint' } as any}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground">
           {label}
         </span>
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ background: `${color}15` }}
-        >
+        <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
           <Icon size={15} style={{ color }} />
         </div>
       </div>
@@ -85,7 +82,7 @@ export default function NestedSubqueryAnalysis({
   const isHighRisk = risk.level === 'HIGH' || risk.level === 'SUPER_HIGH';
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="min-w-0 rounded-card border border-border bg-card p-5 sm:p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <Layers size={15} className="text-primary" />
         {t.metricsNestedSubqueryAnalysisTitle}
@@ -117,14 +114,14 @@ export default function NestedSubqueryAnalysis({
         />
       </div>
 
-      <div className="mb-6 border border-border rounded-lg p-3">
+      <div className="mb-6 border-y border-border py-4">
         <p className="text-xs font-semibold text-foreground mb-2">{t.metricsSubqueryRiskLimits}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 text-xs">
           {SUBQUERY_RISK_LIMITS.map((limit) => (
             <div
               key={limit.level}
-              className={`rounded border p-2 ${
-                risk.level === limit.level ? 'border-primary bg-primary/5' : 'border-border/60'
+              className={`border-l-2 px-3 py-1 ${
+                risk.level === limit.level ? 'border-primary bg-primary/5' : 'border-border'
               }`}
             >
               <p className="font-semibold" style={{ color: limit.color }}>
@@ -174,7 +171,7 @@ export default function NestedSubqueryAnalysis({
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all"
+                  className="h-full rounded-full"
                   style={{
                     width: `${progress}%`,
                     background:
@@ -209,7 +206,7 @@ export default function NestedSubqueryAnalysis({
       {subqueries.length > 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+            <h4 className="text-xs font-semibold text-foreground">
               {t.metricsDetectedSubqueries} ({subqueries.length})
             </h4>
           </div>
@@ -221,7 +218,7 @@ export default function NestedSubqueryAnalysis({
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
                         {t.metricsSubqueryPrefix} #{idx + 1}
                       </span>
@@ -259,7 +256,7 @@ export default function NestedSubqueryAnalysis({
                         toast.success(t.copiedToClipboard, { duration: 2000 });
                       });
                     }}
-                    className="flex-shrink-0 px-2 py-1 rounded text-[10px] font-medium border border-border bg-card text-foreground hover:bg-muted transition-colors"
+                    className="min-h-11 flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium border border-border bg-background text-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     title={t.metricsCopyButton}
                   >
                     {t.metricsCopyButton}

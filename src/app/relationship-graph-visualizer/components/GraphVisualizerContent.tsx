@@ -85,12 +85,11 @@ function CopyButton({
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-      style={{
-        background: copied ? 'rgba(16,185,129,0.1)' : 'var(--muted)',
-        borderColor: copied ? '#10b981' : 'var(--border)',
-        color: copied ? '#10b981' : 'var(--muted-foreground)',
-      }}
+      className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        copied
+          ? 'border-success bg-success/10 text-success'
+          : 'border-border bg-muted text-muted-foreground'
+      }`}
     >
       {copied ? <Check size={12} /> : icon || <Copy size={12} />}
       {copied ? copiedLabel : label}
@@ -620,7 +619,7 @@ export default function GraphVisualizerContent() {
             {/* Search */}
             <div className="relative flex-1 min-w-[160px] max-w-xs order-last md:order-none basis-full md:basis-auto">
               <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150"
+                className="flex items-center gap-2 rounded-md border px-3 py-1.5 transition-colors"
                 style={{
                   background: 'var(--muted)',
                   borderColor: graphSearchFocused ? 'var(--primary)' : 'var(--border)',
@@ -643,19 +642,20 @@ export default function GraphVisualizerContent() {
                 />
                 {(graphSearch || selectedNodeId) && (
                   <button
+                    type="button"
+                    aria-label={t.joinDetailClearSearch}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleGraphSearchClear();
                     }}
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex-shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <X size={12} />
                   </button>
                 )}
                 {selectedNodeId && !graphSearch && (
                   <span
-                    className="max-w-20 truncate flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}
+                    className="max-w-20 truncate flex-shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono text-primary"
                     title={filteredTables.find((t) => t.id === selectedNodeId)?.name ?? ''}
                   >
                     {filteredTables.find((t) => t.id === selectedNodeId)?.name ?? ''}
@@ -699,7 +699,7 @@ export default function GraphVisualizerContent() {
                             e.preventDefault();
                             handleGraphSearchSelect(table.id);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/5"
+                          className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                           style={{ borderBottom: '1px solid rgba(45,51,72,0.5)' }}
                         >
                           <span
@@ -736,19 +736,18 @@ export default function GraphVisualizerContent() {
               {/* Suggestions Toggle */}
               <button
                 onClick={() => setShowSuggestions(!showSuggestions)}
-                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                style={{
-                  background: showSuggestions ? 'rgba(239,68,68,0.1)' : 'var(--muted)',
-                  borderColor: showSuggestions ? '#ef4444' : 'var(--border)',
-                  color: showSuggestions ? '#ef4444' : 'var(--muted-foreground)',
-                }}
+                className={`relative flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  showSuggestions
+                    ? 'border-danger/40 bg-danger/10 text-danger'
+                    : 'border-border bg-muted text-muted-foreground'
+                }`}
                 aria-label={t.graphSuggestions}
                 title={t.graphSuggestions}
               >
                 <AlertCircle size={12} />
                 <span>{t.graphSuggestions}</span>
                 {errorCount + warnCount > 0 && (
-                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-danger text-white text-[10px] font-bold">
                     {errorCount + warnCount}
                   </span>
                 )}
@@ -757,12 +756,11 @@ export default function GraphVisualizerContent() {
               {/* Join Analysis Toggle */}
               <button
                 onClick={() => setShowJoinAnalysis(!showJoinAnalysis)}
-                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                style={{
-                  background: showJoinAnalysis ? 'rgba(59,130,246,0.1)' : 'var(--muted)',
-                  borderColor: showJoinAnalysis ? '#3b82f6' : 'var(--border)',
-                  color: showJoinAnalysis ? '#3b82f6' : 'var(--muted-foreground)',
-                }}
+                className={`relative flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  showJoinAnalysis
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border bg-muted text-muted-foreground'
+                }`}
                 aria-label={t.graphJoinAnalysis}
                 title={t.graphJoinAnalysis}
               >
@@ -773,19 +771,18 @@ export default function GraphVisualizerContent() {
               {/* Extracted Tables Toggle */}
               <button
                 onClick={() => setShowExtracted(!showExtracted)}
-                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                style={{
-                  background: showExtracted ? 'rgba(34,197,94,0.1)' : 'var(--muted)',
-                  borderColor: showExtracted ? '#22c55e' : 'var(--border)',
-                  color: showExtracted ? '#22c55e' : 'var(--muted-foreground)',
-                }}
+                className={`relative flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  showExtracted
+                    ? 'border-success/40 bg-success/10 text-success'
+                    : 'border-border bg-muted text-muted-foreground'
+                }`}
                 aria-label={t.graphExtractedTables}
                 title={t.graphExtractedTables}
               >
                 <Layers size={12} />
                 <span>{t.graphExtractedTables}</span>
                 {extractedRows.length > 0 && (
-                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-white text-[10px] font-bold">
                     {extractedRows.length}
                   </span>
                 )}
@@ -798,12 +795,11 @@ export default function GraphVisualizerContent() {
             <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
               <button
                 onClick={() => updateSettings({ performanceMode: !settings.performanceMode })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border"
-                style={{
-                  background: settings.performanceMode ? 'rgba(168,85,247,0.1)' : 'var(--muted)',
-                  borderColor: settings.performanceMode ? '#a855f7' : 'var(--border)',
-                  color: settings.performanceMode ? '#a855f7' : 'var(--muted-foreground)',
-                }}
+                className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  settings.performanceMode
+                    ? 'border-accent/40 bg-accent/10 text-accent'
+                    : 'border-border bg-muted text-muted-foreground'
+                }`}
                 title={settings.performanceMode ? 'Performance Mode: ON' : 'Performance Mode: OFF'}
               >
                 <Zap size={12} />
@@ -812,16 +808,14 @@ export default function GraphVisualizerContent() {
               <button
                 type="button"
                 onClick={() => flowRef.current?.fitView()}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+                className="flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t.graphFit}
               </button>
               <button
                 type="button"
                 onClick={() => flowRef.current?.relayout()}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+                className="flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t.graphRearrange}
               </button>
@@ -834,8 +828,7 @@ export default function GraphVisualizerContent() {
               <button
                 type="button"
                 onClick={downloadVisibleImage}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-                style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
+                className="flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Copy size={12} />
                 {t.graphDownloadImage}
@@ -859,11 +852,11 @@ export default function GraphVisualizerContent() {
           <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-4">
             {/* Selected Node */}
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <h3 className="mb-3 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.selectedNode}
               </h3>
               {selectedNode ? (
-                <div className="space-y-3 animate-fade-in">
+                <div className="space-y-3 motion-safe:animate-fade-in">
                   <div className="glass-node rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Table2 size={14} className="text-primary" />
@@ -967,7 +960,7 @@ export default function GraphVisualizerContent() {
                 onClick={() => setShowJoinLegend(!showJoinLegend)}
                 className="w-full flex items-center justify-between hover:opacity-75 transition-opacity mb-3"
               >
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <h3 className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                   {t.joinLegend}
                 </h3>
                 <ChevronDown
@@ -993,7 +986,7 @@ export default function GraphVisualizerContent() {
 
             {/* All Tables List */}
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <h3 className="mb-3 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.allTables}
               </h3>
               <div className="space-y-1">
@@ -1001,7 +994,7 @@ export default function GraphVisualizerContent() {
                   <button
                     key={`table-list-${table.id}`}
                     onClick={() => setSelectedNodeId(table.id === selectedNodeId ? null : table.id)}
-                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono text-left transition-colors ${
+                    className={`w-full flex items-center gap-2 rounded px-2 py-1.5 text-xs font-mono text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       selectedNodeId === table.id
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -1034,7 +1027,7 @@ export default function GraphVisualizerContent() {
           style={{ maxHeight: '45vh' }}
         >
           {showSuggestions && visibleSuggestions.length > 0 && (
-            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+            <div className="flex-shrink-0 border-t border-border bg-card motion-safe:animate-slide-up">
               <SuggestionPanel
                 suggestions={visibleSuggestions}
                 dismissedIds={dismissedIds}
@@ -1051,7 +1044,7 @@ export default function GraphVisualizerContent() {
           )}
 
           {showJoinAnalysis && (
-            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+            <div className="flex-shrink-0 border-t border-border bg-card motion-safe:animate-slide-up">
               <JoinAnalysisPanel
                 joinAnalysisDetails={analysisResult?.joinAnalysisDetails}
                 tables={analysisResult?.tables}
@@ -1061,7 +1054,7 @@ export default function GraphVisualizerContent() {
           )}
 
           {showExtracted && extractedRows.length > 0 && (
-            <div className="flex-shrink-0 border-t border-border bg-card animate-slide-up">
+            <div className="flex-shrink-0 border-t border-border bg-card motion-safe:animate-slide-up">
               <ExtractedTablesPanel rows={extractedRows} onGetCsv={getExtractedTablesCsv} />
             </div>
           )}

@@ -17,6 +17,7 @@ beforeEach(() => {
   resetTestStorage();
   useAppStore.setState({ settings: { ...DEFAULT_SETTINGS } });
   document.documentElement.classList.remove('light', 'dark');
+  document.documentElement.removeAttribute('data-theme');
 });
 
 describe('Home page language switch', () => {
@@ -74,6 +75,18 @@ describe('Home page theme switch', () => {
     await waitFor(() => expect(document.documentElement).toHaveClass('light'));
     expect(document.documentElement).not.toHaveClass('dark');
     expect(screen.getByRole('button', { name: english.darkMode })).toBeInTheDocument();
+  });
+
+  it('updates the document theme attribute used by semantic theme tokens', async () => {
+    render(
+      <ThemeProvider>
+        <HomePage />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(document.documentElement).toHaveAttribute('data-theme', 'dark'));
+    fireEvent.click(screen.getByRole('button', { name: english.lightMode }));
+    await waitFor(() => expect(document.documentElement).toHaveAttribute('data-theme', 'light'));
   });
 
   it('switches back to dark from the light theme', async () => {

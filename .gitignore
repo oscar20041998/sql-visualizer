@@ -68,3 +68,5 @@ docs/knowledge/*.pdf
 # Optional: if using Specify skills
 skills-lock.json
 .agents/
+
+.hallmark/

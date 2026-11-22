@@ -64,45 +64,32 @@ function MetricCard({
             }
           : undefined
       }
-      className={`group relative isolate overflow-hidden bg-card border rounded-lg p-4 flex flex-col gap-2 transition-all duration-300 ${
+      className={`group relative min-w-0 bg-card border rounded-card p-4 flex flex-col gap-3 ${
         alert ? 'border-danger/30 bg-danger/5' : 'border-border'
-      } ${interactive ? 'cursor-pointer hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5' : ''}`}
+      } ${interactive ? 'cursor-pointer hover:border-primary/50 hover:bg-muted/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring' : ''}`}
       style={
         { containment: 'layout style paint', '--card-accent': accentColor } as React.CSSProperties
       }
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-[-120%] w-[220%] opacity-0 transition-transform duration-1000 group-hover:translate-x-[120%] group-hover:opacity-100"
-        style={{
-          background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${accentColor} 18%, transparent) 18%, color-mix(in srgb, ${accentColor} 62%, transparent) 50%, color-mix(in srgb, ${accentColor} 18%, transparent) 82%, transparent 100%)`,
-        }}
-      />
       {interactive && (
         <ChevronRight
           size={13}
-          className="absolute top-3 right-3 z-10 rotate-90 text-muted-foreground/50 transition-all duration-300 ease-out group-hover:rotate-0 group-hover:translate-x-0.5 group-hover:scale-125 group-hover:text-[var(--card-accent)]"
+          className="absolute bottom-4 right-4 text-muted-foreground group-hover:text-primary"
         />
       )}
-      <div className="relative z-10 flex items-center justify-between">
-        <span
-          className="text-xs font-medium uppercase tracking-wide"
-          style={{ color: accentColor }}
-        >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-muted-foreground">
           {label}
         </span>
-        <div
-          className="w-7 h-7 rounded flex items-center justify-center"
-          style={{ background: `${accentColor}15` }}
-        >
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted">
           <Icon size={14} style={{ color: accentColor }} />
         </div>
       </div>
-      <div className="relative z-10">
-        <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--primary)' }}>
+      <div className="min-w-0 pr-4">
+        <span className="text-2xl font-semibold text-foreground tabular-nums">
           {value}
         </span>
-        {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
     </div>
   );
@@ -179,7 +166,7 @@ export default function MetricCardsGrid({ metrics, metricDetails, t }: MetricCar
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <MetricCard
           label={t.windowFunctions}
           value={metrics.windowFunctions}

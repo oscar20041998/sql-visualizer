@@ -43,13 +43,13 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`group relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+      className={`group relative inline-flex h-5 w-9 items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
         checked ? 'bg-primary hover:brightness-110' : 'bg-muted hover:bg-border'
       }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
+        className={`inline-block h-3.5 w-3.5 transform rounded-full shadow-sm transition-transform duration-200 motion-reduce:transition-none ${
+          checked ? 'translate-x-4 bg-primary-foreground' : 'translate-x-0.5 bg-foreground'
         }`}
       />
     </button>
@@ -66,12 +66,12 @@ function SettingRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-4 border-b border-border/50 last:border-0">
-      <div className="flex-1 min-w-0 pr-8">
+    <div className="flex flex-col gap-3 border-b border-border py-4 last:border-0 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{label}</p>
-        {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+        {hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}
       </div>
-      <div className="flex-shrink-0">{children}</div>
+      <div className="min-w-0 max-w-full lg:shrink-0">{children}</div>
     </div>
   );
 }
@@ -95,18 +95,18 @@ function SelectDropdown<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground shadow-sm hover:border-primary/50 hover:bg-muted transition-all duration-150 min-w-[200px] justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+        className="group flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground hover:border-primary hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-w-[200px]"
       >
         <span className="truncate">{current?.label}</span>
         <ChevronDown
           size={13}
-          className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${
+          className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground motion-reduce:transition-none ${
             open ? 'rotate-180' : ''
           }`}
         />
       </button>
       {open && (
-        <div className="animate-dropdown absolute right-0 top-full mt-1.5 bg-card border border-border rounded-xl shadow-2xl ring-1 ring-black/5 z-50 p-1 min-w-[220px] w-max max-w-[min(24rem,calc(100vw-2rem))] max-h-[min(20rem,60vh)] overflow-y-auto scrollbar-thin">
+        <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-0 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg scrollbar-thin max-h-[min(20rem,60vh)] md:left-auto md:right-0 md:w-max md:min-w-full md:max-w-[24rem]">
           {options.map((opt) => (
             <button
               key={`opt-${opt.value}`}
@@ -115,7 +115,7 @@ function SelectDropdown<T extends string>({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className={`w-full whitespace-nowrap flex items-center gap-2 px-2.5 py-2 text-sm text-left rounded-md transition-colors ${
+              className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 value === opt.value
                   ? 'text-primary bg-primary/10 font-medium'
                   : 'text-foreground hover:bg-muted'
@@ -170,13 +170,13 @@ function ResettableField({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 max-w-full items-center gap-2">
       {children}
       {isModified && (
         <button
           onClick={onReset}
           title={resetTitle}
-          className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-border bg-card p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <RotateCcw size={12} />
         </button>
@@ -521,34 +521,34 @@ export default function SettingsContent() {
     .map((value) => ({ value: String(value), label: formatTokenCount(value) }));
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 xl:px-10">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-3 text-2xl font-semibold text-foreground">
             <Settings size={22} className="text-primary" />
             {t.settingsTitle}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{t.settingsSubtitle}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t.settingsSubtitle}</p>
         </div>
         <button
           onClick={resetDefaults}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all active:scale-95"
+          className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <RotateCcw size={13} />
           {t.resetDefaults}
         </button>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
         {/* Left Category Nav */}
-        <div className="w-52 flex-shrink-0">
-          <nav className="space-y-1">
+        <div className="min-w-0 lg:w-52 lg:shrink-0">
+          <nav className="flex flex-wrap gap-1 lg:flex-col">
             {SETTINGS_CATEGORIES.map(({ key, icon: Icon }) => (
               <button
                 key={`settings-cat-${key}`}
                 onClick={() => setActiveCategory(key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:w-full ${
                   activeCategory === key
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -560,7 +560,7 @@ export default function SettingsContent() {
                 {key === 'ai' && isAiDirty && (
                   <span
                     title={t.aiConfigUnsaved}
-                    className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400"
+                    className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning"
                   />
                 )}
               </button>
@@ -570,16 +570,16 @@ export default function SettingsContent() {
 
         {/* Right Content */}
         <div className="flex-1 min-w-0">
-          <div className="bg-card border border-border rounded-xl animate-fade-in">
-            <div className="px-6 py-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground">
+          <div className="rounded-card border border-border bg-card">
+            <div className="border-b border-border px-4 py-4 sm:px-6">
+              <h2 className="text-base font-semibold text-foreground">
                 {categoryLabels[activeCategory]}
               </h2>
               {activeCategory === 'ai' && (
                 <p className="mt-1 text-xs text-muted-foreground">{t.aiConfigSubtitle}</p>
               )}
             </div>
-            <div className="px-6">
+            <div className="px-4 sm:px-6">
               {/* Appearance */}
               {activeCategory === 'appearance' && (
                 <div>
@@ -599,7 +599,7 @@ export default function SettingsContent() {
                         <button
                           key={`accent-${color}`}
                           onClick={() => update('accentColor', color)}
-                          className="w-6 h-6 rounded-full border-2 border-transparent hover:border-foreground transition-all"
+                          className="h-6 w-6 rounded-full border-2 border-transparent hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           style={{ background: color }}
                           title={color}
                         />
@@ -613,27 +613,25 @@ export default function SettingsContent() {
               {activeCategory === 'language' && (
                 <div>
                   <SettingRow label={t.language} hint={t.languageHint}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => update('locale', 'en')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                        className={`flex min-h-11 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           settings.locale === 'en'
                             ? 'bg-primary/10 text-primary border-primary/30'
-                            : 'bg-card border-border text-muted-foreground hover:bg-muted'
+                            : 'border-border bg-transparent text-muted-foreground hover:bg-muted'
                         }`}
                       >
-                        <span>🇺🇸</span>
                         {t.languageEnglish}
                       </button>
                       <button
                         onClick={() => update('locale', 'vi')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                        className={`flex min-h-11 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           settings.locale === 'vi'
                             ? 'bg-primary/10 text-primary border-primary/30'
-                            : 'bg-card border-border text-muted-foreground hover:bg-muted'
+                            : 'border-border bg-transparent text-muted-foreground hover:bg-muted'
                         }`}
                       >
-                        <span>🇻🇳</span>
                         {t.languageVietnamese}
                       </button>
                     </div>
@@ -747,20 +745,20 @@ export default function SettingsContent() {
                           value={aiDraft.baseUrls[aiDraft.provider] ?? ''}
                           onChange={(e) => updateBaseUrl(aiDraft.provider, e.target.value)}
                           placeholder={DEFAULT_BASE_URLS[aiDraft.provider]}
-                          className="px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground min-w-[260px] focus:outline-none focus:ring-2 focus:ring-ring"
+                          className="w-full min-w-0 rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-[260px]"
                         />
                       </ResettableField>
                     </SettingRow>
 
                     {aiDraft.provider === 'ollama' ? (
                       <SettingRow label={t.aiLocalModel} hint={t.aiLocalModelHint}>
-                        <div className="min-w-[220px]">
+                        <div className="w-full max-w-full sm:w-[220px]">
                           <input
                             type="text"
                             value={aiDraft.ollamaModel}
                             onChange={(e) => updateAI('ollamaModel', e.target.value)}
                             placeholder="llama3"
-                            className={`w-full px-3 py-1.5 rounded-lg bg-input border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                            className={`w-full rounded-md border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
                               !aiDraft.ollamaModel.trim()
                                 ? 'border-rose-500 focus:border-rose-500'
                                 : 'border-border'
@@ -787,17 +785,17 @@ export default function SettingsContent() {
                               triggerLabel: t.aiModelId,
                             }}
                           />
-                          <div className="mt-1.5 flex min-h-5 items-center gap-2 text-xs text-muted-foreground">
+                          <div className="mt-1.5 flex min-h-5 flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             {isLoadingModels && <span aria-live="polite">{t.aiModelsLoading}</span>}
                             {!isLoadingModels && modelLoadError && (
                               <>
-                                <span className="text-rose-500" title={modelLoadError}>
+                                <span className="min-w-0 break-words text-rose-500" title={modelLoadError}>
                                   {modelLoadError}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => setModelLoadAttempt((attempt) => attempt + 1)}
-                                  className="underline underline-offset-2 hover:text-foreground"
+                                  className="rounded-sm underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                   {t.aiModelsRetry}
                                 </button>
@@ -937,7 +935,7 @@ export default function SettingsContent() {
                         onChange={(e) => updateAI('systemPrompt', e.target.value)}
                         rows={4}
                         placeholder={t.aiSystemPromptPlaceholder}
-                        className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                        className="w-full resize-none rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     </div>
 
@@ -949,14 +947,14 @@ export default function SettingsContent() {
                       <button
                         onClick={discardAiConfig}
                         disabled={!isAiDirty}
-                        className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="min-h-11 rounded-md border border-border bg-transparent px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {t.aiConfigDiscard}
                       </button>
                       <button
                         onClick={saveAiConfig}
                         disabled={!isAiDirty || !isAiConfigValid}
-                        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
                       >
                         <Check size={14} />
                         {t.aiConfigSave}

@@ -43,7 +43,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           {isLoading ? (
             <>
               <span
-                className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
+                className="h-4 w-4 motion-safe:animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
                 aria-hidden
               />
               {t.analyzing || 'Analyzing'}

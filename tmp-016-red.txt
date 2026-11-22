@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/Github projects/sql-visualizer[39m
+
+ [32m✓[39m tests/unit/dashboardData.test.ts [2m([22m[2m17 tests[22m[2m)[22m[90m 20[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/astStatistics.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 63[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/parseSql.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 132[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlMetricsDashboard.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 1151[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m70 passed[39m[22m[90m (70)[39m
+[2m   Start at [22m 22:48:11
+[2m   Duration [22m 4.54s[2m (transform 773ms, setup 1.48s, collect 1.88s, tests 1.37s, environment 5.62s, prepare 641ms)[22m
+

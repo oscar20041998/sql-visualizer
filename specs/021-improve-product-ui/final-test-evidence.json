@@ -1,0 +1,37 @@
+{
+  "status": "partial",
+  "commands": [
+    {
+      "command": "npm test",
+      "result": "pass",
+      "files": 84,
+      "tests": 829,
+      "details": "Final run after all UI refinements with dependencies restored from the unchanged package lockfile."
+    },
+    {
+      "command": "npm run type-check",
+      "result": "pass"
+    },
+    {
+      "command": "npx next build",
+      "result": "pass",
+      "details": "Production compilation and generation of 24 static pages succeeded."
+    },
+    {
+      "command": "npm run build",
+      "result": "pass",
+      "details": "The Piper assets were available locally; docs-index generation and the Next.js production build completed, generating 24 static pages."
+    },
+    {
+      "command": "npm ci",
+      "result": "pass",
+      "details": "Restored dependencies from the unchanged package lockfile after temporary Hallmark tooling was removed."
+    }
+  ],
+  "limitations": [
+    "The baseline inventory is partial; this evidence does not establish parity for every route, state, permission, or saved value.",
+    "Home and login received Hallmark render checks. Protected workspace screens were not rendered in an authenticated browser context.",
+    "Manual keyboard journeys, all real viewport interactions, one-GPU performance checks, and user evaluation remain incomplete.",
+    "The baseline inventory remains partial, so passing unit tests and the build do not establish full product parity."
+  ]
+}

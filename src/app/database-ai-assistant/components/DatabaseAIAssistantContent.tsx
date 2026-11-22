@@ -307,18 +307,19 @@ export default function DatabaseAIAssistantContent() {
           <DatabaseAssistantHistoryPanel />
 
           {/* The chat column keeps the viewport height so the assistant still fills the page on its own. */}
-          <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-5 py-8 sm:px-8 lg:max-w-none">
-            <header className="flex items-center justify-between pb-6">
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-8 sm:py-8 lg:max-w-none">
+            <header className="flex items-center justify-between gap-3 border-b border-border/70 pb-4">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Database size={16} />
                 </span>
                 <div>
-                  <h1 className="text-base font-semibold text-foreground">
+                  <h1 className="text-lg font-semibold text-foreground">
                     {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
                   </h1>
-                  <p className="text-xs text-muted-foreground">
-                    {aiConfig.provider} · {modelLabel}
+                  <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                    <span>{aiConfig.provider}</span>
+                    <span>{modelLabel}</span>
                   </p>
                 </div>
               </div>
@@ -327,7 +328,7 @@ export default function DatabaseAIAssistantContent() {
                   onClick={handleNewChat}
                   title={t.dbAssistantNewChat}
                   aria-label={t.dbAssistantNewChat}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -358,7 +359,7 @@ export default function DatabaseAIAssistantContent() {
                             key={`db-suggestion-${index}`}
                             onClick={() => ask(suggestion)}
                             disabled={isAsking}
-                            className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                            className="min-h-10 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                           >
                             {suggestion}
                           </button>
@@ -383,10 +384,10 @@ export default function DatabaseAIAssistantContent() {
                       {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                     </span>
                     <div
-                      className={`max-w-[86%] px-1 py-1.5 ${
+                      className={`min-w-0 max-w-[86%] px-1 py-1.5 ${
                         turn.role === 'user'
-                          ? 'rounded-2xl bg-muted px-4 text-sm font-medium text-foreground'
-                          : 'text-sm text-foreground'
+                          ? 'rounded-2xl border border-border bg-muted px-4 py-3 text-sm font-medium text-foreground'
+                          : 'rounded-lg border border-border/70 bg-card px-4 py-3 text-sm text-foreground'
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-3">
@@ -405,10 +406,10 @@ export default function DatabaseAIAssistantContent() {
                           <p className="whitespace-pre-wrap leading-relaxed">{turn.content}</p>
                         )
                       ) : (
-                        <Loader2 size={15} className="animate-spin text-muted-foreground" />
+                        <Loader2 size={15} className="motion-safe:animate-spin text-muted-foreground" />
                       )}
                       {turn.isStreaming && turn.content && (
-                        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary align-middle" />
+                        <span className="ml-0.5 inline-block h-4 w-0.5 bg-primary align-middle motion-safe:animate-pulse" />
                       )}
                       {turn.role === 'assistant' && turn.sources && turn.sources.length > 0 && (
                         <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
@@ -418,13 +419,13 @@ export default function DatabaseAIAssistantContent() {
                           {turn.sources.map((source, sourceIndex) => (
                             <span
                               key={`db-source-${turn.id}-${sourceIndex}`}
-                              className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
+                              className="rounded-full px-2 py-0.5 text-[10px] text-muted-foreground"
                               title={[source.section, source.pageAnchor]
                                 .filter(Boolean)
-                                .join(' — ')}
+                                .join(', ')}
                             >
                               {source.sourceFile}
-                              {source.section ? ` · ${source.section}` : ''}
+                              {source.section && <span className="ml-1">{source.section}</span>}
                             </span>
                           ))}
                         </div>
@@ -435,14 +436,14 @@ export default function DatabaseAIAssistantContent() {
 
                 {!isAsking && followUps.length > 0 && (
                   <div className="ml-9 flex flex-wrap items-center gap-2">
-                    <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="w-full text-xs font-medium text-muted-foreground normal-case tracking-normal">
                       {t.dbAssistantFollowUpsLabel}
                     </span>
                     {followUps.map((suggestion, index) => (
                       <button
                         key={`db-followup-${turns.length}-${index}`}
                         onClick={() => ask(suggestion)}
-                        className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
+                        className="min-h-10 rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-foreground transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {suggestion}
                       </button>
@@ -458,11 +459,12 @@ export default function DatabaseAIAssistantContent() {
                   event.preventDefault();
                   void ask(question);
                 }}
-                className="flex items-center gap-2 rounded-3xl border border-border bg-muted/50 p-2 shadow-sm focus-within:border-primary/50 focus-within:bg-card"
+                className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-2 focus-within:border-primary/50 focus-within:bg-card focus-within:ring-2 focus-within:ring-ring/40"
               >
                 <input
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
+                  aria-label={t.dbAssistantPlaceholder}
                   placeholder={t.dbAssistantPlaceholder}
                   disabled={isAsking}
                   className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
@@ -473,7 +475,7 @@ export default function DatabaseAIAssistantContent() {
                     onClick={handleStop}
                     title={t.dbAssistantStop}
                     aria-label={t.dbAssistantStop}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85"
+                    className="flex h-10 w-10 items-center justify-center rounded-md bg-foreground text-background transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Square size={13} fill="currentColor" />
                   </button>
@@ -483,7 +485,7 @@ export default function DatabaseAIAssistantContent() {
                     disabled={!question.trim()}
                     title={t.dbAssistantSend}
                     aria-label={t.dbAssistantSend}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Send size={15} />
                   </button>

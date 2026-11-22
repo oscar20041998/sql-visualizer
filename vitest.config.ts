@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
@@ -12,6 +12,11 @@ export default defineConfig({
     jsx: 'automatic',
   },
   test: {
+    exclude: [
+      ...configDefaults.exclude,
+      '**/.agents/skills/hallmark/**',
+      '**/.github/skills/hallmark/**',
+    ],
     // dt-sql-parser (ANTLR-based) is lazy-loaded on the first AST cross-check; that
     // one-time cold-load can exceed vitest's default 5s timeout in CI.
     testTimeout: 30000,

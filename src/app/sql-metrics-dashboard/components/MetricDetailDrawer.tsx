@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import type { MetricDetailItem } from '@/lib/sql/sqlAnalyzer';
 import { useGoToSqlLine } from '@/lib/useGoToSqlLine';
@@ -112,19 +112,16 @@ export default function MetricDetailDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 bg-background/60 motion-safe:animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="fixed inset-y-0 right-0 z-50 w-full sm:max-w-xl bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right"
+        className="fixed inset-y-0 right-0 z-50 w-full sm:max-w-xl bg-card border-l border-border shadow-2xl flex flex-col motion-safe:animate-slide-in-right"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: `${accentColor}15` }}
-            >
+            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
               <Icon size={16} style={{ color: accentColor }} />
             </div>
             <div>
@@ -137,7 +134,7 @@ export default function MetricDetailDrawer({
           <button
             onClick={onClose}
             aria-label={t.metricsDetailCloseLabel}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="w-11 h-11 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <X size={16} />
           </button>
@@ -149,7 +146,7 @@ export default function MetricDetailDrawer({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t.metricsDetailSearchPlaceholder}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
         </div>
 
@@ -158,19 +155,19 @@ export default function MetricDetailDrawer({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/30 sticky top-0 z-10">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground w-8 border-r border-border/30">
                     #
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-40 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-40 border-r border-border/30">
                     {t.metricsDetailSnippetHeader}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-24 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-24 border-r border-border/30">
                     {t.metricsDetailClauseHeader}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-24 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-24 border-r border-border/30">
                     {t.metricsDetailScopeHeader}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-16">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-16">
                     {t.metricsDetailLineHeader}
                   </th>
                 </tr>
@@ -229,25 +226,26 @@ export default function MetricDetailDrawer({
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
               <button
+                aria-label={t.metricsFieldPaginationPrev}
                 onClick={() => setPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ←
+                <ChevronLeft aria-hidden="true" className="mx-auto h-4 w-4" />
               </button>
               {getPageNumbers().map((p, idx) =>
                 p === '...' ? (
                   <span key={`ellipsis-${idx}`} className="px-2 py-1">
-                    ...
+                    …
                   </span>
                 ) : (
                   <button
                     key={`page-${p}`}
                     onClick={() => setPage(p as number)}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                    className={`min-h-11 min-w-11 px-2 py-1 rounded-md text-xs font-medium active:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                       currentPage === p
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+                        : 'bg-background border border-border text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     {p}
@@ -255,11 +253,12 @@ export default function MetricDetailDrawer({
                 )
               )}
               <button
+                aria-label={t.metricsFieldPaginationNext}
                 onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                →
+                <ChevronRight aria-hidden="true" className="mx-auto h-4 w-4" />
               </button>
             </div>
           )}

@@ -18,8 +18,8 @@ export function GeneratorTargetControls({ options, onChange, t }: GeneratorTarge
   ] as const;
 
   return (
-    <fieldset className="grid grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2 lg:grid-cols-4">
-      <label className="flex flex-col gap-1 text-sm font-medium">
+    <fieldset className="grid grid-cols-1 gap-4 border-0 p-0 sm:grid-cols-2 lg:grid-cols-4">
+      <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
         {t.generatorLanguage}
         <select
           aria-label={t.generatorLanguage}
@@ -38,7 +38,7 @@ export function GeneratorTargetControls({ options, onChange, t }: GeneratorTarge
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm font-medium">
+      <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
         {t.generatorFramework}
         <select
           aria-label={t.generatorFramework}
@@ -50,7 +50,7 @@ export function GeneratorTargetControls({ options, onChange, t }: GeneratorTarge
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm font-medium">
+      <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
         {t.generatorOutputType}
         <select
           aria-label={t.generatorOutputType}
@@ -66,7 +66,7 @@ export function GeneratorTargetControls({ options, onChange, t }: GeneratorTarge
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm font-medium">
+      <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
         {t.generatorNamingStrategy}
         <select
           aria-label={t.generatorNamingStrategy}

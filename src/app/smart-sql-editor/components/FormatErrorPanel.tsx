@@ -84,7 +84,7 @@ const AiStatusBlock: React.FC<{
   if (phase === 'loading') {
     return (
       <div className="flex items-center gap-2 rounded border border-border bg-muted/50 p-3 text-xs text-muted-foreground">
-        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+        <Loader2 size={14} className="motion-safe:animate-spin" aria-hidden="true" />
         {t.formatErrorPanelLoading}
       </div>
     );
@@ -354,7 +354,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[60] bg-background/60 motion-safe:animate-fade-in"
       onClick={() => onToggle(false)}
       role="presentation"
     >
@@ -362,7 +362,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         id="format-error-report"
         aria-label={t.formatErrorPanelTitle}
         onClick={(event) => event.stopPropagation()}
-        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl animate-slide-in-right sm:max-w-xl"
+        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl motion-safe:animate-slide-in-right sm:max-w-xl"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-border bg-danger/10 px-4 py-3">
@@ -379,7 +379,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
             aria-expanded={true}
             aria-controls="format-error-report"
             title={t.formatErrorPanelClose}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-border bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight size={14} aria-hidden="true" />
             <span className="sr-only">{t.formatErrorPanelClose}</span>
@@ -408,7 +408,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
           {/* Message — the formatter's own words, always shown. */}
           <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="mb-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {t.formatErrorPanelMessageLabel}
             </h3>
             <p className="whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
@@ -419,7 +419,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
           {/* Location + snippet — rendered only when the formatter reported a real position. */}
           {position && (
             <section>
-              <h3 className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 <MapPin size={12} aria-hidden="true" />
                 {t.formatErrorPanelLocationLabel}
               </h3>
@@ -441,7 +441,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
               )}
               {error.snippet && (
                 <div className="mt-2">
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.formatErrorPanelSnippetLabel}
                   </h4>
                   <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-2 font-mono text-xs text-foreground">
@@ -464,7 +464,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {explainPhase === 'loading' ? (
-                  <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                  <Loader2 size={12} className="motion-safe:animate-spin" aria-hidden="true" />
                 ) : (
                   <Sparkles size={12} aria-hidden="true" />
                 )}
@@ -491,20 +491,20 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
           {explainPhase === 'ready' && explanation && (
             <section className="rounded border border-primary/30 bg-primary/5 p-3">
-              <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-primary">
+              <h3 className="mb-2 flex items-center gap-1 text-xs font-medium text-primary normal-case tracking-normal">
                 <Sparkles size={12} aria-hidden="true" />
                 {t.formatErrorPanelExplainSectionTitle}
               </h3>
               <p className="whitespace-pre-wrap break-words text-xs text-foreground">
                 {explanation.explanation}
               </p>
-              <h4 className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mt-3 mb-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.formatErrorPanelRootCauseLabel}
               </h4>
               <p className="whitespace-pre-wrap break-words text-xs text-foreground">
                 {explanation.rootCause}
               </p>
-              <h4 className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mt-3 mb-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.formatErrorPanelEvidenceLabel}
               </h4>
               <ul className="space-y-1">
@@ -541,7 +541,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                 </div>
               )}
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-success">
+                <h3 className="flex items-center gap-1 text-xs font-medium text-success normal-case tracking-normal">
                   <Check size={13} aria-hidden="true" />
                   {t.formatErrorPanelReplacementSqlLabel}
                 </h3>
@@ -551,7 +551,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                     onClick={handleCopyFix}
                     aria-label={t.formatErrorPanelCopyFix}
                     title={t.formatErrorPanelCopyFix}
-                    className="flex items-center gap-1 rounded border border-success/40 bg-card px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex items-center gap-1 rounded border border-success/40 bg-transparent px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {fixCopied ? (
                       <Check size={12} className="shrink-0" aria-hidden="true" />

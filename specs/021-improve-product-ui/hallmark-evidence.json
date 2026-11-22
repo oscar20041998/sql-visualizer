@@ -1,0 +1,68 @@
+{
+  "status": "partial",
+  "version": "2.0.0",
+  "staticRuns": [
+    {
+      "target": "src/app/page.tsx and src/styles/tailwind.css",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "src/app/query-input/components",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "src/app/settings-preferences",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "src/app/login, SignInPage, SignInPanel, LanguageThemeSwitch",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "src/app/sql-metrics-dashboard",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "Sidebar and ThemeProvider",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "warning": "The kept baseline contains more files than this targeted run."
+    },
+    {
+      "target": "All 44 changed TSX/CSS files",
+      "command": "node .github/skills/hallmark/scripts/sloplint.mjs <changed UI files> --genre modern-minimal --scope app --render --url http://localhost:4028/",
+      "result": "0 FAIL, 0 REFLEX, 0 WARN, 1 DISMISSED",
+      "details": "The existing legal footer text was retained for the UI-only scope and its Hallmark 19 warning was recorded as dismissed."
+    }
+  ],
+  "renderRuns": [
+    {
+      "route": "/",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "screenshots": ".hallmark/shots/localhost-4029-*",
+      "details": "Responsive checks covered 320, 375, 414, 768, 1024, 1280, 1440, and 1920px. Initial button wrapping and an equal icon-above-heading composition were fixed before the passing run."
+    },
+    {
+      "route": "/login",
+      "result": "0 FAIL, 0 REFLEX, 1 WARN",
+      "screenshots": ".hallmark/shots/localhost-4029-*",
+      "details": "Input contrast and 320px guest-link wrapping were fixed. The guest-link text was shortened again after render; final guest, login, and accessibility tests plus static lint passed."
+    },
+    {
+      "route": "/",
+      "result": "0 FAIL, 0 REFLEX, 0 WARN, 1 DISMISSED",
+      "screenshots": ".hallmark/shots/localhost-4028-*",
+      "details": "Final render after all UI refinements completed with five screenshots: 1280x800, 1440x900 and 1920x1080 folds, plus full-page captures at 1440 and 375 pixels."
+    }
+  ],
+  "limitations": [
+    "Each kept warning is a target-size mismatch against the application-wide before record, not an unresolved page finding.",
+    "AppLayout.tsx has no direct interactive elements; its file-level focus-style finding is not applicable to that module. Sidebar controls were linted independently.",
+    "Protected routes were not rendered with authenticated browser state.",
+    "No usability study or full-product responsive browser journey was performed."
+  ]
+}

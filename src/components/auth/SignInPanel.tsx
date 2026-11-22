@@ -259,7 +259,7 @@ export default function SignInPanel() {
   const isBusy = authState === 'authenticating';
 
   const controlClass =
-    'h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:border-ring';
+    'h-10 w-full rounded-md border border-muted-foreground bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:border-ring';
 
   const tabClass = (active: boolean) =>
     `h-10 flex-1 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
@@ -445,7 +445,7 @@ export default function SignInPanel() {
       {/* Social sign-in (behaviour preserved verbatim) */}
       <div className="my-6 flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {t.authOrContinueWith}
         </span>
         <span className="h-px flex-1 bg-border" />
@@ -459,7 +459,7 @@ export default function SignInPanel() {
           onClick={() => startSocialLogin('google')}
         >
           {isBusy ? (
-            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+            <Loader2 size={15} className="motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <GoogleLogo />
           )}
@@ -472,7 +472,7 @@ export default function SignInPanel() {
           onClick={() => startSocialLogin('microsoft')}
         >
           {isBusy ? (
-            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+            <Loader2 size={15} className="motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <MicrosoftLogo />
           )}
@@ -514,7 +514,7 @@ export default function SignInPanel() {
       <button
         type="button"
         onClick={() => setGuestDialogOpen(true)}
-        className="mt-4 w-full rounded-md border border-dashed border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="mt-4 w-full whitespace-nowrap rounded-md border border-dashed border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {t.guestAccessLink}
       </button>

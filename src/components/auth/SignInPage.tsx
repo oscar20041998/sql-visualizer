@@ -30,11 +30,11 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
   const t = getT(settings.locale as 'en' | 'vi');
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-background px-6 pb-12 pt-24 sm:px-10 lg:px-16">
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-6 py-5 sm:px-10">
+    <main className="relative flex min-h-screen items-center justify-center bg-paper px-6 pb-12 pt-28 sm:px-10 lg:px-16">
+      <div className="absolute inset-x-0 top-0 mx-auto flex max-w-7xl items-center justify-between gap-3 border-b border-rule px-6 py-5 sm:px-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {t.backToHome}
@@ -42,7 +42,7 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
         <LanguageThemeSwitch />
       </div>
 
-      <div className="grid w-full max-w-5xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
+      <div className="grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-20">
         {/* Sign-in form — first in DOM, first in tab order (FR-016) */}
         <div className="mx-auto flex w-full justify-center lg:justify-end">
           <div className="w-full">
@@ -59,7 +59,7 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
                 <button
                   type="button"
                   onClick={onResumeGuest}
-                  className="flex-shrink-0 rounded-md bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex-shrink-0 rounded-md bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {t.guestAccessResumeAction}
                 </button>
@@ -70,13 +70,13 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
         </div>
 
         {/* Brand introduction — auxiliary, hidden below lg (FR-015) */}
-        <div aria-hidden="true" className="hidden select-none lg:block">
+        <div aria-hidden="true" className="hidden select-none lg:block lg:border-l lg:border-rule lg:pl-16">
           <div className="space-y-8">
             <div className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Database size={22} />
             </div>
             <div className="space-y-4">
-              <h2 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
+              <h2 className="text-3xl font-semibold leading-tight tracking-tight text-foreground lg:text-4xl">
                 {t.signInBrandTitle}
               </h2>
               <p className="max-w-md text-base leading-relaxed text-muted-foreground">

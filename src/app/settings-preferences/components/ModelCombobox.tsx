@@ -120,7 +120,7 @@ export default function ModelCombobox({
     }
   };
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative w-full max-w-full sm:w-[300px]" ref={containerRef}>
       <button
         type="button"
         disabled={disabled}
@@ -128,20 +128,20 @@ export default function ModelCombobox({
         aria-expanded={open}
         aria-label={labels.triggerLabel}
         onClick={() => setOpen((current) => !current)}
-        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-input border border-border text-sm text-foreground shadow-sm hover:border-primary/50 hover:bg-muted transition-all duration-150 w-[300px] justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99] disabled:opacity-50"
+        className="group flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground hover:border-primary hover:bg-muted active:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
       >
         <span className="truncate">{value}</span>
         <ChevronDown
           size={13}
           aria-hidden="true"
-          className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${
+          className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground motion-reduce:transition-none ${
             open ? 'rotate-180' : ''
           }`}
         />
       </button>
 
       {open && (
-        <div className="animate-dropdown absolute right-0 top-full mt-1.5 bg-card border border-border rounded-xl shadow-2xl ring-1 ring-black/5 z-50 p-1 w-[300px]">
+        <div className="absolute right-0 top-full z-50 mt-1 w-full rounded-md border border-border bg-card p-1 shadow-lg">
           <div className="relative px-1 pb-1">
             <Search
               size={13}
@@ -181,7 +181,7 @@ export default function ModelCombobox({
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setHighlighted(index)}
                 onClick={() => choose(option)}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 text-sm text-left rounded-md transition-colors ${
+                className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm active:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   highlighted === index
                     ? 'bg-muted text-foreground'
                     : value === option
@@ -207,7 +207,7 @@ export default function ModelCombobox({
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setHighlighted(matches.length)}
                 onClick={addCustom}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 text-sm text-left rounded-md transition-colors ${
+                className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm active:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   highlighted === matches.length
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground'

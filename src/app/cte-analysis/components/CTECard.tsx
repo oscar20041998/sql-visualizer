@@ -33,11 +33,11 @@ function ComplexityBadge({
 }) {
   const cfg = {
     LOW: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    MEDIUM: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    HIGH: 'bg-red-500/10 text-red-500 border-red-500/20',
+    MEDIUM: 'bg-warning/10 text-warning border-warning/20',
+    HIGH: 'bg-danger/10 text-danger border-danger/20',
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${cfg[level]}`}>
+    <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${cfg[level]}`}>
       {{ LOW: t.complexityLow, MEDIUM: t.complexityMedium, HIGH: t.complexityHigh }[level]}
     </span>
   );
@@ -61,26 +61,30 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
     issues.push({
       icon: <EyeOff size={11} />,
       text: t.cteUnusedWarning,
-      color: 'text-amber-500',
+      color: 'text-warning',
     });
   }
   if (cte.isRecursive) {
     issues.push({
       icon: <RefreshCw size={11} />,
       text: t.cteRecursiveNote,
-      color: 'text-blue-500',
+      color: 'text-info',
     });
   }
 
   return (
     <div
-      className={`bg-card border rounded-xl overflow-hidden ${
-        cte.isUnused ? 'border-amber-500/30' : 'border-border'
+      className={`overflow-hidden rounded-lg border bg-card ${
+        cte.isUnused ? 'border-warning/30' : 'border-border'
       }`}
       style={{ containment: 'layout style paint' } as any}
     >
       {/* Card Header */}
-      <button onClick={onToggle} className="w-full flex items-center gap-3 px-5 py-4 text-left">
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-5"
+      >
         <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
           <Layers size={14} className="text-accent" />
         </div>
@@ -91,19 +95,19 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               {t.cteOriginBadgeCTE}
             </span>
             {cte.isRecursive && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[10px] font-medium border border-blue-500/20">
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-info/10 text-info text-[10px] font-medium border border-info/20">
                 <RefreshCw size={9} />
                 {t.cteTagRECURSIVE}
               </span>
             )}
             {cte.isUnused && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-medium border border-amber-500/20">
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium border border-warning/20">
                 <EyeOff size={9} />
                 {t.cteTagUNUSED}
               </span>
             )}
             {cte.nestedSubqueries.length > 0 && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-500 text-[10px] font-medium border border-violet-500/20">
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent/10 text-accent text-[10px] font-medium border border-accent/20">
                 <Table2 size={9} />
                 {cte.nestedSubqueries.length} {t.cteSubqueryCount}
               </span>
@@ -141,9 +145,9 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
         <div className="border-t border-border">
           {/* Issues Banner */}
           {issues.length > 0 && (
-            <div className="px-5 py-3 bg-amber-500/5 border-b border-amber-500/20 flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle size={10} className="text-amber-500" />
+            <div className="px-5 py-3 bg-warning/5 border-b border-warning/20 flex flex-col gap-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground normal-case tracking-normal">
+                <AlertTriangle size={10} className="text-warning" />
                 {t.cteIssues}
               </span>
               {issues.map((issue, i) => (
@@ -158,11 +162,11 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
           {/* Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border border-b border-border">
             <div className="px-4 py-3 flex flex-col gap-0.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.cteUsageCount}
               </span>
               <div className="flex items-center gap-1.5">
-                <Eye size={13} className={cte.isUnused ? 'text-amber-500' : 'text-emerald-500'} />
+                <Eye size={13} className={cte.isUnused ? 'text-warning' : 'text-success'} />
                 <span className="text-sm font-bold text-foreground font-mono">
                   {cte.usageCount}
                 </span>
@@ -170,7 +174,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               </div>
             </div>
             <div className="px-4 py-3 flex flex-col gap-0.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.cteEstimatedComplexity}
               </span>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -179,14 +183,14 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               </div>
             </div>
             <div className="px-4 py-3 flex flex-col gap-0.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.cteIsRecursive}
               </span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {cte.isRecursive ? (
                   <>
-                    <RefreshCw size={13} className="text-blue-500" />
-                    <span className="text-xs font-semibold text-blue-500">{t.cteBooleanYes}</span>
+                    <RefreshCw size={13} className="text-info" />
+                    <span className="text-xs font-semibold text-info">{t.cteBooleanYes}</span>
                   </>
                 ) : (
                   <>
@@ -197,7 +201,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               </div>
             </div>
             <div className="px-4 py-3 flex flex-col gap-0.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                 {t.cteDependencies}
               </span>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -214,12 +218,12 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
             {/* SQL Body */}
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <h4 className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
                   {t.cteBody}
                 </h4>
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="flex min-h-9 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Copy size={11} />
                   {t.copySQL}
@@ -237,7 +241,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
               {/* Referenced Tables */}
               <div className="space-y-2 overflow-auto max-h-48 scrollbar-thin">
                 <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  <h4 className="mb-2 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.cteTables}
                   </h4>
                   {cte.tables.length > 0 ? (
@@ -260,7 +264,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
                 {/* CTE Dependencies */}
                 {cte.dependencies.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                       <Link2 size={10} />
                       {t.cteDepsLabel}
                     </h4>
@@ -281,7 +285,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
                 {/* Column References */}
                 {cte.columnReferences.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                       <Columns size={10} />
                       {t.cteColumnRefs}
                     </h4>
@@ -300,7 +304,7 @@ export default function CTECard({ cte, expanded, onToggle, t }: CTECardProps) {
 
                 {/* Selected Fields */}
                 <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  <h4 className="mb-2 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.cteFields}
                   </h4>
                   {cte.fields.length > 0 ? (

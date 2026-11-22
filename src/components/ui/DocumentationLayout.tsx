@@ -27,12 +27,12 @@ export default function DocumentationLayout({ html, footerKey }: DocumentationLa
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="flex h-16 items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                <Database className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
+                <Database className="h-5 w-5 text-primary" aria-hidden="true" />
               </div>
               <span className="hidden text-lg font-bold text-foreground sm:inline">
                 {t.appName}
@@ -52,7 +52,7 @@ export default function DocumentationLayout({ html, footerKey }: DocumentationLa
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <article
           // `dark:prose-invert` keeps the typography readable in both themes; `text-foreground` on
           // <pre> is required because the code blocks sit on the themed `card` surface (prose's
@@ -72,7 +72,7 @@ export default function DocumentationLayout({ html, footerKey }: DocumentationLa
       <MermaidDiagramRenderer />
 
       <footer className="border-t border-border/50 py-8">
-        <div className="mx-auto max-w-5xl px-6 text-center text-sm text-muted-foreground">
+        <div className="mx-auto max-w-5xl px-4 text-center text-sm text-muted-foreground sm:px-6">
           {t[footerKey]}
         </div>
       </footer>

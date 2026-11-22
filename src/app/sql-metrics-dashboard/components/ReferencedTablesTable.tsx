@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 
 interface Table {
   id: string;
@@ -102,12 +102,12 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
           placeholder={`Search tables, aliases, or columns... (${filteredTables.length} found)`}
           value={searchTerm}
           onChange={handleSearch}
-          className="w-full pl-9 pr-10 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+          className="min-h-11 w-full pl-9 pr-10 py-2 bg-background border border-border rounded-md text-sm text-foreground placeholder-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         />
         {searchTerm && (
           <button
             onClick={handleClearSearch}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             title="Clear search"
           >
             <X size={16} />
@@ -126,22 +126,22 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/30 sticky top-0">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground w-8">
                     #
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-40 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-40">
                     {t.tableName || 'Table Name'}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-32">
                     {t.tableAlias || 'Alias'}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground w-24">
                     Type
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-20 border-r border-border/30">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground w-20">
                     {t.columnCount || 'Columns'}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-64">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-64">
                     Column List
                   </th>
                 </tr>
@@ -167,16 +167,18 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
                           {table.alias}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">—</span>
+                        <span className="text-xs text-muted-foreground italic">
+                          {t.metricsValueUnavailable}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 border-r border-border/30">
                       {table.isCTE ? (
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 inline-block">
+                        <span className="text-xs font-semibold text-info bg-info/10 px-2 py-0.5 rounded border border-info/20 inline-block">
                           CTE
                         </span>
                       ) : (
-                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block">
+                        <span className="text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded border border-success/20 inline-block">
                           TABLE
                         </span>
                       )}
@@ -209,7 +211,7 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
           </div>
 
           {/* Result Counter & Pagination */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="font-medium">
               Showing {filteredTables.length === 0 ? 0 : startIdx + 1} to{' '}
               {Math.min(endIdx, filteredTables.length)} of {filteredTables.length}{' '}
@@ -218,25 +220,26 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
+                  aria-label={t.metricsFieldPaginationPrev}
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ←
+                  <ChevronLeft aria-hidden="true" className="mx-auto h-4 w-4" />
                 </button>
                 {getPageNumbers().map((page, idx) =>
                   page === '...' ? (
                     <span key={`ellipsis-${idx}`} className="px-2 py-1">
-                      ...
+                      …
                     </span>
                   ) : (
                     <button
                       key={`page-${page}`}
                       onClick={() => setCurrentPage(page as number)}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                      className={`min-h-11 min-w-11 px-2 py-1 rounded-md text-xs font-medium active:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                         currentPage === page
                           ? 'bg-primary text-primary-foreground'
-                          : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+                          : 'bg-background border border-border text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       {page}
@@ -244,11 +247,12 @@ export default function ReferencedTablesTable({ tables, t }: ReferencedTablesTab
                   )
                 )}
                 <button
+                  aria-label={t.metricsFieldPaginationNext}
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  →
+                  <ChevronRight aria-hidden="true" className="mx-auto h-4 w-4" />
                 </button>
               </div>
             )}

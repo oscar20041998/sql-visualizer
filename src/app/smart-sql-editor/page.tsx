@@ -10,7 +10,6 @@ import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel
 import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
-import AppLayout from '@/components/AppLayout';
 import type { FormatError } from '@/lib/sql/formatError';
 import {
   resolveErrorRegion,
@@ -183,10 +182,10 @@ export default function SmartSQLEditorPage() {
 
   // The chrome renders immediately; only the body waits for hydration, since its text comes
   // from locale settings held in persisted (localStorage) state.
-  if (!hydrated) return <AppLayout>{null}</AppLayout>;
+  if (!hydrated) return null;
 
   return (
-    <AppLayout>
+    <>
       {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
        * into. It must sit above all three so they share one column. */}
       <SidePanelRail>
@@ -349,6 +348,6 @@ export default function SmartSQLEditorPage() {
           </div>
         </div>
       </SidePanelRail>
-    </AppLayout>
+    </>
   );
 }

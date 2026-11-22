@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/styles/tailwind.css';
 import { Toaster } from 'sonner';
+import WorkspaceLayout from '@/components/WorkspaceLayout';
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -49,7 +50,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className={geistSans.className}>
-        {children}
+        <WorkspaceLayout>{children}</WorkspaceLayout>
         <Toaster
           position="bottom-right"
           toastOptions={{

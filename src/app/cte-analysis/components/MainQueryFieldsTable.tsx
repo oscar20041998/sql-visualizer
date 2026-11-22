@@ -70,9 +70,9 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-5">
         <div className="flex items-center gap-2">
           <Hash size={15} className="text-primary" />
           <h3 className="text-sm font-semibold text-foreground">{t.mainQueryFields}</h3>
@@ -84,7 +84,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center gap-2">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-4 py-3 sm:px-5">
         <div className="flex-1 relative">
           <Search
             size={14}
@@ -95,12 +95,13 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
             placeholder={t.searchTables || 'Search fields, aliases, tables...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full rounded-md border border-border bg-card py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {searchTerm && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t.joinDetailClearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title="Clear search"
             >
               <X size={14} />
@@ -124,22 +125,22 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/30 sticky top-0">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
+                  <th className="w-8 border-r border-border/30 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     #
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-48 border-r border-border/30">
+                  <th className="min-w-48 border-r border-border/30 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.fieldName}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-40 border-r border-border/30">
+                  <th className="min-w-40 border-r border-border/30 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.fieldAlias || 'Alias'}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                  <th className="min-w-32 border-r border-border/30 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     Source Table
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+                  <th className="min-w-32 border-r border-border/30 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.fieldOrigin}
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">
+                  <th className="w-24 px-4 py-3 text-left text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.fieldType}
                   </th>
                 </tr>
@@ -165,7 +166,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                           {field.alias}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">—</span>
+                        <span className="text-xs text-muted-foreground italic">{t.comparisonNone}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 border-r border-border/30">
@@ -174,7 +175,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                           {field.sourceTable}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">—</span>
+                        <span className="text-xs text-muted-foreground italic">{t.comparisonNone}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 border-r border-border/30">
@@ -193,7 +194,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-border bg-muted/20 flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-4 py-4 sm:px-5">
               <div className="text-xs text-muted-foreground">
                 Showing <span className="font-semibold">{startIdx + 1}</span> to{' '}
                 <span className="font-semibold">{Math.min(endIdx, filteredFields.length)}</span> of{' '}
@@ -202,10 +203,11 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  title="Previous page"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={t.previousPage}
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -232,7 +234,7 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                       <button
                         key={`page-${page}`}
                         onClick={() => goToPage(page)}
-                        className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${
+                        className={`min-h-9 min-w-9 rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           isActive
                             ? 'bg-primary text-primary-foreground'
                             : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -245,10 +247,11 @@ export default function MainQueryFieldsTable({ fields, t }: MainQueryFieldsTable
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  title="Next page"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={t.nextPage}
                 >
                   <ChevronRight size={14} />
                 </button>

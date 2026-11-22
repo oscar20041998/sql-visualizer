@@ -213,6 +213,18 @@ describe('U48/U49 — the workspace auth gate admits a guest', () => {
  * heading to.
  */
 describe('navigation recovery — a stale navigation target cannot block the shell', () => {
+  it('allows guests to open query history without an analysis result', async () => {
+    setGuestSession({ startedAt: Date.now(), locale: 'en' });
+    const { default: AppLayout } = await import('@/components/AppLayout');
+    useAppStore.setState({ analysisResult: null, navigationTarget: null });
+    render(<AppLayout>protected content</AppLayout>);
+
+    const link = await screen.findByRole('link', { name: t.queryHistoryTitle });
+    expect(link).toHaveAttribute('href', '/query-history');
+    fireEvent.click(link);
+    expect(push).toHaveBeenCalledWith('/query-history');
+  });
+
   it('drops a target that does not match the current path instead of holding the overlay', async () => {
     stubSessionEndpoint();
     const { setGuestSession: startGuest } = await import('@/lib/demoAuth');
@@ -247,6 +259,41 @@ describe('navigation recovery — a stale navigation target cannot block the she
 
     expect(await screen.findByText('protected content')).toBeInTheDocument();
     await waitFor(() => expect(useAppStore.getState().navigationTarget).toBeNull());
+  });
+});
+
+describe('sidebar logo', () => {
+  it('uses the database icon and follows the appearance settings in both sidebar states', async () => {
+    setGuestSession({ startedAt: Date.now(), locale: 'en' });
+    const { default: AppLayout } = await import('@/components/AppLayout');
+    const { default: SettingsContent } = await import(
+      '@/app/settings-preferences/components/SettingsContent'
+    );
+    render(
+      <AppLayout>
+        <SettingsContent />
+      </AppLayout>
+    );
+
+    const logo = await screen.findByRole('img', { name: t.appName });
+    expect(logo).toHaveClass('bg-primary', 'text-primary-foreground');
+    expect(logo.querySelector('svg.lucide-database')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('#fb923c'));
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#fb923c')
+    );
+    fireEvent.click(screen.getByRole('switch'));
+    await waitFor(() => {
+      expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+      expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#ea580c');
+      expect(document.documentElement.style.getPropertyValue('--primary-foreground')).toBe('#ffffff');
+    });
+
+    fireEvent.click(screen.getByTitle('Collapse'));
+    const collapsedLogo = screen.getByRole('img', { name: t.appName });
+    expect(collapsedLogo).toHaveClass('bg-primary', 'text-primary-foreground');
+    expect(collapsedLogo.querySelector('svg.lucide-database')).toBeInTheDocument();
   });
 });
 

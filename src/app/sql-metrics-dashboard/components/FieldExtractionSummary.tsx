@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useEffect, useState } from 'react';
-import { Hash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Hash } from 'lucide-react';
 import { getT } from '@/lib/i18n';
 import type { AnalysisResult } from '@/lib/sql/sqlAnalyzer';
 
@@ -155,7 +155,7 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="min-w-0 rounded-card border border-border bg-card p-5 sm:p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <Hash size={15} className="text-primary" />
         {t.metricsFieldExtractionSummaryTitle}
@@ -166,7 +166,7 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
           value={fieldSearch}
           onChange={(event) => setFieldSearch(event.target.value)}
           placeholder={t.metricsFieldSearchPlaceholder}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         />
       </div>
       <div className="text-xs text-muted-foreground mb-3">
@@ -177,16 +177,16 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
         <table id="metrics-field-table" className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-border bg-muted/30 sticky top-0 z-10">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-8 border-r border-border/30">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground w-8">
                 #
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-48 border-r border-border/30">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-48">
                 {t.metricsFieldExpressionHeader || 'Expression'}
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-32 border-r border-border/30">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-32">
                 {t.metricsFieldAliasHeader || 'Alias'}
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-28 border-r border-border/30">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground min-w-28">
                 {t.metricsFieldTypeHeader || 'Type'}
               </th>
             </tr>
@@ -212,7 +212,9 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
                       {field.alias}
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground italic">—</span>
+                    <span className="text-xs text-muted-foreground italic">
+                      {t.metricsValueUnavailable}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -228,7 +230,9 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
                       );
                     })()
                   ) : (
-                    <span className="text-xs text-muted-foreground italic">—</span>
+                    <span className="text-xs text-muted-foreground italic">
+                      {t.metricsValueUnavailable}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -251,25 +255,26 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
         {totalFieldPages > 1 && (
           <div className="flex items-center gap-1">
             <button
+              aria-label={t.metricsFieldPaginationPrev}
               onClick={() => setFieldPage(Math.max(1, currentFieldPage - 1))}
               disabled={currentFieldPage === 1}
-              className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ←
+              <ChevronLeft aria-hidden="true" className="mx-auto h-4 w-4" />
             </button>
             {getFieldPageNumbers().map((page, idx) =>
               page === '...' ? (
                 <span key={`ellipsis-${idx}`} className="px-2 py-1">
-                  ...
+                  …
                 </span>
               ) : (
                 <button
                   key={`page-${page}`}
                   onClick={() => setFieldPage(page as number)}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  className={`min-h-11 min-w-11 px-2 py-1 rounded-md text-xs font-medium active:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                     currentFieldPage === page
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-card border border-border text-muted-foreground hover:bg-muted'
+                      : 'bg-background border border-border text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {page}
@@ -277,11 +282,12 @@ export default function FieldExtractionSummary({ analysisResult, t }: FieldExtra
               )
             )}
             <button
+              aria-label={t.metricsFieldPaginationNext}
               onClick={() => setFieldPage(Math.min(totalFieldPages, currentFieldPage + 1))}
               disabled={currentFieldPage === totalFieldPages}
-              className="px-2 py-1 rounded bg-card border border-border text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="min-h-11 min-w-11 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium text-muted-foreground hover:bg-muted active:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              →
+              <ChevronRight aria-hidden="true" className="mx-auto h-4 w-4" />
             </button>
           </div>
         )}

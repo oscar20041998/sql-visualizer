@@ -117,7 +117,7 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <GeneratorTargetControls
         options={options}
         onChange={(changes) => setOptions((current) => ({ ...current, ...changes }))}
@@ -130,14 +130,14 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
           value={sql}
           onChange={(event) => setSql(event.target.value)}
           spellCheck={false}
-          className="min-h-72 w-full resize-y scrollbar-thin rounded border border-border bg-background p-3 font-mono text-sm text-foreground"
+          className="min-h-72 w-full resize-y scrollbar-thin rounded-md border border-border bg-background p-3 font-mono text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </label>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={generate}
-          className="rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="min-h-10 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {generated ? t.generatorRegenerate : t.generatorGenerate}
         </button>
@@ -145,7 +145,7 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
           <button
             type="button"
             onClick={reset}
-            className="rounded border border-border px-4 py-2 text-sm font-medium text-foreground"
+            className="min-h-10 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {t.generatorReset}
           </button>
@@ -154,7 +154,7 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
       {classificationResult && (
         <section
           aria-label={t.generatorClassification}
-          className="space-y-1 rounded border border-border p-3"
+          className="space-y-1 rounded-lg border border-border bg-card p-4"
         >
           <h2 className="text-sm font-semibold">{t.generatorClassification}</h2>
           <p className="text-sm">
@@ -180,14 +180,14 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
         </section>
       )}
       {generated?.source && (
-        <section className="overflow-hidden rounded border border-border">
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <h2 className="text-sm font-semibold">{t.generatorGeneratedCode}</h2>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={copySource}
-                className="inline-flex items-center gap-2 rounded border border-border px-3 py-2 text-sm"
+                className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Clipboard size={14} aria-hidden />
                 {t.generatorCopy}
@@ -195,7 +195,7 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
               <button
                 type="button"
                 onClick={downloadSource}
-                className="inline-flex items-center gap-2 rounded border border-border px-3 py-2 text-sm"
+                className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Download size={14} aria-hidden />
                 {t.generatorDownload}
@@ -215,7 +215,7 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
                   role="tab"
                   aria-selected={index === selectedOutputFileIndex}
                   onClick={() => setSelectedOutputFileIndex(index)}
-                  className={`rounded px-3 py-1.5 text-sm ${index === selectedOutputFileIndex ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
+                  className={`rounded-md px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index === selectedOutputFileIndex ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
                 >
                   {file.fileName}
                 </button>

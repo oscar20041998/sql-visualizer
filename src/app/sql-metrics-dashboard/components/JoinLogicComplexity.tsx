@@ -33,7 +33,7 @@ function MetricCard({
       style={{ containment: 'layout style paint' } as any}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground">
           {label}
         </span>
         <div

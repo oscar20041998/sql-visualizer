@@ -109,7 +109,7 @@ export default function ComplexityFactorsBreakdown({
   const joinsReconcile = joinsContribution === keywordJoinsContribution;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="min-w-0 rounded-card border border-border bg-card p-5 sm:p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <Zap size={15} className="text-primary" />
         {t.factorsBreakdown}
@@ -118,7 +118,7 @@ export default function ComplexityFactorsBreakdown({
       <p className="text-xs font-semibold text-foreground mb-3">{t.complexityFactorsFormula}</p>
       {detailedComplexity ? (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SummaryMetric
               label={t.complexityFactorsTotalScore}
               value={detailedComplexity.totalScore}
@@ -147,9 +147,9 @@ export default function ComplexityFactorsBreakdown({
                   className="space-y-1.5"
                   style={{ contain: 'layout style paint' }}
                 >
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                     <span className="text-foreground font-medium">{factor.name}</span>
-                    <div className="flex items-center gap-3 font-mono text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-muted-foreground">
                       <span>{factor.formula}</span>
                       <span className="text-foreground">
                         {t.complexityFactorsContribution}: +{factor.contribution}
@@ -175,11 +175,11 @@ export default function ComplexityFactorsBreakdown({
               );
             })}
           </div>
-          <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>
               {t.complexityFactorsReconciled}: {totalContribution} / {detailedComplexity.totalScore}
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className={joinsReconcile ? 'text-success' : 'text-danger'}>
                 {joinsReconcile
                   ? t.complexityFactorsJoinsConsistent
@@ -204,9 +204,9 @@ export default function ComplexityFactorsBreakdown({
 
 function SummaryMetric({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 font-mono text-sm font-semibold text-foreground">{value}</div>
+    <div className="border-l-2 border-border px-3 py-1">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value}</div>
     </div>
   );
 }

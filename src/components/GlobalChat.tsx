@@ -17,9 +17,7 @@ interface WidgetPosition {
 }
 
 export const GlobalChat: React.FC = () => {
-  // Open/closed state lives in the store, not local useState: every page's own <AppLayout>
-  // wrapper remounts GlobalChat on navigation, which would otherwise reset it (and the
-  // conversation inside DocsConsultantChat) back to its initial closed/empty state.
+  // Keep the open state in the store across workspace and public-page transitions.
   const { settings, chatIsOpen: isOpen, setChatIsOpen: setIsOpen } = useAppStore();
   const t = getT(settings.locale);
   // Read from storage rather than the store: the guest marker lives in demoAuth, and GlobalChat
@@ -262,30 +260,30 @@ export const GlobalChat: React.FC = () => {
       style={widgetPosition ?? undefined}
     >
       {isOpen ? (
-        <div className="flex h-[min(540px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-80 animate-[chat-pop_180ms_ease-out] flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_24px_64px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/5 backdrop-blur sm:max-w-96">
+        <div className="flex h-[min(540px,calc(100dvh-6rem))] w-[min(24rem,calc(100dvw-2rem))] max-w-80 motion-safe:animate-[chat-pop_180ms_ease-out] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg sm:max-w-96">
           <div
-            className="relative flex flex-shrink-0 cursor-move touch-none select-none items-center justify-between overflow-hidden border-b border-border/70 bg-gradient-to-r from-primary/15 via-primary/8 to-transparent p-3"
+            className="flex flex-shrink-0 cursor-move touch-none select-none items-center justify-between border-b border-border bg-muted/40 p-3"
             onPointerDown={beginDrag}
             onDoubleClick={resetToCorner}
-            title="Kéo để di chuyển — double-click để về góc phải dưới"
+            title="Kéo để di chuyển, double-click để về góc phải dưới"
           >
             <div className="flex items-center gap-2.5">
-              <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-md">
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Bot size={18} />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-success" />
               </span>
               <span>
                 <h3 className="text-sm font-semibold leading-tight">{t.aiAssistantTitle}</h3>
                 <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <span className="chat-online-dot h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                  Online — kéo header để di chuyển
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                  Online, kéo header để di chuyển
                 </p>
               </span>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               aria-label="Close"
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X size={16} />
             </button>
@@ -324,22 +322,14 @@ export const GlobalChat: React.FC = () => {
           onPointerDown={beginDrag}
           onDoubleClick={resetToCorner}
           aria-label={t.aiAssistantTitle}
-          title="Kéo để di chuyển — double-click để về góc phải dưới"
-          className="group relative flex h-14 w-14 touch-none select-none items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/70 text-primary-foreground shadow-[0_12px_32px_-8px_var(--primary),0_4px_12px_rgba(0,0,0,0.25)] ring-1 ring-white/25 transition-shadow duration-200 hover:shadow-[0_16px_40px_-8px_var(--primary),0_6px_16px_rgba(0,0,0,0.3)] active:scale-95"
+          title="Kéo để di chuyển, double-click để về góc phải dưới"
+          className="group relative flex h-14 w-14 touch-none select-none items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md ring-1 ring-border/40 transition-shadow duration-200 hover:shadow-lg active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="chat-float-motion block animate-[chat-float_3s_ease-in-out_infinite] group-active:animate-none">
-            <span
-              aria-hidden
-              className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white/0 via-white/10 to-white/25"
-            />
-            <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
-              <span className="chat-online-dot absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
-            </span>
+          <span className="chat-float-motion block motion-safe:animate-[chat-float_3s_ease-in-out_infinite] group-active:animate-none">
             <MessageCircle
               size={26}
               strokeWidth={2.2}
-              className="relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
+              className="relative transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
             />
           </span>
         </button>

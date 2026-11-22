@@ -13,8 +13,8 @@ interface ReferencedTablesOverviewProps {
 
 export default function ReferencedTablesOverview({ tables, t }: ReferencedTablesOverviewProps) {
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+    <div className="min-w-0 bg-card border border-border rounded-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-2">
         <GitBranch size={15} className="text-primary" />
         <h3 className="text-sm font-semibold text-foreground">{t.referencedTablesTitle}</h3>
         <span className="ml-auto text-xs text-muted-foreground font-mono">

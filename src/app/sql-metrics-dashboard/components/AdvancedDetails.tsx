@@ -86,8 +86,8 @@ export default function AdvancedDetails({ data, t }: AdvancedDetailsProps) {
     );
 
   return (
-    <details className="rounded-xl border border-border bg-card/50 p-4">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
+    <details className="rounded-card border border-border bg-card p-5 sm:p-6">
+      <summary className="cursor-pointer text-sm font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         {t.analysisAdvancedTitle}
       </summary>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Code2, BookOpen, FileCode2, Wand2 } from 'lucide-react';
+import { Braces, Code2, BookOpen, FileCode2, Wand2 } from 'lucide-react';
 
 export type QueryInputMode = 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator';
 
@@ -16,17 +16,17 @@ interface TabNavigationProps {
  *
  * Follows the WAI-ARIA tabs pattern (roving tabindex + arrow keys) so the active
  * input method is announced and reachable by keyboard. The selection is marked by
- * `aria-selected` plus a visible underline and weight — never by color alone.
+ * `aria-selected` plus a visible underline — never by color alone.
  */
 export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabChange, t }) => {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const tabs: Array<{ value: QueryInputMode; label: string; icon: React.ReactNode }> = [
-    { value: 'sql', label: t.tabPasteSQL, icon: <Code2 size={14} aria-hidden /> },
-    { value: 'import-xml', label: t.tabImportMyBatis, icon: <FileCode2 size={14} aria-hidden /> },
-    { value: 'mybatis', label: t.tabMyBatisContent, icon: <BookOpen size={14} aria-hidden /> },
-    { value: 'smart-editor', label: t.tabSmartEditor, icon: <Wand2 size={14} aria-hidden /> },
-    { value: 'code-generator', label: t.tabCodeGenerator, icon: <Code2 size={14} aria-hidden /> },
+    { value: 'sql', label: t.tabPasteSQL, icon: <Code2 size={13} aria-hidden /> },
+    { value: 'import-xml', label: t.tabImportMyBatis, icon: <FileCode2 size={13} aria-hidden /> },
+    { value: 'mybatis', label: t.tabMyBatisContent, icon: <BookOpen size={13} aria-hidden /> },
+    { value: 'smart-editor', label: t.tabSmartEditor, icon: <Wand2 size={13} aria-hidden /> },
+    { value: 'code-generator', label: t.tabCodeGenerator, icon: <Braces size={13} aria-hidden /> },
   ];
 
   const activateTab = (index: number) => {
@@ -50,7 +50,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
     <div
       role="tablist"
       aria-label={t.inputMethodLabel}
-      className="flex flex-wrap items-center gap-1 border-b border-border bg-background"
+      className="flex flex-wrap items-center gap-x-1 border-b border-border bg-background"
     >
       {tabs.map((tab, index) => {
         const isActive = inputMode === tab.value;
@@ -63,20 +63,32 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
             id={`tab-${tab.value}`}
             role="tab"
             type="button"
+            aria-label={tab.label}
             aria-selected={isActive}
             aria-controls="query-input-tabpanel"
             tabIndex={isActive ? 0 : -1}
             data-active={isActive}
             onClick={() => onTabChange(tab.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className={`-mb-px flex items-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-4 py-3 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+            className={`group relative -mb-px flex h-11 w-11 items-center justify-center border-b active:text-primary disabled:cursor-not-allowed disabled:opacity-50 motion-safe:transition-colors motion-safe:duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
               isActive
-                ? 'tab-active font-semibold'
-                : 'border-transparent font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                ? 'border-primary text-foreground'
+                : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.icon}
-            {tab.label}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute top-full z-20 mt-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground opacity-0 shadow-sm group-hover:opacity-100 group-focus-visible:opacity-100 ${
+                index === 0
+                  ? 'left-0'
+                  : index === tabs.length - 1
+                    ? 'right-0'
+                    : 'left-1/2 -translate-x-1/2'
+              }`}
+            >
+              {tab.label}
+            </span>
           </button>
         );
       })}

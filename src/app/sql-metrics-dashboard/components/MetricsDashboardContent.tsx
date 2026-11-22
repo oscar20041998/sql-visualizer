@@ -85,7 +85,7 @@ export default function MetricsDashboardContent() {
 
   if (isAnalyzing) {
     return (
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
           <BarChart3 size={22} className="text-primary" />
           {t.metricsTitle}
@@ -100,7 +100,7 @@ export default function MetricsDashboardContent() {
           {[0, 1, 2].map((index) => (
             <div
               key={index}
-              className="h-24 rounded-xl border border-border bg-muted/20 animate-pulse"
+              className="h-24 rounded-card border border-border bg-card motion-safe:animate-pulse"
             />
           ))}
         </div>
@@ -110,7 +110,7 @@ export default function MetricsDashboardContent() {
 
   if (analysisError) {
     return (
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
           <BarChart3 size={22} className="text-primary" />
           {t.metricsTitle}
@@ -126,7 +126,7 @@ export default function MetricsDashboardContent() {
             type="button"
             onClick={handleRetry}
             disabled={!canRetry}
-            className="mt-3 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t.analysisRetry}
           </button>
@@ -137,8 +137,8 @@ export default function MetricsDashboardContent() {
 
   if (!analysisResult) {
     return (
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
-        <div className="flex items-center justify-center h-64 rounded-lg border border-border/50 bg-muted/20">
+      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="flex min-h-64 items-center justify-center rounded-card border border-border bg-card p-6">
           <div className="text-center">
             <h3 className="text-sm font-semibold text-foreground mb-1">{t.noMetrics}</h3>
             <p className="text-xs text-muted-foreground">{t.noMetricsHint}</p>
@@ -172,24 +172,24 @@ export default function MetricsDashboardContent() {
   };
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
+      <div className="mb-8 flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <BarChart3 size={22} className="text-primary" />
             {t.metricsTitle}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {ctes && ctes.length > 0 && (
             <button
               onClick={() => {
                 beginNavigation('/cte-analysis');
                 router.push('/cte-analysis');
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-accent bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+              className="inline-flex min-h-11 items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-card text-foreground text-sm font-medium hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <Layers size={14} />
               {t.navCTEAnalysis}
@@ -197,7 +197,7 @@ export default function MetricsDashboardContent() {
           )}
           <button
             onClick={handleExportAnalysisJson}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            className="inline-flex min-h-11 items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-card text-sm font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Download size={14} className="text-primary" />
             {t.metricsExportJson}
@@ -221,7 +221,7 @@ export default function MetricsDashboardContent() {
       )}
 
       {/* Sections: health summary first; the existing detail sections preserved; advanced last */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid min-w-0 grid-cols-1 gap-5 sm:gap-6">
         <AnalysisHealthSummary data={data} t={t} />
 
         <MetricCardsGrid metrics={metrics} metricDetails={metricDetails} t={t} />

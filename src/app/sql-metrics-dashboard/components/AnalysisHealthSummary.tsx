@@ -28,25 +28,25 @@ export default function AnalysisHealthSummary({ data, t }: AnalysisHealthSummary
   };
 
   const levelBadgeClass: Record<ComplexityLevel, string> = {
-    LOW: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-    HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    SUPER_HIGH: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    LOW: 'bg-complexity-low/10 text-complexity-low',
+    MEDIUM: 'bg-complexity-medium/10 text-complexity-medium',
+    HIGH: 'bg-complexity-high/10 text-complexity-high',
+    SUPER_HIGH: 'bg-complexity-super/10 text-complexity-super',
   };
 
   return (
     <section
       aria-labelledby="analysis-health-title"
-      className="rounded-xl border border-border bg-card p-5"
+      className="rounded-card border border-border bg-card p-5 sm:p-6"
     >
       <h2
         id="analysis-health-title"
-        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+        className="text-sm font-semibold text-foreground"
       >
         {t.analysisHealthTitle}
       </h2>
 
-      <div className="mt-4 flex flex-wrap items-center gap-10">
+      <div className="mt-5 flex flex-wrap items-end gap-x-12 gap-y-5">
         <div>
           <p className="text-xs text-muted-foreground">{t.analysisHealthScoreLabel}</p>
           {complexity.normalizedScore === null || complexity.level === null ? (
@@ -68,11 +68,11 @@ export default function AnalysisHealthSummary({ data, t }: AnalysisHealthSummary
 
         <div>
           <p className="text-xs text-muted-foreground">{t.analysisHealthFindings}</p>
-          <div className="mt-1 flex items-center gap-4 text-sm font-medium">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
             <span className="text-danger">
               {t.analysisFindingErrors}: {findingCounts.error}
             </span>
-            <span className="text-amber-600 dark:text-amber-400">
+            <span className="text-warning">
               {t.analysisFindingWarnings}: {findingCounts.warning}
             </span>
           </div>

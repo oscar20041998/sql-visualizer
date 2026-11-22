@@ -1,0 +1,135 @@
+{
+  "status": "partial",
+  "scope": "All 13 App Router pages are catalogued by route and source-visible primary action. Detailed per-action state, role, runtime behavior, and original visual baseline remain incomplete; see blockers.",
+  "observationBoundary": {
+    "routeCoverage": "13 of 13 src/app/**/page.tsx files discovered",
+    "evidenceType": "Source and existing unit-test references; not a complete runtime baseline",
+    "unobservedStates": ["loading", "error", "empty", "disabled", "success"],
+    "unobservedAccess": ["guest workspace", "demo workspace", "social session"],
+    "unobservedServiceConditions": ["OAuth callback", "live AI providers", "persistent history restore"],
+    "visualBaseline": "Not captured before the existing UI changes"
+  },
+  "conditions": {
+    "locales": ["en", "vi"],
+    "themes": ["dark", "light"],
+    "accent": "User-selected accent with five presets in AppLayout",
+    "access": ["signed-out", "guest", "demo", "social session"],
+    "optionalServices": ["AI providers", "OAuth providers", "query-history persistence"]
+  },
+  "routes": [
+    {
+      "id": "route-home",
+      "route": "/",
+      "source": "src/app/page.tsx",
+      "actions": ["start analysis", "open guideline", "open README", "open Confluence", "toggle locale/theme", "open mobile navigation"],
+      "tests": ["tests/unit/home-features.test.tsx", "tests/unit/home-preferences.test.tsx"],
+      "observation": "Public page observed."
+    },
+    {
+      "id": "route-login",
+      "route": "/login",
+      "source": "src/app/login/page.tsx",
+      "actions": ["login", "register", "Google sign-in", "Microsoft sign-in", "guest access", "resume guest", "toggle locale/theme"],
+      "tests": ["tests/unit/login-route.test.tsx", "tests/unit/SignInPage.test.tsx", "tests/unit/SignInPanel.test.tsx"],
+      "observation": "Login page observed; authentication was not submitted."
+    },
+    {
+      "id": "route-oauth-callback",
+      "route": "/oauth/callback",
+      "source": "src/app/oauth/callback/page.tsx",
+      "actions": ["send provider callback payload to opener", "close callback window"],
+      "tests": [],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-query-input",
+      "route": "/query-input",
+      "source": "src/app/query-input/page.tsx",
+      "actions": ["enter SQL/MyBatis", "import/remove XML", "switch input modes", "load sample", "clear", "analyze", "open comparison/AI/format panels"],
+      "tests": ["tests/unit/query-input-workflow.test.tsx", "tests/unit/query-input-analysis-state.test.tsx"],
+      "observation": "Source and component characterization tests; no browser interaction recorded."
+    },
+    {
+      "id": "route-editor",
+      "route": "/smart-sql-editor",
+      "source": "src/app/smart-sql-editor/page.tsx",
+      "actions": ["edit/format SQL", "explain", "apply or dismiss fixes", "view format errors"],
+      "tests": ["tests/unit/smart-sql-editor-format-error-page.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-metrics",
+      "route": "/sql-metrics-dashboard",
+      "source": "src/app/sql-metrics-dashboard/page.tsx",
+      "actions": ["inspect metrics", "retry", "export JSON", "navigate to CTE analysis"],
+      "tests": ["tests/unit/sqlMetricsDashboard.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-graph",
+      "route": "/relationship-graph-visualizer",
+      "source": "src/app/relationship-graph-visualizer/page.tsx",
+      "actions": ["search/select/clear", "toggle panels/performance mode", "fit/relayout", "download image", "select node"],
+      "tests": ["tests/unit/relationshipGraphPage.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-cte",
+      "route": "/cte-analysis",
+      "source": "src/app/cte-analysis/page.tsx",
+      "actions": ["open query input when empty", "open metrics", "expand/collapse all"],
+      "tests": [],
+      "observation": "Source discovered; no direct page test found."
+    },
+    {
+      "id": "route-ai",
+      "route": "/database-ai-assistant",
+      "source": "src/app/database-ai-assistant/page.tsx",
+      "actions": ["new chat", "select suggestion", "submit prompt", "stop generation"],
+      "tests": [],
+      "observation": "Source discovered; no direct page test found; provider not exercised."
+    },
+    {
+      "id": "route-settings",
+      "route": "/settings-preferences",
+      "source": "src/app/settings-preferences/page.tsx",
+      "actions": ["select category", "update accent/locale", "reset settings", "discard/save AI configuration"],
+      "tests": [],
+      "observation": "Source discovered; no direct page test found."
+    },
+    {
+      "id": "route-guideline",
+      "route": "/guideline",
+      "source": "src/app/guideline/page.tsx",
+      "actions": ["read guideline", "expand/collapse sections", "switch light/dark"],
+      "tests": ["tests/unit/guideline-light-theme-colors.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-confluence",
+      "route": "/confluence",
+      "source": "src/app/confluence/page.tsx",
+      "actions": ["read language-aware documentation"],
+      "tests": ["tests/unit/confluence-language.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    },
+    {
+      "id": "route-readme",
+      "route": "/readme",
+      "source": "src/app/readme/page.tsx",
+      "actions": ["read project documentation"],
+      "tests": ["tests/unit/readme-page.test.tsx"],
+      "observation": "Source discovered; browser behavior not verified."
+    }
+  ],
+  "sharedBehavior": [
+    { "id": "shell-navigation", "source": "src/components/AppLayout.tsx and src/components/Sidebar.tsx", "actions": ["navigate", "collapse sidebar", "theme/locale toggle", "sign out"], "tests": ["tests/unit/AppLayout.test.tsx"] },
+    { "id": "theme-accent", "source": "src/components/ThemeProvider.tsx and src/components/AppLayout.tsx", "actions": ["apply saved theme and accent"], "tests": ["tests/unit/home-preferences.test.tsx", "tests/unit/guideline-light-theme-colors.test.tsx"] }
+  ],
+  "blockers": [
+    "This file remains a partial inventory: per-action results, applicable state variants, and access-specific behavior have not been verified.",
+    "Browser baseline screenshot and viewport checks were not captured; integrated browser render remained blank.",
+    "Interaction states and access variants need per-action evidence; the source inventory is not proof of runtime behavior.",
+    "Authentication, OAuth, AI, and persisted history have not been exercised under controlled service conditions."
+  ]
+}

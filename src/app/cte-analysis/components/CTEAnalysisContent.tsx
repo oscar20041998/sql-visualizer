@@ -32,7 +32,7 @@ export default function CTEAnalysisContent() {
 
   if (!analysisResult) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] gap-4">
+      <div className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center gap-4 px-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
           <Layers size={28} className="text-muted-foreground" />
         </div>
@@ -42,7 +42,7 @@ export default function CTEAnalysisContent() {
         </div>
         <a
           href="/query-input"
-          className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          className="mt-2 inline-flex min-h-11 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {t.navQueryInput}
         </a>
@@ -68,9 +68,9 @@ export default function CTEAnalysisContent() {
   };
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 xl:px-10 py-8">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <Layers size={22} className="text-primary" />
@@ -78,13 +78,13 @@ export default function CTEAnalysisContent() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.cteSubtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               beginNavigation('/sql-metrics-dashboard');
               router.push('/sql-metrics-dashboard');
             }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <BarChart3 size={14} className="text-primary" />
             {t.navMetricsDashboard}
@@ -93,13 +93,13 @@ export default function CTEAnalysisContent() {
             <>
               <button
                 onClick={expandAll}
-                className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
+                className="min-h-10 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t.expandAll}
               </button>
               <button
                 onClick={collapseAll}
-                className="px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
+                className="min-h-10 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t.collapseAll}
               </button>
@@ -110,9 +110,9 @@ export default function CTEAnalysisContent() {
 
       {/* CTE Summary Stats */}
       {ctes.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {t.cteTotalLabel}
             </span>
             <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export default function CTEAnalysisContent() {
             </div>
           </div>
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {t.cteUnusedCount}
             </span>
             <div className="flex items-center gap-2">
@@ -137,19 +137,19 @@ export default function CTEAnalysisContent() {
             </div>
           </div>
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {t.cteRecursiveCount}
             </span>
             <div className="flex items-center gap-2">
               <RefreshCw
                 size={16}
-                className={recursiveCount > 0 ? 'text-blue-500' : 'text-muted-foreground'}
+                className={recursiveCount > 0 ? 'text-primary' : 'text-muted-foreground'}
               />
               <span className="text-2xl font-bold text-foreground font-mono">{recursiveCount}</span>
             </div>
           </div>
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {t.cteAvgComplexity}
             </span>
             <div className="flex items-center gap-2 mt-0.5">
@@ -157,10 +157,10 @@ export default function CTEAnalysisContent() {
               <span
                 className={`text-sm font-bold ${
                   avgComplexityLabel === 'HIGH'
-                    ? 'text-red-500'
+                    ? 'text-danger'
                     : avgComplexityLabel === 'MEDIUM'
-                      ? 'text-amber-500'
-                      : 'text-emerald-500'
+                      ? 'text-warning'
+                      : 'text-success'
                 }`}
               >
                 {complexityLabels[avgComplexityLabel]}
@@ -182,7 +182,7 @@ export default function CTEAnalysisContent() {
       ) : (
         <div className="space-y-4 mb-8">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground normal-case tracking-normal">
               {ctes.length} {t.cteDepCountLabel}
               {ctes.length !== 1 ? 's' : ''} {t.cteDetected}
             </span>

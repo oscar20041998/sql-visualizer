@@ -1,3 +1,11 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full
+ * nav: existing shell kept · signature: existing SQL workbench kept · states: existing states kept
+ * axes: cool neutral paper/Geist/selected accent · contrast: verify · v2.0.0 */
+/* Hallmark · pre-emit critique: P3 H4 E3 S4 R4 V3 · weakest: execution, refine presentation only and verify against existing route tests */
+/* Hallmark · dismissed 19 · preserve the existing legal footer copy under the UI-only scope */
+@import './tokens.css';
+@import './base.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -20,7 +28,7 @@
   --ring: #6ee7f7;
   --radius: 0.5rem;
   --font-sans: var(--font-geist-sans), 'Geist', sans-serif;
-  --font-mono: var(--font-geist-mono), 'JetBrains Mono', monospace;
+  --font-mono: var(--font-geist-mono), 'Geist Mono', monospace;
 
   /* Semantic colors */
   --success: #3fb950;
@@ -43,11 +51,11 @@
   --complexity-super: #f85149;
 
   /* Glow effects */
-  --glow-primary: 0 0 20px rgba(110, 231, 247, 0.3);
-  --glow-accent: 0 0 20px rgba(167, 139, 250, 0.3);
+  --glow-primary: 0 0 20px color-mix(in srgb, var(--primary) 30%, transparent);
+  --glow-accent: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-.light {
+html[data-theme='light'] {
   --background: #f6f8fa;
   --foreground: #1f2328;
   --primary: #0969da;
@@ -119,31 +127,16 @@
 
 @layer utilities {
   .glass-panel {
-    background: rgba(22, 27, 34, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-  }
-
-  .light .glass-panel {
-    background: rgba(255, 255, 255, 0.85);
+    background: var(--card);
     border: 1px solid var(--border);
   }
 
   .glass-node {
-    background: rgba(22, 27, 34, 0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(110, 231, 247, 0.3);
+    background: var(--card);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
     box-shadow:
-      0 0 20px rgba(110, 231, 247, 0.1),
-      inset 0 1px 0 rgba(110, 231, 247, 0.05);
-  }
-
-  .light .glass-node {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(9, 105, 218, 0.3);
-    box-shadow: 0 4px 16px rgba(9, 105, 218, 0.1);
+      0 0 20px color-mix(in srgb, var(--primary) 10%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--primary) 5%, transparent);
   }
 
   .glow-primary {
@@ -156,7 +149,7 @@
 
   .neon-text {
     color: var(--primary);
-    text-shadow: 0 0 10px rgba(110, 231, 247, 0.5);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--primary) 50%, transparent);
   }
 
   .light .neon-text {
@@ -197,15 +190,12 @@
 
   .grid-bg {
     background-image:
-      linear-gradient(rgba(110, 231, 247, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(110, 231, 247, 0.03) 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-
-  .light .grid-bg {
-    background-image:
-      linear-gradient(rgba(9, 105, 218, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(9, 105, 218, 0.04) 1px, transparent 1px);
+      linear-gradient(color-mix(in srgb, var(--primary) 3%, transparent) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--primary) 3%, transparent) 1px,
+        transparent 1px
+      );
     background-size: 32px 32px;
   }
 
@@ -217,45 +207,39 @@
   }
 
   .tab-active {
-    background: rgba(110, 231, 247, 0.1);
-    border-bottom: 2px solid var(--primary);
-    color: var(--primary);
-  }
-
-  .light .tab-active {
-    background: rgba(9, 105, 218, 0.08);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
     border-bottom: 2px solid var(--primary);
     color: var(--primary);
   }
 
   /* Monaco decoration applied to a line targeted by a "go to line" jump from the Metrics Dashboard. */
   .smart-editor-jump-highlight {
-    background: rgba(110, 231, 247, 0.18);
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
     animation: jumpHighlightFade 2.5s ease-out forwards;
   }
 
   .complexity-badge-low {
-    background: rgba(63, 185, 80, 0.15);
+    background: color-mix(in srgb, var(--complexity-low) 15%, transparent);
     color: var(--complexity-low);
-    border: 1px solid rgba(63, 185, 80, 0.3);
+    border: 1px solid color-mix(in srgb, var(--complexity-low) 30%, transparent);
   }
 
   .complexity-badge-medium {
-    background: rgba(210, 153, 34, 0.15);
+    background: color-mix(in srgb, var(--complexity-medium) 15%, transparent);
     color: var(--complexity-medium);
-    border: 1px solid rgba(210, 153, 34, 0.3);
+    border: 1px solid color-mix(in srgb, var(--complexity-medium) 30%, transparent);
   }
 
   .complexity-badge-high {
-    background: rgba(251, 146, 60, 0.15);
+    background: color-mix(in srgb, var(--complexity-high) 15%, transparent);
     color: var(--complexity-high);
-    border: 1px solid rgba(251, 146, 60, 0.3);
+    border: 1px solid color-mix(in srgb, var(--complexity-high) 30%, transparent);
   }
 
   .complexity-badge-super {
-    background: rgba(248, 81, 73, 0.15);
+    background: color-mix(in srgb, var(--complexity-super) 15%, transparent);
     color: var(--complexity-super);
-    border: 1px solid rgba(248, 81, 73, 0.3);
+    border: 1px solid color-mix(in srgb, var(--complexity-super) 30%, transparent);
   }
 
   /* AI panels inside Smart SQL Editor were designed against a dark-only gray palette. */
@@ -399,7 +383,7 @@
     appearance: none;
     -webkit-appearance: none;
     min-height: 2.5rem;
-    padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+    padding: var(--space-xs) 2.25rem var(--space-xs) var(--space-sm);
     font-size: 0.875rem;
     line-height: 1.25rem;
     color: var(--foreground);
@@ -413,8 +397,7 @@
     background-size: 0.95rem 0.95rem;
     transition:
       border-color 150ms ease,
-      background-color 150ms ease,
-      box-shadow 150ms ease;
+      background-color 150ms ease;
   }
 
   .light .select-control {
@@ -450,7 +433,7 @@
   /* Dense variant for toolbars where the control sits in a compact row. */
   .select-control-sm {
     min-height: 1.75rem;
-    padding: 0.125rem 1.75rem 0.125rem 0.5rem;
+    padding: var(--space-3xs) 1.75rem var(--space-3xs) var(--space-xs);
     font-size: 0.75rem;
     line-height: 1rem;
     background-position: right 0.5rem center;
@@ -471,8 +454,7 @@
     cursor: pointer;
     transition:
       border-color 150ms ease,
-      background-color 150ms ease,
-      box-shadow 150ms ease;
+      background-color 150ms ease;
   }
 
   .checkbox-control:hover:not(:disabled):not(:checked) {
@@ -609,18 +591,18 @@
 @keyframes pulseGlow {
   0%,
   100% {
-    box-shadow: 0 0 10px rgba(110, 231, 247, 0.2);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 20%, transparent);
   }
 
   50% {
-    box-shadow: 0 0 25px rgba(110, 231, 247, 0.5);
+    box-shadow: 0 0 25px color-mix(in srgb, var(--primary) 50%, transparent);
   }
 }
 
 @keyframes jumpHighlightFade {
   0%,
   40% {
-    background: rgba(110, 231, 247, 0.35);
+    background: color-mix(in srgb, var(--primary) 35%, transparent);
   }
 
   100% {

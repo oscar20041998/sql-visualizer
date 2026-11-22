@@ -1,0 +1,47 @@
+{
+  "status": "continuation-baseline-recorded",
+  "commands": [
+    {
+      "command": "npm test",
+      "result": "pass",
+      "files": 84,
+      "tests": 827,
+      "seconds": 84.16
+    },
+    {
+      "command": "npm run type-check",
+      "result": "pass"
+    },
+    {
+      "command": "npm test -- tests/unit/query-input-workflow.test.tsx",
+      "result": "pass",
+      "tests": 9
+    },
+    {
+      "command": "npm test",
+      "result": "pass",
+      "files": 84,
+      "tests": 829,
+      "seconds": 97.88,
+      "scope": "Current continuation baseline; existing UI changes are already present"
+    },
+    {
+      "command": "npm run type-check",
+      "result": "pass",
+      "scope": "Current continuation baseline"
+    },
+    {
+      "command": "npm test -- tests/unit/query-input-workflow.test.tsx tests/unit/query-input-analysis-state.test.tsx tests/unit/relationshipGraphPage.test.tsx tests/unit/relationshipGraphIdentity.test.tsx tests/unit/sqlMetricsDashboard.test.tsx tests/unit/complexitySurfaces.baseline.test.tsx tests/unit/AppLayout.test.tsx tests/unit/SignInPage.test.tsx tests/unit/home-preferences.test.tsx tests/unit/query-input-sql-comparison.test.tsx tests/unit/sqlComparisonPanel.test.tsx tests/unit/codegen/CodeGeneratorPanel.test.tsx tests/unit/dbAssistantHistoryPanel.test.tsx tests/unit/dbAssistantChatHistoryStorage.test.ts tests/unit/SignInPage.axe.test.tsx",
+      "result": "pass",
+      "files": 15,
+      "tests": 146,
+      "scope": "Characterization baseline before remaining UI changes"
+    }
+  ],
+  "limitations": [
+    "The continuation baseline is not the original pre-feature baseline: shared and several route-specific UI changes were already present before this run.",
+    "The full suite alone does not establish coverage of every existing surface or behavior.",
+    "Characterization coverage still needs to be checked against the baseline inventory before shared UI changes.",
+    "Browser, accessibility, provider, performance, and user-evaluation gates are not established by these commands."
+  ]
+}

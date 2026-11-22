@@ -1,115 +1,82 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { History, X, Search, Trash2, ArrowUpRight, Loader2, Database } from 'lucide-react';
-import { useAppStore } from '@/lib/store';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { History, Loader2, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getT } from '@/lib/i18n';
-import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
+import { useAppStore } from '@/lib/store';
 import type { QueryHistoryEntry } from '@/lib/queryHistory';
 import {
+  clearQueryHistory,
   fetchQueryHistory,
-  removeQueryHistoryEntry as deleteQueryHistoryEntry,
-  clearQueryHistory as clearQueryHistoryApi,
+  removeQueryHistoryEntry,
 } from '@/lib/queryHistoryClient';
-import { tryEmbedText, cosineSimilarity } from '@/lib/ai/embeddingService';
+import { cosineSimilarity, tryEmbedText } from '@/lib/ai/embeddingService';
 
-interface QueryHistoryPanelProps {
-  /** Called when the user picks a saved query, so the host page can load it back in. */
-  onLoadQuery: (sql: string, dialect: SqlDialect) => void;
-}
+const PAGE_SIZE = 20;
 
-function complexityLabel(level: string | undefined, t: Record<string, string>): string {
-  switch (level) {
-    case 'LOW':
-      return t.complexityLow;
-    case 'MEDIUM':
-      return t.complexityMedium;
-    case 'HIGH':
-      return t.complexityHigh;
-    case 'SUPER_HIGH':
-      return t.complexitySuperHigh;
-    default:
-      return level ?? '';
-  }
-}
-
-function complexityColor(level: string | undefined): string {
-  switch (level) {
-    case 'LOW':
-      return 'text-emerald-400 bg-emerald-500/10 border-emerald-800/50';
-    case 'MEDIUM':
-      return 'text-yellow-400 bg-yellow-500/10 border-yellow-800/50';
-    case 'HIGH':
-      return 'text-orange-400 bg-orange-500/10 border-orange-800/50';
-    case 'SUPER_HIGH':
-      return 'text-red-400 bg-red-500/10 border-red-800/50';
-    default:
-      return 'text-muted-foreground bg-muted border-border';
-  }
-}
-
-interface RankedEntry {
-  entry: QueryHistoryEntry;
-  score: number | null;
-}
-
-/**
- * Drawer listing every analyzed query saved on this device, opened from an inline toolbar
- * button (a fixed/floating trigger would sit under the Sidebar, which spans the full left
- * edge of the viewport). Free-text search first tries semantic matching (embeds the query,
- * ranks saved entries by cosine similarity to their stored vectors) and falls back to a plain
- * substring match when embeddings are unavailable.
- */
-export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuery }) => {
+export default function QueryHistoryPanel() {
+  const router = useRouter();
   const settings = useAppStore((store) => store.settings);
   const t = getT(settings.locale);
-
-  const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState<QueryHistoryEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchVector, setSearchVector] = useState<number[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [page, setPage] = useState(1);
+  const searchVersion = useRef(0);
 
-  // Load from the server (Excel workbook) each time the drawer opens, so it reflects any
-  // queries saved elsewhere (e.g. the Smart Editor tab) since it was last opened.
   useEffect(() => {
-    if (!isOpen) return;
-    setIsLoading(true);
+    let active = true;
     fetchQueryHistory()
-      .then(setHistory)
-      .finally(() => setIsLoading(false));
-  }, [isOpen]);
+      .then((entries) => {
+        if (active) setHistory(entries);
+      })
+      .catch((error: unknown) => {
+        console.error('[QueryHistory] Failed to load history', error);
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+      searchVersion.current += 1;
+    };
+  }, []);
+
+  const updateSearch = useCallback((value: string) => {
+    searchVersion.current += 1;
+    setSearchQuery(value);
+    setSearchVector(null);
+    setSearchNotice(null);
+    setIsSearching(false);
+    setPage(1);
+  }, []);
 
   const handleSearch = useCallback(async () => {
     const query = searchQuery.trim();
+    if (!query) return;
+    const version = ++searchVersion.current;
     setSearchVector(null);
     setSearchNotice(null);
-    if (!query) return;
-
     setIsSearching(true);
     const embedded = await tryEmbedText(query, settings.aiConfig);
+    if (version !== searchVersion.current) return;
     setIsSearching(false);
-
-    if (!embedded) {
-      setSearchNotice(t.queryHistorySemanticUnavailable);
-      return;
-    }
-    setSearchVector(embedded.vector);
+    setPage(1);
+    if (embedded) setSearchVector(embedded.vector);
+    else setSearchNotice(t.queryHistorySemanticUnavailable);
   }, [searchQuery, settings.aiConfig, t.queryHistorySemanticUnavailable]);
 
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery('');
-    setSearchVector(null);
-    setSearchNotice(null);
-  }, []);
-
-  const results: RankedEntry[] = useMemo(() => {
+  const results = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return history.map((entry) => ({ entry, score: null }));
-
     if (searchVector) {
       return history
         .map((entry) => ({
@@ -118,32 +85,17 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
         }))
         .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     }
-
-    // Semantic search hasn't run yet (or failed) — fall back to a plain text filter.
     return history
       .filter((entry) => entry.sql.toLowerCase().includes(query))
       .map((entry) => ({ entry, score: null }));
   }, [history, searchQuery, searchVector]);
 
-  const handleLoad = useCallback(
-    (entry: QueryHistoryEntry) => {
-      onLoadQuery(entry.sql, entry.dialect);
-      setIsOpen(false);
-    },
-    [onLoadQuery]
-  );
-
-  const handleDelete = useCallback((id: string) => {
-    setHistory((prev) => prev.filter((item) => item.id !== id));
-    void deleteQueryHistoryEntry(id);
-  }, []);
-
-  const handleClearAll = useCallback(() => {
-    setHistory([]);
-    void clearQueryHistoryApi();
-    setConfirmClearAll(false);
-  }, []);
-
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const visibleResults = results.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  useEffect(() => {
+    setPage((previous) => Math.min(previous, totalPages));
+  }, [totalPages]);
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(settings.locale === 'vi' ? 'vi-VN' : 'en-US', {
@@ -153,201 +105,241 @@ export const QueryHistoryPanel: React.FC<QueryHistoryPanelProps> = ({ onLoadQuer
     [settings.locale]
   );
 
-  return (
-    <>
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          aria-label={t.queryHistoryOpenPanel}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-        >
-          <History size={16} className="text-primary" />
-          {t.queryHistoryTitle}
-        </button>
-      )}
+  const handleLoad = (entry: QueryHistoryEntry) => {
+    const store = useAppStore.getState();
+    store.setDialect(entry.dialect);
+    store.setInputMode('sql');
+    store.setRawSql(entry.sql);
+    store.setPendingEditorJump(null);
+    store.beginNavigation('/query-input');
+    router.push('/query-input');
+  };
 
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm animate-fade-in"
-          onClick={() => setIsOpen(false)}
+  const handleDelete = async (id: string) => {
+    try {
+      await removeQueryHistoryEntry(id);
+      setHistory((previous) => previous.filter((entry) => entry.id !== id));
+    } catch (error) {
+      console.error('[QueryHistory] Failed to delete query', error);
+      toast.error(t.queryHistoryDeleteError);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await clearQueryHistory();
+      setHistory([]);
+      setConfirmClearAll(false);
+      setPage(1);
+    } catch (error) {
+      console.error('[QueryHistory] Failed to clear history', error);
+      toast.error(t.queryHistoryClearError);
+    }
+  };
+
+  const complexityLabels: Record<string, string> = {
+    LOW: t.complexityLow,
+    MEDIUM: t.complexityMedium,
+    HIGH: t.complexityHigh,
+    SUPER_HIGH: t.complexitySuperHigh,
+  };
+
+  return (
+    <div className="mx-auto max-w-[112rem] space-y-6 px-4 py-5 sm:px-6 lg:px-7">
+      <header>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+          <History size={22} className="text-primary" aria-hidden="true" />
+          {t.queryHistoryTitle}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t.queryHistorySubtitle}</p>
+      </header>
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <form
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSearch();
+          }}
         >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            className="fixed inset-y-0 left-0 z-40 flex h-full w-full flex-col overflow-hidden border-r border-border bg-card shadow-2xl sm:max-w-md"
+          <input
+            type="search"
+            aria-label={t.queryHistorySearchButton}
+            value={searchQuery}
+            onChange={(event) => updateSearch(event.target.value)}
+            placeholder={t.queryHistorySearchPlaceholder}
+            className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-lg"
+          />
+          <button
+            type="submit"
+            disabled={isSearching || !searchQuery.trim()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-              <div className="min-w-0">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <History size={16} className="text-primary" />
-                  {t.queryHistoryTitle}
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t.queryHistorySubtitle}</p>
-              </div>
+            {isSearching ? (
+              <Loader2 size={14} className="motion-safe:animate-spin" aria-hidden="true" />
+            ) : (
+              <Search size={14} aria-hidden="true" />
+            )}
+            {isSearching ? t.queryHistorySearching : t.queryHistorySearchButton}
+          </button>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => updateSearch('')}
+              className="min-h-11 px-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t.queryHistoryClearSearch}
+            </button>
+          )}
+        </form>
+        {history.length > 0 &&
+          (confirmClearAll ? (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span>{t.queryHistoryConfirmClearAll}</span>
               <button
-                onClick={() => setIsOpen(false)}
-                aria-label={t.queryHistoryClosePanel}
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => void handleClearAll()}
+                className="min-h-11 text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <X size={14} />
+                {t.queryHistoryConfirmYes}
+              </button>
+              <button
+                onClick={() => setConfirmClearAll(false)}
+                className="min-h-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t.queryHistoryConfirmCancel}
               </button>
             </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClearAll(true)}
+              className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Trash2 size={14} aria-hidden="true" />
+              {t.queryHistoryClearAllButton}
+            </button>
+          ))}
+      </div>
+      {searchNotice && (
+        <p role="status" className="text-sm text-warning">
+          {searchNotice}
+        </p>
+      )}
 
-            {/* Search */}
-            <div className="border-b border-border px-4 py-3">
-              <div className="flex items-center gap-2">
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void handleSearch();
-                  }}
-                  placeholder={t.queryHistorySearchPlaceholder}
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
-                />
-                <button
-                  onClick={() => void handleSearch()}
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isSearching ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Search size={12} />
-                  )}
-                  {isSearching ? t.queryHistorySearching : t.queryHistorySearchButton}
-                </button>
-              </div>
-              {searchQuery && (
-                <button
-                  onClick={handleClearSearch}
-                  className="mt-2 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {t.queryHistoryClearSearch}
-                </button>
-              )}
-              {searchNotice && <p className="mt-2 text-[11px] text-yellow-500">{searchNotice}</p>}
-            </div>
-
-            {/* List */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3">
-              {isLoading && (
-                <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                  <Loader2 size={14} className="animate-spin" />
-                  {t.queryHistorySearching}
-                </div>
-              )}
-
-              {!isLoading && history.length === 0 && (
-                <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
-                  <History size={18} className="mx-auto text-muted-foreground/70" />
-                  <p className="mt-2 text-sm text-foreground">{t.queryHistoryEmptyTitle}</p>
-                  <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
-                    {t.queryHistoryEmptyHint}
-                  </p>
-                </div>
-              )}
-
-              {!isLoading && history.length > 0 && results.length === 0 && (
-                <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-                  {t.queryHistoryNoResults}
-                </p>
-              )}
-
-              <div className="space-y-2">
-                {results.map(({ entry, score }) => (
-                  <div key={entry.id} className="rounded-lg border border-border bg-background p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${complexityColor(entry.complexityLevel)}`}
-                      >
-                        {complexityLabel(entry.complexityLevel, t)}
-                      </span>
-                      <span className="text-[11px] uppercase text-muted-foreground">
-                        {entry.dialect}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {dateFormatter.format(entry.createdAt)}
-                      </span>
+      {isLoading ? (
+        <p role="status" className="py-8 text-sm text-muted-foreground">
+          {t.queryHistorySearching}
+        </p>
+      ) : loadError ? (
+        <p role="alert" className="py-8 text-sm text-danger">
+          {t.queryHistoryLoadError}
+        </p>
+      ) : history.length === 0 ? (
+        <div className="py-8">
+          <p className="text-sm font-medium text-foreground">{t.queryHistoryEmptyTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t.queryHistoryEmptyHint}</p>
+        </div>
+      ) : results.length === 0 ? (
+        <p className="py-8 text-sm text-muted-foreground">{t.queryHistoryNoResults}</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[780px] text-left text-sm">
+              <thead className="border-b border-border bg-card text-xs text-muted-foreground">
+                <tr>
+                  {[
+                    t.queryHistoryColumnQuery,
+                    t.queryHistoryColumnDialect,
+                    t.queryHistoryColumnDate,
+                    t.queryHistoryColumnDetails,
+                    t.queryHistoryColumnActions,
+                  ].map((heading) => (
+                    <th key={heading} scope="col" className="px-4 py-3 font-medium">
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {visibleResults.map(({ entry, score }) => (
+                  <tr key={entry.id} className="align-top">
+                    <td className="w-2/5 px-4 py-3">
+                      <pre className="max-h-20 overflow-hidden whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-foreground">
+                        {entry.sql.slice(0, 240)}
+                      </pre>
                       {score !== null && (
-                        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        <span className="mt-1 block text-xs text-primary">
                           {Math.round(Math.max(0, score) * 100)}% {t.queryHistoryMatchLabel}
                         </span>
                       )}
                       {score === null && !entry.embedding && !searchQuery && (
-                        <span className="ml-auto text-[10px] text-muted-foreground/70">
+                        <span className="mt-1 block text-xs text-muted-foreground">
                           {t.queryHistoryEmbeddingPending}
                         </span>
                       )}
-                    </div>
-
-                    <pre className="mt-2 max-h-20 overflow-hidden whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
-                      {entry.sql.slice(0, 240)}
-                    </pre>
-
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Database size={10} />
-                        {t.queryHistoryTablesCount.replace('{n}', String(entry.tableCount))} ·{' '}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{entry.dialect}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {dateFormatter.format(entry.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {entry.complexityLevel && (
+                        <span className="block text-foreground">
+                          {complexityLabels[entry.complexityLevel] ?? entry.complexityLevel}
+                        </span>
+                      )}
+                      <span>
+                        {t.queryHistoryTablesCount.replace('{n}', String(entry.tableCount))} /{' '}
                         {t.queryHistoryJoinsCount.replace('{n}', String(entry.joinCount))}
                       </span>
-                      <div className="flex items-center gap-1.5">
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleLoad(entry)}
-                          className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+                          className="min-h-11 px-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <ArrowUpRight size={11} />
                           {t.queryHistoryLoadButton}
                         </button>
                         <button
-                          onClick={() => handleDelete(entry.id)}
-                          aria-label={t.queryHistoryDeleteButton}
-                          className="flex items-center gap-1 rounded-lg border border-border bg-muted px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-red-400"
+                          onClick={() => void handleDelete(entry.id)}
+                          aria-label={`${t.queryHistoryDeleteButton}: ${entry.sql.slice(0, 60)}`}
+                          className="flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <Trash2 size={11} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            {history.length > 0 && (
-              <div className="border-t border-border px-4 py-3">
-                {!confirmClearAll ? (
-                  <button
-                    onClick={() => setConfirmClearAll(true)}
-                    className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-red-400"
-                  >
-                    <Trash2 size={11} />
-                    {t.queryHistoryClearAllButton}
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-muted-foreground">{t.queryHistoryConfirmClearAll}</span>
-                    <button
-                      onClick={handleClearAll}
-                      className="font-semibold text-red-400 hover:underline"
-                    >
-                      {t.queryHistoryConfirmYes}
-                    </button>
-                    <button
-                      onClick={() => setConfirmClearAll(false)}
-                      className="text-muted-foreground hover:underline"
-                    >
-                      {t.queryHistoryConfirmCancel}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
-        </div>
+          <nav
+            aria-label={t.queryHistoryTitle}
+            className="flex flex-wrap items-center justify-end gap-3 text-sm"
+          >
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}
+              className="min-h-11 px-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              {t.previousPage}
+            </button>
+            <span className="text-muted-foreground">
+              {t.queryHistoryPage
+                .replace('{current}', String(currentPage))
+                .replace('{total}', String(totalPages))}
+            </span>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setPage(currentPage + 1)}
+              className="min-h-11 px-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              {t.nextPage}
+            </button>
+          </nav>
+        </>
       )}
-    </>
+    </div>
   );
-};
-
-export default QueryHistoryPanel;
+}

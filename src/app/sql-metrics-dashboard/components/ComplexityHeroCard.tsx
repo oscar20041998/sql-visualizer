@@ -35,7 +35,7 @@ export default function ComplexityHeroCard({ detailedComplexity, t }: Complexity
       className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4"
       style={{ height: '100%' }}
     >
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      <span className="text-xs font-medium text-muted-foreground">
         {t.complexityLevel}
       </span>
       <ComplexityGauge

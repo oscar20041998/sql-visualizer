@@ -64,6 +64,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // query-input gate pattern: render nothing until the check completes,
   // so protected content never flashes for signed-out visitors.
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [authorizedPathname, setAuthorizedPathname] = useState<string | null>(null);
   // A browser back/forward navigation runs no in-app handler, so nothing calls `beginNavigation`
   // and the store never learns about it. `popstate` is the signal that such a navigation started;
   // the pathname effect below retires it once the route has actually moved.
@@ -86,6 +87,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     // on confirming the disclosure, and the AI routes refuse independently at the server boundary.
     // Only a signed-out visitor with no guest marker is bounced to /login.
     if ((!isDemoAuthenticated() && !isGuestSession()) || staleSession) {
+      setIsAuthorized(false);
+      setAuthorizedPathname(null);
       if (staleSession) {
         toast.info(getT(locale).authSessionExpiredMessage);
       }
@@ -93,10 +96,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return;
     }
     setIsAuthorized(true);
-  }, [locale, router]);
+    setAuthorizedPathname(pathname);
+  }, [locale, pathname, router]);
 
   useEffect(() => {
     const root = document.documentElement;
+    root.dataset.theme = theme;
     if (theme === 'light') {
       root.classList.add('light');
       root.classList.remove('dark');
@@ -114,31 +119,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
     root.style.setProperty('--primary-foreground', theme === 'dark' ? '#0d1117' : '#ffffff');
   }, [theme, accentColor]);
 
-  // Settles an in-progress route change so the loading overlay cannot outlive it.
-  //
-  // The overlay is driven by `navigationTarget`, and the store's `completeNavigation` refuses to
-  // clear it unless the target equals the current path. That is only safe when every caller of
-  // `beginNavigation` lives under this layout — but the public pages set it too (the home page and
-  // `/login` both call `beginNavigation` before pushing), and those routes render no AppLayout at
-  // all. A target set there was therefore never cleared, leaving `navigationTarget` non-null after
-  // the user reached a workspace page. The overlay renders `fixed inset-0 z-50`, so it silently
-  // swallowed every click and no navigation worked again — the reported "cannot change page".
-  //
-  // Two things are needed, and both are here: the target must be settled once the path actually
-  // moves (first branch), and a target that can never match — a leftover pointing somewhere else —
-  // must be dropped rather than held forever (second branch).
+  // Only settle navigation when the route arrives, not when a target is first set.
   useEffect(() => {
-    if (navigationTarget === null) return;
-    // The destination is reached: settle the normal way so the indicator reflects a real arrival.
-    if (navigationTarget === pathname) {
+    const target = useAppStore.getState().navigationTarget;
+    if (target === null) return;
+    if (target === pathname) {
       const frame = requestAnimationFrame(() => completeNavigation(pathname));
       return () => cancelAnimationFrame(frame);
     }
-    // A target we are no longer heading to — set by a page outside this shell — would otherwise
-    // hold the overlay open forever. Give the route change one frame to land, then drop it.
-    const frame = requestAnimationFrame(() => cancelNavigation());
+    const frame = requestAnimationFrame(() => {
+      if (useAppStore.getState().navigationTarget === target) cancelNavigation();
+    });
     return () => cancelAnimationFrame(frame);
-  }, [cancelNavigation, completeNavigation, navigationTarget, pathname]);
+  }, [cancelNavigation, completeNavigation, pathname]);
 
   // Auth gate: signed-out users never see protected content (not even a
   // flash) — nothing renders until the check passes, mirroring query-input.
@@ -159,7 +152,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
               list from ever scrolling internally (specs/014 U41). `min-h-full` is kept so a short
               page still fills the viewport, and because this box does not clip, a page whose content
               is taller simply overflows into `main`'s own scrollbar. */}
-          <div className="h-full min-h-full grid-bg">{children}</div>
+          <div className="h-full min-h-full grid-bg">
+            {authorizedPathname === pathname ? children : null}
+          </div>
         </main>
         <AppFooter />
       </div>

@@ -15,7 +15,7 @@ const en = {
   navSettings: 'Settings',
 
   // Query Input
-  queryInputTitle: 'Query Input & Configuration',
+  queryInputTitle: 'Query Input',
   workflowStepsLabel: 'Query analysis workflow',
   workflowStepInput: 'Input',
   workflowStepConfigure: 'Configure parameters',
@@ -441,6 +441,7 @@ const en = {
   metricsFieldPaginationPrev: 'Previous',
   metricsFieldPaginationNext: 'Next',
   metricsFieldPaginationPage: 'Page',
+  metricsValueUnavailable: 'Not available',
   noDataDash: '-',
   impactLow: 'Low Impact',
   impactMedium: 'Medium Impact',
@@ -534,6 +535,8 @@ const en = {
   fieldAlias: 'Alias',
   fieldOrigin: 'Origin',
   fieldType: 'Type',
+  previousPage: 'Previous page',
+  nextPage: 'Next page',
   originCTE: 'CTE',
   originTable: 'Table',
   originExpression: 'Expression',
@@ -696,7 +699,7 @@ const en = {
   guidelineBuiltFor: 'Built for developers who love clarity',
 
   // Guideline - Query Input Section
-  guidelineQueryInputTitle: 'Query Input',
+  guidelineQueryInputTitle: 'Query input',
   guidelineQueryInputSubtitle: 'Start here — paste your SQL or import a MyBatis XML file',
   guidelineQueryInputStep1Label: 'Choose input mode',
   guidelineQueryInputStep1Desc:
@@ -1423,6 +1426,15 @@ const en = {
   queryHistoryTablesCount: '{n} tables',
   queryHistoryJoinsCount: '{n} joins',
   queryHistorySavedToast: 'Query saved to history',
+  queryHistoryColumnQuery: 'Query',
+  queryHistoryColumnDialect: 'Dialect',
+  queryHistoryColumnDate: 'Saved',
+  queryHistoryColumnDetails: 'Details',
+  queryHistoryColumnActions: 'Actions',
+  queryHistoryPage: 'Page {current} of {total}',
+  queryHistoryLoadError: 'Could not load query history.',
+  queryHistoryDeleteError: 'Could not delete the query.',
+  queryHistoryClearError: 'Could not clear query history.',
   demoTitle: 'Smart SQL Demo',
   demoSubtitle: 'Try sample SQL queries and AI-powered optimization in a sandboxed editor',
   demoLoadSampleQueryLabel: '📋 Load Sample Query:',
@@ -1766,7 +1778,7 @@ const en = {
   homeGitHubLink: 'GitHub',
   homeContactLink: 'Contact',
   homePreviewQueryTitle: 'Query workspace',
-  homePreviewAnalyzed: 'ANALYZED',
+  homePreviewAnalyzed: 'Analyzed',
   homePreviewInsightTitle: 'Analysis snapshot',
   homePreviewComplexity: 'Complexity score',
   homePreviewRelationships: 'Detected relationships',
@@ -1811,7 +1823,7 @@ const en = {
 
   // Guest access (specs/013-guest-access-mode). The disclosure must name what is unavailable and
   // state that AI on the visitor's own machine stays available — the restriction follows who pays.
-  guestAccessLink: "I don't have an account, but still want to use",
+  guestAccessLink: 'Use as guest',
   guestAccessDialogTitle: 'Continue without an account?',
   guestAccessDialogIntro:
     'You can use the SQL analysis tools straight away. A few AI-assisted features need an account, because they run on the operator’s shared capacity.',

@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { format } from 'sql-formatter';
 import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
-import AppLayout from '@/components/AppLayout';
 import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import SmartSQLEditor, {
   type SmartSQLEditorApi,
@@ -20,7 +19,6 @@ import type { FormatError } from '@/lib/sql/formatError';
 import { resolveErrorRegion, type ErrorRegion } from '@/lib/sql/formatErrorRegion';
 import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import { requestFormatExplanation, type FormatExplanation } from '@/lib/ai/formatErrorAi';
-import QueryHistoryPanel from '@/components/ui/QueryHistoryPanel';
 import { saveQueryHistoryEntry, updateQueryHistoryEmbedding } from '@/lib/queryHistoryClient';
 import { tryEmbedText } from '@/lib/ai/embeddingService';
 import {
@@ -42,7 +40,7 @@ import {
 } from '@/lib/ai/sqlComparisonAi';
 
 // Import sub-components
-import { Header } from './components/Header';
+import { DialectSelector, Header } from './components/Header';
 import { TabNavigation, type QueryInputMode } from './components/TabNavigation';
 import { SqlInputPanel } from './components/SqlInputPanel';
 import { MyBatisPanel } from './components/MyBatisPanel';
@@ -688,11 +686,11 @@ export default function QueryInputContent() {
   if (!isAuthorized) return null;
 
   return (
-    <AppLayout>
+    <>
       {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
        * into. It must sit above all three so they share one column. */}
       <SidePanelRail>
-        <div className="mx-auto max-w-screen-2xl space-y-6 px-6 py-8 lg:px-8 xl:px-10">
+        <div className="mx-auto max-w-[112rem] space-y-4 px-4 py-5 sm:px-6 lg:px-7">
           <LoadingOverlay
             visible={isAnalyzing}
             title={t.analyzing}
@@ -703,24 +701,18 @@ export default function QueryInputContent() {
             }}
           />
 
-          {/* Header: title, workflow spine, dialect and query history */}
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <Header dialect={dialect} onDialectChange={setDialect} t={t} />
+          <Header t={t} />
+          <div className="flex flex-wrap items-center justify-between gap-x-3">
+            <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
+            <div className="flex items-center">
+              <EmptyStateTips tips={tips} t={t} />
+              <DialectSelector dialect={dialect} onDialectChange={setDialect} t={t} />
             </div>
-            <QueryHistoryPanel
-              onLoadQuery={(sql, historyDialect) => {
-                setDialect(historyDialect);
-                setInputMode('sql');
-                setRawSql(sql);
-              }}
-            />
           </div>
 
           {/* Smart Editor Tab - Fullscreen */}
           {inputMode === 'smart-editor' && (
             <div className="smart-sql-editor-theme flex min-h-[calc(100vh-11rem)] flex-col">
-              <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
               <div
                 id="query-input-tabpanel"
                 role="tabpanel"
@@ -781,7 +773,6 @@ export default function QueryInputContent() {
 
           {inputMode === 'code-generator' && (
             <div className="space-y-4">
-              <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
               <div
                 id="query-input-tabpanel"
                 role="tabpanel"
@@ -800,19 +791,16 @@ export default function QueryInputContent() {
           {/* Regular SQL/MyBatis Input */}
           {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && (
             <>
-              {/* Tabs - Full Width */}
-              <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
-
-              {/* Workspace: left = input + parameters, right = resolved SQL (more width for readability) */}
+              {/* Workspace: input and resolved SQL share the available width. */}
               <div
                 id="query-input-tabpanel"
                 role="tabpanel"
                 aria-labelledby={`tab-${inputMode}`}
-                className="space-y-6"
+                className="space-y-4"
               >
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
                   {/* Left: Input + Parameters */}
-                  <div className="space-y-4 xl:col-span-5">
+                  <div className="min-w-0 space-y-4 xl:col-span-6">
                     {/* SQL Textarea */}
                     {inputMode === 'sql' && (
                       <QueryInputPanel
@@ -874,7 +862,7 @@ export default function QueryInputContent() {
                   </div>
 
                   {/* Right: Preview Panel (final SQL to analyze) */}
-                  <div className="xl:col-span-7 xl:min-h-[560px]">
+                  <div className="min-w-0 xl:col-span-6 xl:min-h-[560px]">
                     <PreviewPanel currentSql={currentSql} inputMode={inputMode} t={t} />
                   </div>
                 </div>
@@ -882,13 +870,11 @@ export default function QueryInputContent() {
                 {/* Bottom: Complexity & Linting findings */}
                 <BottomAnalytics currentSql={currentSql} />
 
-                {/* Empty State Tips */}
-                {!currentSql && <EmptyStateTips tips={tips} t={t} />}
               </div>
             </>
           )}
         </div>
       </SidePanelRail>
-    </AppLayout>
+    </>
   );
 }

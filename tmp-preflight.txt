@@ -1,0 +1,224 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/Github projects/sql-visualizer[39m
+
+ [32m✓[39m tests/unit/dbAssistantChatHistoryStorage.test.ts [2m([22m[2m26 tests[22m[2m)[22m[90m 138[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.aiServiceCore.test.ts [2m([22m[2m26 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32m✓[39m tests/unit/format-error-ai.test.ts [2m([22m[2m33 tests[22m[2m)[22m[90m 174[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-code-generator.test.tsx[2m > [22m[2mSQL to Code Generator acceptance[2m > [22m[2mprefills generator SQL from the active SQL input on first entry
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/sqlComparisonPanel.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 2024[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL comparison result panel[2m > [22mrenders comparison summary categories before detailed findings [33m430[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL comparison result panel[2m > [22mrenders each AI lifecycle state distinctly with only supported actions [33m405[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.aiServiceFlow.test.ts [2m([22m[2m17 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32m✓[39m tests/unit/dbAssistantChatHistoryHelpers.test.ts [2m([22m[2m29 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32m✓[39m tests/unit/format-error-panel.test.tsx [2m([22m[2m35 tests[22m[2m)[22m[33m 6307[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US1)[2m > [22mrenders the error summary, message, dialect and severity [33m317[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US2 — explain)[2m > [22moffers one combined action and uses its single response for the correction [33m418[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US2 — explain)[2m > [22mshows the correction returned with the explanation as formatted, highlighted, copyable SQL [33m413[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US2 — explain)[2m > [22mrenders and copies the exact replacementSql fragment returned by the AI [33m328[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US3 — fix)[2m > [22mannounces the applicability notice and moves focus to the retry control [33m306[2mms[22m[39m
+   [33m[2m✓[22m[39m FormatErrorPanel (US3 — fix)[2m > [22mannounces the stale state through a role=alert [33m322[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-code-generator.test.tsx [2m([22m[2m22 tests[22m[2m)[22m[33m 5490[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL to Code Generator acceptance[2m > [22mprefills generator SQL from the active SQL input on first entry [33m931[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL to Code Generator acceptance[2m > [22mgenerates a JPA entity using Java conventions [33m316[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL to Code Generator acceptance[2m > [22mkeeps generator input separate from SQL and MyBatis drafts [33m318[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL to Code Generator acceptance[2m > [22mmarks non-Java renderer targets unavailable [33m445[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL to Code Generator acceptance[2m > [22mcopies the exact generated source from the route [33m327[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphPage.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 3728[2mms[22m[39m
+   [33m[2m✓[22m[39m relationship graph page (019 A3, A11-A18)[2m > [22muses one labeled search, category labels, fit, and rearrange inside the page shell [33m1120[2mms[22m[39m
+   [33m[2m✓[22m[39m shared panel budget and suggestion activation (019 A16, A17, U26, U27)[2m > [22mA16/A30: all panels open keep the map controls inside one shared 45vh budget [33m643[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.dashboard.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 21[2mms[22m[39m
+ [32m✓[39m tests/unit/aiService.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 54[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.comparison.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+[90mstderr[2m | tests/unit/sessionCookie.test.ts[2m > [22m[2msession cookie — server-issued and signed (specs/013 US3)[2m > [22m[2m/api/session — the server issues, the client only asks[2m > [22m[2mrefuses a wrong demo password and sets no cookie
+[22m[39m2026-10-22T15:46:17.260Z [WARN] [session-guard] refused (invalid-credentials) requested=demo
+
+[90mstderr[2m | tests/unit/sessionCookie.test.ts[2m > [22m[2msession cookie — server-issued and signed (specs/013 US3)[2m > [22m[2m/api/session — the server issues, the client only asks[2m > [22m[2mrefuses a missing demo password
+[22m[39m2026-10-22T15:46:17.264Z [WARN] [session-guard] refused (invalid-credentials) requested=demo
+
+[90mstderr[2m | tests/unit/sessionCookie.test.ts[2m > [22m[2msession cookie — server-issued and signed (specs/013 US3)[2m > [22m[2m/api/session — the server issues, the client only asks[2m > [22m[2msocial sessions[2m > [22m[2mrefuses a token the provider does not recognise
+[22m[39m2026-10-22T15:46:17.274Z [WARN] [session-guard] refused (unverified-token) requested=social
+
+[90mstderr[2m | tests/unit/sessionCookie.test.ts[2m > [22m[2msession cookie — server-issued and signed (specs/013 US3)[2m > [22m[2m/api/session — the server issues, the client only asks[2m > [22m[2msocial sessions[2m > [22m[2mrefuses when the provider cannot be reached at all
+[22m[39m2026-10-22T15:46:17.276Z [WARN] [session-guard] refused (unverified-token) requested=social
+
+ [32m✓[39m tests/unit/sessionCookie.test.ts [2m([22m[2m29 tests[22m[2m)[22m[90m 120[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.databaseAssistant.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 59[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.aiServiceWiring.test.ts [2m([22m[2m19 tests[22m[2m)[22m[90m 73[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-sql-comparison.test.tsx[2m > [22m[2mQuery Input SQL comparison editor source[2m > [22m[2mrenders supported filter findings with relevant before and after evidence
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/sqlMetricsDashboard.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 3692[2mms[22m[39m
+   [33m[2m✓[22m[39m dashboard health summary (specs/010-sql-intelligence-dashboard T014 / U29, A1)[2m > [22mshows exactly one normalized score as X / 100 with a level label and error/warning counts (A1) [33m571[2mms[22m[39m
+   [33m[2m✓[22m[39m dashboard states (specs/010-sql-intelligence-dashboard T014 / U27)[2m > [22mshows the failure message and re-runs the analysis of the current SQL on retry (A4/FR-016) [33m368[2mms[22m[39m
+   [33m[2m✓[22m[39m advanced details disclosure (specs/010-sql-intelligence-dashboard T014 / A2, FR-027)[2m > [22mkeeps the scoring fields behind the disclosure and reports the parser metadata that exists [33m446[2mms[22m[39m
+   [33m[2m✓[22m[39m advanced details AST statistics (specs/016-ast-statistics)[2m > [22mshows real node, depth, operator and function counts for a parseable statement (A1, U13) [33m362[2mms[22m[39m
+ [32m✓[39m tests/unit/dashboardData.test.ts [2m([22m[2m17 tests[22m[2m)[22m[90m 32[2mms[22m[39m
+ [32m✓[39m tests/unit/smart-sql-editor-format-error-page.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1114[2mms[22m[39m
+   [33m[2m✓[22m[39m SmartSQL Editor page — format-error panel composition (spec 012 T007)[2m > [22mresolves the region from the cross-check parser when the formatter reports no position [33m388[2mms[22m[39m
+ [32m✓[39m tests/unit/aiBaseUrlFromSettings.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 83[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-workflow.test.tsx[2m > [22m[2mQuery Input workflow hierarchy (specs/008-query-input-ux T010 / US1)[2m > [22m[2mexposes the workflow sections and keeps the input → parameters → review → findings order
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/sqlComparisonAi.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 32[2mms[22m[39m
+[90mstderr[2m | tests/unit/guestAccess.test.tsx[2m > [22m[2mU48/U49 — the workspace auth gate admits a guest[2m > [22m[2mrenders the protected shell for a guest instead of redirecting to /login
+[22m[39mImage with src "/assets/images/app_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/codegen/parseSql.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 264[2mms[22m[39m
+ [32m✓[39m tests/unit/guestAccess.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 4659[2mms[22m[39m
+   [33m[2m✓[22m[39m U21-U23 — a guest sees the locked explanation on each AI surface[2m > [22mlocks the Optimize panel [33m538[2mms[22m[39m
+   [33m[2m✓[22m[39m U48/U49 — the workspace auth gate admits a guest[2m > [22mrenders the protected shell for a guest instead of redirecting to /login [33m1910[2mms[22m[39m
+   [33m[2m✓[22m[39m U50 — the home call to action admits a guest[2m > [22msends a guest to the workspace rather than the sign-in page [33m448[2mms[22m[39m
+ [32m✓[39m tests/unit/side-panel-tab.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 852[2mms[22m[39m
+   [33m[2m✓[22m[39m SidePanelRail[2m > [22mpacks every launcher into one flex column, so none can overlap [33m430[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-workflow.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 3004[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)[2m > [22mexposes the workflow sections and keeps the input → parameters → review → findings order [33m1255[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)[2m > [22mkeeps the secondary actions clickable while the primary action stays dominant [33m320[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)[2m > [22mswitches input modes without altering the underlying workflow [33m468[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-sql-comparison.test.tsx [2m([22m[2m22 tests[22m[2m)[22m[33m 21850[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mrenders supported filter findings with relevant before and after evidence [33m13493[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mshows CTE matching limitations without a broad confirmed finding [33m828[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mkeeps supported findings visible with partial parser coverage [33m1434[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mshows formatting-only changes separately from structural findings [33m304[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22muses the SQL Editor original again after the page owner is remounted [33m330[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mrefreshes both comparison sides after the editor source is replaced [33m330[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mleaves editor SQL unchanged and performs no execution during comparison [33m436[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mcompares the SQL immediately after applying a format fix [33m525[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mrenders AI interpretation separately from deterministic findings [33m322[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mshows streamed AI explanation text before the response completes [33m314[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mrenders validated AI assessment fields separately from deterministic findings [33m304[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mretains deterministic results when an AI provider is unavailable [33m367[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mshows unavailable and invalid AI outcomes with retry and retained findings [33m522[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22msanitizes provider failures in visible errors and captured logs [33m302[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input SQL comparison editor source[2m > [22mdiscards an AI response when the compared editor input becomes stale in flight [33m330[2mms[22m[39m
+ [32m✓[39m tests/unit/promptRender.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 47[2mms[22m[39m
+ [32m✓[39m tests/unit/format-fix-scope.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/CodeGeneratorPanel.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1777[2mms[22m[39m
+   [33m[2m✓[22m[39m CodeGeneratorPanel[2m > [22mapplies generation options and mapper output to generated source [33m961[2mms[22m[39m
+ [32m✓[39m tests/unit/explainerContract.test.ts [2m([22m[2m21 tests[22m[2m)[22m[90m 23[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-review.test.tsx[2m > [22m[2mQuery Input resolved SQL review (specs/008-query-input-ux T024 / US3)[2m > [22m[2mtreats the resolved SQL panel as the final statement to analyze
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/format-error-region.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-review.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 2572[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input resolved SQL review (specs/008-query-input-ux T024 / US3)[2m > [22mtreats the resolved SQL panel as the final statement to analyze [33m1007[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input findings scanability (specs/008-query-input-ux T024 / FR-009, FR-010)[2m > [22mkeeps the dismiss behavior available for each finding [33m314[2mms[22m[39m
+ [32m✓[39m tests/unit/format-error.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 342[2mms[22m[39m
+   [33m[2m✓[22m[39m captureFormatError[2m > [22mprefers the source line and column in the formatter message over its parser offset [33m316[2mms[22m[39m
+ [32m✓[39m tests/unit/SignInPanel.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 2402[2mms[22m[39m
+   [33m[2m✓[22m[39m SignInPanel (specs/006-login-ui-redesign T016 regression guard)[2m > [22mrenders the login/register tablist with login selected by default [33m434[2mms[22m[39m
+   [33m[2m✓[22m[39m SignInPanel interaction states (T029)[2m > [22msurfaces a visible alert when the server rejects the credentials [33m385[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/astStatistics.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 123[2mms[22m[39m
+ [32m✓[39m tests/unit/guestEntitlement.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 53[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-parameters.test.tsx[2m > [22m[2mQuery Input parameter clarity (specs/008-query-input-ux T017 / US2)[2m > [22m[2mlabels every parameter field with the placeholder name and marks them as required to resolve SQL
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/codegen/javaJpaRenderer.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 46[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-parameters.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 2163[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input parameter clarity (specs/008-query-input-ux T017 / US2)[2m > [22mlabels every parameter field with the placeholder name and marks them as required to resolve SQL [33m820[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input parameter clarity (specs/008-query-input-ux T017 / US2)[2m > [22moffers a search field for large parameter sets and filters without changing the entered values [33m494[2mms[22m[39m
+ [32m✓[39m tests/unit/promptRegistry.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 32[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.locales.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 26[2mms[22m[39m
+[90mstderr[2m | tests/unit/query-input-analysis-state.test.tsx[2m > [22m[2mQuery Input publishes analysis state for the dashboard (FR-016)[2m > [22m[2mrecords the failure in the store so the dashboard can show it and offer a retry
+[22m[39mImage with src "/assets/images/my_sql_logo.png" is using quality "85" which is not configured in images.qualities. This config will be required starting in Next.js 16.
+Read more: https://nextjs.org/docs/messages/next-image-unconfigured-qualities
+
+ [32m✓[39m tests/unit/format-error-ai-fix.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 188[2mms[22m[39m
+ [32m✓[39m tests/unit/query-input-analysis-state.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 1309[2mms[22m[39m
+   [33m[2m✓[22m[39m Query Input publishes analysis state for the dashboard (FR-016)[2m > [22mrecords the failure in the store so the dashboard can show it and offer a retry [33m825[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphLayout.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 46[2mms[22m[39m
+ [32m✓[39m tests/unit/optimizeRegression.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32m✓[39m tests/unit/promptParity.formatError.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 233[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlComparison.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 5947[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL structural comparison[2m > [22mreports filter and projection changes with exact source evidence [33m4029[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL structural comparison[2m > [22mreports changed sources, joins, grouping, ordering, and pagination [33m840[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL structural comparison[2m > [22mkeeps ambiguous CTE matching partial and evidence scoped [33m513[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL structural comparison[2m > [22mreports supported changes and parser limits by dialect [33m339[2mms[22m[39m
+ [32m✓[39m tests/unit/dbAssistantChatHistoryIdentity.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 32[2mms[22m[39m
+ [32m✓[39m tests/unit/dbAssistantHistoryPanel.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1059[2mms[22m[39m
+   [33m[2m✓[22m[39m History panel width[2m > [22mstarts at the default width and remembers a dragged one [33m539[2mms[22m[39m
+ [32m✓[39m tests/unit/guideline-light-theme-colors.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 2138[2mms[22m[39m
+   [33m[2m✓[22m[39m guideline accents follow the active theme[2m > [22mpaints the dark palette when the dark theme is active [33m1145[2mms[22m[39m
+   [33m[2m✓[22m[39m guideline accents follow the active theme[2m > [22mnever paints a dark neon shade as a colour in light mode [33m909[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphVisibility.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 17[2mms[22m[39m
+ [32m✓[39m tests/unit/aiSqlContext.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 49[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlSourceClassification.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 104[2mms[22m[39m
+ [32m✓[39m tests/unit/complexityNormalization.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 31[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlMetricsDashboard.baseline.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 232[2mms[22m[39m
+[90mstderr[2m | tests/unit/readme-page.test.tsx[2m > [22m[2mREADME page (light-mode support)[2m > [22m[2mrenders the Vietnamese README when the selected locale is vi
+[22m[39m[documentation] Mermaid diagram failed to render: {
+  str: [32m"Cannot read properties of null (reading 'getAttribute')"[39m,
+  message: [32m"Cannot read properties of null (reading 'getAttribute')"[39m,
+  hash: [32m'TypeError'[39m,
+  error: TypeError: Cannot read properties of null (reading 'getAttribute')
+      at Selection.default [as attr] [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4md3-selection[24m/src/selection/attr.js:50:16[90m)[39m
+      at insertLookDefs [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4mmermaid[24m/dist/chunks/mermaid.core/chunk-DUW6YSOI.mjs:9:21[90m)[39m
+      at render [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4mmermaid[24m/dist/chunks/mermaid.core/chunk-SVEVUXB4.mjs:107:3[90m)[39m
+  [90m    at processTicksAndRejections (node:internal/process/task_queues:104:5)[39m
+      at Object.draw [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4mmermaid[24m/dist/chunks/mermaid.core/chunk-EU5HNXII.mjs:1162:3[90m)[39m
+      at renderDiagram [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4mmermaid[24m/dist/mermaid.core.mjs:1368:7[90m)[39m
+      at Object.render [90m(file:///D:/Github%20projects/sql-visualizer/[39mnode_modules/[4mmermaid[24m/dist/mermaid.core.mjs:1416:12[90m)[39m
+}
+
+ [32m✓[39m tests/unit/readme-page.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 6980[2mms[22m[39m
+   [33m[2m✓[22m[39m README page (light-mode support)[2m > [22mrenders README.md inside the themed documentation shell [33m2030[2mms[22m[39m
+   [33m[2m✓[22m[39m README page (light-mode support)[2m > [22mrenders the Vietnamese README when the selected locale is vi [33m3784[2mms[22m[39m
+   [33m[2m✓[22m[39m README page (light-mode support)[2m > [22mtranslates its chrome when the language switch is used [33m567[2mms[22m[39m
+ [32m✓[39m tests/unit/demoAuth.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32m✓[39m tests/unit/route-progress-bar.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 593[2mms[22m[39m
+   [33m[2m✓[22m[39m RouteProgressBar[2m > [22mshows a labelled progress indicator once a navigation outlasts the appear delay [33m390[2mms[22m[39m
+ [32m✓[39m tests/unit/SignInPage.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1345[2mms[22m[39m
+   [33m[2m✓[22m[39m SignInPage brand column (specs/006-login-ui-redesign T024 / FR-015)[2m > [22mexposes the language and theme switches before signing in (specs/006 FR-008) [33m761[2mms[22m[39m
+ [32m✓[39m tests/unit/sql-cross-check.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 341[2mms[22m[39m
+   [33m[2m✓[22m[39m locateSyntaxError[2m > [22mreports where the cross-check parser says the SQL goes wrong [33m325[2mms[22m[39m
+ [32m✓[39m tests/unit/home-preferences.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 2197[2mms[22m[39m
+   [33m[2m✓[22m[39m Home page language switch[2m > [22mrenders the header copy in English by default [33m1006[2mms[22m[39m
+   [33m[2m✓[22m[39m Home page language switch[2m > [22mswitches the header copy and the selected language to Vietnamese [33m568[2mms[22m[39m
+   [33m[2m✓[22m[39m Home page theme switch[2m > [22mapplies the light theme when the toggle is used [33m344[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/GeneratorTargetControls.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 895[2mms[22m[39m
+   [33m[2m✓[22m[39m GeneratorTargetControls[2m > [22mexposes generation options and planned targets [33m892[2mms[22m[39m
+ [32m✓[39m tests/unit/confluence-language.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 753[2mms[22m[39m
+   [33m[2m✓[22m[39m Confluence page follows the language selected on the home page[2m > [22mrenders the English variant and its chrome translations by default [33m497[2mms[22m[39m
+ [32m✓[39m tests/unit/cteExplanation.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 18[2mms[22m[39m
+ [32m✓[39m tests/unit/home-features.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 1273[2mms[22m[39m
+   [33m[2m✓[22m[39m Home page feature overview[2m > [22mlists the main capabilities of the product [33m635[2mms[22m[39m
+   [33m[2m✓[22m[39m Home page feature overview[2m > [22mtranslates the capabilities when the language switch is used [33m392[2mms[22m[39m
+ [32m✓[39m tests/unit/AppLayout.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[90m 229[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlComparisonStorage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+ [32m✓[39m tests/unit/explainerLengthBudget.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 21[2mms[22m[39m
+ [32m✓[39m tests/unit/dashboardAiPrompts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/complexityScorer.baseline.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/classifySql.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 89[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphIdentity.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 436[2mms[22m[39m
+   [33m[2m✓[22m[39m graph identity (019 A5-A8, A25)[2m > [22mshows category text on full and compact cards, separate from the alias [33m347[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphSourceFilter.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/rendererRegistry.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/performance.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 113[2mms[22m[39m
+ [32m✓[39m tests/unit/dashboardCapability.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/complexitySurfaces.baseline.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[90m 148[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/typeMapping.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphExport.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/TabNavigation.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 505[2mms[22m[39m
+   [33m[2m✓[22m[39m TabNavigation[2m > [22msupports keyboard tab navigation [33m502[2mms[22m[39m
+ [32m✓[39m tests/unit/relationshipGraphLocales.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m tests/unit/login-route.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 350[2mms[22m[39m
+   [33m[2m✓[22m[39m /login route gate (specs/006-login-ui-redesign T009 regression / FR-012)[2m > [22mrenders the sign-in page for signed-out visitors [33m328[2mms[22m[39m
+ [32m✓[39m tests/unit/sqlSubqueryConsistency.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 42[2mms[22m[39m
+ [32m✓[39m tests/unit/AiCteBatchPanel.test.tsx [2m([22m[2m1 test[22m[2m)[22m[90m 256[2mms[22m[39m
+ [32m✓[39m tests/unit/codegen/naming.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 3[2mms[22m[39m
+ [32m✓[39m tests/unit/SignInPage.axe.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 916[2mms[22m[39m
+   [33m[2m✓[22m[39m SignInPage accessibility (specs/006-login-ui-redesign T017 / FR-018)[2m > [22mhas no axe-core WCAG 2.1 A/AA violations detectable in jsdom [33m861[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m84 passed[39m[22m[90m (84)[39m
+[2m      Tests [22m [1m[32m826 passed[39m[22m[90m (826)[39m
+[2m   Start at [22m 22:46:00
+[2m   Duration [22m 67.65s[2m (transform 16.78s, setup 56.29s, collect 40.65s, tests 92.53s, environment 210.61s, prepare 18.31s)[22m
+

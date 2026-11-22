@@ -24,13 +24,12 @@ export default function ThemeProvider({ children }: { children?: React.ReactNode
   useEffect(() => {
     const root = document.documentElement;
     const isDark = settings.theme === 'dark';
+    root.dataset.theme = settings.theme;
     const selectedColor = settings.accentColor || '#6ee7f7';
     const colorMap = COLOR_PRESETS[selectedColor] || COLOR_PRESETS['#6ee7f7'];
     const primaryColor = isDark ? colorMap.dark : colorMap.light;
 
-    // Apply theme class. Both classes are set explicitly because Tailwind uses `darkMode: 'class'`:
-    // without the `dark` class the `dark:` utilities stay inactive, and without `light` the
-    // light tokens never override the dark ones declared on `:root`.
+    // Keep Tailwind's theme classes and mark the semantic token theme on the document root.
     if (isDark) {
       root.classList.add('dark');
       root.classList.remove('light');

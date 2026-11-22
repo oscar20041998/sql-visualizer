@@ -47,6 +47,11 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }));
 
+vi.mock('@/lib/queryHistoryClient', () => ({
+  saveQueryHistoryEntry: vi.fn().mockResolvedValue(null),
+  updateQueryHistoryEmbedding: vi.fn().mockResolvedValue(undefined),
+}));
+
 const MYBATIS_XML = `<select id="findOrders">
   SELECT * FROM orders o
   INNER JOIN customers c ON o.customer_id = c.id
@@ -86,6 +91,30 @@ beforeEach(async () => {
 });
 
 describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)', () => {
+  it('analyzes entered SQL and stores its tables and join before opening the dashboard', async () => {
+    const t = await renderPage();
+    useAppStore.getState().setDialect('mysql');
+    const sql = 'SELECT * FROM orders o INNER JOIN customers c ON o.customer_id = c.id';
+
+    fireEvent.change(screen.getByPlaceholderText(/^Paste your SQL query here/), {
+      target: { value: sql },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/sql-metrics-dashboard'), {
+      timeout: 15000,
+    });
+    const result = useAppStore.getState().analysisResult;
+    expect(result?.tables).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'orders' }),
+        expect.objectContaining({ name: 'customers' }),
+      ])
+    );
+    expect(result?.joins).toHaveLength(1);
+    expect(useAppStore.getState().rawSql).toBe(sql);
+  });
+
   it('exposes the workflow sections and keeps the input → parameters → review → findings order', async () => {
     const t = await renderPage();
     useAppStore.setState({ myBatisXml: MYBATIS_XML, inputMode: 'import-xml' });
@@ -218,6 +247,17 @@ describe('Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)', 
     );
     expect(screen.getByRole('tab', { name: t.tabImportMyBatis })).toHaveFocus();
   });
+
+  it('keeps the dialect selector beside the tabs and applies a different dialect', async () => {
+    useAppStore.getState().setDialect('mysql');
+    const t = await renderPage();
+    const tablist = screen.getByRole('tablist', { name: t.inputMethodLabel });
+    const selector = screen.getByRole('button', { name: `${t.dialectLabel}: MySQL` });
+    expect(tablist.parentElement).toContainElement(selector);
+    fireEvent.click(selector);
+    fireEvent.click(screen.getByRole('button', { name: /PostgreSQL/ }));
+    expect(useAppStore.getState().dialect).toBe('postgresql');
+  });
 });
 
 describe('Query Input locale parity (specs/008-query-input-ux T010 / FR-013)', () => {
@@ -232,26 +272,20 @@ describe('Query Input locale parity (specs/008-query-input-ux T010 / FR-013)', (
   });
 });
 
-describe('Query Input desktop layout (specs/008-query-input-ux T015 / A10)', () => {
+describe('Query Input desktop layout', () => {
   // Layout proportions are only observable as classes in jsdom, so this asserts the
   // workspace contract that keeps SQL readable (FR-012) instead of a rendered width.
-  it('gives the resolved SQL more width than the input and parameter column', async () => {
+  it('gives the input and resolved SQL equal width', async () => {
     const t = await renderPage();
     useAppStore.setState({ myBatisXml: MYBATIS_XML, inputMode: 'import-xml' });
     await screen.findByRole('heading', { name: t.parametersTitle });
 
     const workspace = document.querySelector('[class*="xl:grid-cols-12"]');
-    const inputColumn = document.querySelector('[class*="xl:col-span-5"]');
-    const sqlColumn = document.querySelector('[class*="xl:col-span-7"]');
+    const columns = workspace?.querySelectorAll('[class*="xl:col-span-6"]');
 
     expect(workspace).not.toBeNull();
-    expect(inputColumn).not.toBeNull();
-    expect(sqlColumn).not.toBeNull();
-
-    const inputSpan = Number(inputColumn?.className.match(/xl:col-span-(\d+)/)?.[1]);
-    const sqlSpan = Number(sqlColumn?.className.match(/xl:col-span-(\d+)/)?.[1]);
-    expect(sqlSpan).toBeGreaterThan(inputSpan);
-    expect(sqlColumn?.className).toContain('xl:min-h-[560px]');
+    expect(columns).toHaveLength(2);
+    expect(columns?.[1].className).toContain('xl:min-h-[560px]');
 
     const parametersPanel = screen
       .getByRole('heading', { name: t.parametersTitle })
@@ -259,5 +293,29 @@ describe('Query Input desktop layout (specs/008-query-input-ux T015 / A10)', () 
     const parameterGrid = parametersPanel?.querySelector('[class*="grid-cols"]');
     expect(parameterGrid?.className).toContain('sm:grid-cols-2');
     expect(parameterGrid?.className).not.toContain('grid-cols-3');
+  });
+
+  it('shows the existing tips on demand beside the tabs without a permanent section', async () => {
+    const t = await renderPage();
+    const tablist = screen.getByRole('tablist', { name: t.inputMethodLabel });
+    const tipsButton = screen.getByRole('button', { name: t.tipsTitle });
+    const selector = screen.getByRole('button', { name: new RegExp(`^${t.dialectLabel}:`) });
+    expect(tablist.parentElement).toContainElement(tipsButton);
+    expect(tipsButton.parentElement?.parentElement).toContainElement(selector);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: t.tipsTitle })).not.toBeInTheDocument();
+
+    fireEvent.focus(tipsButton);
+    const tooltip = screen.getByRole('tooltip');
+    for (const tip of [t.tipCTE, t.tipJoin, t.tipMyBatis, t.tipDialect]) {
+      expect(tooltip).toHaveTextContent(tip);
+    }
+    expect(tipsButton).toHaveAttribute('aria-describedby', tooltip.id);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.click(tipsButton);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });

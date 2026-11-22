@@ -14,7 +14,7 @@ import { LIMITATION_EMPTY_STATEMENT } from '@/lib/sql/sqlComparison';
 import SidePanelTab from './SidePanelTab';
 
 const aiFieldClass = 'space-y-1 rounded border-l-2 border-primary bg-muted p-3';
-const aiHeadingClass = 'text-xs font-semibold uppercase tracking-wide text-primary';
+const aiHeadingClass = 'text-xs font-medium text-muted-foreground';
 
 // Shows all five AI fields; fields not streamed yet show a placeholder.
 function AiCoreFields({
@@ -196,7 +196,7 @@ export default function SqlComparisonPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] bg-background/60"
       onClick={() => onToggle(false)}
       role="presentation"
     >
@@ -215,7 +215,7 @@ export default function SqlComparisonPanel({
             aria-expanded="true"
             aria-controls="sql-comparison-panel"
             title={t.comparisonClosePanel}
-            className="flex h-8 w-8 items-center justify-center rounded border border-border bg-card text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 w-8 items-center justify-center rounded border border-border bg-transparent text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight size={16} aria-hidden="true" />
             <span className="sr-only">{t.comparisonClosePanel}</span>
@@ -227,7 +227,7 @@ export default function SqlComparisonPanel({
               type="button"
               disabled={isRunning}
               onClick={onRunComparison}
-              className="rounded border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-10 rounded-md border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isRunning ? t.comparisonRunning : t.comparisonRun}
             </button>
@@ -271,7 +271,7 @@ export default function SqlComparisonPanel({
               )}
               <section
                 aria-label={t.comparisonSummary}
-                className="space-y-2 rounded border border-border bg-muted/30 p-3"
+                className="space-y-2 rounded-lg border border-border bg-muted/30 p-4"
               >
                 <h3 className="text-sm font-semibold">{t.comparisonSummary}</h3>
                 <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">

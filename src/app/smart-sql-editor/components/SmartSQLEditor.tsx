@@ -1105,21 +1105,22 @@ export const SmartSQLEditor: React.FC<{
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 h-full gap-3 overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-lg border border-border bg-card">
       {/* Toolbar */}
       <div className="flex flex-col gap-3 px-4 pt-4 pb-0">
         {/* Title Bar */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{
-                background: state.hasChanges ? '#f59e0b' : '#10b981',
-              }}
-            />
             <h2 className="text-lg font-semibold text-foreground">{t.smartEditorTitle}</h2>
-            <span className="font-mono text-xs text-muted-foreground">
-              {state.hasChanges ? `● ${t.smartEditorModified}` : `○ ${t.smartEditorOriginal}`}
+            <span
+              role="status"
+              className={`rounded-full border px-2 py-0.5 text-xs ${
+                state.hasChanges
+                  ? 'border-warning/40 bg-warning/10 text-warning'
+                  : 'border-border bg-muted text-muted-foreground'
+              }`}
+            >
+              {state.hasChanges ? t.smartEditorModified : t.smartEditorOriginal}
             </span>
           </div>
         </div>
@@ -1129,7 +1130,7 @@ export const SmartSQLEditor: React.FC<{
           <button
             onClick={handleToggleDiffMode}
             disabled={!state.hasChanges}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
               state.isDiffMode
                 ? 'border-primary bg-primary/15 text-primary hover:bg-primary/20'
                 : 'border-border bg-muted text-foreground hover:bg-secondary'
@@ -1142,7 +1143,7 @@ export const SmartSQLEditor: React.FC<{
 
           <button
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {state.copiedToClipboard ? (
               <>
@@ -1161,7 +1162,7 @@ export const SmartSQLEditor: React.FC<{
             <button
               onClick={handleResetToOriginal}
               disabled={state.isOptimizing}
-              className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               title={t.smartEditorResetTitle}
             >
               <RotateCcw size={12} />
@@ -1171,8 +1172,8 @@ export const SmartSQLEditor: React.FC<{
         </div>
 
         {/* Stats Bar */}
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="font-mono">
               {state.hasChanges ? (
                 <>
@@ -1200,8 +1201,7 @@ export const SmartSQLEditor: React.FC<{
             <span className="font-mono">
               <span className="text-primary">{stats.words}</span> {t.smartEditorWords}
             </span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-muted-foreground">
+            <span className="border-l border-border pl-3 text-muted-foreground">
               {t.smartEditorDialect} <span className="font-mono text-primary">{dialect}</span>
             </span>
           </div>
@@ -1280,7 +1280,7 @@ export const SmartSQLEditor: React.FC<{
             theme={monacoTheme}
             options={{ ...diffEditorOptions, readOnly: true }}
             className="min-h-0 w-full"
-            height="100vh"
+            height="100%"
           />
         ) : (
           <Editor
@@ -1298,16 +1298,16 @@ export const SmartSQLEditor: React.FC<{
               }));
             }}
             className="min-h-0 w-full"
-            height="100vh"
+            height="100%"
           />
         )}
 
         {/* Blocks editing while the AI rewrites this query in place, so the user cannot type
          * into content that is about to be replaced by the streamed result. */}
         {state.isOptimizing && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-[2px]">
-            <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-card px-4 py-3 shadow-lg">
-              <RefreshCw size={16} className="animate-spin text-primary" />
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <RefreshCw size={16} className="motion-safe:animate-spin text-primary" />
               <span className="text-sm font-medium text-foreground">
                 {t.smartEditorEditorLockedNotice}
               </span>
@@ -1317,7 +1317,7 @@ export const SmartSQLEditor: React.FC<{
       </div>
 
       {/* Status Footer */}
-      <div className="flex items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <FileText size={12} className="text-muted-foreground" />
           <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>

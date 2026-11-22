@@ -15,7 +15,7 @@ const vi = {
   navSettings: 'Cài đặt',
 
   // Query Input
-  queryInputTitle: 'Nhập & Cấu hình truy vấn',
+  queryInputTitle: 'Nhập truy vấn',
   workflowStepsLabel: 'Quy trình phân tích truy vấn',
   workflowStepInput: 'Nhập truy vấn',
   workflowStepConfigure: 'Cấu hình tham số',
@@ -436,6 +436,7 @@ const vi = {
   metricsFieldPaginationPrev: 'Trước',
   metricsFieldPaginationNext: 'Sau',
   metricsFieldPaginationPage: 'Trang',
+  metricsValueUnavailable: 'Không có dữ liệu',
   noDataDash: '-',
   impactLow: 'Tác động thấp',
   impactMedium: 'Tác động trung bình',
@@ -527,6 +528,8 @@ const vi = {
   fieldAlias: 'Bí danh',
   fieldOrigin: 'Nguồn gốc',
   fieldType: 'Loại',
+  previousPage: 'Trang trước',
+  nextPage: 'Trang sau',
   originCTE: 'CTE',
   originTable: 'Bảng',
   originExpression: 'Biểu thức',
@@ -1423,6 +1426,15 @@ const vi = {
   queryHistoryTablesCount: '{n} bảng',
   queryHistoryJoinsCount: '{n} phép nối',
   queryHistorySavedToast: 'Đã lưu truy vấn vào lịch sử',
+  queryHistoryColumnQuery: 'Truy vấn',
+  queryHistoryColumnDialect: 'Hệ cơ sở dữ liệu',
+  queryHistoryColumnDate: 'Đã lưu',
+  queryHistoryColumnDetails: 'Chi tiết',
+  queryHistoryColumnActions: 'Thao tác',
+  queryHistoryPage: 'Trang {current} / {total}',
+  queryHistoryLoadError: 'Không thể tải lịch sử truy vấn.',
+  queryHistoryDeleteError: 'Không thể xóa truy vấn.',
+  queryHistoryClearError: 'Không thể xóa lịch sử truy vấn.',
   demoTitle: 'Demo SQL Thông Minh',
   demoSubtitle: 'Thử các truy vấn SQL mẫu và tối ưu hóa bằng AI trong môi trường thử nghiệm',
   demoLoadSampleQueryLabel: '📋 Tải truy vấn mẫu:',
@@ -1765,7 +1777,7 @@ const vi = {
   homeGitHubLink: 'GitHub',
   homeContactLink: 'Liên hệ',
   homePreviewQueryTitle: 'Không gian truy vấn',
-  homePreviewAnalyzed: 'ĐÃ PHÂN TÍCH',
+  homePreviewAnalyzed: 'Đã phân tích',
   homePreviewInsightTitle: 'Tóm tắt phân tích',
   homePreviewComplexity: 'Điểm độ phức tạp',
   homePreviewRelationships: 'Quan hệ đã phát hiện',
@@ -1808,7 +1820,7 @@ const vi = {
 
   // Guest access (specs/013-guest-access-mode). Nội dung disclosure phải nêu rõ những gì không dùng
   // được và cho biết AI chạy trên máy người dùng vẫn khả dụng — ràng buộc theo chi phí, không theo nhãn.
-  guestAccessLink: 'Tôi chưa có tài khoản, nhưng vẫn muốn sử dụng',
+  guestAccessLink: 'Dùng với tư cách khách',
   guestAccessDialogTitle: 'Tiếp tục mà không cần tài khoản?',
   guestAccessDialogIntro:
     'Bạn có thể dùng ngay các công cụ phân tích SQL. Một vài tính năng hỗ trợ bằng AI cần có tài khoản, vì chúng chạy trên tài nguyên dùng chung của nhà cung cấp.',

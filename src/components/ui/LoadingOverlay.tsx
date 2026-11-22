@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Database } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 
@@ -45,24 +47,27 @@ export default function LoadingOverlay({
     return () => clearTimeout(hideTimer);
   }, [visible, hideDelay, onHide]);
 
-  if (!isDisplayed) return null;
+  if (!isDisplayed || typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 shadow-2xl">
-        <div className="relative h-14 w-14">
-          <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary animate-spin" />
-          <div
-            className="absolute inset-2 rounded-full border-2 border-transparent border-t-accent animate-spin"
-            style={{ animationDuration: '0.6s', animationDirection: 'reverse' }}
-          />
-        </div>
-        <div className="text-center">
+  return createPortal(
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/90 motion-safe:animate-fade-in"
+    >
+      <div className="relative flex h-16 w-16 items-center justify-center">
+        <div className="absolute inset-0 rounded-full border border-border" aria-hidden="true" />
+        <div
+          className="absolute inset-0 rounded-full border border-transparent border-t-primary motion-safe:animate-spin"
+          aria-hidden="true"
+        />
+        <Database className="h-6 w-6 text-primary" aria-hidden="true" />
+        <div className="absolute left-1/2 top-full mt-5 w-64 max-w-[90vw] -translate-x-1/2 text-center">
           <p className="text-sm font-semibold text-foreground">{defaultTitle}</p>
           {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,0 +1,30 @@
+{
+  "status": "blocked",
+  "requiredViewports": [320, 375, 414, 768, "desktop"],
+  "capturedBeforeUiChanges": false,
+  "availableEvidence": {
+    "source": "specs/021-improve-product-ui/hallmark-evidence.json",
+    "routes": ["/", "/login"],
+    "note": "Recorded Hallmark renders are post-change and cannot serve as the original baseline."
+  },
+  "blockedRoutes": [
+    {
+      "id": "visual-workspace-routes",
+      "routes": [
+        "/query-input",
+        "/smart-sql-editor",
+        "/relationship-graph-visualizer",
+        "/sql-metrics-dashboard",
+        "/cte-analysis",
+        "/database-ai-assistant",
+        "/settings-preferences"
+      ],
+      "reason": "No authenticated browser baseline was captured before the existing UI changes."
+    }
+  ],
+  "limitations": [
+    "No original before-change screenshots are available for the application routes.",
+    "The browser context previously rendered blank for attempted interactive verification.",
+    "Do not interpret post-change Hallmark screenshots as baseline evidence."
+  ]
+}

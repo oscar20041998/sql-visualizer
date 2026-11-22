@@ -5,9 +5,6 @@ import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
 
-const FocusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
-
 /** Locales the app ships translations for, in the order the switch lists them. */
 const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'vi'];
 
@@ -37,11 +34,11 @@ export default function LanguageThemeSwitch() {
             onClick={() => updateSettings({ locale: localeOption })}
             aria-pressed={settings.locale === localeOption}
             aria-label={localeOption === 'en' ? t.languageEnglish : t.languageVietnamese}
-            className={`rounded-md px-2 py-1 text-xs font-semibold uppercase transition-colors ${
+            className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold transition-colors active:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
               settings.locale === localeOption
                 ? 'bg-primary/15 text-primary'
                 : 'text-muted-foreground hover:text-foreground'
-            } ${FocusRing}`}
+            }`}
           >
             {localeOption}
           </button>
@@ -52,7 +49,7 @@ export default function LanguageThemeSwitch() {
         onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
         aria-label={settings.theme === 'dark' ? t.lightMode : t.darkMode}
         title={settings.theme === 'dark' ? t.lightMode : t.darkMode}
-        className={`rounded-lg border border-border/70 bg-card/60 p-2 text-muted-foreground transition-colors hover:text-foreground ${FocusRing}`}
+        className="rounded-lg border border-border/70 bg-card/60 p-2 text-muted-foreground transition-colors hover:text-foreground active:bg-muted disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {settings.theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>

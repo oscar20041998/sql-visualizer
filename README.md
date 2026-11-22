@@ -28,7 +28,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 - **Docs Consultant Chat** - RAG-style chat over the app's own feature docs (embeds the question, retrieves the closest doc chunks, answers with citations)
 - **Database AI Assistant** - General database chat for SQL, schema design, indexes, transactions, and performance. When its local RAG index is available, answers are grounded in relevant excerpts from official SQL Server, MySQL, PostgreSQL, and Oracle manuals, with source labels shown below the answer
 - **Database AI Assistant Chat History** - Persistent, multi-conversation history for the Database AI Assistant. Conversations survive a page reload, navigating away, and a browser restart, are titled automatically from the first question, grouped by recency, and can be searched, renamed, deleted or cleared. History is stored on the device and partitioned per signed-in identity; guests keep no stored history by design
-- **Query History with Semantic Search** - Every analyzed query is saved (server-side Excel-backed store) and searchable by meaning, not just substring, via embeddings
+- **Query History with Semantic Search** - Analyzed queries are saved in browser history and searchable by meaning, not just substring, via embeddings
 - **Multi-Provider Support** - Local Ollama (no API key needed) or cloud providers (OpenAI, Anthropic, Gemini, AI Portal) proxied through the app server so credentials never reach the browser
 - **Text-to-Speech** - Reads AI explanations/optimization notes aloud (browser speech synthesis, with optional Piper local voices)
 
@@ -153,7 +153,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Query analyzed] --> B["Saved to the server-side query history (Excel-backed)"]
+    A[Query analyzed] --> B["Saved to browser query history"]
     B --> C["embeddingService embeds the query text"]
     C --> D["Embedding stored alongside the history entry"]
     E[User searches history by meaning] --> F["Search phrase embedded the same way"]

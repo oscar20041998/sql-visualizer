@@ -67,7 +67,7 @@ function toPlainText(explanation: SqlExplanation, t: Translations): string {
   }
   if (sections.data_sources.length) {
     blocks.push(
-      `${t.aiExplainerTables}\n${sections.data_sources.map((source) => `${source.name} — ${source.purpose}`).join(', ')}`
+      `${t.aiExplainerTables}\n${sections.data_sources.map((source) => `${source.name}: ${source.purpose}`).join(', ')}`
     );
   }
   return blocks.join('\n\n');
@@ -86,7 +86,7 @@ function renderHighlighted(text: string): React.ReactNode {
     return isIdentifier ? (
       <code
         key={index}
-        className="rounded bg-emerald-500/10 px-1 font-mono text-[0.9em] text-emerald-300"
+        className="rounded bg-primary/10 px-1 font-mono text-[0.9em] text-primary"
       >
         {part}
       </code>
@@ -191,7 +191,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
     if (!hasContent) {
       return (
         <p className="flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
-          <RefreshCw size={13} className="animate-spin text-primary" />
+          <RefreshCw size={13} className="motion-safe:animate-spin text-primary" />
           {t.aiExplainerDrafting}
         </p>
       );
@@ -200,8 +200,8 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
     return (
       <div className="space-y-3">
         {partial.query_objective && (
-          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="border-b border-border/70 pb-3">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
                 <Target size={11} />
               </span>
@@ -209,15 +209,15 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
             </p>
             <p className="mt-2 text-sm leading-relaxed text-foreground">
               {partial.query_objective}
-              <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-primary align-middle" />
+              <span className="ml-0.5 inline-block h-3 w-1.5 motion-safe:animate-pulse bg-primary align-middle" />
             </p>
           </div>
         )}
 
         {partial.result_bullets.length > 0 && (
-          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-400">
+          <div className="border-b border-border/70 pb-3">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-info/10 text-info">
                 <MessageSquareText size={11} />
               </span>
               {t.aiExplainerOutput}
@@ -228,7 +228,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
                   key={`streaming-result-${index}`}
                   className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
                 >
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-info" />
                   {renderHighlighted(bullet)}
                 </li>
               ))}
@@ -237,9 +237,9 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         )}
 
         {partial.report_grain && (
-          <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-400">
+          <div className="border-b border-border/70 pb-3">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-accent">
                 <ShieldCheck size={11} />
               </span>
               {t.aiExplainerGrain}
@@ -285,8 +285,8 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="border-b border-border/70 pb-3">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
           <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/15 text-primary">
             <Target size={11} />
           </span>
@@ -297,9 +297,9 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/15 text-sky-400">
+      <div className="border-b border-border/70 pb-3">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-info/10 text-info">
             <MessageSquareText size={11} />
           </span>
           {t.aiExplainerOutput}
@@ -310,16 +310,16 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
               key={`result-${index}`}
               className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
             >
-              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-info" />
               {renderHighlighted(bullet)}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-500/15 text-violet-400">
+      <div className="border-b border-border/70 pb-3">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-accent/10 text-accent">
             <ShieldCheck size={11} />
           </span>
           {t.aiExplainerGrain}
@@ -329,9 +329,9 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/15 text-amber-400">
+      <div className="border-b border-border/70 pb-3">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-warning/10 text-warning">
             <Filter size={11} />
           </span>
           {t.aiExplainerFilters}
@@ -349,7 +349,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
                       key={`filter-${categoryIndex}-${itemIndex}`}
                       className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
                     >
-                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-warning" />
                       {item}
                     </li>
                   ))}
@@ -362,9 +362,9 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500/15 text-emerald-400">
+      <div className="border-b border-border/70 pb-3">
+        <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-success/10 text-success">
             <Database size={11} />
           </span>
           {t.aiExplainerTables}
@@ -375,7 +375,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
               key={`source-${index}`}
               className="inline-flex flex-col rounded border border-border bg-muted/60 px-2.5 py-1 text-xs"
             >
-              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="font-mono font-semibold text-primary">
                 {source.name}
               </span>
               <span
@@ -394,7 +394,7 @@ const AssistantTurnBody: React.FC<{ turn: ExplainTurn; t: Translations }> = ({ t
 
       <button
         onClick={() => setShowRaw((prev) => !prev)}
-        className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronDown size={11} className={`transition-transform ${showRaw ? 'rotate-180' : ''}`} />
         {showRaw ? t.aiExplainerHideRaw : t.aiExplainerShowRaw}
@@ -757,16 +757,16 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[60] bg-background/60 motion-safe:animate-fade-in"
           onClick={() => setIsOpen(false)}
         >
           <div
             ref={containerRef}
             onClick={(event) => event.stopPropagation()}
-            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl animate-slide-in-right sm:max-w-2xl"
+            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl motion-safe:animate-slide-in-right sm:max-w-2xl"
           >
             {/* Header */}
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-card px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
                 <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                   <Sparkles size={16} className="text-primary" />
@@ -794,7 +794,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                 </span>
                 <Link
                   href="/settings-preferences"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Settings size={11} />
                   {t.aiExplainerOpenSettings}
@@ -802,7 +802,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                 {/* Reopens the release note after it has been dismissed. */}
                 <button
                   onClick={announcement.open}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Sparkles size={11} />
                   {t.aiAnnounceReopen}
@@ -810,7 +810,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                 <button
                   onClick={() => setIsOpen(false)}
                   aria-label={t.aiExplainerClosePanel}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <X size={14} />
                 </button>
@@ -825,13 +825,13 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               ) : isRunning ? (
                 <>
                   <span className="flex items-center gap-2 rounded-lg border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
-                    <RefreshCw size={12} className="animate-spin" />
+                    <RefreshCw size={12} className="motion-safe:animate-spin" />
                     {t.aiExplainerRunning}
                     <span className="font-mono text-primary">{formatSeconds(elapsedMs)}</span>
                   </span>
                   <button
                     onClick={handleCancel}
-                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                    className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {t.aiExplainerCancel}
                   </button>
@@ -840,7 +840,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                 <button
                   onClick={runExplain}
                   disabled={!sql.trim()}
-                  className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Sparkles size={12} />
                   {turns.length ? t.aiExplainerRerunButton : t.aiExplainerRunButton}
@@ -850,7 +850,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               {canCopy && !isRunning && (
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {copied ? <Check size={12} /> : <Copy size={12} />}
                   {copied ? t.aiExplainerCopiedShort : t.aiExplainerCopy}
@@ -867,12 +867,12 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                   }
                   className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     speechState === 'idle'
-                      ? 'border-border bg-card text-foreground hover:bg-secondary'
+                      ? 'border-border bg-transparent text-foreground hover:bg-secondary'
                       : 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/20'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                 >
                   {speechState === 'loading' ? (
-                    <RefreshCw size={12} className="animate-spin" />
+                    <RefreshCw size={12} className="motion-safe:animate-spin" />
                   ) : speechState === 'playing' ? (
                     <Square size={12} />
                   ) : (
@@ -939,7 +939,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
               {optimizationResult && !isRunning && (
                 <div className="mb-3 rounded-lg border border-border bg-muted/40 p-3.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  <p className="text-xs font-semibold text-primary">
                     {t.optimizationResultsTitle}
                   </p>
                   <p className="mt-2 text-sm leading-relaxed text-foreground">
@@ -947,7 +947,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                   </p>
                   {optimizationResult.suggestions.length > 0 && (
                     <div className="mt-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="text-xs font-semibold text-muted-foreground">
                         {t.performanceNotesLabel}
                       </p>
                       <ul className="mt-2 space-y-1 text-sm text-foreground">
@@ -991,13 +991,13 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
                       </div>
 
                       <div className="mr-6 rounded-lg border border-border bg-muted/40 p-3.5">
-                        <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] text-foreground">
                             {t.aiChatRoleAssistant}
                           </span>
                           {turn.status === 'streaming' && (
                             <span className="flex items-center gap-1 normal-case text-primary">
-                              <RefreshCw size={10} className="animate-spin" />
+                              <RefreshCw size={10} className="motion-safe:animate-spin" />
                               {t.aiExplainerRunning}
                             </span>
                           )}

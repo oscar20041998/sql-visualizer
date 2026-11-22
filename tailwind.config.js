@@ -9,6 +9,17 @@ module.exports = {
     },
     extend: {
       colors: {
+        paper: {
+          DEFAULT: 'var(--color-paper)',
+          secondary: 'var(--color-paper-2)',
+          raised: 'var(--color-paper-3)',
+        },
+        ink: {
+          DEFAULT: 'var(--color-ink)',
+          secondary: 'var(--color-ink-2)',
+        },
+        rule: { DEFAULT: 'var(--color-rule)' },
+        focus: { DEFAULT: 'var(--color-focus)' },
         background: { DEFAULT: 'var(--background)' },
         foreground: { DEFAULT: 'var(--foreground)' },
         primary: {
@@ -55,10 +66,14 @@ module.exports = {
         md: 'var(--radius)',
         lg: 'calc(var(--radius) + 4px)',
         xl: 'calc(var(--radius) + 8px)',
+        card: 'var(--radius-card)',
+        pill: 'var(--radius-pill)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
+        display: ['var(--font-display)', 'sans-serif'],
+        body: ['var(--font-body)', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',

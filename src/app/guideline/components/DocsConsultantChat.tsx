@@ -66,9 +66,7 @@ export const DocsConsultantChat: React.FC<DocsConsultantChatProps> = ({
   t,
   className = 'rounded-2xl border border-border bg-card p-4 mb-6',
 }) => {
-  // History and the in-progress draft live in the store, not local useState: this component is
-  // remounted on every page navigation (GlobalChat is re-instantiated by each page's own
-  // <AppLayout>), which would otherwise wipe the conversation and any half-typed question.
+  // Keep history and the draft across workspace and public-page transitions.
   const history = useAppStore((s) => s.chatHistory);
   const setHistory = useAppStore((s) => s.setChatHistory);
   const question = useAppStore((s) => s.chatQuestionDraft);

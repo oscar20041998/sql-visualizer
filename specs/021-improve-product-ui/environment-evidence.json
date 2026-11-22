@@ -1,0 +1,24 @@
+{
+  "node": {
+    "version": "v24.16.0",
+    "npm": "11.13.0",
+    "dependencies": "The project dependency tree was restored with npm ci from the unchanged lockfile. puppeteer-core was installed temporarily without saving and removed by npm ci after Hallmark render checks."
+  },
+  "browser": {
+    "application": "A local development server served the home and login routes successfully. Hallmark rendered the home and login routes at 320, 375, 414, 768, 1024, 1280, 1440, and 1920px; the final render runs had no FAIL or REFLEX findings.",
+    "isolation": "The integrated browser refused a separate context. Authenticated and guest interactions have not been tested in an isolated browser.",
+    "hallmarkRender": "Chrome is installed. puppeteer-core was temporarily installed without changing package manifests or the lockfile for Hallmark render checks, then removed when npm ci restored project dependencies. Protected workspace screens were not rendered in an authenticated browser context."
+  },
+  "authentication": {
+    "status": "blocked",
+    "reason": "Login and guest flows have not been exercised in an isolated browser."
+  },
+  "ai": {
+    "status": "blocked",
+    "reason": "Live providers and their configuration have not been tested."
+  },
+  "storage": {
+    "status": "blocked",
+    "reason": "Persistence and restoration have not been verified in an isolated browser."
+  }
+}
