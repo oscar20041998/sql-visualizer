@@ -5,10 +5,28 @@
 /* Hallmark · dismissed 19 · preserve the existing legal footer copy under the UI-only scope */
 @import './tokens.css';
 @import './base.css';
+@import './floating-header.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-card-revealed {
+    animation: home-card-reveal 0.4s ease-out both;
+  }
+}
+
+@keyframes home-card-reveal {
+  from {
+    opacity: 0.65;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 :root {
   --background: #0d1117;

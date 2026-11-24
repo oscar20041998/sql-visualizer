@@ -27,6 +27,7 @@ export default function MetricsDashboardContent() {
     resolvedSql,
     dialect,
     inputMode,
+    previousQueryInputMode,
     beginNavigation,
     setIsAnalyzing,
     setAnalysisResult,
@@ -40,8 +41,9 @@ export default function MetricsDashboardContent() {
    * their SQL inside the editor, so there is nothing to re-run here and retry stays disabled rather
    * than re-analysing an empty string (FR-003, FR-016).
    */
+  const queryInputMode = inputMode === 'database-object' ? previousQueryInputMode : inputMode;
   const sqlToReanalyze =
-    inputMode === 'mybatis' || inputMode === 'import-xml' ? resolvedSql : rawSql;
+    queryInputMode === 'mybatis' || queryInputMode === 'import-xml' ? resolvedSql : rawSql;
   const canRetry = sqlToReanalyze.trim().length > 0;
 
   /**
@@ -86,11 +88,13 @@ export default function MetricsDashboardContent() {
   if (isAnalyzing) {
     return (
       <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <BarChart3 size={22} className="text-primary" />
-          {t.metricsTitle}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        <header className="floating-header px-4 py-3 sm:px-5">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
+            {t.metricsTitle}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        </header>
         <div className="mt-6 rounded-lg border border-border/50 bg-muted/20 p-4">
           <p className="text-sm font-semibold text-foreground">{t.analysisLoadingTitle}</p>
           <p className="text-xs text-muted-foreground mt-1">{t.analysisLoadingHint}</p>
@@ -111,11 +115,13 @@ export default function MetricsDashboardContent() {
   if (analysisError) {
     return (
       <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <BarChart3 size={22} className="text-primary" />
-          {t.metricsTitle}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        <header className="floating-header px-4 py-3 sm:px-5">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
+            {t.metricsTitle}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
+        </header>
         <div role="alert" className="mt-6 rounded-lg border border-danger/30 bg-danger/5 p-4">
           <h2 className="text-sm font-semibold text-danger flex items-center gap-2">
             <AlertTriangle size={16} />
@@ -154,7 +160,7 @@ export default function MetricsDashboardContent() {
   const data = buildDashboardData(analysisResult, {
     locale: settings.locale,
     aiAvailable: false,
-    inputMode: inputMode === 'code-generator' ? 'sql' : inputMode,
+    inputMode: queryInputMode === 'code-generator' ? 'sql' : queryInputMode,
     astStatistics,
   });
   const isHighRisk =
@@ -174,10 +180,10 @@ export default function MetricsDashboardContent() {
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
-      <div className="mb-8 flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
+      <header className="floating-header mb-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <BarChart3 size={22} className="text-primary" />
+            <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
             {t.metricsTitle}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.metricsSubtitle}</p>
@@ -203,7 +209,7 @@ export default function MetricsDashboardContent() {
             {t.metricsExportJson}
           </button>
         </div>
-      </div>
+      </header>
 
       {/* High-Risk Alert */}
       {isHighRisk && (

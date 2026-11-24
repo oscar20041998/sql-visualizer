@@ -146,12 +146,12 @@ export default function QueryHistoryPanel() {
 
   return (
     <div className="mx-auto max-w-[112rem] space-y-6 px-4 py-5 sm:px-6 lg:px-7">
-      <header>
+      <header className="floating-header px-4 py-3 sm:px-5">
         <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-          <History size={22} className="text-primary" aria-hidden="true" />
+          <span className="floating-header-icon"><History size={20} aria-hidden="true" /></span>
           {t.queryHistoryTitle}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t.queryHistorySubtitle}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t.queryHistorySubtitle}</p>
       </header>
 
       <div className="flex flex-wrap items-end justify-between gap-3">

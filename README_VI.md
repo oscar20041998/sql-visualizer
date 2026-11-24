@@ -10,6 +10,7 @@ Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng
 
 - **Nhập truy vấn** - Dán SQL hoặc import MyBatis XML với hỗ trợ đa-dialect (MySQL, PostgreSQL, SQL Server, Oracle)
 - **Trình trực quan hóa quan hệ bảng (Relationship Graph Visualizer)** - Trực quan hóa tương tác các quan hệ giữa bảng và kết nối JOIN với các cạnh được mã hóa màu và các tùy chọn layout đa dạng
+  - Panel chi tiết có thể thu/mở, hiển thị bảng đang chọn, chú giải JOIN và các bảng đang hiển thị. Trên màn hình nhỏ, panel mặc định thu gọn và mở dạng lớp phủ; việc thu gọn không làm mất bảng đang chọn.
 - **Phân tích JOIN** - Phân tích sâu các điều kiện JOIN với phân tích độ phức tạp, phát hiện cột/toán tử và hỗ trợ đa-dialect
 - **Bảng chỉ số (Metrics Dashboard)** - Xếp độ phức tạp thời gian thực (0-100) với các phân tích chi tiết về từ khóa, trường SELECT, JOIN, CTE, subquery và window functions. Mỗi thẻ metric và mục subquery hiển thị số dòng nguồn và có thể nhảy trực tiếp đến dòng đó trong Smart SQL Editor
 - **Phân tích CTE** - Khám phá Common Table Expressions và nguồn gốc trường với cấu trúc cây trực quan, bao gồm phát hiện subquery lồng nhau per-CTE với độ sâu chính xác

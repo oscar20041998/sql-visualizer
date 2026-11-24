@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import ThemeProvider from '@/components/ThemeProvider';
@@ -48,7 +48,10 @@ const FeatureCard = ({
   title: string;
   description: string;
 }) => (
-  <div className="flex flex-col border border-border bg-card p-6 transition-colors duration-150 hover:border-primary/50">
+  <div
+    data-home-reveal
+    className="flex flex-col border border-border bg-card p-6 transition-colors duration-150 hover:border-primary/50"
+  >
     <div className="mb-2 flex items-center gap-3">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center text-primary">{icon}</span>
       <h3 className="text-lg font-semibold text-foreground">{title}</h3>
@@ -83,6 +86,20 @@ export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { settings, beginNavigation } = useAppStore();
   const t = getT(settings.locale as 'en' | 'vi');
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('home-card-revealed');
+        observer.unobserve(entry.target);
+      });
+    });
+    document.querySelectorAll('[data-home-reveal]').forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, []);
 
   const handleGetStarted = () => {
     // A guest also belongs in the workspace (specs/013 FR-008): they confirmed the disclosure and
@@ -128,15 +145,15 @@ export default function HomePage() {
         {t.homeSkipToContent}
       </a>
       {/* Header Navigation */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-card/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between gap-4">
-            <a href="#top" className="flex items-center gap-3" aria-label={t.appName}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-primary">
-                <Database className="w-6 h-6 text-primary-foreground" />
+          <div className="flex h-14 items-center justify-between gap-3">
+            <a href="#top" className="flex min-w-0 items-center gap-3" aria-label={t.appName}>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                <Database className="h-5 w-5" aria-hidden="true" />
               </div>
-              <div className="hidden sm:block">
-                <p className="text-xl font-bold text-foreground leading-tight">{t.appName}</p>
+              <div className="hidden min-w-0 sm:block">
+                <p className="text-base font-semibold leading-tight text-foreground">{t.appName}</p>
                 <p className="text-xs text-muted-foreground">{t.appTagline}</p>
               </div>
             </a>
@@ -170,13 +187,6 @@ export default function HomePage() {
 
             <div className="flex items-center gap-3">
               <LanguageThemeSwitch />
-              <button
-                onClick={handleGetStarted}
-                className={`hidden lg:inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 ${FocusRing}`}
-              >
-                {t.homeGetStartedButton}
-                <ArrowUpRight className="w-4 h-4" />
-              </button>
               <button
                 onClick={() => setMobileMenuOpen((open) => !open)}
                 className={`lg:hidden rounded-md p-2 text-foreground transition-colors hover:bg-muted/50 ${FocusRing}`}
@@ -391,6 +401,7 @@ export default function HomePage() {
               ].map(({ number, icon: Icon, title, description }) => (
                 <div
                   key={number}
+                  data-home-reveal
                   className="group border-t border-border bg-background p-6 transition-colors hover:border-primary"
                 >
                   <div className="flex items-center gap-3">
@@ -574,28 +585,28 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+      <footer className="border-t border-border/60 bg-card/60">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-2 sm:flex-row sm:gap-6">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
               {t.homeCopyrightText}{' '}
               <Sparkles className="inline h-4 w-4 text-primary" aria-hidden="true" />{' '}
               {t.homeForDevelopers}
             </p>
             <nav
-              className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-muted-foreground"
+              className="grid grid-cols-2 items-center gap-x-4 text-sm text-muted-foreground min-[380px]:flex min-[380px]:flex-wrap min-[380px]:justify-center"
               aria-label={t.appName}
             >
               <button
                 onClick={goToConfluence}
-                className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md transition-colors hover:text-primary ${FocusRing}`}
               >
                 <BookOpen className="w-4 h-4" />
                 Confluence
               </button>
               <button
                 onClick={goToReadme}
-                className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md transition-colors hover:text-primary ${FocusRing}`}
               >
                 <BookOpen className="w-4 h-4" />
                 {t.homeDocsLink}
@@ -604,7 +615,7 @@ export default function HomePage() {
                 href="https://github.com/oscar20041998/sql-visualizer"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md transition-colors hover:text-primary ${FocusRing}`}
               >
                 {t.homeGitHubLink}
                 <ArrowUpRight className="w-4 h-4" />
@@ -613,7 +624,7 @@ export default function HomePage() {
                 href="https://github.com/oscar20041998/sql-visualizer/issues"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1.5 transition-colors hover:text-primary ${FocusRing}`}
+                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md transition-colors hover:text-primary ${FocusRing}`}
               >
                 {t.homeContactLink}
               </a>

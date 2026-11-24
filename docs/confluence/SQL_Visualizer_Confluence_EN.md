@@ -128,6 +128,7 @@ Relationship Graph converts table relationships into an **interactive graph**, m
 - Nodes represent tables.
 - Edges represent JOIN relationships.
 - Relationships are visually categorized.
+- A collapsible details sidebar shows the selected table, JOIN legend and visible tables. On narrow screens it starts collapsed and opens over the graph; collapsing it keeps the current selection.
 - Multiple layouts improve readability.
 - JOIN conditions can be analyzed by columns, operators and complexity.
 - Graphs can be exported as Mermaid or images.

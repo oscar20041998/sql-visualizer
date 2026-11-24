@@ -70,10 +70,10 @@ export default function CTEAnalysisContent() {
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="floating-header mb-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <Layers size={22} className="text-primary" />
+            <span className="floating-header-icon"><Layers size={20} aria-hidden /></span>
             {t.cteTitle}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t.cteSubtitle}</p>
@@ -106,7 +106,7 @@ export default function CTEAnalysisContent() {
             </>
           )}
         </div>
-      </div>
+      </header>
 
       {/* CTE Summary Stats */}
       {ctes.length > 0 && (

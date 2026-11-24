@@ -57,7 +57,7 @@ export const DialectSelector: React.FC<DialectSelectorProps> = ({
   }, [dialectOpen]);
 
   return (
-    <div className="relative">
+    <div className="relative ml-auto">
       <button
         ref={dialectButtonRef}
         type="button"
@@ -65,7 +65,7 @@ export const DialectSelector: React.FC<DialectSelectorProps> = ({
         aria-expanded={dialectOpen}
         aria-controls="dialect-options"
         onClick={() => setDialectOpen((o) => !o)}
-        className="flex min-h-11 items-center gap-1.5 px-2 text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {currentDialect && (
           <AppImage
@@ -84,7 +84,7 @@ export const DialectSelector: React.FC<DialectSelectorProps> = ({
           id="dialect-options"
           role="group"
           aria-label={t.dialectLabel}
-          className="absolute right-0 top-full z-50 mt-1 w-44 animate-slide-up rounded-lg border border-border bg-card py-1 shadow-none"
+          className="absolute right-0 top-full z-50 mt-1 w-44 animate-slide-up rounded-lg border border-border bg-card py-1 shadow-lg"
         >
           {DIALECTS.map((d) => (
             <button
@@ -132,19 +132,19 @@ export const Header: React.FC<HeaderProps> = ({ t }) => {
   return (
     <div className="min-w-0">
       <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
-        <Code2 size={22} className="text-primary" aria-hidden />
+        <span className="floating-header-icon"><Code2 size={20} aria-hidden /></span>
         {t.queryInputTitle}
       </h1>
       <ol
         aria-label={t.workflowStepsLabel}
-        className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
       >
         {workflowSteps.map((step, index) => (
           <li key={`workflow-${step}`} className="flex items-center gap-2">
             {index > 0 && (
               <ChevronRight size={12} className="text-muted-foreground/60" aria-hidden />
             )}
-            <span className="whitespace-nowrap text-muted-foreground">{step}</span>
+            <span className={`whitespace-nowrap ${index === 0 ? 'font-medium text-primary' : 'text-muted-foreground'}`}>{step}</span>
           </li>
         ))}
       </ol>

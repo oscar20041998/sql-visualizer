@@ -168,6 +168,28 @@ describe('dashboard states (specs/010-sql-intelligence-dashboard T014 / U27)', (
     );
   });
 
+  it('retries the MyBatis SQL after opening the database objects tab', async () => {
+    analyzeSqlMock.mockResolvedValue(makeAnalysisResult());
+    seedStore({
+      analysisError: 'boom',
+      inputMode: 'mybatis',
+      rawSql: 'SELECT stale FROM previous_session',
+      resolvedSql: 'SELECT * FROM orders WHERE id = 1',
+    });
+    useAppStore.getState().setInputMode('database-object');
+
+    render(<MetricsDashboardContent />);
+    fireEvent.click(screen.getByRole('button', { name: t.analysisRetry }));
+
+    await waitFor(() =>
+      expect(analyzeSqlMock).toHaveBeenCalledWith(
+        'SELECT * FROM orders WHERE id = 1',
+        'mysql',
+        'en'
+      )
+    );
+  });
+
   it('does not offer a retry that would re-analyse SQL the dashboard does not have (FR-003, FR-016)', () => {
     // smart-editor analyses keep their SQL in the editor, not in the store: a retry here would
     // re-analyse an empty string and fabricate an empty result.

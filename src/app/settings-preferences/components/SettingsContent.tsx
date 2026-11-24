@@ -523,10 +523,10 @@ export default function SettingsContent() {
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 xl:px-10">
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
+      <header className="floating-header mb-4 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <h1 className="flex items-center gap-3 text-2xl font-semibold text-foreground">
-            <Settings size={22} className="text-primary" />
+            <span className="floating-header-icon"><Settings size={20} aria-hidden /></span>
             {t.settingsTitle}
           </h1>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t.settingsSubtitle}</p>
@@ -538,7 +538,7 @@ export default function SettingsContent() {
           <RotateCcw size={13} />
           {t.resetDefaults}
         </button>
-      </div>
+      </header>
 
       <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
         {/* Left Category Nav */}

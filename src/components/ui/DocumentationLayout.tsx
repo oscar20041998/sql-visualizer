@@ -27,9 +27,9 @@ export default function DocumentationLayout({ html, footerKey }: DocumentationLa
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80">
+      <header className="floating-header sticky top-2 z-40 mx-4 sm:mx-6">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
+          <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 py-1.5">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
                 <Database className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -71,7 +71,7 @@ export default function DocumentationLayout({ html, footerKey }: DocumentationLa
       {/* Draws the ```mermaid blocks in the article above; renders nothing itself. */}
       <MermaidDiagramRenderer />
 
-      <footer className="border-t border-border/50 py-8">
+      <footer className="border-t border-border/60 bg-card/60 py-5">
         <div className="mx-auto max-w-5xl px-4 text-center text-sm text-muted-foreground sm:px-6">
           {t[footerKey]}
         </div>

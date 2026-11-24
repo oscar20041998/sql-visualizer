@@ -26,6 +26,11 @@ Interactive visualization of table relationships and JOIN connections.
 - View join conditions and related tables
 - See table occurrence count (hits)
 
+### Graph Details Sidebar
+
+- Use the toggle on the sidebar edge to show or hide the selected table details, JOIN legend, and visible tables.
+- Collapsing the sidebar keeps the selected table. On narrow screens, it starts collapsed and opens over the graph.
+
 ### Extracted Tables Section
 
 - Complete list of all tables with clause information (FROM/JOIN)

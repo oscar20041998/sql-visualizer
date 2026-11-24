@@ -20,6 +20,7 @@ import { locateSyntaxError } from '@/lib/sql/dialectValidator';
 import { applyFormatFix } from '@/lib/sql/formatFixScope';
 import { requestFormatExplanation, type FormatExplanation } from '@/lib/ai/formatErrorAi';
 import { toast } from 'sonner';
+import { Code2 } from 'lucide-react';
 
 /** Formatter language for client-side validation that an AI fix actually formats. */
 function toFormatterLanguage(
@@ -191,11 +192,14 @@ export default function SmartSQLEditorPage() {
       <SidePanelRail>
         <div className="smart-sql-editor-theme flex flex-col bg-background">
           {/* Header */}
-          <div className="border-b border-border bg-card p-6 shadow-sm">
-            <div className="max-w-7xl mx-auto">
-              <h1 className="mb-2 text-3xl font-bold text-foreground">{t.editorPageTitle}</h1>
+          <div className="px-4 pt-5 sm:px-6">
+            <header className="floating-header mx-auto max-w-7xl px-4 py-3 sm:px-5">
+              <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+                <span className="floating-header-icon"><Code2 size={20} aria-hidden /></span>
+                {t.editorPageTitle}
+              </h1>
               <p className="text-muted-foreground">{t.editorPageSubtitle}</p>
-            </div>
+            </header>
           </div>
 
           {/* Sample Query Selector */}

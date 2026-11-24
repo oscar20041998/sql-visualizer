@@ -20,24 +20,12 @@ interface AppLayoutProps {
 }
 
 function AppFooter() {
-  const [monthYear, setMonthYear] = useState('');
-
-  useEffect(() => {
-    const now = new Date();
-    setMonthYear(now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
-  }, []);
-
   return (
-    <footer className="flex-shrink-0 border-t border-border" style={{ background: 'var(--card)' }}>
-      <div className="flex items-center justify-between px-6 py-2.5 gap-4 flex-wrap">
-        {/* Left: Name + Company */}
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col leading-tight">
-            <span className="text-xs font-semibold text-foreground">
-              ©{new Date().getFullYear()} Copy Right - All Rights Reserved
-            </span>
-          </div>
-        </div>
+    <footer className="flex-shrink-0 border-t border-border/60 bg-card/60">
+      <div className="mx-auto flex min-h-10 w-full max-w-[112rem] items-center px-4 py-2 sm:px-6 lg:px-7">
+        <span className="text-xs leading-relaxed text-muted-foreground">
+          ©{new Date().getFullYear()} Copy Right - All Rights Reserved
+        </span>
       </div>
     </footer>
   );
@@ -139,7 +127,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <Sidebar />
+      <div className="relative z-20 flex flex-shrink-0 max-sm:w-[88px]">
+        <Sidebar />
+      </div>
       <RouteProgressBar active={navigationTarget !== null || isRestoringHistory} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-auto scrollbar-thin">

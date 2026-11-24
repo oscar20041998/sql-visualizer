@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import HomePage from '@/app/page';
 import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
@@ -43,7 +43,49 @@ beforeEach(() => {
   useAppStore.setState({ settings: { ...DEFAULT_SETTINGS } });
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('Home page feature overview', () => {
+  it('reveals a feature card when it enters the viewport', () => {
+    let callback: IntersectionObserverCallback | undefined;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(onIntersection: IntersectionObserverCallback) {
+          callback = onIntersection;
+        }
+        observe = observe;
+        unobserve = vi.fn();
+        disconnect = disconnect;
+      }
+    );
+
+    render(<HomePage />);
+    const card = screen.getByText(english.homeQueryAnalysisTitle).closest('div.flex-col');
+    expect(card).not.toBeNull();
+    expect(observe).toHaveBeenCalledWith(card);
+    act(() => {
+      callback?.(
+        [{ target: card, isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    expect(card).toHaveClass('home-card-revealed');
+  });
+
+  it('keeps feature cards visible when viewport observation is unavailable', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+
+    render(<HomePage />);
+
+    expect(screen.getByText(english.homeQueryAnalysisTitle)).toBeVisible();
+    expect(screen.getByText(english.homeMyBatisTitle)).toBeVisible();
+  });
+
   it('lists the main capabilities of the product', () => {
     const { container } = render(<HomePage />);
 

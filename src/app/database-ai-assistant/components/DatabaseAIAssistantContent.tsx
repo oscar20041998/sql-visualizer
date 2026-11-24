@@ -308,9 +308,9 @@ export default function DatabaseAIAssistantContent() {
 
           {/* The chat column keeps the viewport height so the assistant still fills the page on its own. */}
           <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-8 sm:py-8 lg:max-w-none">
-            <header className="flex items-center justify-between gap-3 border-b border-border/70 pb-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <header className="floating-header flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="floating-header-icon">
                   <Database size={16} />
                 </span>
                 <div>

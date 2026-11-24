@@ -130,6 +130,7 @@ export default function Sidebar() {
       setSessionNow(now);
       if (now < socialSession.expiry) return;
 
+      useAppStore.getState().setObjectSql('');
       clearDemoAuthenticated();
       setSocialSession(null);
       toast.info(t.authSessionExpiredMessage);
@@ -146,6 +147,7 @@ export default function Sidebar() {
   const toggleLocale = () => updateSettings({ locale: settings.locale === 'en' ? 'vi' : 'en' });
 
   const handleSignOut = () => {
+    useAppStore.getState().setObjectSql('');
     clearDemoAuthenticated();
     setSocialSession(null);
     toast.success(t.authSignOutSuccess);
@@ -155,11 +157,11 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="relative flex flex-col flex-shrink-0 border-r border-border bg-card"
+      className="relative m-3 flex min-h-0 flex-shrink-0 flex-col rounded-2xl border border-border bg-card shadow-[0_12px_30px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-in-out"
       style={{ width: isCollapsed ? 64 : 240 }}
     >
       {/* Logo & Toggle */}
-      <div className="flex items-center justify-between px-4 py-5 border-b border-border min-h-[72px]">
+      <div className="relative flex min-h-[72px] items-center border-b border-border px-3 py-4">
         {!isCollapsed && (
           <div className="flex items-center gap-3 flex-1">
             <div className="flex-shrink-0">
@@ -183,7 +185,8 @@ export default function Sidebar() {
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           title={isCollapsed ? 'Expand' : 'Collapse'}
-          className="flex-shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2 active:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-expanded={!isCollapsed}
+          className="absolute -right-3 top-6 z-10 rounded-full border border-border bg-card p-1 text-muted-foreground shadow-md transition-colors hover:bg-muted hover:text-foreground active:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <ChevronLeft
             size={18}
@@ -193,7 +196,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-2 space-y-1">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const label = t[item.key as keyof typeof t] as string;
@@ -266,7 +269,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Controls */}
-      <div className="border-t border-border p-2 space-y-1">
+      <div className="flex-shrink-0 space-y-1 border-t border-border p-2">
         {/* Guest access (specs/013-guest-access-mode, FR-010): a guest is not a social session,
             so the avatar block above stays empty — this badge is what tells them why some
             features are unavailable. */}

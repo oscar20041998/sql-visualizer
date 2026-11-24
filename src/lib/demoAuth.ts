@@ -68,6 +68,7 @@ export function isDemoAuthenticated(): boolean {
 // identity fields — there is no account behind it.
 
 export const GUEST_AUTH_STORAGE_KEY = 'sqlvisualizer-guest-session';
+export const SESSION_IDENTITY_CHANGED_EVENT = 'sqlvisualizer-session-identity-changed';
 
 export interface GuestSession {
   /** Epoch ms when the guest session began. */
@@ -106,13 +107,16 @@ export function setGuestSession(session: GuestSession): void {
   clearSocialSession();
   window.localStorage.removeItem(DEMO_AUTH_STORAGE_KEY);
   window.localStorage.setItem(GUEST_AUTH_STORAGE_KEY, JSON.stringify(session));
+  window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
   // Fire-and-forget: the marker is what the interface reads, the cookie is what the server verifies.
   void persistGuestSessionCookie(session.startedAt);
 }
 
 export function clearGuestSession(): void {
   if (typeof window === 'undefined') return;
+  const hadSession = window.localStorage.getItem(GUEST_AUTH_STORAGE_KEY) !== null;
   window.localStorage.removeItem(GUEST_AUTH_STORAGE_KEY);
+  if (hadSession) window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
   clearSessionCookie();
 }
 
@@ -139,7 +143,10 @@ export function setDemoAuthenticated(password: string): Promise<boolean> {
   return persistDemoSessionCookie(password, Date.now()).then((granted) => {
     // The marker is written only when the server agreed. Writing it first would show a signed-in UI
     // for credentials the server never accepted.
-    if (granted) window.localStorage.setItem(DEMO_AUTH_STORAGE_KEY, 'true');
+    if (granted) {
+      window.localStorage.setItem(DEMO_AUTH_STORAGE_KEY, 'true');
+      window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
+    }
     return granted;
   });
 }
@@ -204,10 +211,12 @@ export function clearSessionCookie(): void {
 }
 
 export function clearDemoAuthenticated(): void {
+  const hadDemoSession = window.localStorage.getItem(DEMO_AUTH_STORAGE_KEY) !== null;
   window.localStorage.removeItem(DEMO_AUTH_STORAGE_KEY);
   clearSocialSession();
   // Sign-out ends a guest session too — it is the same session, not a parallel one (FR-019).
   clearGuestSession();
+  if (hadDemoSession) window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
 }
 
 export function getSocialSession(): UserSession | null {
@@ -229,7 +238,9 @@ export function getSocialSession(): UserSession | null {
 
 export function clearSocialSession(): void {
   if (typeof window === 'undefined') return;
+  const hadSession = window.localStorage.getItem(SOCIAL_AUTH_STORAGE_KEY) !== null;
   window.localStorage.removeItem(SOCIAL_AUTH_STORAGE_KEY);
+  if (hadSession) window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
 }
 
 /**
@@ -244,6 +255,20 @@ export async function setSocialSession(session: UserSession): Promise<boolean> {
     session.accessToken,
     Date.now()
   );
-  if (granted) window.localStorage.setItem(SOCIAL_AUTH_STORAGE_KEY, JSON.stringify(session));
+  if (granted) {
+    window.localStorage.setItem(SOCIAL_AUTH_STORAGE_KEY, JSON.stringify(session));
+    window.dispatchEvent(new Event(SESSION_IDENTITY_CHANGED_EVENT));
+  }
   return granted;
+}
+
+export function currentSessionOwner(): string {
+  if (typeof window !== 'undefined' && window.localStorage.getItem(DEMO_AUTH_STORAGE_KEY) === 'true') {
+    return 'demo';
+  }
+  const social = getSocialSession();
+  if (social) return `social:${social.provider}:${social.email.toLowerCase()}`;
+  const guest = getGuestSession();
+  if (guest) return `guest:${guest.startedAt}`;
+  return 'anonymous';
 }

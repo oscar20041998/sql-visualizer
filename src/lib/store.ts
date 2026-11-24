@@ -3,8 +3,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { SqlDialect, AnalysisResult } from './sql/sqlAnalyzer';
+import type { SessionObject } from './sql/objectIntelligenceDependencies';
 import type { Locale } from './i18n';
 import type { DocSource } from './ai/aiService';
+import {
+  currentSessionOwner,
+  DEMO_AUTH_STORAGE_KEY,
+  GUEST_AUTH_STORAGE_KEY,
+  SESSION_IDENTITY_CHANGED_EVENT,
+  SOCIAL_AUTH_STORAGE_KEY,
+} from './demoAuth';
 
 // Provider constants live in aiProviders (no 'use client') so the server API route can read
 // their real values; re-exported here for the client code that already imports from the store.
@@ -86,6 +94,11 @@ interface AppState {
   settings: AppSettings;
   dialect: SqlDialect;
   rawSql: string;
+  objectSql: string;
+  objectSqlOwner: string | null;
+  objectSessionObjects: SessionObject[];
+  objectSessionOwner: string | null;
+  objectAiConsent: { owner: string | null; provider: AIProvider; origin: string } | null;
   myBatisXml: string;
   codeGeneratorSql: string;
   codeGeneratorInitialSql: string | null;
@@ -98,7 +111,8 @@ interface AppState {
   analysisError: string | null;
   /** Target path for an in-progress client-side route change. Never persisted. */
   navigationTarget: string | null;
-  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator';
+  inputMode: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator' | 'database-object';
+  previousQueryInputMode: Exclude<AppState['inputMode'], 'database-object'>;
   selectedNodeId: string | null;
   /** Set by "go to line" links on the Metrics Dashboard; consumed once by the Smart SQL Editor
    *  page to load the analyzed SQL and reveal/highlight the target line, then cleared. */
@@ -119,6 +133,9 @@ interface AppState {
   updateSettings: (patch: Partial<AppSettings>) => void;
   setDialect: (d: SqlDialect) => void;
   setRawSql: (s: string) => void;
+  setObjectSql: (s: string, owner?: string) => void;
+  setObjectSessionObjects: (objects: SessionObject[], owner: string | null) => void;
+  setObjectAiConsent: (consent: AppState['objectAiConsent']) => void;
   setMyBatisXml: (s: string) => void;
   setCodeGeneratorSql: (s: string) => void;
   setCodeGeneratorInitialSql: (s: string) => void;
@@ -137,7 +154,7 @@ interface AppState {
    * loading overlay up permanently. This is the escape hatch for that case.
    */
   cancelNavigation: () => void;
-  setInputMode: (m: 'sql' | 'mybatis' | 'import-xml' | 'smart-editor' | 'code-generator') => void;
+  setInputMode: (m: AppState['inputMode']) => void;
   setSelectedNodeId: (id: string | null) => void;
   setPendingEditorJump: (jump: { sql: string; line: number } | null) => void;
   setChatIsOpen: (open: boolean) => void;
@@ -190,6 +207,11 @@ export const useAppStore = create<AppState>()(
       settings: defaultSettings,
       dialect: 'mysql',
       rawSql: '',
+      objectSql: '',
+      objectSqlOwner: null,
+      objectSessionObjects: [],
+      objectSessionOwner: null,
+      objectAiConsent: null,
       myBatisXml: '',
       codeGeneratorSql: '',
       codeGeneratorInitialSql: null,
@@ -200,6 +222,7 @@ export const useAppStore = create<AppState>()(
       analysisError: null,
       navigationTarget: null,
       inputMode: 'sql',
+      previousQueryInputMode: 'sql',
       selectedNodeId: null,
       pendingEditorJump: null,
       chatIsOpen: false,
@@ -211,6 +234,10 @@ export const useAppStore = create<AppState>()(
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       setDialect: (d) => set({ dialect: d }),
       setRawSql: (s) => set({ rawSql: s }),
+      setObjectSql: (s, owner) => set({ objectSql: s, objectSqlOwner: s ? owner ?? null : null }),
+      setObjectSessionObjects: (objects, owner) =>
+        set({ objectSessionObjects: objects, objectSessionOwner: objects.length ? owner : null }),
+      setObjectAiConsent: (consent) => set({ objectAiConsent: consent }),
       setMyBatisXml: (s) => set({ myBatisXml: s }),
       setCodeGeneratorSql: (s) => set({ codeGeneratorSql: s }),
       setCodeGeneratorInitialSql: (s) => set({ codeGeneratorInitialSql: s }),
@@ -223,7 +250,14 @@ export const useAppStore = create<AppState>()(
       completeNavigation: (pathname) =>
         set((state) => (state.navigationTarget === pathname ? { navigationTarget: null } : {})),
       cancelNavigation: () => set({ navigationTarget: null }),
-      setInputMode: (m) => set({ inputMode: m }),
+      setInputMode: (m) =>
+        set((state) => ({
+          inputMode: m,
+          previousQueryInputMode:
+            m === 'database-object' && state.inputMode !== 'database-object'
+              ? state.inputMode
+              : state.previousQueryInputMode,
+        })),
       setSelectedNodeId: (id) => set({ selectedNodeId: id }),
       setPendingEditorJump: (jump) => set({ pendingEditorJump: jump }),
       setChatIsOpen: (open) => set({ chatIsOpen: open }),
@@ -244,6 +278,11 @@ export const useAppStore = create<AppState>()(
       resetAll: () =>
         set({
           rawSql: '',
+          objectSql: '',
+          objectSqlOwner: null,
+          objectSessionObjects: [],
+          objectSessionOwner: null,
+          objectAiConsent: null,
           myBatisXml: '',
           codeGeneratorSql: '',
           codeGeneratorInitialSql: null,
@@ -328,3 +367,29 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+if (typeof window !== 'undefined') {
+  const clearDraftOnIdentityChange = () => {
+    const state = useAppStore.getState();
+    if (state.objectSql && state.objectSqlOwner !== currentSessionOwner()) {
+      state.setObjectSql('');
+    }
+    if (state.objectSessionObjects.length && state.objectSessionOwner !== currentSessionOwner()) {
+      state.setObjectSessionObjects([], null);
+    }
+    if (state.objectAiConsent && state.objectAiConsent.owner !== currentSessionOwner()) {
+      state.setObjectAiConsent(null);
+    }
+  };
+  window.addEventListener(SESSION_IDENTITY_CHANGED_EVENT, clearDraftOnIdentityChange);
+  window.addEventListener('storage', (event) => {
+    if (
+      event.key === GUEST_AUTH_STORAGE_KEY ||
+      event.key === SOCIAL_AUTH_STORAGE_KEY ||
+      event.key === DEMO_AUTH_STORAGE_KEY ||
+      event.key === null
+    ) {
+      clearDraftOnIdentityChange();
+    }
+  });
+}

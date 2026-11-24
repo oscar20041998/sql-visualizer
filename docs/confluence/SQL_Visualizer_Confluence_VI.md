@@ -128,6 +128,7 @@ Biến quan hệ giữa các bảng trong một truy vấn thành **đồ thị 
 - Các nút đại diện cho bảng.
 - Các cạnh đại diện cho quan hệ JOIN.
 - Phân loại quan hệ bằng màu sắc.
+- Panel chi tiết có thể thu/mở, hiển thị bảng đang chọn, chú giải JOIN và các bảng đang hiển thị. Trên màn hình nhỏ, panel mặc định thu gọn và mở phủ lên đồ thị; thu gọn không làm mất lựa chọn hiện tại.
 - Hỗ trợ nhiều bố cục để tối ưu khả năng quan sát.
 - Phân tích điều kiện JOIN theo cột, toán tử và độ phức tạp.
 - Xuất ra định dạng Mermaid hoặc hình ảnh.

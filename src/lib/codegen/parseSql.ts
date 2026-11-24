@@ -77,7 +77,7 @@ function normalizeColumn(definition: AstRecord): ColumnDefinition | null {
     nullable: nullableType === 'not null' ? false : true,
     length,
     precision: null,
-    scale: null,
+    scale: typeof type?.scale === 'number' ? type.scale : null,
     defaultExpression: null,
     identity: 'unknown',
   };

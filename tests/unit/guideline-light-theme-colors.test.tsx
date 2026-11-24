@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import GuidelineContent from '@/app/guideline/components/GuidelineContent';
 import ScoreWeightTable from '@/components/ui/ScoreWeightTable';
 import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
@@ -9,6 +9,7 @@ import {
   getGuidelineAccent,
 } from '@/app/common/colorConstant';
 import { resetTestStorage } from '../utils/test-setup';
+import { getT } from '@/lib/i18n';
 
 /**
  * The guideline page paints section icons, quick-nav pills, sidebar shortcut tiles and the score
@@ -76,6 +77,18 @@ function inlineColors(container: HTMLElement): string[] {
 beforeEach(() => {
   resetTestStorage();
   useAppStore.setState({ settings: { ...DEFAULT_SETTINGS } });
+});
+
+describe('graph sidebar guidance', () => {
+  it.each([
+    ['en', /On narrow screens it starts closed and opens over the graph/],
+    ['vi', /Trên màn hình nhỏ, panel mặc định đóng và mở phủ lên đồ thị/],
+  ] as const)('shows the sidebar instructions in %s', (locale: 'en' | 'vi', instructions: RegExp) => {
+    useAppStore.setState({ settings: { ...DEFAULT_SETTINGS, locale } });
+    render(<GuidelineContent />);
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(getT(locale).guidelineGraphTitle) }));
+    expect(screen.getByText(instructions)).toBeInTheDocument();
+  });
 });
 
 describe('guideline accents follow the active theme', () => {

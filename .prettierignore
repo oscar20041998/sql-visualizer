@@ -7,3 +7,6 @@ public
 out
 dist
 models
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

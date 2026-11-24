@@ -11,6 +11,7 @@ import { REQUIREMENT_TEMPLATES } from './templates/requirement';
 import { SEMANTIC_BRIEF_TEMPLATES } from './templates/semanticBrief';
 import { SQL_COMPARISON_TEMPLATES } from './templates/sqlComparison';
 import { SQL_EXPLAINER_TEMPLATES } from './templates/sqlExplainer';
+import { OBJECT_AI_TEMPLATES } from './templates/objectIntelligence';
 
 /**
  * Prompt management core — the single source of truth for every AI prompt text
@@ -57,7 +58,8 @@ export type PromptFeature =
   | 'docsConsultant'
   | 'databaseAssistant'
   | 'sqlComparison'
-  | 'dashboard';
+  | 'dashboard'
+  | 'objectIntelligence';
 
 export interface PromptEntry {
   /** Message role preserved from the source prompt text (FR-004). */
@@ -124,4 +126,5 @@ export const PROMPT_REGISTRY: PromptRegistry = {
   ...DATABASE_ASSISTANT_TEMPLATES,
   ...SQL_COMPARISON_TEMPLATES,
   ...DASHBOARD_TEMPLATES,
+  ...OBJECT_AI_TEMPLATES,
 };

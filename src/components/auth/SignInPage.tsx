@@ -31,7 +31,7 @@ export default function SignInPage({ showGuestResume = false, onResumeGuest }: S
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-paper px-6 pb-12 pt-28 sm:px-10 lg:px-16">
-      <div className="absolute inset-x-0 top-0 mx-auto flex max-w-7xl items-center justify-between gap-3 border-b border-rule px-6 py-5 sm:px-10">
+      <div className="floating-header absolute inset-x-4 top-2 mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:inset-x-6 sm:px-6">
         <Link
           href="/"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"

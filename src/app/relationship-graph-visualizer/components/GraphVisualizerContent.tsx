@@ -14,6 +14,7 @@ import {
   X,
   Zap,
   ChevronDown,
+  ChevronRight,
   AlertCircle,
   Layers,
   TrendingUp,
@@ -347,6 +348,7 @@ export default function GraphVisualizerContent() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showJoinAnalysis, setShowJoinAnalysis] = useState(false);
   const [showJoinLegend, setShowJoinLegend] = useState(true);
+  const [showDetails, setShowDetails] = useState(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [includeNeighbors, setIncludeNeighbors] = useState(DEFAULT_INCLUDE_NEIGHBORS);
   const [imageExportError, setImageExportError] = useState<string | null>(null);
@@ -356,6 +358,12 @@ export default function GraphVisualizerContent() {
   const [graphSearchFocused, setGraphSearchFocused] = useState(false);
   const graphSearchRef = useRef<HTMLInputElement>(null);
   const [relationshipFilter, setRelationshipFilter] = useState<RelationshipFilterMode>('all');
+
+  useEffect(() => {
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 639px)').matches) {
+      setShowDetails(false);
+    }
+  }, []);
 
   const filteredTables = useMemo(() => {
     if (!analysisResult) return [];
@@ -561,14 +569,14 @@ export default function GraphVisualizerContent() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Main area: canvas + sidebar */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Canvas */}
-        <div className="flex-1 relative flex flex-col overflow-hidden min-h-[220px]">
+        <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden min-h-[220px]">
           {/* ── Top Bar Menu — all graph controls grouped in one flexible row ── */}
-          <div className="relative z-20 flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2.5">
+          <div className="floating-header relative z-20 mx-3 mt-3 flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
             {/* Title */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <GitFork size={16} className="text-primary" />
+              <span className="floating-header-icon"><GitFork size={16} aria-hidden /></span>
               <span className="text-sm font-semibold text-foreground whitespace-nowrap">
                 {t.graphTitle}
               </span>
@@ -848,8 +856,35 @@ export default function GraphVisualizerContent() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-72 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-4">
+        <aside
+          className={`absolute inset-y-3 right-3 z-30 max-w-[calc(100%-3rem)] flex-shrink-0 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-in-out sm:relative sm:inset-auto sm:my-3 sm:mr-3 ${
+            showDetails ? 'w-72' : 'w-0'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setShowDetails((open) => !open)}
+            aria-label={showDetails ? t.graphHideDetails : t.graphShowDetails}
+            title={showDetails ? t.graphHideDetails : t.graphShowDetails}
+            aria-expanded={showDetails}
+            aria-controls="graph-details-panel"
+            className="absolute right-full top-4 z-10 -mr-3 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronRight
+              size={18}
+              aria-hidden="true"
+              className={`motion-safe:transition-transform motion-safe:duration-300 ${showDetails ? '' : 'rotate-180'}`}
+            />
+          </button>
+          <div
+            id="graph-details-panel"
+            aria-label={t.graphDetailsPanel}
+            aria-hidden={!showDetails}
+            inert={!showDetails}
+            className={`floating-header h-full overflow-auto scrollbar-thin p-4 space-y-4 motion-safe:transition-opacity motion-safe:duration-200 ${
+              showDetails ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
+          >
             {/* Selected Node */}
             <div>
               <h3 className="mb-3 text-xs font-medium text-muted-foreground normal-case tracking-normal">
@@ -1015,7 +1050,7 @@ export default function GraphVisualizerContent() {
               </div>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* ─── Collapsible Panels ─── shared height budget so opening all three at once can never

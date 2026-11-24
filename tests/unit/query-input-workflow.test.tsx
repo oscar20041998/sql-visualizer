@@ -188,7 +188,7 @@ describe('Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)', 
     const tabs = screen.getAllByRole('tab');
 
     expect(tablist).toContainElement(tabs[0]);
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
     expect(screen.getByRole('tab', { name: t.tabPasteSQL })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -248,12 +248,13 @@ describe('Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)', 
     expect(screen.getByRole('tab', { name: t.tabImportMyBatis })).toHaveFocus();
   });
 
-  it('keeps the dialect selector beside the tabs and applies a different dialect', async () => {
+  it('keeps the dialect selector in the header and applies a different dialect', async () => {
     useAppStore.getState().setDialect('mysql');
     const t = await renderPage();
-    const tablist = screen.getByRole('tablist', { name: t.inputMethodLabel });
     const selector = screen.getByRole('button', { name: `${t.dialectLabel}: MySQL` });
-    expect(tablist.parentElement).toContainElement(selector);
+    expect(selector.closest('header')).toContainElement(
+      screen.getByRole('heading', { level: 1, name: t.queryInputTitle })
+    );
     fireEvent.click(selector);
     fireEvent.click(screen.getByRole('button', { name: /PostgreSQL/ }));
     expect(useAppStore.getState().dialect).toBe('postgresql');
@@ -299,9 +300,7 @@ describe('Query Input desktop layout', () => {
     const t = await renderPage();
     const tablist = screen.getByRole('tablist', { name: t.inputMethodLabel });
     const tipsButton = screen.getByRole('button', { name: t.tipsTitle });
-    const selector = screen.getByRole('button', { name: new RegExp(`^${t.dialectLabel}:`) });
     expect(tablist.parentElement).toContainElement(tipsButton);
-    expect(tipsButton.parentElement?.parentElement).toContainElement(selector);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: t.tipsTitle })).not.toBeInTheDocument();
 

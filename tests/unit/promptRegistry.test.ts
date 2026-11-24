@@ -47,6 +47,8 @@ const EXPECTED_PROMPT_IDS: string[] = [
   'dashboard.explainFinding.vi',
   'dashboard.optimizationOpportunities.en',
   'dashboard.optimizationOpportunities.vi',
+  'objectIntelligence.explain.system',
+  'objectIntelligence.explain.facts',
 ];
 
 const INVENTORY_PATH = 'specs/020-prompt-manager-refactor/prompt-inventory.md';
@@ -85,7 +87,7 @@ describe('prompt registry audit (feature 020, unit behaviors U10–U12)', () => 
     const registered = Object.keys(PROMPT_REGISTRY).sort();
 
     expect(registered).toEqual([...EXPECTED_PROMPT_IDS].sort());
-    expect(registered).toHaveLength(36);
+    expect(registered).toHaveLength(38);
   });
 
   it('gives every registered entry a feature, a source reference, a valid role and non-empty text (U11)', () => {

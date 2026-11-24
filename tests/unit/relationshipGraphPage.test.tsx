@@ -107,6 +107,40 @@ describe('relationship graph page (019 A3, A11-A18)', () => {
     expect(screen.getByText('cte_src').closest('button')).toHaveTextContent(t.sourceTypeCte);
     expect(screen.getByText('orders').closest('button')).toHaveTextContent(t.sourceTypeTable);
   });
+
+  it('collapses and reopens graph details without losing the selected table', () => {
+    const t = getT('en');
+    render(<GraphVisualizerContent />);
+    fireEvent.click(screen.getByText('orders'));
+
+    const toggle = screen.getByRole('button', { name: t.graphHideDetails });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const panel = document.getElementById(toggle.getAttribute('aria-controls')!);
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(panel).toHaveAttribute('inert');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('flow-canvas')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: t.graphShowDetails }));
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(panel).not.toHaveAttribute('inert');
+    expect(screen.getByText(t.nodeColumns)).toBeInTheDocument();
+    expect(useAppStore.getState().selectedNodeId).toBe('orders');
+  });
+
+  it('starts with graph details closed on narrow screens', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
+    try {
+      render(<GraphVisualizerContent />);
+      expect(screen.getByRole('button', { name: getT('en').graphShowDetails })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('relationship graph filtering and selection (019 A13, A15, A28)', () => {

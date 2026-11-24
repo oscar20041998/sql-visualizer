@@ -118,6 +118,10 @@ function createSections(t: ReturnType<typeof getT>, theme: GraphTheme): Section[
           desc: t.guidelineGraphStep2Desc,
         },
         {
+          label: t.guidelineGraphDetailsLabel,
+          desc: t.guidelineGraphDetailsDesc,
+        },
+        {
           label: t.guidelineGraphStep3Label,
           desc: t.guidelineGraphStep3Desc,
         },
@@ -622,9 +626,9 @@ export default function GuidelineContent() {
   return (
     <div className="min-h-screen p-6 max-w-3xl mx-auto">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+      <header className="floating-header mb-5 px-4 py-3 sm:px-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="floating-header-icon">
             <BookOpen size={20} className="text-primary" />
           </div>
           <div>
@@ -634,7 +638,7 @@ export default function GuidelineContent() {
         </div>
 
         {/* Quick nav pills */}
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 mt-2">
           {quickRef.map((item) => {
             const ItemIcon = item.icon;
             return (
@@ -655,7 +659,7 @@ export default function GuidelineContent() {
             );
           })}
         </div>
-      </div>
+      </header>
 
       {/* Getting Started Banner */}
       <div

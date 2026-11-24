@@ -1,5 +1,38 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { locateSyntaxError } from '@/lib/sql/dialectValidator';
+import { analyzeQuerySources, analyzeView } from '@/lib/sql/viewAnalyzer';
+
+it('does not present regex-only view sources as facts when the parser disagrees', async () => {
+  const result = await analyzeView(
+    "CREATE VIEW v AS SELECT 'FROM ghost' AS note FROM orders;",
+    'mysql'
+  );
+  expect(result).toMatchObject({
+    status: 'partial',
+    sourceCrossCheck: 'disagreement',
+    tables: [],
+  });
+});
+
+it('cross-checks the supplied MySQL query with dependent CTEs and window functions', async () => {
+  const sql = readFileSync('src/sample/demo_query7.sql', 'utf8');
+  const result = await analyzeQuerySources(sql, 'mysql');
+  expect(result.sourceCrossCheck).toBe('agreement');
+  expect(new Set(result.tables)).toEqual(
+    new Set(['customers', 'orders', 'order_items', 'RankedCustomerOrders', 'HighValueFiltered'])
+  );
+});
+
+it('cross-checks SQL Server query sources using its supported parser grammar', async () => {
+  const result = await analyzeQuerySources('SELECT id FROM employees', 'sqlserver');
+  expect(result).toEqual({ tables: ['employees'], sourceCrossCheck: 'agreement' });
+});
+
+it('marks Oracle source comparison unavailable rather than treating a missing grammar as failure', async () => {
+  const result = await analyzeQuerySources('SELECT id FROM employees', 'oracle');
+  expect(result).toEqual({ tables: ['employees'], sourceCrossCheck: 'unavailable' });
+});
 
 /** Three-line MySQL whose unclosed parenthesis sits at the end of the third line. */
 const BROKEN_MYSQL = 'SELECT a,\n  b\nFROM (';

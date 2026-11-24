@@ -51,6 +51,7 @@ import { BottomAnalytics } from './components/BottomAnalytics';
 import { EmptyStateTips } from './components/EmptyStateTips';
 import { QueryInputPanel } from './components/QueryInputPanel';
 import { CodeGeneratorPanel } from './components/CodeGeneratorPanel';
+import { ObjectIntelligencePanel } from './components/ObjectIntelligencePanel';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -701,12 +702,14 @@ export default function QueryInputContent() {
             }}
           />
 
-          <Header t={t} />
+          <header className="floating-header flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <Header t={t} />
+            <DialectSelector dialect={dialect} onDialectChange={setDialect} t={t} />
+          </header>
           <div className="flex flex-wrap items-center justify-between gap-x-3">
             <TabNavigation inputMode={inputMode} onTabChange={handleTabChange} t={t} />
             <div className="flex items-center">
               <EmptyStateTips tips={tips} t={t} />
-              <DialectSelector dialect={dialect} onDialectChange={setDialect} t={t} />
             </div>
           </div>
 
@@ -788,8 +791,14 @@ export default function QueryInputContent() {
             </div>
           )}
 
+          {inputMode === 'database-object' && (
+            <div id="query-input-tabpanel" role="tabpanel" aria-labelledby="tab-database-object">
+              <ObjectIntelligencePanel dialect={dialect} t={t} />
+            </div>
+          )}
+
           {/* Regular SQL/MyBatis Input */}
-          {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && (
+          {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && inputMode !== 'database-object' && (
             <>
               {/* Workspace: input and resolved SQL share the available width. */}
               <div

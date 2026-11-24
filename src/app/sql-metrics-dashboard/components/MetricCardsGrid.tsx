@@ -64,11 +64,16 @@ function MetricCard({
             }
           : undefined
       }
-      className={`group relative min-w-0 bg-card border rounded-card p-4 flex flex-col gap-3 ${
+      className={`group relative min-w-0 bg-card border rounded-card p-4 flex flex-col gap-3 shadow-sm motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-200 ${
         alert ? 'border-danger/30 bg-danger/5' : 'border-border'
-      } ${interactive ? 'cursor-pointer hover:border-primary/50 hover:bg-muted/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring' : ''}`}
+      } ${interactive ? 'cursor-pointer hover:border-primary/50 hover:shadow-lg motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring' : ''}`}
       style={
-        { containment: 'layout style paint', '--card-accent': accentColor } as React.CSSProperties
+        {
+          containment: 'layout style paint',
+          '--card-accent': accentColor,
+          backgroundImage:
+            'linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 15%, transparent), transparent 70%)',
+        } as React.CSSProperties
       }
     >
       {interactive && (
