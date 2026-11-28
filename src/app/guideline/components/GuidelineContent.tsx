@@ -471,80 +471,83 @@ function SectionCard({ section }: { section: Section }) {
 
   return (
     <div
-      className="rounded-2xl overflow-hidden border transition-all duration-200"
+      className="overflow-hidden rounded-2xl border transition-colors duration-200"
       style={{ borderColor: section.color + '33', background: 'var(--card)' }}
     >
-      {/* Header */}
       <button
+        id={`guideline-section-${section.id}-trigger`}
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-4 px-6 py-4 text-left hover:opacity-90 transition-opacity"
+        aria-expanded={open}
+        aria-controls={`guideline-section-${section.id}-panel`}
+        className="flex min-h-16 w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6"
         style={{ background: section.color + '0d' }}
       >
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: section.color + '22', border: `1px solid ${section.color}44` }}
         >
-          <Icon size={18} style={{ color: section.color }} />
+          <Icon size={18} style={{ color: section.color }} aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-foreground">{section.title}</h2>
           <p className="text-xs text-muted-foreground mt-0.5 truncate">{section.subtitle}</p>
         </div>
-        <div className="flex-shrink-0 text-muted-foreground">
+        <div className="flex-shrink-0 text-muted-foreground" aria-hidden="true">
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </button>
 
-      {/* Body */}
-      {open && (
-        <div className="px-6 py-5 space-y-5 animate-fade-in">
-          {/* Steps */}
-          <div className="space-y-3">
-            {section.steps.map((step, i) => (
-              <div key={i} className="flex gap-3">
-                <div
-                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5"
-                  style={{
-                    background: section.color + '22',
-                    color: section.color,
-                    border: `1px solid ${section.color}44`,
-                  }}
-                >
-                  {i + 1}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{step.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    {step.desc}
-                  </p>
-                </div>
+      <div
+        id={`guideline-section-${section.id}-panel`}
+        role="region"
+        aria-labelledby={`guideline-section-${section.id}-trigger`}
+        hidden={!open}
+        className="space-y-5 px-5 py-5 sm:px-6"
+      >
+        {/* Steps */}
+        <div className="space-y-3">
+          {section.steps.map((step, i) => (
+            <div key={i} className="flex gap-3">
+              <div
+                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5"
+                style={{
+                  background: section.color + '22',
+                  color: section.color,
+                  border: `1px solid ${section.color}44`,
+                }}
+              >
+                {i + 1}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{step.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tips */}
+        {section.tips && section.tips.length > 0 && (
+          <div
+            className="rounded-xl p-4 space-y-2"
+            style={{ background: section.color + '0a', border: `1px solid ${section.color}22` }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Lightbulb size={13} style={{ color: section.color }} aria-hidden="true" />
+            </div>
+            {section.tips.map((tip, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <CheckCircle2
+                  size={12}
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: section.color }}
+                />
+                <p className="text-xs text-muted-foreground leading-relaxed">{tip.text}</p>
               </div>
             ))}
           </div>
-
-          {/* Tips */}
-          {section.tips && section.tips.length > 0 && (
-            <div
-              className="rounded-xl p-4 space-y-2"
-              style={{ background: section.color + '0a', border: `1px solid ${section.color}22` }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Lightbulb size={13} style={{ color: section.color }} />
-              </div>
-              {section.tips.map((tip, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <CheckCircle2
-                    size={12}
-                    className="flex-shrink-0 mt-0.5"
-                    style={{ color: section.color }}
-                  />
-                  <p className="text-xs text-muted-foreground leading-relaxed">{tip.text}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -624,130 +627,139 @@ export default function GuidelineContent() {
   const quickRef = createQuickRef(t, theme);
 
   return (
-    <div className="min-h-screen p-6 max-w-3xl mx-auto">
-      {/* Page Header */}
-      <header className="floating-header mb-5 px-4 py-3 sm:px-5">
+    <div className="mx-auto min-h-screen max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <header className="floating-header mb-6 px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex items-center gap-3 mb-2">
           <div className="floating-header-icon">
-            <BookOpen size={20} className="text-primary" />
+            <BookOpen size={20} className="text-primary" aria-hidden="true" />
           </div>
           <div>
             <h1 className="text-page-title text-foreground">{t.guidelineTitle}</h1>
             <p className="text-xs text-muted-foreground">{t.guidelineSubtitle}</p>
           </div>
         </div>
-
-        {/* Quick nav pills */}
-        <div className="flex flex-wrap gap-2 mt-2">
-          {quickRef.map((item) => {
-            const ItemIcon = item.icon;
-            return (
-              <a
-                key={`${item.href}-${item.label}`}
-                href={item.href}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:opacity-80"
-                style={{
-                  background: item.color + '12',
-                  borderColor: item.color + '33',
-                  color: item.color,
-                }}
-              >
-                <ItemIcon size={11} />
-                {item.label}
-                <ArrowRight size={10} />
-              </a>
-            );
-          })}
-        </div>
       </header>
 
-      {/* Getting Started Banner */}
-      <div
-        className="rounded-2xl p-5 mb-6 flex items-start gap-4"
-        style={{ background: 'var(--primary)' + '10', border: '1px solid var(--primary)' + '30' }}
-      >
-        <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-          <Zap size={18} className="text-primary" />
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-foreground mb-1">{t.guidelineQuickStart}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {t.guidelineQuickStartDesc}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-8">
+        <aside className="lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
+          <nav
+            aria-label={t.guidelineTitle}
+            className="rounded-2xl border border-border bg-card p-3 sm:p-4"
+          >
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">
+              {quickRef.map((item) => {
+                const ItemIcon = item.icon;
+                return (
+                  <li key={`${item.href}-${item.label}`}>
+                    <a
+                      href={item.href}
+                      className="group flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-xs font-medium transition-colors hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      style={{ color: item.color }}
+                    >
+                      <ItemIcon size={15} className="flex-shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">{item.label}</span>
+                      <ArrowRight
+                        size={13}
+                        className="flex-shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </aside>
+
+        <main className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <section
+            className="mb-6 flex items-start gap-4 rounded-2xl border p-5 sm:p-6"
+            style={{
+              background: 'color-mix(in srgb, var(--primary) 8%, var(--card))',
+              borderColor: 'color-mix(in srgb, var(--primary) 24%, var(--border))',
+            }}
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15">
+              <Zap size={18} className="text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="mb-1 text-sm font-bold text-foreground">{t.guidelineQuickStart}</h2>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {t.guidelineQuickStartDesc}
+              </p>
+            </div>
+          </section>
+
+          <div className="space-y-3">
+            {sections.map((section) => (
+              <SectionCard key={section.id} section={section} />
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <ScoreWeightTable />
+          </div>
+
+          <section className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Info size={15} className="text-muted-foreground" aria-hidden="true" />
+              <h2 className="text-sm font-bold text-foreground">{t.guidelineSidebarControls}</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                {
+                  icon: Moon,
+                  color: getGuidelineAccent('violet', theme),
+                  label: t.guidelineSidebarDarkLight,
+                  desc: t.guidelineSidebarDarkLightDesc,
+                },
+                {
+                  icon: Globe,
+                  color: getGuidelineAccent('cyan', theme),
+                  label: t.guidelineSidebarLanguage,
+                  desc: t.guidelineSidebarLanguageDesc,
+                },
+                {
+                  icon: Copy,
+                  color: getGuidelineAccent('emerald', theme),
+                  label: t.guidelineSidebarCopyChart,
+                  desc: t.guidelineSidebarCopyChartDesc,
+                },
+                {
+                  icon: FileCode,
+                  color: getGuidelineAccent('amber', theme),
+                  label: t.guidelineSidebarExportCSV,
+                  desc: t.guidelineSidebarExportCSVDesc,
+                },
+              ].map((item, i) => {
+                const ItemIcon = item.icon;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-xl p-3"
+                    style={{ background: item.color + '0a', border: `1px solid ${item.color}22` }}
+                  >
+                    <div
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: item.color + '20' }}
+                    >
+                      <ItemIcon size={14} style={{ color: item.color }} aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-foreground">{item.label}</p>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <p className="mt-8 pb-4 text-center text-xs text-muted-foreground">
+            SQL Visualizer — {t.guidelineBuiltFor}
           </p>
-        </div>
+        </main>
       </div>
-
-      {/* Feature Sections */}
-      <div className="space-y-4">
-        {sections.map((section) => (
-          <SectionCard key={section.id} section={section} />
-        ))}
-      </div>
-
-      {/* Score Weight Table */}
-      <div className="mt-8">
-        <ScoreWeightTable />
-      </div>
-
-      {/* Keyboard / UI Shortcuts */}
-      <div className="mt-6 rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Info size={15} className="text-muted-foreground" />
-          <h3 className="text-sm font-bold text-foreground">{t.guidelineSidebarControls}</h3>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            {
-              icon: Moon,
-              color: getGuidelineAccent('violet', theme),
-              label: t.guidelineSidebarDarkLight,
-              desc: t.guidelineSidebarDarkLightDesc,
-            },
-            {
-              icon: Globe,
-              color: getGuidelineAccent('cyan', theme),
-              label: t.guidelineSidebarLanguage,
-              desc: t.guidelineSidebarLanguageDesc,
-            },
-            {
-              icon: Copy,
-              color: getGuidelineAccent('emerald', theme),
-              label: t.guidelineSidebarCopyChart,
-              desc: t.guidelineSidebarCopyChartDesc,
-            },
-            {
-              icon: FileCode,
-              color: getGuidelineAccent('amber', theme),
-              label: t.guidelineSidebarExportCSV,
-              desc: t.guidelineSidebarExportCSVDesc,
-            },
-          ].map((item, i) => {
-            const ItemIcon = item.icon;
-            return (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: item.color + '0a', border: `1px solid ${item.color}22` }}
-              >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: item.color + '20' }}
-                >
-                  <ItemIcon size={14} style={{ color: item.color }} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">{item.label}</p>
-                  <p className="text-[10px] text-muted-foreground">{item.desc}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <p className="text-center text-[10px] text-muted-foreground mt-8 pb-4">
-        SQL Visualizer — {t.guidelineBuiltFor}
-      </p>
     </div>
   );
 }

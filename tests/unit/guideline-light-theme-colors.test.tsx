@@ -83,12 +83,24 @@ describe('graph sidebar guidance', () => {
   it.each([
     ['en', /On narrow screens it starts closed and opens over the graph/],
     ['vi', /Trên màn hình nhỏ, panel mặc định đóng và mở phủ lên đồ thị/],
-  ] as const)('shows the sidebar instructions in %s', (locale: 'en' | 'vi', instructions: RegExp) => {
-    useAppStore.setState({ settings: { ...DEFAULT_SETTINGS, locale } });
-    render(<GuidelineContent />);
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(getT(locale).guidelineGraphTitle) }));
-    expect(screen.getByText(instructions)).toBeInTheDocument();
-  });
+  ] as const)(
+    'shows the sidebar instructions in %s',
+    (locale: 'en' | 'vi', instructions: RegExp) => {
+      useAppStore.setState({ settings: { ...DEFAULT_SETTINGS, locale } });
+      render(<GuidelineContent />);
+      expect(
+        screen.getByRole('navigation', { name: getT(locale).guidelineTitle })
+      ).toBeInTheDocument();
+
+      const graphButton = screen.getByRole('button', {
+        name: new RegExp(getT(locale).guidelineGraphTitle),
+      });
+      expect(graphButton).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(graphButton);
+      expect(graphButton).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText(instructions)).toBeInTheDocument();
+    }
+  );
 });
 
 describe('guideline accents follow the active theme', () => {
