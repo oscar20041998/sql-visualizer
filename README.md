@@ -8,7 +8,7 @@ A comprehensive SQL analysis and visualization tool built with Next.js 15, React
 
 ### Core Analysis Tools
 
-- **Query Input** - Paste SQL or import MyBatis XML with multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle)
+- **Query Input** - Analyze SQL queries and supported database object definitions in one editor, or import MyBatis XML, with multi-dialect support (MySQL, PostgreSQL, SQL Server, Oracle)
 - **Relationship Graph Visualizer** - Interactive visualization of table relationships and JOIN connections with color-coded edges and multiple layout options
   - The collapsible details sidebar shows the selected table, JOIN legend, and visible tables. It starts collapsed on narrow screens and opens as an overlay; collapsing it preserves the selected table.
 - **JOIN Analysis** - Deep-dive analysis of JOIN conditions with complexity breakdown, column/operator detection, and multi-dialect support

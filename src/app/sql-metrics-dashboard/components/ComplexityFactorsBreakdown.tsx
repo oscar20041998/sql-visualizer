@@ -205,7 +205,7 @@ export default function ComplexityFactorsBreakdown({
 function SummaryMetric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="border-l-2 border-border px-3 py-1">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="system-label text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value}</div>
     </div>
   );

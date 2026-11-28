@@ -11,6 +11,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Field and metadata labels are distinct from headings and values. */
+label:not(.sr-only):not(:has(input[type='checkbox'], input[type='radio'])):not([class*='text-destructive']):not([class*='text-warning']):not([class*='text-success']),
+.system-label,
+dt:not([class*='text-destructive']):not([class*='text-warning']):not([class*='text-success']) {
+  color: color-mix(in srgb, var(--primary) 45%, var(--foreground));
+  font-weight: 500;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .home-card-revealed {
     animation: home-card-reveal 0.4s ease-out both;

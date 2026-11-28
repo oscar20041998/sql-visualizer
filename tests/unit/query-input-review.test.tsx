@@ -98,7 +98,9 @@ describe('Query Input resolved SQL review (specs/008-query-input-ux T024 / US3)'
 
   it('shows a read-only review state for direct SQL input', async () => {
     const t = await renderPage();
-    useAppStore.setState({ rawSql: CLEAN_SQL });
+    fireEvent.change(screen.getByRole('textbox', { name: t.sqlInputPanelTitle }), {
+      target: { value: CLEAN_SQL },
+    });
 
     // The preview mirrors the current SQL exactly and cannot be edited in place.
     await waitFor(() => expect(screen.getByTestId('sql-preview').textContent).toBe(CLEAN_SQL));
@@ -108,7 +110,9 @@ describe('Query Input resolved SQL review (specs/008-query-input-ux T024 / US3)'
 
   it('copies the resolved SQL to the clipboard and confirms it', async () => {
     const t = await renderPage();
-    useAppStore.setState({ rawSql: WARNING_SQL });
+    fireEvent.change(screen.getByRole('textbox', { name: t.sqlInputPanelTitle }), {
+      target: { value: WARNING_SQL },
+    });
 
     const copy = screen.getByRole('button', { name: t.previewCopyLabel });
     await waitFor(() => expect(copy).toBeEnabled());
@@ -122,7 +126,9 @@ describe('Query Input resolved SQL review (specs/008-query-input-ux T024 / US3)'
 describe('Query Input findings scanability (specs/008-query-input-ux T024 / FR-009, FR-010)', () => {
   it('scans findings by severity, summary and location without relying on color alone', async () => {
     const t = await renderPage();
-    useAppStore.setState({ rawSql: WARNING_SQL });
+    fireEvent.change(screen.getByRole('textbox', { name: t.sqlInputPanelTitle }), {
+      target: { value: WARNING_SQL },
+    });
 
     const findings = await screen.findByRole('region', {
       name: new RegExp(t.lintingAlertsTitle),
@@ -145,7 +151,9 @@ describe('Query Input findings scanability (specs/008-query-input-ux T024 / FR-0
 
   it('keeps the dismiss behavior available for each finding', async () => {
     const t = await renderPage();
-    useAppStore.setState({ rawSql: WARNING_SQL });
+    fireEvent.change(screen.getByRole('textbox', { name: t.sqlInputPanelTitle }), {
+      target: { value: WARNING_SQL },
+    });
 
     const dismiss = await screen.findByRole('button', {
       name: `${t.dismissFinding}: SELECT_ALL`,
@@ -208,7 +216,7 @@ describe('Query Input state messaging (specs/008-query-input-ux T025 / FR-011)',
   it('reports a missing query through the message, not a stack trace', async () => {
     const t = await renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+    fireEvent.click(screen.getByRole('button', { name: t.unifiedAnalyze }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(t.emptyQueryError));
   });

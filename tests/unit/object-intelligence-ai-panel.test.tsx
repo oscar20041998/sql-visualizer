@@ -148,3 +148,14 @@ it('does not send additional untrusted fields supplied alongside static facts', 
   const request: AIGenerateRequest = vi.mocked(generateWithAI).mock.calls[0][1];
   expect(request.messages?.map((message) => message.content).join('\n')).not.toContain('secret-sql-that-must-not-leave');
 });
+
+it('formats AI emphasis without rendering HTML from the response', async () => {
+  vi.mocked(generateWithAI).mockResolvedValue('A **bold** fact and <img src=x onerror=alert(1)>');
+  render(<ObjectAiPanel t={getT('en')} facts={{ dialect: 'mysql', kind: 'table', status: 'partial' }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Explain with AI' }));
+  fireEvent.click(within(screen.getByRole('group', { name: 'Confirm external AI request' })).getByRole('button', { name: 'Confirm and send' }));
+  const bold = await screen.findByText('bold');
+  expect(bold.tagName).toBe('STRONG');
+  expect(screen.getByText(/<img src=x onerror=alert/)).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Object AI explanation' }).querySelector('img')).toBeNull();
+});

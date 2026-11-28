@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { getT } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
 
@@ -10,11 +10,13 @@ interface SqlInputPanelProps {
   placeholder: string;
 }
 
-export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, placeholder }) => {
+export const SqlInputPanel = forwardRef<HTMLTextAreaElement, SqlInputPanelProps>(
+function SqlInputPanel({ value, onChange, placeholder }, ref) {
   const { settings } = useAppStore();
   const t = getT(settings.locale);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
+  useImperativeHandle(ref, () => textareaRef.current!, []);
   const normalizedValue = value.replace(/\r\n?|\u2028|\u2029/g, '\n');
   const lineCount = value.length === 0 ? 0 : normalizedValue.split('\n').length;
   const charCount = value.length;
@@ -54,6 +56,7 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
       </div>
       <textarea
         ref={textareaRef}
+        aria-label={t.sqlInputPanelTitle}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onScroll={handleScroll}
@@ -72,6 +75,6 @@ export const SqlInputPanel: React.FC<SqlInputPanelProps> = ({ value, onChange, p
       </div>
     </div>
   );
-};
+});
 
 export default SqlInputPanel;

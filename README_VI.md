@@ -8,7 +8,7 @@ Công cụ phân tích và trực quan hóa SQL toàn diện, xây dựng bằng
 
 ### Công cụ phân tích cốt lõi
 
-- **Nhập truy vấn** - Dán SQL hoặc import MyBatis XML với hỗ trợ đa-dialect (MySQL, PostgreSQL, SQL Server, Oracle)
+- **Nhập truy vấn** - Phân tích truy vấn SQL và định nghĩa đối tượng được hỗ trợ trong cùng trình soạn thảo, hoặc import MyBatis XML, với hỗ trợ đa-dialect (MySQL, PostgreSQL, SQL Server, Oracle)
 - **Trình trực quan hóa quan hệ bảng (Relationship Graph Visualizer)** - Trực quan hóa tương tác các quan hệ giữa bảng và kết nối JOIN với các cạnh được mã hóa màu và các tùy chọn layout đa dạng
   - Panel chi tiết có thể thu/mở, hiển thị bảng đang chọn, chú giải JOIN và các bảng đang hiển thị. Trên màn hình nhỏ, panel mặc định thu gọn và mở dạng lớp phủ; việc thu gọn không làm mất bảng đang chọn.
 - **Phân tích JOIN** - Phân tích sâu các điều kiện JOIN với phân tích độ phức tạp, phát hiện cột/toán tử và hỗ trợ đa-dialect

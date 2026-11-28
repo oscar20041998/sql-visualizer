@@ -68,7 +68,7 @@ function SettingRow({
   return (
     <div className="flex flex-col gap-3 border-b border-border py-4 last:border-0 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="system-label text-sm font-medium text-foreground">{label}</p>
         {hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}
       </div>
       <div className="min-w-0 max-w-full lg:shrink-0">{children}</div>

@@ -91,6 +91,13 @@ vi.mock('@/lib/ai/embeddingService', () => ({
   tryEmbedText: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('@/lib/sql/statementClassifier', () => ({
+  classifyStatements: async (sql: string) => ({
+    status: 'parsed',
+    statements: [{ kind: 'query', text: sql, start: 0, end: sql.length }],
+  }),
+}));
+
 const SAMPLE_SQL = 'SELECT * FROM orders o INNER JOIN customers c ON c.id = o.customer_id';
 
 async function renderPage() {
@@ -126,7 +133,7 @@ describe('Query Input publishes analysis state for the dashboard (FR-016)', () =
     analyzeSqlMock.mockRejectedValue(new Error('parser exploded'));
     const t = await renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+    fireEvent.click(screen.getByRole('button', { name: t.unifiedAnalyze }));
 
     await waitFor(() => expect(useAppStore.getState().analysisError).toBe('parser exploded'));
     expect(useAppStore.getState().isAnalyzing).toBe(false);
@@ -139,7 +146,7 @@ describe('Query Input publishes analysis state for the dashboard (FR-016)', () =
     const t = await renderPage();
     useAppStore.setState({ analysisError: 'earlier failure' });
 
-    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+    fireEvent.click(screen.getByRole('button', { name: t.unifiedAnalyze }));
 
     await waitFor(() => expect(useAppStore.getState().analysisError).toBeNull());
     expect(useAppStore.getState().analysisResult).not.toBeNull();
@@ -157,7 +164,7 @@ describe('Query Input publishes analysis state for the dashboard (FR-016)', () =
     );
     const t = await renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+    fireEvent.click(screen.getByRole('button', { name: t.unifiedAnalyze }));
 
     await waitFor(() => expect(useAppStore.getState().isAnalyzing).toBe(true));
     expect(screen.getByRole('status')).toBeInTheDocument();

@@ -44,6 +44,11 @@ Interactive visualization of table relationships and JOIN connections.
 - Copy to clipboard for use in documentation/wikis
 - Compatible with Mermaid.js renderers
 
+### PNG Export
+
+- Download the entire filtered graph as a PNG, including tables, connections, and visible labels, regardless of zoom or pan.
+- Very large or widely spaced graphs can exceed browser image limits; filter or move tables closer before exporting.
+
 ### Additional Features
 
 - **MiniMap Navigation:** Quick overview and navigation for large queries

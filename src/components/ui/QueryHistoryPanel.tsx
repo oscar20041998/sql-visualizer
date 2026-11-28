@@ -13,6 +13,7 @@ import {
   removeQueryHistoryEntry,
 } from '@/lib/queryHistoryClient';
 import { cosineSimilarity, tryEmbedText } from '@/lib/ai/embeddingService';
+import { currentSessionOwner } from '@/lib/demoAuth';
 
 const PAGE_SIZE = 20;
 
@@ -110,6 +111,7 @@ export default function QueryHistoryPanel() {
     store.setDialect(entry.dialect);
     store.setInputMode('sql');
     store.setRawSql(entry.sql);
+    store.setUnifiedSql(entry.sql, currentSessionOwner());
     store.setPendingEditorJump(null);
     store.beginNavigation('/query-input');
     router.push('/query-input');

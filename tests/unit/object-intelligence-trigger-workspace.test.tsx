@@ -32,17 +32,18 @@ beforeEach(async () => {
 
 it('shows evidenced metadata and the body of a simple MySQL trigger as partial', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE TRIGGER before_employee_insert\nBEFORE INSERT ON employees\nFOR EACH ROW\nSET NEW.created_at = NOW();',
     },
   });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
 
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   expect(
     await result.findByText('before_employee_insert', {}, { timeout: 30000 })
   ).toBeInTheDocument();
@@ -56,16 +57,17 @@ it('shows evidenced metadata and the body of a simple MySQL trigger as partial',
 
 it('shows a MySQL procedure with its declared parameters and body as partial', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE PROCEDURE list_employees(IN department_id INT)\nBEGIN\n  SELECT * FROM employees WHERE dept_id = department_id;\nEND;',
     },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
 
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   expect(await result.findByText('list_employees', {}, { timeout: 30000 })).toBeInTheDocument();
   expect(result.getByText('Procedure')).toBeInTheDocument();
   expect(result.getByText('IN department_id INT')).toBeInTheDocument();
@@ -79,15 +81,16 @@ it('shows a MySQL procedure with its declared parameters and body as partial', a
 
 it('shows a MySQL function with its parameters, return type and body', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE FUNCTION total_with_tax(amount DECIMAL(10,2)) RETURNS DECIMAL(10,2) DETERMINISTIC RETURN amount * 1.1;',
     },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   expect(await result.findByText('total_with_tax', {}, { timeout: 30000 })).toBeInTheDocument();
   expect(result.getByText('Function')).toBeInTheDocument();
   expect(result.getByText('amount DECIMAL(10,2)')).toBeInTheDocument();
@@ -99,15 +102,16 @@ it('shows a MySQL function with its parameters, return type and body', async () 
 it('shows a PostgreSQL SQL function with parser-backed metadata and body as partial', async () => {
   useAppStore.setState({ dialect: 'postgresql' });
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE FUNCTION sales.add_tax(amount numeric) RETURNS numeric LANGUAGE sql AS $$ SELECT amount * 1.1; $$;',
     },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   expect(await result.findByText('sales.add_tax', {}, { timeout: 30000 })).toBeInTheDocument();
   expect(result.getByText('amount numeric')).toBeInTheDocument();
   expect(result.getByText('numeric')).toBeInTheDocument();
@@ -121,11 +125,12 @@ it('allows inspecting a direct query in a MySQL function body', async () => {
     'CREATE FUNCTION count_employees(p_id INT) RETURNS INT READS SQL DATA\n' +
     'BEGIN\n  SELECT COUNT(*) INTO @n FROM employees;\n  RETURN @n;\nEND;';
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: sql } });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   fireEvent.click(await result.findByRole('button', { name: 'Statement 1' }, { timeout: 30000 }));
   expect(result.getByText('SELECT COUNT(*) INTO @n FROM employees')).toBeInTheDocument();
   expect(result.getByText(/some body structures are not analyzed/i)).toBeInTheDocument();
@@ -136,15 +141,16 @@ it('allows inspecting a direct query in a MySQL function body', async () => {
 
 it('allows selecting a procedure query and inspecting its source and detected tables', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE PROCEDURE list_data()\nBEGIN\n  SELECT id FROM employees;\n  SELECT id FROM departments;\nEND;',
     },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   const query = await result.findByRole('button', { name: 'Statement 2' }, { timeout: 30000 });
   fireEvent.click(query);
   expect(result.getByText('SELECT id FROM departments')).toBeInTheDocument();
@@ -155,11 +161,12 @@ it('allows selecting a procedure query and inspecting its source and detected ta
 it('reveals the selected statement in the original SQL input', async () => {
   const sql = 'CREATE PROCEDURE p()\nBEGIN\n  SELECT id FROM employees;\nEND;';
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: sql } });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   fireEvent.click(await result.findByRole('button', { name: 'Statement 1' }, { timeout: 30000 }));
   fireEvent.click(result.getByRole('button', { name: 'Show in source' }));
   expect(editor).toHaveFocus();
@@ -171,12 +178,13 @@ it('marks a trigger body with unsupported statements as incomplete while exposin
   const sql =
     'CREATE TRIGGER t BEFORE INSERT ON employees FOR EACH ROW BEGIN SET @x = 1; SELECT id INTO @x FROM departments; END;';
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: sql },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
-  const result = within(screen.getByRole('region', { name: 'Object analysis result' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
+  const result = within(await screen.findByRole('region', { name: 'Object analysis result' }, { timeout: 30000 }));
   fireEvent.click(await result.findByRole('button', { name: 'Statement 1' }, { timeout: 30000 }));
   expect(result.getByText(/some body structures are not analyzed/i)).toBeInTheDocument();
   expect(result.getByText('SELECT id INTO @x FROM departments')).toBeInTheDocument();

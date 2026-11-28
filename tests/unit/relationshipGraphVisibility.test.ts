@@ -12,7 +12,7 @@ import {
   filterVisibleJoins,
   filterVisibleTables,
 } from '@/app/relationship-graph-visualizer/lib/graphVisibility';
-import { conditionPreview, formatEndpoint, prepareImageExport } from '@/app/relationship-graph-visualizer/lib/graphExport';
+import { conditionPreview, formatEndpoint } from '@/app/relationship-graph-visualizer/lib/graphExport';
 import { getT } from '@/lib/i18n';
 
 function table(id: string, sourceType: TableNode['sourceType'], alias?: string): TableNode {
@@ -91,15 +91,4 @@ describe('graph locales and image export (019 A19, A27)', () => {
     }
   });
 
-  it('downloads themed SVG of the visible surface and reports a missing image without dropping the diagram', () => {
-    const ready = prepareImageExport('<svg></svg>', 'light', ['orders']);
-    expect(ready.ok).toBe(true);
-    expect(ready.markup).toContain('data-visible-ids="orders"');
-    expect(ready.markup).toContain('#f8fafc');
-    expect(ready.filename.endsWith('.svg')).toBe(true);
-
-    const missing = prepareImageExport(null, 'dark', []);
-    expect(missing.ok).toBe(false);
-    expect(missing.messageKey).toBe('graphImageExportFailed');
-  });
 });

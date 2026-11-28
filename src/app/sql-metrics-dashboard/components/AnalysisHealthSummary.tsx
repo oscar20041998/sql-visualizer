@@ -48,7 +48,7 @@ export default function AnalysisHealthSummary({ data, t }: AnalysisHealthSummary
 
       <div className="mt-5 flex flex-wrap items-end gap-x-12 gap-y-5">
         <div>
-          <p className="text-xs text-muted-foreground">{t.analysisHealthScoreLabel}</p>
+          <p className="system-label text-xs text-muted-foreground">{t.analysisHealthScoreLabel}</p>
           {complexity.normalizedScore === null || complexity.level === null ? (
             <p className="mt-1 text-sm text-muted-foreground">{t.analysisHealthUnavailable}</p>
           ) : (

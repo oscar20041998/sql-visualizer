@@ -9,6 +9,8 @@ interface ActionButtonsProps {
   onClear: () => void;
   isLoading: boolean;
   t: Record<string, string>;
+  analyzeLabel?: string;
+  analyzeDescription?: string;
 }
 
 /**
@@ -24,6 +26,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   onClear,
   isLoading,
   t,
+  analyzeLabel,
+  analyzeDescription,
 }) => {
   const hintId = useId();
 
@@ -51,7 +55,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           ) : (
             <>
               <Play size={14} aria-hidden />
-              {t.analyzeButton || 'Analyze'}
+              {analyzeLabel || t.analyzeButton || 'Analyze'}
             </>
           )}
         </button>
@@ -80,7 +84,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       </div>
 
       <p id={hintId} className="text-xs text-muted-foreground">
-        {t.analyzeHint}
+        {analyzeDescription || t.analyzeHint}
       </p>
     </div>
   );

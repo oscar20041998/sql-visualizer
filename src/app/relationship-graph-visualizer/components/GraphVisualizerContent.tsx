@@ -24,7 +24,7 @@ import { getT } from '@/lib/i18n';
 import type { JoinType, AnalysisResult, SqlSourceType, TableNode } from '@/lib/sql/sqlAnalyzer';
 import type { FlowCanvasHandle } from './FlowCanvas';
 import { JOIN_COLORS } from '@/app/common/colorConstant';
-import { prepareImageExport } from '../lib/graphExport';
+import { exportGraphImage, GRAPH_IMAGE_FILENAME } from '../lib/graphExport';
 import {
   DEFAULT_INCLUDE_NEIGHBORS,
   categoryLabelKey,
@@ -352,6 +352,7 @@ export default function GraphVisualizerContent() {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [includeNeighbors, setIncludeNeighbors] = useState(DEFAULT_INCLUDE_NEIGHBORS);
   const [imageExportError, setImageExportError] = useState<string | null>(null);
+  const [isExportingImage, setIsExportingImage] = useState(false);
 
   // ── Graph search state ──
   const [graphSearch, setGraphSearch] = useState('');
@@ -521,27 +522,32 @@ export default function GraphVisualizerContent() {
     return [header, ...rows].join('\n');
   }, [extractedRows]);
 
-  const downloadVisibleImage = useCallback(() => {
-    const svgEl = document.querySelector('.react-flow__renderer svg');
-    const markup = svgEl ? new XMLSerializer().serializeToString(svgEl) : null;
-    const result = prepareImageExport(
-      markup,
-      settings.theme === 'light' ? 'light' : 'dark',
-      filteredTables.map((table) => table.id)
-    );
-    if (!result.ok || !result.markup) {
-      setImageExportError(t.graphImageExportFailed);
-      return;
-    }
-    const blob = new Blob([result.markup], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = result.filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const downloadVisibleImage = useCallback(async () => {
     setImageExportError(null);
-  }, [filteredTables, settings.theme, t.graphImageExportFailed]);
+    setIsExportingImage(true);
+    try {
+      const viewport = flowRef.current?.getImageViewport();
+      const blob = await exportGraphImage(
+        viewport?.element ?? null,
+        viewport?.zoom ?? 0,
+        settings.theme === 'light' ? 'light' : 'dark'
+      );
+      const url = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = GRAPH_IMAGE_FILENAME;
+        anchor.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Graph PNG export failed:', error);
+      setImageExportError(t.graphImageExportFailed);
+    } finally {
+      setIsExportingImage(false);
+    }
+  }, [settings.theme, t.graphImageExportFailed]);
 
   if (!analysisResult) {
     return (
@@ -593,7 +599,7 @@ export default function GraphVisualizerContent() {
                 {filteredJoins.length} {t.joinCount}
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="whitespace-nowrap">{t.graphFilterLabel}</span>
+                <span className="system-label whitespace-nowrap">{t.graphFilterLabel}</span>
                 <select
                   aria-label={t.graphFilterLabel}
                   value={relationshipFilter}
@@ -813,6 +819,12 @@ export default function GraphVisualizerContent() {
                 <Zap size={12} />
                 {t.performanceMode || 'Performance'}
               </button>
+              <CopyButton
+                getText={getMermaidText}
+                label={t.convertMermaid}
+                copiedLabel={t.copiedLabel}
+                icon={<Code2 size={12} />}
+              />
               <button
                 type="button"
                 onClick={() => flowRef.current?.fitView()}
@@ -827,15 +839,10 @@ export default function GraphVisualizerContent() {
               >
                 {t.graphRearrange}
               </button>
-              <CopyButton
-                getText={getMermaidText}
-                label={t.convertMermaid}
-                copiedLabel={t.copiedLabel}
-                icon={<Code2 size={12} />}
-              />
               <button
                 type="button"
                 onClick={downloadVisibleImage}
+                disabled={isExportingImage}
                 className="flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Copy size={12} />

@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { analyzeQuerySources, analyzeView, type ViewAnalysis } from '@/lib/sql/viewAnalyzer';
 import { triggerFromStatement, type TriggerAnalysis } from '@/lib/sql/triggerAnalyzer';
 import { procedureFromStatement, type ProcedureAnalysis } from '@/lib/sql/storeprocedureAnalyzer';
 import { functionFromStatement, type FunctionAnalysis } from '@/lib/sql/functionAnalyzer';
 import { analyzeTable, type TableAnalysis } from '@/lib/sql/tableAnalyzer';
+import {
+  analyzeTableScript,
+  type TableScriptResult,
+  type TableScriptStatement,
+} from '@/lib/sql/tableScriptAnalyzer';
 import { analyzePostgresqlRoutine } from '@/lib/sql/postgresqlRoutineAnalyzer';
 import {
   extractRoutineQueries,
@@ -152,7 +157,28 @@ function RoutineQueries({
   );
 }
 
-export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t: Translations }) {
+export interface ObjectIntelligenceHandle {
+  analyze: (sql: string, offset?: number) => void;
+  analyzeTableScript: (statements: TableScriptStatement[]) => void;
+}
+
+interface ObjectIntelligencePanelProps {
+  dialect: SqlDialect;
+  t: Translations;
+  unified?: {
+    source: string;
+    editor: React.ReactNode;
+    actions: React.ReactNode;
+    preview: React.ReactNode;
+    showResult: boolean;
+    onReveal: (start: number, end: number) => void;
+    onBusyChange: (busy: boolean) => void;
+    onShowResult: () => void;
+  };
+}
+
+export const ObjectIntelligencePanel = forwardRef<ObjectIntelligenceHandle, ObjectIntelligencePanelProps>(
+function ObjectIntelligencePanel({ dialect, t, unified }, ref) {
   const storedSource = useAppStore((state) => state.objectSql);
   const sourceOwner = useAppStore((state) => state.objectSqlOwner);
   const setSource = useAppStore((state) => state.setObjectSql);
@@ -161,7 +187,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
   const setObjects = useAppStore((state) => state.setObjectSessionObjects);
   const owner = currentSessionOwner();
   const sessionObjects = sessionOwner === owner ? storedObjects : [];
-  const source = sourceOwner === owner ? storedSource : '';
+  const source = unified ? unified.source : sourceOwner === owner ? storedSource : '';
   const [result, setResult] = useState<
     ViewAnalysis | TriggerAnalysis | ProcedureAnalysis | FunctionAnalysis | TableAnalysis | null
   >(null);
@@ -176,9 +202,17 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
   const [queries, setQueries] = useState<{ queries: ExtractedQuery[]; incomplete: boolean } | null>(
     null
   );
+  const [resultSource, setResultSource] = useState('');
+  const [resultOffset, setResultOffset] = useState(0);
+  const [tableScript, setTableScript] = useState<TableScriptResult | null>(null);
+  const [selectedTable, setSelectedTable] = useState(0);
   const revision = useRef(0);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
   const lastOwner = useRef(owner);
+
+  useEffect(() => {
+    unified?.onBusyChange(loading);
+  }, [loading, unified?.onBusyChange]);
 
   useEffect(() => {
     const clearIfOwnerChanged = () => {
@@ -187,6 +221,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
         lastOwner.current = currentOwner;
         revision.current += 1;
         setResult(null);
+        setTableScript(null);
         setQueries(null);
         setPendingObject(null);
         setPendingBatch(null);
@@ -214,6 +249,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
   useEffect(() => {
     revision.current += 1;
     setResult(null);
+    setTableScript(null);
     setQueries(null);
     setFailed(false);
     setLoading(false);
@@ -231,14 +267,17 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
     []
   );
 
-  const analyze = async () => {
+  const analyze = async (sql = source, offset = 0) => {
     const request = ++revision.current;
+    setResultSource(sql);
+    setResultOffset(offset);
     setLoading(true);
     setFailed(false);
     setResult(null);
+    setTableScript(null);
     setQueries(null);
     try {
-      const view = await analyzeView(source, dialect);
+      const view = await analyzeView(sql, dialect);
       let next:
         | ViewAnalysis
         | TriggerAnalysis
@@ -247,18 +286,18 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
         | TableAnalysis = view;
       let nextQueries: { queries: ExtractedQuery[]; incomplete: boolean } | null = null;
       if (view.status === 'unsupported') {
-        next = (await analyzeTable(source, dialect)) ?? view;
+        next = (await analyzeTable(sql, dialect)) ?? view;
       }
       if (next.status === 'unsupported' && dialect === 'postgresql') {
-        next = (await analyzePostgresqlRoutine(source)) ?? view;
+        next = (await analyzePostgresqlRoutine(sql)) ?? view;
       }
       if (next.status === 'unsupported' && dialect === 'mysql') {
-        const statement = await parseMySqlDefinition(source);
+        const statement = await parseMySqlDefinition(sql);
         if (statement) {
           next =
-            triggerFromStatement(source, statement) ??
-            procedureFromStatement(source, statement) ??
-            functionFromStatement(source, statement) ??
+            triggerFromStatement(sql, statement) ??
+            procedureFromStatement(sql, statement) ??
+            functionFromStatement(sql, statement) ??
             view;
           if ('kind' in next) {
             const body =
@@ -267,7 +306,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
                 : next.kind === 'function'
                   ? statement.createFunction()?.routineBody()
                   : statement.createProcedure()?.routineBody();
-            if (body) nextQueries = extractRoutineQueries(source, body);
+            if (body) nextQueries = extractRoutineQueries(sql, body);
           }
         }
       }
@@ -281,6 +320,33 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
       if (request === revision.current) setLoading(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    analyze: (sql, offset) => { void analyze(sql, offset); },
+    analyzeTableScript: (statements) => {
+      const request = ++revision.current;
+      setResult(null);
+      setTableScript(null);
+      setQueries(null);
+      setFailed(false);
+      setLoading(true);
+      void analyzeTableScript(statements, dialect).then((output) => {
+        if (request !== revision.current) return;
+        setTableScript(output);
+        setSelectedTable(0);
+        setResult(output.tables[0]?.analysis ?? null);
+        setResultSource(output.tables[0]?.statement.text ?? '');
+        setResultOffset(output.tables[0]?.statement.start ?? 0);
+      }).catch((error: unknown) => {
+        if (request === revision.current) {
+          console.error('Table script analysis failed:', error);
+          setFailed(true);
+        }
+      }).finally(() => {
+        if (request === revision.current) setLoading(false);
+      });
+    },
+  }));
 
   const advanceBatch = (transaction: BatchTransaction) => {
     if (
@@ -312,6 +378,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
   const addBatch = async (
     readDocuments: (isCurrent: () => boolean) => Promise<BatchDocument[] | null>
   ) => {
+    unified?.onShowResult();
     const request = ++revision.current;
     const isCurrent = () =>
       request === revision.current &&
@@ -324,6 +391,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
     setPendingBatch(null);
     setPendingObject(null);
     setResult(null);
+    setTableScript(null);
     setQueries(null);
     try {
       const documents = await readDocuments(isCurrent);
@@ -394,7 +462,12 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <QueryInputPanel title={t.objectSqlLabel} description={t.objectSqlHint}>
+      <QueryInputPanel
+        title={unified ? t.sqlInputPanelTitle : t.objectSqlLabel}
+        description={unified ? t.unifiedSqlHint : t.objectSqlHint}
+      >
+        {unified ? unified.editor : (
+          <>
         <label className="sr-only" htmlFor="database-object-sql">
           {t.objectSqlLabel}
         </label>
@@ -414,6 +487,18 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
           className="min-h-[360px] w-full resize-y rounded-md border border-border bg-background p-3 font-mono text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <p className="mt-2 text-sm text-muted-foreground">{t.objectDraftLimit}</p>
+          </>
+        )}
+        {unified?.actions}
+        <details open={unified ? undefined : true} className="mt-4">
+        <summary className={unified ? 'cursor-pointer text-sm font-medium text-foreground' : 'hidden'}>
+          {t.objectToolsTitle}
+        </summary>
+        {unified && sessionObjects.length > 0 && (
+          <button type="button" onClick={unified.onShowResult} className="mt-3 block text-sm font-medium text-primary underline-offset-4 hover:underline">
+            {t.objectResult}
+          </button>
+        )}
         <label className="mt-3 block text-sm font-medium" htmlFor="object-default-schema">
           {t.objectDefaultSchema}
         </label>
@@ -433,14 +518,14 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
           className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <p className="mt-1 text-sm text-muted-foreground">{t.objectDefaultSchemaHint}</p>
-        <button
+        {!unified && <button
           type="button"
           disabled={!source.trim() || loading || !!pendingBatch}
-          onClick={analyze}
+          onClick={() => void analyze()}
           className="mt-4 min-h-11 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {loading ? t.analyzing : t.objectAnalyze}
-        </button>
+        </button>}
         <button
           type="button"
           disabled={
@@ -568,12 +653,56 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
             </div>
           </div>
         )}
+        </details>
       </QueryInputPanel>
-      <QueryInputPanel title={t.objectResult}>
+      {unified && !unified.showResult ? unified.preview : <QueryInputPanel title={t.objectResult}>
         {loading && <p role="status">{t.analyzing}</p>}
         {failed && <p role="alert">{t.objectFailed}</p>}
-        {!loading && !failed && !result && (
+        {!loading && !failed && !result && !tableScript && (
           <p className="text-sm text-muted-foreground">{t.objectEmpty}</p>
+        )}
+        {tableScript && (
+          <div className="space-y-3 text-sm">
+            {tableScript.tables.length > 0 ? (
+              <label className="block space-y-1">
+                <span>{t.objectChooseTable}</span>
+                <select
+                  className="block w-full rounded-md border border-border bg-background px-3 py-2"
+                  value={selectedTable}
+                  onChange={(event) => {
+                    const index = Number(event.target.value);
+                    const selected = tableScript.tables[index];
+                    if (!selected) return;
+                    setSelectedTable(index);
+                    setResult(selected.analysis);
+                    setResultSource(selected.statement.text);
+                    setResultOffset(selected.statement.start);
+                    setPendingObject(null);
+                    setSessionError(false);
+                  }}
+                >
+                  {tableScript.tables.map((entry, index) => (
+                    <option key={entry.statement.start} value={index}>
+                      {entry.analysis.schema ? `${entry.analysis.schema}.` : ''}{entry.analysis.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : <p role="alert">{t.objectTableScriptNoTables}</p>}
+            {tableScript.warnings.length > 0 && (
+              <div role="alert" className="rounded-md border border-warning p-3">
+                <p>{t.objectTableScriptWarnings}</p>
+                <ul className="mt-2 space-y-2">
+                  {tableScript.warnings.map((warning) => (
+                    <li key={warning.start}>
+                      <span>{t.objectLine} {warning.line}</span>
+                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{warning.text}</pre>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
         {result?.status === 'unsupported' && <p role="alert">{t.objectUnsupported}</p>}
         {result?.status === 'partial' && (
@@ -631,7 +760,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
                   className="min-h-11 rounded-md border border-border px-3"
                   onClick={() => {
                     const candidate = sessionObjectFromAnalysis(
-                      source,
+                      resultSource,
                       dialect,
                       result,
                       defaultSchema
@@ -719,9 +848,48 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
                   {result.columns.map((column, index) => (
                     <li key={`${column.name}-${index}`}>
                       {column.name} — {column.type}
+                      {result.details?.columns.filter((detail) => detail.name === column.name).map((detail) => (
+                        <div key={detail.name} className="ml-4 text-xs">
+                          {[detail.nullable, detail.defaultValue !== null ? `DEFAULT ${detail.defaultValue}` : null,
+                            detail.identity, detail.comment !== null ? `COMMENT: ${detail.comment}` : null]
+                            .filter((value) => value !== null).join(' · ')}
+                        </div>
+                      ))}
                     </li>
                   ))}
                 </ul>
+                {result.details && (
+                  <>
+                    <h3 className="font-medium">{t.objectTableConstraints}</h3>
+                    {result.details.constraints.length ? (
+                      <ul className="space-y-1 font-mono text-muted-foreground">
+                        {result.details.constraints.map((constraint, index) => (
+                          <li key={index}>
+                            {constraint.type}{constraint.name ? ` ${constraint.name}` : ''}
+                            {constraint.columns.length ? ` (${constraint.columns.join(', ')})` : ` — ${t.objectTableDetailsUnavailable}`}
+                            {constraint.reference ? ` → ${constraint.reference}` : constraint.type === 'FOREIGN KEY' ? ` — ${t.objectTableDetailsUnavailable}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p className="text-muted-foreground">{t.objectTableNoneDetected}</p>}
+                    <h3 className="font-medium">{t.objectTableIndexes}</h3>
+                    {result.details.indexes.length ? (
+                      <ul className="space-y-1 font-mono text-muted-foreground">
+                        {result.details.indexes.map((index, i) => (
+                          <li key={i}>{index.type}{index.name ? ` ${index.name}` : ''}{index.columns.length ? ` (${index.columns.join(', ')})` : ` — ${t.objectTableDetailsUnavailable}`}</li>
+                        ))}
+                      </ul>
+                    ) : <p className="text-muted-foreground">{t.objectTableNoneDetected}</p>}
+                    {result.details.options.length > 0 && (
+                      <>
+                        <h3 className="font-medium">{t.objectTableOptions}</h3>
+                        <ul className="space-y-1 font-mono text-muted-foreground">
+                          {result.details.options.map((option, i) => <li key={i}>{option.name}: {option.value}</li>)}
+                        </ul>
+                      </>
+                    )}
+                  </>
+                )}
               </>
             ) : 'kind' in result ? (
               <>
@@ -752,6 +920,10 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
                     dialect={dialect}
                     t={t}
                     onReveal={(query) => {
+                      if (unified) {
+                        unified.onReveal(resultOffset + query.start.offset, resultOffset + query.end.offset);
+                        return;
+                      }
                       const editor = sourceRef.current;
                       if (editor) {
                         editor.focus();
@@ -801,7 +973,7 @@ export function ObjectIntelligencePanel({ dialect, t }: { dialect: SqlDialect; t
           </div>
         )}
         {sessionObjects.length > 0 && <ObjectDependencyPanel views={sessionObjects} t={t} />}
-      </QueryInputPanel>
+      </QueryInputPanel>}
     </div>
   );
-}
+});

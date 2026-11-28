@@ -111,6 +111,7 @@ function computeLayout(
 export interface FlowCanvasHandle {
   getNodes: () => Node[];
   getEdges: () => Edge[];
+  getImageViewport: () => { element: HTMLElement | null; zoom: number } | null;
   fitView: () => void;
   relayout: () => void;
 }
@@ -126,6 +127,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const placementRef = useRef<PlacementState | null>(null);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [placementVersion, setPlacementVersion] = useState(0);
   const graphTheme = settings.theme === 'light' ? 'light' : 'dark';
   const chartBg = graphTheme === 'light' ? CHART_BG_LIGHT : CHART_BG_DARK;
@@ -166,6 +168,12 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   useImperativeHandle(ref, () => ({
     getNodes: () => nodes,
     getEdges: () => edges,
+    getImageViewport: () => instanceRef.current
+      ? {
+          element: containerRef.current?.querySelector<HTMLElement>('.react-flow__viewport') ?? null,
+          zoom: instanceRef.current.getZoom(),
+        }
+      : null,
     fitView: () => instanceRef.current?.fitView({ padding: 0.3 }),
     relayout,
   }));
@@ -336,7 +344,7 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
   }, [setSelectedNodeId]);
 
   return (
-    <div className="w-full h-full" style={{ background: chartBg }}>
+    <div ref={containerRef} className="w-full h-full" style={{ background: chartBg }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

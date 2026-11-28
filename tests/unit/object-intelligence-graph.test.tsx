@@ -45,19 +45,20 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 async function addViews() {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, {
     target: { value: 'CREATE VIEW sales.base AS SELECT id FROM sales.employees;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
   fireEvent.change(editor, {
     target: { value: 'CREATE VIEW sales.report AS SELECT id FROM sales.base;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
@@ -77,28 +78,29 @@ it('shows reverse impact for a supplied object', async () => {
 }, 60000);
 
 it('reports a dependency cycle after an explicit replacement', async () => {
-  const graph = await addViews();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await addViews();
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE VIEW sales.base AS SELECT id FROM sales.report;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
   fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
-  expect(graph.getByText('Dependency cycle detected.')).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Object dependencies' })).getByText('Dependency cycle detected.')).toBeInTheDocument();
 }, 60000);
 
 it('keeps the existing definition when a duplicate is declined', async () => {
-  const graph = await addViews();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await addViews();
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE VIEW sales.base AS SELECT id FROM sales.report;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
   fireEvent.click(screen.getByRole('button', { name: 'Keep existing' }));
+  const graph = within(screen.getByRole('region', { name: 'Object dependencies' }));
   expect(graph.queryByText('Dependency cycle detected.')).not.toBeInTheDocument();
   expect(graph.getByText('sales.report → sales.base (read)')).toBeInTheDocument();
 }, 60000);
@@ -113,17 +115,18 @@ it('does not persist definitions and clears them when the session signs out', as
 
 it('resolves a view dependency against a supplied qualified table', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: 'CREATE TABLE sales.employees (id INT);' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
   fireEvent.change(editor, {
     target: { value: 'CREATE VIEW sales.report AS SELECT id FROM sales.employees;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
@@ -133,8 +136,9 @@ it('resolves a view dependency against a supplied qualified table', async () => 
 
 it('adds multiple pasted definitions to one dependency session', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE TABLE sales.staff (id INT);\nCREATE VIEW sales.report AS SELECT id FROM sales.staff;',
@@ -149,8 +153,9 @@ it('adds multiple pasted definitions to one dependency session', async () => {
 
 it('resolves a duplicate batch transaction only after an explicit choice', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: 'CREATE TABLE sales.staff (id INT);' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add pasted definitions' }));
   await screen.findByRole('region', { name: 'Object dependencies' }, { timeout: 30000 });
@@ -185,7 +190,8 @@ it('resolves a duplicate batch transaction only after an explicit choice', async
 
 it('imports multiple SQL files with original source provenance into one session', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
   const table = 'CREATE TABLE sales.staff (id INT);';
   const view = 'CREATE VIEW sales.report AS SELECT id FROM sales.staff;';
   const files = [
@@ -210,7 +216,8 @@ it('imports multiple SQL files with original source provenance into one session'
 
 it('reports failed files without modifying existing definitions', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
   const good = 'CREATE TABLE sales.staff (id INT);';
   const input = screen.getByLabelText('Import SQL files');
   fireEvent.change(input, {
@@ -231,7 +238,8 @@ it('reports failed files without modifying existing definitions', async () => {
 
 it('discards an in-flight file import after signing out and back in', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
   let resolveFile: (value: string) => void = () => {};
   const contents = new Promise<string>((resolve) => {
     resolveFile = resolve;
@@ -252,8 +260,9 @@ it('discards an in-flight file import after signing out and back in', async () =
 
 it('rejects a mixed valid and unsupported batch without adding its valid definition', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE TABLE sales.staff (id INT); CREATE TABLE sales.invalid (' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Add pasted definitions' }));
@@ -265,8 +274,9 @@ it('rejects a mixed valid and unsupported batch without adding its valid definit
 
 it('keeps an existing duplicate while adding the remaining batch definitions', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: 'CREATE TABLE sales.staff (id INT);' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add pasted definitions' }));
   await screen.findByRole('region', { name: 'Object dependencies' }, { timeout: 30000 });
@@ -289,8 +299,9 @@ it('keeps an existing duplicate while adding the remaining batch definitions', a
 it('adds PostgreSQL pasted table and view definitions to the dependency session', async () => {
   useAppStore.setState({ dialect: 'postgresql' });
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: {
       value:
         'CREATE TABLE sales.staff (id INT); CREATE VIEW sales.report AS SELECT id FROM sales.staff;',
@@ -307,9 +318,10 @@ it('adds PostgreSQL pasted table and view definitions to the dependency session'
 
 it('uses an explicitly entered default schema for unqualified batch definitions', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
   const source = 'CREATE TABLE employees (id INT); CREATE VIEW report AS SELECT id FROM employees;';
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: source },
   });
   fireEvent.change(screen.getByLabelText('Default schema (optional)'), {
@@ -322,14 +334,15 @@ it('uses an explicitly entered default schema for unqualified batch definitions'
   expect(
     graph.getByText('sales.report → sales.employees (read) — default schema assumption')
   ).toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: 'Database object SQL' })).toHaveValue(source);
+  expect(screen.getByRole('textbox', { name: 'SQL input' })).toHaveValue(source);
 }, 60000);
 
 it('adds the supplied employees table with a user-entered default schema', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
   const source = readFileSync('src/sample/demo-create-table.sql', 'utf8');
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, {
     target: { value: source },
   });
@@ -346,8 +359,9 @@ it('adds the supplied employees table with a user-entered default schema', async
 
 it('rejects an invalid default schema without changing the session', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE TABLE employees (id INT);' },
   });
   fireEvent.change(screen.getByLabelText('Default schema (optional)'), {
@@ -362,17 +376,18 @@ it('rejects an invalid default schema without changing the session', async () =>
 
 it('does not equate different object kinds with the same single-object name', async () => {
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  const editor = screen.getByRole('textbox', { name: 'Database object SQL' });
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  const editor = screen.getByRole('textbox', { name: 'SQL input' });
   fireEvent.change(editor, { target: { value: 'CREATE TABLE sales.shared (id INT);' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
   fireEvent.change(editor, {
     target: { value: 'CREATE VIEW sales.shared AS SELECT id FROM sales.staff;' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 })
   );
@@ -383,11 +398,12 @@ it('does not equate different object kinds with the same single-object name', as
 it('adds an analyzed SQL Server table with a qualified identity to the session', async () => {
   useAppStore.setState({ dialect: 'sqlserver' });
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE TABLE sales.staff (id INT);' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 }));
   expect(useAppStore.getState().objectSessionObjects.map((object) => object.id)).toEqual([
     'sqlserver:sales.staff',
@@ -397,11 +413,12 @@ it('adds an analyzed SQL Server table with a qualified identity to the session',
 it('adds an analyzed Oracle table with a qualified identity to the session', async () => {
   useAppStore.setState({ dialect: 'oracle' });
   render(<QueryInputPage />);
-  fireEvent.click(await screen.findByRole('tab', { name: 'Database objects' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Database object SQL' }), {
+  await screen.findByRole('textbox', { name: 'SQL input' });
+  fireEvent.click(screen.getByText('Database object tools'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'SQL input' }), {
     target: { value: 'CREATE TABLE sales.staff (id NUMBER);' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Analyze object' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze SQL' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Add to session' }, { timeout: 30000 }));
   expect(useAppStore.getState().objectSessionObjects.map((object) => object.id)).toEqual([
     'oracle:sales.staff',

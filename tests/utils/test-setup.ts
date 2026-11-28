@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { setDemoAuthenticated, type UserSession } from '@/lib/demoAuth';
+import { useAppStore } from '@/lib/store';
 
 afterEach(() => {
   cleanup();
@@ -11,6 +12,7 @@ export function resetTestStorage(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.clear();
   window.sessionStorage.clear();
+  useAppStore.getState().setUnifiedSql('', null);
 }
 
 /**

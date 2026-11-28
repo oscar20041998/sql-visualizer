@@ -10,6 +10,7 @@ import type { SqlDialect } from '@/lib/sql/sqlAnalyzer';
 import { useAppStore } from '@/lib/store';
 import { isCapabilityLockedForGuest, useCapabilityLock } from '@/lib/useCapabilityLock';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
+import { AiMessageContent } from '@/components/ui/AiMessageContent';
 
 export interface ObjectAiFacts {
   dialect: SqlDialect;
@@ -169,7 +170,7 @@ export function ObjectAiPanel({ facts, t }: { facts: ObjectAiFacts; t: Translati
       )}
       {loading && <p role="status">{t.analyzing}</p>}
       {failed && <p role="alert">{t.objectAiFailed}</p>}
-      {answer && <div><p className="font-medium">{t.objectAiGenerated}</p><p className="whitespace-pre-wrap break-words">{answer}</p></div>}
+      {answer && <div className="break-words"><p className="font-medium">{t.objectAiGenerated}</p><AiMessageContent content={answer} /></div>}
     </section>
   );
 }

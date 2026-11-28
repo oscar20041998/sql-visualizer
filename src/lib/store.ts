@@ -94,6 +94,8 @@ interface AppState {
   settings: AppSettings;
   dialect: SqlDialect;
   rawSql: string;
+  unifiedSql: string;
+  unifiedSqlOwner: string | null;
   objectSql: string;
   objectSqlOwner: string | null;
   objectSessionObjects: SessionObject[];
@@ -133,6 +135,7 @@ interface AppState {
   updateSettings: (patch: Partial<AppSettings>) => void;
   setDialect: (d: SqlDialect) => void;
   setRawSql: (s: string) => void;
+  setUnifiedSql: (s: string, owner: string | null) => void;
   setObjectSql: (s: string, owner?: string) => void;
   setObjectSessionObjects: (objects: SessionObject[], owner: string | null) => void;
   setObjectAiConsent: (consent: AppState['objectAiConsent']) => void;
@@ -207,6 +210,8 @@ export const useAppStore = create<AppState>()(
       settings: defaultSettings,
       dialect: 'mysql',
       rawSql: '',
+      unifiedSql: '',
+      unifiedSqlOwner: null,
       objectSql: '',
       objectSqlOwner: null,
       objectSessionObjects: [],
@@ -234,6 +239,7 @@ export const useAppStore = create<AppState>()(
       updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
       setDialect: (d) => set({ dialect: d }),
       setRawSql: (s) => set({ rawSql: s }),
+      setUnifiedSql: (s, owner) => set({ unifiedSql: s, unifiedSqlOwner: owner }),
       setObjectSql: (s, owner) => set({ objectSql: s, objectSqlOwner: s ? owner ?? null : null }),
       setObjectSessionObjects: (objects, owner) =>
         set({ objectSessionObjects: objects, objectSessionOwner: objects.length ? owner : null }),
@@ -278,6 +284,8 @@ export const useAppStore = create<AppState>()(
       resetAll: () =>
         set({
           rawSql: '',
+          unifiedSql: '',
+          unifiedSqlOwner: null,
           objectSql: '',
           objectSqlOwner: null,
           objectSessionObjects: [],
@@ -371,6 +379,10 @@ export const useAppStore = create<AppState>()(
 if (typeof window !== 'undefined') {
   const clearDraftOnIdentityChange = () => {
     const state = useAppStore.getState();
+    if (state.unifiedSqlOwner && state.unifiedSqlOwner !== currentSessionOwner()) {
+      state.setUnifiedSql('', null);
+      state.setRawSql('');
+    }
     if (state.objectSql && state.objectSqlOwner !== currentSessionOwner()) {
       state.setObjectSql('');
     }

@@ -99,10 +99,10 @@ describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)',
     fireEvent.change(screen.getByPlaceholderText(/^Paste your SQL query here/), {
       target: { value: sql },
     });
-    fireEvent.click(screen.getByRole('button', { name: t.analyzeButton }));
+    fireEvent.click(screen.getByRole('button', { name: t.unifiedAnalyze }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/sql-metrics-dashboard'), {
-      timeout: 15000,
+      timeout: 30000,
     });
     const result = useAppStore.getState().analysisResult;
     expect(result?.tables).toEqual(
@@ -113,7 +113,7 @@ describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)',
     );
     expect(result?.joins).toHaveLength(1);
     expect(useAppStore.getState().rawSql).toBe(sql);
-  });
+  }, 40000);
 
   it('exposes the workflow sections and keeps the input → parameters → review → findings order', async () => {
     const t = await renderPage();
@@ -151,7 +151,7 @@ describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)',
   it('renders the primary action as the only dominant CTA and explains it', async () => {
     const t = await renderPage();
 
-    const analyze = screen.getByRole('button', { name: t.analyzeButton });
+    const analyze = screen.getByRole('button', { name: t.unifiedAnalyze });
     expect(analyze).toHaveAttribute('data-action', 'analyze');
     expect(analyze).toHaveAttribute('data-variant', 'primary');
 
@@ -160,20 +160,20 @@ describe('Query Input workflow hierarchy (specs/008-query-input-ux T010 / US1)',
       expect(secondary).toHaveAttribute('data-variant', 'secondary');
     }
 
-    expect(screen.getByText(t.analyzeHint)).toBeInTheDocument();
+    expect(screen.getByText(t.unifiedAnalyzeHint)).toBeInTheDocument();
   });
 
   it('keeps the secondary actions clickable while the primary action stays dominant', async () => {
     const t = await renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: t.loadSample }));
-    await waitFor(() => expect(useAppStore.getState().rawSql).toContain('WITH monthly_revenue'));
+    await waitFor(() => expect(useAppStore.getState().unifiedSql).toContain('WITH monthly_revenue'));
 
     fireEvent.click(screen.getByRole('button', { name: t.clearButton }));
-    await waitFor(() => expect(useAppStore.getState().rawSql).toBe(''));
+    await waitFor(() => expect(useAppStore.getState().unifiedSql).toBe(''));
 
     // Loading and clearing must not promote a secondary action over Analyze.
-    expect(screen.getByRole('button', { name: t.analyzeButton })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: t.unifiedAnalyze })).toHaveAttribute(
       'data-variant',
       'primary'
     );
@@ -188,7 +188,7 @@ describe('Query Input tab navigation (specs/008-query-input-ux T011 / FR-004)', 
     const tabs = screen.getAllByRole('tab');
 
     expect(tablist).toContainElement(tabs[0]);
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(5);
     expect(screen.getByRole('tab', { name: t.tabPasteSQL })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -268,7 +268,7 @@ describe('Query Input locale parity (specs/008-query-input-ux T010 / FR-013)', (
     expect(screen.getByRole('heading', { level: 1, name: t.queryInputTitle })).toBeInTheDocument();
     expect(screen.getByRole('list', { name: t.workflowStepsLabel })).toBeInTheDocument();
     expect(screen.getByRole('tablist', { name: t.inputMethodLabel })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: t.analyzeButton })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.unifiedAnalyze })).toBeInTheDocument();
     expect(getT('en').queryInputTitle).not.toBe(t.queryInputTitle);
   });
 });

@@ -109,7 +109,7 @@ describe('SQL to Code Generator acceptance', () => {
       target: { value: generatorSql },
     });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Paste SQL Direct' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL' }));
     fireEvent.click(screen.getByRole('tab', { name: 'SQL → Code Generator' }));
     expect(screen.getByRole('textbox', { name: 'SQL for code generation' })).toHaveValue(generatorSql);
 

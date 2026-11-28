@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import SignInPanel from '@/components/auth/SignInPanel';
 import { isDemoAuthenticated } from '@/lib/demoAuth';
 import { resetTestStorage, stubSessionEndpoint } from '../utils/test-setup';
@@ -98,9 +98,14 @@ describe('SignInPanel interaction states (T029)', () => {
     expect(pushMock).toHaveBeenCalledWith('/query-input');
   });
 
-  it('disables every control while a social sign-in popup is starting', () => {
-    const originalClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'test-google-client-id';
+  it.each([
+    ['Google', 'NEXT_PUBLIC_GOOGLE_CLIENT_ID'],
+    ['Microsoft', 'NEXT_PUBLIC_MICROSOFT_CLIENT_ID'],
+  ])('shows one system loader and a centered popup for %s sign-in', (provider: string, envName: string) => {
+    vi.useFakeTimers();
+    vi.stubEnv(envName, 'test-client-id');
+    vi.spyOn(window.screen, 'availWidth', 'get').mockReturnValue(1920);
+    vi.spyOn(window.screen, 'availHeight', 'get').mockReturnValue(1080);
     const popupWindow = { closed: false, focus: vi.fn() };
     const openSpy = vi
       .spyOn(window, 'open')
@@ -108,19 +113,29 @@ describe('SignInPanel interaction states (T029)', () => {
 
     try {
       render(<SignInPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Google' }));
+      fireEvent.click(screen.getByRole('button', { name: provider }));
 
-      // authenticating state: the primary action and both social actions are disabled
       expect(screen.getByRole('button', { name: 'Login' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Google' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Microsoft' })).toBeDisabled();
+      expect(screen.getAllByRole('status')).toHaveLength(1);
+      expect(screen.getByRole('status')).toHaveTextContent('Signing in...');
+      expect(screen.getByTestId('google-logo')).toBeInTheDocument();
+      expect(screen.getByTestId('microsoft-logo')).toBeInTheDocument();
       expect(openSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      // let the component's poll interval settle so no cross-test state leaks
+      expect(openSpy.mock.calls[0][2]).toBe('popup,width=600,height=700,left=660,top=190');
+
       popupWindow.closed = true;
-      openSpy.mockRestore();
-      if (originalClientId === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      else process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = originalClientId;
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: provider })).toBeEnabled();
+      expect(screen.getByRole('alert')).toHaveTextContent('Authentication cancelled');
+    } finally {
+      popupWindow.closed = true;
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
     }
   });
 

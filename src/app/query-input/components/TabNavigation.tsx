@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Braces, Code2, BookOpen, Database, FileCode2, Wand2 } from 'lucide-react';
+import { Braces, Code2, BookOpen, FileCode2, Wand2 } from 'lucide-react';
 
 export type QueryInputMode =
   | 'sql'
@@ -33,11 +33,6 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ inputMode, onTabCh
     { value: 'mybatis', label: t.tabMyBatisContent, icon: <BookOpen size={13} aria-hidden /> },
     { value: 'smart-editor', label: t.tabSmartEditor, icon: <Wand2 size={13} aria-hidden /> },
     { value: 'code-generator', label: t.tabCodeGenerator, icon: <Braces size={13} aria-hidden /> },
-    {
-      value: 'database-object',
-      label: t.tabDatabaseObject,
-      icon: <Database size={13} aria-hidden />,
-    },
   ];
 
   const activateTab = (index: number) => {

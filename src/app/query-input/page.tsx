@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Braces, FileCode2 } from 'lucide-react';
+import { Braces } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'sql-formatter';
 import { DEFAULT_SETTINGS, useAppStore } from '@/lib/store';
@@ -31,7 +31,9 @@ import {
 } from '@/lib/sql/sqlAnalyzer';
 import { validateSqlDialect, DIALECT_LABELS } from '@/lib/sql/dialectValidator';
 import { validateSqlFormat } from '@/lib/sql/sqlFormatValidator';
-import { isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
+import { classifyStatements } from '@/lib/sql/statementClassifier';
+import { isTableScript, splitTableScript } from '@/lib/sql/tableScriptAnalyzer';
+import { currentSessionOwner, isDemoAuthenticated, isGuestSession } from '@/lib/demoAuth';
 import { compareSqlSnapshots, type ComparisonResult } from '@/lib/sql/sqlComparison';
 import {
   extractPartialSqlComparisonFields,
@@ -51,7 +53,7 @@ import { BottomAnalytics } from './components/BottomAnalytics';
 import { EmptyStateTips } from './components/EmptyStateTips';
 import { QueryInputPanel } from './components/QueryInputPanel';
 import { CodeGeneratorPanel } from './components/CodeGeneratorPanel';
-import { ObjectIntelligencePanel } from './components/ObjectIntelligencePanel';
+import { ObjectIntelligencePanel, type ObjectIntelligenceHandle } from './components/ObjectIntelligencePanel';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -129,6 +131,10 @@ export default function QueryInputContent() {
     settings,
     dialect,
     rawSql,
+    unifiedSql,
+    unifiedSqlOwner,
+    objectSql,
+    objectSqlOwner,
     myBatisXml,
     codeGeneratorInitialSql,
     resolvedSql,
@@ -138,6 +144,7 @@ export default function QueryInputContent() {
     pendingEditorJump,
     setDialect,
     setRawSql,
+    setUnifiedSql,
     setMyBatisXml,
     setCodeGeneratorSql,
     setCodeGeneratorInitialSql,
@@ -163,12 +170,41 @@ export default function QueryInputContent() {
   }, [router]);
 
   const t = getT(settings.locale);
+  const owner = currentSessionOwner();
+  const sqlDraft = unifiedSqlOwner === owner ? unifiedSql : '';
+  const previousObjectDraft = objectSqlOwner === owner ? objectSql : '';
+  const needsDraftChoice = !unifiedSqlOwner && !!rawSql && !!previousObjectDraft && rawSql !== previousObjectDraft;
+  const sqlEditorRef = useRef<HTMLTextAreaElement>(null);
+  const objectPanelRef = useRef<ObjectIntelligenceHandle>(null);
+  const [showObjectResult, setShowObjectResult] = useState(false);
+  const [objectBusy, setObjectBusy] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+  const [statementChoice, setStatementChoice] = useState<Awaited<ReturnType<typeof classifyStatements>> | null>(null);
+  const classificationRevision = useRef(0);
+
+  useEffect(() => {
+    if (!isAuthorized || unifiedSqlOwner || needsDraftChoice) return;
+    setUnifiedSql(rawSql || previousObjectDraft, owner);
+  }, [isAuthorized, unifiedSqlOwner, needsDraftChoice, rawSql, previousObjectDraft, owner, setUnifiedSql]);
+
+  useEffect(() => {
+    if (inputMode === 'database-object') setInputMode('sql');
+  }, [inputMode, setInputMode]);
+
+  useEffect(() => {
+    classificationRevision.current += 1;
+    setStatementChoice(null);
+    setClassifying(false);
+    setShowObjectResult(false);
+  }, [dialect, sqlDraft, owner]);
+
+  useEffect(() => () => { classificationRevision.current += 1; }, []);
   const [detectedParams, setDetectedParams] = useState<string[]>([]);
   const [conditionalParams, setConditionalParams] = useState<Record<string, string>>({});
   // Display-only metadata for the XML that currently backs the MyBatis input; the parsed
   // content still lives in the store, so this adds no new state semantics.
   const [importedFileName, setImportedFileName] = useState<string | null>(null);
-  const smartEditorSqlRef = useRef(rawSql || 'SELECT * FROM table LIMIT 10;');
+  const smartEditorSqlRef = useRef(sqlDraft || rawSql || 'SELECT * FROM table LIMIT 10;');
   const editorApiRef = useRef<SmartSQLEditorApi | null>(null);
   // Last converted SQL already pushed into the editor, so tab switches alone never
   // clobber edits the user made inside the Smart Editor.
@@ -236,12 +272,14 @@ export default function QueryInputContent() {
     setImportedFileName(null);
   }, [setMyBatisXml, setMyBatisParams, setResolvedSql]);
 
-  const handleAnalyze = useCallback(async () => {
+  const handleAnalyze = useCallback(async (selectedSql?: string) => {
     const sqlToAnalyze =
-      inputMode === 'smart-editor'
+      selectedSql !== undefined
+        ? selectedSql
+        : inputMode === 'smart-editor'
         ? smartEditorSqlRef.current
         : inputMode === 'sql'
-          ? rawSql
+          ? sqlDraft
           : resolvedSql;
     if (!sqlToAnalyze.trim()) {
       toast.error(t.emptyQueryError);
@@ -286,6 +324,7 @@ export default function QueryInputContent() {
       const result = await analyzeSql(sqlToAnalyze, dialect, settings.locale);
       if (runId !== analysisRunRef.current) return;
       setAnalysisResult(result);
+      if (inputMode === 'sql') setRawSql(sqlToAnalyze);
       toast.success(
         t.analysisCompleteMessage
           ?.replace('{tables}', result.tables.length.toString())
@@ -323,7 +362,7 @@ export default function QueryInputContent() {
     if (runId === analysisRunRef.current) setIsAnalyzing(false);
   }, [
     inputMode,
-    rawSql,
+    sqlDraft,
     resolvedSql,
     dialect,
     settings.locale,
@@ -332,12 +371,100 @@ export default function QueryInputContent() {
     t,
     setIsAnalyzing,
     setAnalysisResult,
+    setRawSql,
     setAnalysisError,
     beginNavigation,
   ]);
 
+  const runUnifiedAnalysis = (kind: 'query' | 'object', sql: string, offset: number) => {
+    setStatementChoice(null);
+    if (kind === 'query') {
+      setShowObjectResult(false);
+      void handleAnalyze(sql);
+    } else {
+      setShowObjectResult(true);
+      objectPanelRef.current?.analyze(sql, offset);
+    }
+  };
+
+  const handleUnifiedAnalyze = async () => {
+    if (!sqlDraft.trim()) {
+      toast.error(t.emptyQueryError);
+      return;
+    }
+    const revision = ++classificationRevision.current;
+    setStatementChoice(null);
+    const tableStatements = splitTableScript(sqlDraft, dialect);
+    if (isTableScript(tableStatements)) {
+      setShowObjectResult(true);
+      objectPanelRef.current?.analyzeTableScript(tableStatements);
+      return;
+    }
+    setClassifying(true);
+    try {
+      const result = await classifyStatements(sqlDraft, dialect);
+      if (revision !== classificationRevision.current || currentSessionOwner() !== owner) return;
+      if (result.status === 'parsed' && result.statements.length === 1) {
+        const statement = result.statements[0];
+        runUnifiedAnalysis(statement.kind === 'query' ? 'query' : 'object', sqlDraft, 0);
+      } else {
+        setStatementChoice(result);
+      }
+    } catch {
+      if (revision === classificationRevision.current) toast.error(t.unifiedClassifyFailed);
+    } finally {
+      if (revision === classificationRevision.current) setClassifying(false);
+    }
+  };
+
+  const renderStatementChoice = () => {
+    if (!statementChoice) return null;
+    if (statementChoice.status === 'parsed') {
+      return (
+        <div role="group" aria-label={t.unifiedChooseStatement} className="mt-4 space-y-2 rounded-md border border-border p-3">
+          <p className="text-sm font-medium">{t.unifiedChooseStatement}</p>
+          {statementChoice.statements.map((statement, index) => (
+            <button
+              key={`${statement.start}-${statement.end}`}
+              type="button"
+              onClick={() => runUnifiedAnalysis(
+                statement.kind === 'query' ? 'query' : 'object',
+                statement.text,
+                statement.start
+              )}
+              className="block w-full rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="system-label">{index + 1}. {statement.kind === 'query' ? t.unifiedQueryType : t.unifiedObjectType}</span>
+              <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">{statement.text}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+    const analyzeSelection = (kind: 'query' | 'object') => {
+      const editor = sqlEditorRef.current;
+      if (!editor || editor.selectionStart === editor.selectionEnd) {
+        toast.error(t.unifiedSelectSql);
+        return;
+      }
+      runUnifiedAnalysis(kind, sqlDraft.slice(editor.selectionStart, editor.selectionEnd), editor.selectionStart);
+    };
+    return (
+      <div role="group" aria-label={t.unifiedChooseStatement} className="mt-4 space-y-3 rounded-md border border-border p-3">
+        <p className="text-sm text-muted-foreground">{t.unifiedAmbiguous}</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm" onClick={() => analyzeSelection('query')}>{t.unifiedAnalyzeQuery}</button>
+          <button type="button" className="rounded-md border border-border px-3 py-2 text-sm" onClick={() => analyzeSelection('object')}>{t.unifiedAnalyzeObject}</button>
+        </div>
+      </div>
+    );
+  };
+
   const handleClear = useCallback(() => {
-    if (inputMode === 'sql') setRawSql('');
+    if (inputMode === 'sql') {
+      setUnifiedSql('', owner);
+      setShowObjectResult(false);
+    }
     else {
       setMyBatisXml('');
       setDetectedParams([]);
@@ -349,7 +476,8 @@ export default function QueryInputContent() {
     setAnalysisResult(null);
   }, [
     inputMode,
-    setRawSql,
+    setUnifiedSql,
+    owner,
     setMyBatisXml,
     setMyBatisParams,
     setResolvedSql,
@@ -359,17 +487,18 @@ export default function QueryInputContent() {
 
   const handleLoadSample = useCallback(() => {
     if (inputMode === 'sql') {
-      setRawSql(SAMPLE_SQL);
+      setUnifiedSql(SAMPLE_SQL, owner);
+      setShowObjectResult(false);
     } else if (inputMode === 'mybatis' || inputMode === 'import-xml') {
       setMyBatisXml(SAMPLE_MYBATIS);
     }
-  }, [inputMode, setRawSql, setMyBatisXml]);
+  }, [inputMode, setUnifiedSql, owner, setMyBatisXml]);
 
   const handleTabChange = (newMode: QueryInputMode) => {
     if (newMode === 'code-generator' && codeGeneratorInitialSql === null) {
       const initialSql =
         inputMode === 'sql'
-          ? rawSql
+          ? sqlDraft
           : inputMode === 'mybatis' || inputMode === 'import-xml'
             ? resolvedSql
             : inputMode === 'smart-editor'
@@ -388,7 +517,7 @@ export default function QueryInputContent() {
         lastSyncedResolvedSqlRef.current !== null
           ? smartEditorSqlRef.current
           : inputMode === 'sql'
-            ? rawSql || resolvedSql || smartEditorSqlRef.current
+            ? sqlDraft || resolvedSql || smartEditorSqlRef.current
             : inputMode === 'mybatis' || inputMode === 'import-xml'
               ? resolvedSql || rawSql || smartEditorSqlRef.current
               : smartEditorSqlRef.current;
@@ -408,7 +537,7 @@ export default function QueryInputContent() {
     inputMode === 'smart-editor' || inputMode === 'code-generator'
       ? ''
       : inputMode === 'sql'
-        ? rawSql
+        ? sqlDraft
         : resolvedSql;
 
   // A "go to line" link from the Metrics Dashboard/Graph Visualizer lands here: captured once on
@@ -425,13 +554,13 @@ export default function QueryInputContent() {
 
   // Live content of the Smart Editor, fed to the AI explainer panel below it.
   const [smartEditorSql, setSmartEditorSql] = useState(
-    jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'
+    jumpSql || sqlDraft || rawSql || 'SELECT * FROM table LIMIT 10;'
   );
   // Stable seed passed as `initialSql`: only updated by MyBatis convert sync or
   // tab-switch fallback, never by keystrokes inside the editor, so the editor's
   // own change tracking is not reset on every edit.
   const [smartEditorInitialSql, setSmartEditorInitialSql] = useState(
-    jumpSql || rawSql || 'SELECT * FROM table LIMIT 10;'
+    jumpSql || sqlDraft || rawSql || 'SELECT * FROM table LIMIT 10;'
   );
   const [optimizationResult, setOptimizationResult] = useState<
     null | import('@/lib/ai/aiService').SqlOptimizationResult
@@ -791,14 +920,75 @@ export default function QueryInputContent() {
             </div>
           )}
 
-          {inputMode === 'database-object' && (
-            <div id="query-input-tabpanel" role="tabpanel" aria-labelledby="tab-database-object">
-              <ObjectIntelligencePanel dialect={dialect} t={t} />
+          {inputMode === 'sql' && (
+            <div id="query-input-tabpanel" role="tabpanel" aria-labelledby="tab-sql" className="space-y-4">
+              {needsDraftChoice ? (
+                <QueryInputPanel title={t.unifiedChooseDraft}>
+                  <div className="flex flex-wrap gap-3">
+                    <button type="button" className="rounded-md border border-border px-4 py-2 text-sm" onClick={() => setUnifiedSql(rawSql, owner)}>
+                      {t.unifiedQueryDraft}
+                    </button>
+                    <button type="button" className="rounded-md border border-border px-4 py-2 text-sm" onClick={() => setUnifiedSql(previousObjectDraft, owner)}>
+                      {t.unifiedObjectDraft}
+                    </button>
+                  </div>
+                </QueryInputPanel>
+              ) : (
+                <>
+                  <ObjectIntelligencePanel
+                    ref={objectPanelRef}
+                    dialect={dialect}
+                    t={t}
+                    unified={{
+                      source: sqlDraft,
+                      editor: (
+                        <>
+                          <SqlInputPanel
+                            ref={sqlEditorRef}
+                            value={sqlDraft}
+                            onChange={(value) => {
+                              classificationRevision.current += 1;
+                              setUnifiedSql(value, owner);
+                              setShowObjectResult(false);
+                              setStatementChoice(null);
+                            }}
+                            placeholder={t.sqlPlaceholder}
+                          />
+                          <p className="mt-2 text-xs text-muted-foreground">{t.objectDraftLimit}</p>
+                        </>
+                      ),
+                      actions: (
+                        <>
+                          <ActionButtons
+                            onAnalyze={handleUnifiedAnalyze}
+                            onLoadSample={handleLoadSample}
+                            onClear={handleClear}
+                            isLoading={isAnalyzing || classifying || objectBusy}
+                            analyzeLabel={t.unifiedAnalyze}
+                            analyzeDescription={t.unifiedAnalyzeHint}
+                            t={t}
+                          />
+                          {statementChoice && renderStatementChoice()}
+                        </>
+                      ),
+                      preview: <PreviewPanel currentSql={sqlDraft} inputMode="sql" t={t} />,
+                      showResult: showObjectResult,
+                      onReveal: (start, end) => {
+                        sqlEditorRef.current?.focus();
+                        sqlEditorRef.current?.setSelectionRange(start, end);
+                      },
+                      onBusyChange: setObjectBusy,
+                      onShowResult: () => setShowObjectResult(true),
+                    }}
+                  />
+                  <BottomAnalytics currentSql={sqlDraft} />
+                </>
+              )}
             </div>
           )}
 
           {/* Regular SQL/MyBatis Input */}
-          {inputMode !== 'smart-editor' && inputMode !== 'code-generator' && inputMode !== 'database-object' && (
+          {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
             <>
               {/* Workspace: input and resolved SQL share the available width. */}
               <div
@@ -810,21 +1000,6 @@ export default function QueryInputContent() {
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
                   {/* Left: Input + Parameters */}
                   <div className="min-w-0 space-y-4 xl:col-span-6">
-                    {/* SQL Textarea */}
-                    {inputMode === 'sql' && (
-                      <QueryInputPanel
-                        title={t.sqlInputPanelTitle}
-                        description={t.sqlInputPanelHint}
-                        icon={<FileCode2 size={14} className="text-primary" aria-hidden />}
-                      >
-                        <SqlInputPanel
-                          value={rawSql}
-                          onChange={setRawSql}
-                          placeholder={t.sqlPlaceholder || 'Paste your SQL query here...'}
-                        />
-                      </QueryInputPanel>
-                    )}
-
                     {/* MyBatis/XML Input + Parameter Configuration */}
                     {(inputMode === 'mybatis' || inputMode === 'import-xml') && (
                       <>
@@ -862,7 +1037,7 @@ export default function QueryInputContent() {
 
                     {/* Action Buttons */}
                     <ActionButtons
-                      onAnalyze={handleAnalyze}
+                      onAnalyze={() => void handleAnalyze()}
                       onLoadSample={handleLoadSample}
                       onClear={handleClear}
                       isLoading={isAnalyzing}

@@ -94,7 +94,7 @@ export const MyBatisPanel: React.FC<MyBatisPanelProps> = ({
       {importedFileName && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
           <p className="min-w-0 truncate text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{t.myBatisCurrentFileLabel}: </span>
+            <span className="system-label font-medium text-foreground">{t.myBatisCurrentFileLabel}: </span>
             <span className="font-mono">{importedFileName}</span>
           </p>
           {onRemoveFile && (

@@ -14,6 +14,7 @@ import {
 } from '@/lib/demoAuth';
 import { buildOAuthUrl, createOAuthState } from '@/lib/oauthUtils';
 import GuestAccessDialog from './GuestAccessDialog';
+import LoadingOverlay from '@/components/ui/LoadingOverlay';
 import {
   ArrowUpRight,
   Eye,
@@ -22,7 +23,6 @@ import {
   LockKeyhole,
   Mail,
   UserRoundPlus,
-  Loader2,
   ShieldAlert,
 } from 'lucide-react';
 
@@ -194,7 +194,15 @@ export default function SignInPanel() {
           : ['openid', 'profile', 'email'],
       state,
     });
-    const popup = window.open(popupUrl, 'sql-visualizer-oauth', 'popup,width=480,height=640');
+    const width = 600;
+    const height = 700;
+    const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
+    const popup = window.open(
+      popupUrl,
+      'sql-visualizer-oauth',
+      `popup,width=${width},height=${height},left=${left},top=${top}`
+    );
     if (!popup) {
       pendingAuthRef.current = null;
       setAuthState('error');
@@ -271,6 +279,7 @@ export default function SignInPanel() {
 
   return (
     <section aria-labelledby="sign-in-heading" className="w-full max-w-md">
+      <LoadingOverlay visible={isBusy} title={t.authSigningIn} />
       {/* Mode tabs (behaviour preserved: login / register switch only) */}
       <div
         role="tablist"
@@ -458,11 +467,7 @@ export default function SignInPanel() {
           disabled={isBusy}
           onClick={() => startSocialLogin('google')}
         >
-          {isBusy ? (
-            <Loader2 size={15} className="motion-safe:animate-spin" aria-hidden="true" />
-          ) : (
-            <GoogleLogo />
-          )}
+          <GoogleLogo />
           {t.authGoogleButton}
         </button>
         <button
@@ -471,11 +476,7 @@ export default function SignInPanel() {
           disabled={isBusy}
           onClick={() => startSocialLogin('microsoft')}
         >
-          {isBusy ? (
-            <Loader2 size={15} className="motion-safe:animate-spin" aria-hidden="true" />
-          ) : (
-            <MicrosoftLogo />
-          )}
+          <MicrosoftLogo />
           {t.authMicrosoftButton}
         </button>
       </div>
