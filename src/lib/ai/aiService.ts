@@ -260,11 +260,33 @@ async function consumeOpenAiDeltaStream(
   onDelta: (text: string) => void
 ): Promise<string> {
   const reader = response.body?.getReader();
-  if (!reader) return '';
+  if (!reader) throw new AIServiceError('The AI response stream is unavailable.');
 
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+
+  const consumeLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return;
+    const data = trimmed.slice(5).trim();
+    if (!data || data === '[DONE]') return;
+    let chunk: { choices?: Array<{ delta?: { content?: string } }>; error?: unknown };
+    try {
+      chunk = JSON.parse(data);
+    } catch {
+      throw new AIServiceError('The AI provider returned an invalid stream frame.');
+    }
+    if (!chunk || typeof chunk !== 'object') {
+      throw new AIServiceError('The AI provider returned an invalid stream frame.');
+    }
+    if (chunk.error) throw new AIServiceError('The AI provider reported a stream error.');
+    const delta = chunk.choices?.[0]?.delta?.content;
+    if (typeof delta === 'string' && delta) {
+      full += delta;
+      onDelta(delta);
+    }
+  };
 
   while (true) {
     const { value, done } = await reader.read();
@@ -274,24 +296,11 @@ async function consumeOpenAiDeltaStream(
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data:')) continue;
-      const data = trimmed.slice(5).trim();
-      if (!data || data === '[DONE]') continue;
-      try {
-        const chunk = JSON.parse(data);
-        const delta: string = chunk.choices?.[0]?.delta?.content ?? '';
-        if (delta) {
-          full += delta;
-          onDelta(delta);
-        }
-      } catch {
-        /* a partial/malformed frame; the next read usually completes it */
-      }
-    }
+    for (const line of lines) consumeLine(line);
   }
 
+  buffer += decoder.decode();
+  if (buffer) consumeLine(buffer);
   return full;
 }
 

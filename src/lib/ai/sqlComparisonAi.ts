@@ -15,6 +15,9 @@ import { renderPrompt } from './prompts/render';
 import {
   SQL_COMPARISON_PROMPTS,
   sqlComparisonReviewParams,
+  comparisonFactsText,
+  MAX_FACTS_CHARS,
+  MAX_SQL_CHARS,
 } from './prompts/templates/sqlComparison';
 
 export interface SqlComparisonPromptFacts {
@@ -47,6 +50,17 @@ export class SqlComparisonAiError extends Error {
     this.name = 'SqlComparisonAiError';
   }
 }
+
+const COMPLETE_RESPONSE_INSTRUCTION = `
+
+Output contract:
+Return one complete JSON object, with no markdown or surrounding text. Include every key:
+"verdict", "changeExplanation", "impactAfterChange", "extraRiskToVerify",
+"extraRecommendation", "evidence", "assumptions", "verificationSteps", "limitations".
+Use nonempty strings for the four explanations and arrays of strings for all four lists.
+Evidence must contain at least one short, exact quote from either SQL block. Use [] for a
+list with no applicable items. Escape JSON strings correctly. Use one or two short sentences
+per string and at most two short items per array so all keys and the closing brace fit.`;
 
 // ---------------------------------------------------------------------------------------------
 // Prompt building — the wording lives in `prompts/templates/sqlComparison.ts`, together with the
@@ -95,8 +109,9 @@ function prepareSqlComparisonRequest(
   snapshot: ComparisonSnapshot,
   config: AIModelConfig,
   locale: Locale,
-  facts?: SqlComparisonPromptFacts
-): { prompt: string; maxOutputTokens: number } {
+  facts?: SqlComparisonPromptFacts,
+  retry = false
+): { prompt: string; maxOutputTokens: number; inputTruncated: boolean } {
   const provider = config.provider;
   const budget = buildContextBudget(
     config.contextTokens?.[provider] ?? DEFAULT_CONTEXT_TOKENS[provider],
@@ -104,28 +119,32 @@ function prepareSqlComparisonRequest(
   );
   const systemTokens = estimateTokens(config.systemPrompt?.trim() ?? '');
   const promptBudget = Math.max(128, budget.promptTokens - systemTokens);
-  const fixedPrompt = buildSqlComparisonPrompt(
-    { ...snapshot, beforeSql: '', afterSql: '' },
-    locale,
-    facts
-  );
+  const buildRequestPrompt = (requestSnapshot: ComparisonSnapshot) =>
+    renderPrompt(SQL_COMPARISON_PROMPTS.review, {
+      ...sqlComparisonReviewParams(requestSnapshot, locale, facts),
+      lengthInstruction: 'one or two short sentences',
+    })[0].content + COMPLETE_RESPONSE_INSTRUCTION + (retry
+      ? '\nPrevious response was invalid. Generate a fresh complete object. Keep each explanation to one short sentence and quote SQL exactly in evidence.'
+      : '');
+  const fixedPrompt = buildRequestPrompt({ ...snapshot, beforeSql: '', afterSql: '' });
   const sqlBudget = Math.max(64, promptBudget - estimateTokens(fixedPrompt) - 32);
   const [beforeBudget, afterBudget] = splitSqlTokenBudget(
     sqlBudget,
     snapshot.beforeSql,
     snapshot.afterSql
   );
-  const beforeSql = truncateSqlForBudget(snapshot.beforeSql, beforeBudget).sql;
-  const afterSql = truncateSqlForBudget(snapshot.afterSql, afterBudget).sql;
+  const before = truncateSqlForBudget(snapshot.beforeSql, beforeBudget);
+  const after = truncateSqlForBudget(snapshot.afterSql, afterBudget);
+  const beforeSql = before.sql;
+  const afterSql = after.sql;
 
   return {
-    prompt: buildSqlComparisonPrompt({ ...snapshot, beforeSql, afterSql }, locale, facts),
+    prompt: buildRequestPrompt({ ...snapshot, beforeSql, afterSql }),
     maxOutputTokens: budget.maxOutputTokens,
+    inputTruncated: before.truncated || after.truncated ||
+      beforeSql.length > MAX_SQL_CHARS || afterSql.length > MAX_SQL_CHARS ||
+      comparisonFactsText(facts).length > MAX_FACTS_CHARS,
   };
-}
-
-function normalized(text: string): string {
-  return text.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 function extractJsonObject(text: string): Record<string, unknown> | null {
@@ -187,7 +206,29 @@ export function extractPartialSqlComparisonFields(raw: string): SqlComparisonAiS
     const value = extractPartialJsonString(raw, key);
     if (value) fields[key] = value;
   }
+  for (const key of ['evidence', 'assumptions', 'verificationSteps', 'limitations'] as const) {
+    const values = extractPartialJsonArray(raw, key);
+    if (values.length) fields[key] = values;
+  }
   return fields;
+}
+
+function extractPartialJsonArray(raw: string, key: string): string[] {
+  const start = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(raw);
+  if (!start) return [];
+  const values: string[] = [];
+  const rest = raw.slice(start.index + start[0].length);
+  const item = /\s*,?\s*("(?:\\.|[^"\\])*")/gy;
+  let match: RegExpExecArray | null;
+  while ((match = item.exec(rest))) {
+    try {
+      const value: unknown = JSON.parse(match[1]);
+      if (typeof value === 'string') values.push(value);
+    } catch {
+      break;
+    }
+  }
+  return values;
 }
 
 function extractPartialJsonString(raw: string, keyPattern: string): string | null {
@@ -264,18 +305,16 @@ export function parseSqlComparisonAiResponse(
     );
   }
 
-  const sql = normalized(`${snapshot.beforeSql}\n${snapshot.afterSql}`);
   // Model labels such as "Trước:" and backticks are stripped before matching the SQL.
   const groundedEvidence = evidence
     .map((item) => item.trim())
     .filter((item) => {
-      const quote = normalized(
-        item
-          .replace(/`/g, '')
-          .replace(/^[^:`]{1,20}:\s*/, '')
-          .replace(/[.;]+$/, '')
-      );
-      return quote.length > 0 && sql.includes(quote);
+      const quote = item
+        .replace(/^`|`$/g, '')
+        .replace(/^[^:`]{1,20}:\s*/, '')
+        .replace(/[.;]+$/, '');
+      return quote.length > 0 &&
+        (snapshot.beforeSql.includes(quote) || snapshot.afterSql.includes(quote));
     });
   if (!groundedEvidence.length) {
     throw invalidResponse(
@@ -302,38 +341,50 @@ export async function requestSqlComparisonExplanation(
   locale: Locale = 'en',
   signal?: AbortSignal,
   onDelta: (text: string) => void = () => {},
-  facts?: SqlComparisonPromptFacts
+  facts?: SqlComparisonPromptFacts,
+  onRetry: () => void = () => {}
 ): Promise<SqlComparisonAiAssessment> {
-  if (signal?.aborted) throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
-
-  let raw: string;
-  try {
-    const prepared = prepareSqlComparisonRequest(snapshot, config, locale, facts);
-    raw = await streamWithAI(
-      config,
-      {
-        prompt: prepared.prompt,
-        jsonMode: true,
-        maxTokens: prepared.maxOutputTokens,
-        signal,
-      },
-      onDelta
-    );
-  } catch (error) {
-    if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
-      throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (signal?.aborted) throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
+    let raw: string;
+    let inputTruncated: boolean;
+    try {
+      const prepared = prepareSqlComparisonRequest(snapshot, config, locale, facts, attempt > 0);
+      inputTruncated = prepared.inputTruncated;
+      raw = await streamWithAI(
+        config,
+        {
+          prompt: prepared.prompt,
+          jsonMode: true,
+          maxTokens: prepared.maxOutputTokens,
+          signal,
+        },
+        onDelta
+      );
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+        throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
+      }
+      const message = error instanceof Error ? error.message : 'The AI request failed.';
+      const kind = /network|fetch|timeout|timed out|not configured|unreachable/i.test(message)
+        ? 'unavailable'
+        : 'failed';
+      throw new SqlComparisonAiError(
+        kind,
+        kind === 'unavailable'
+          ? 'The configured AI provider is unavailable.'
+          : 'The AI request failed.'
+      );
     }
-    const message = error instanceof Error ? error.message : 'The AI request failed.';
-    const kind = /network|fetch|timeout|timed out|not configured|unreachable/i.test(message)
-      ? 'unavailable'
-      : 'failed';
-    throw new SqlComparisonAiError(
-      kind,
-      kind === 'unavailable'
-        ? 'The configured AI provider is unavailable.'
-        : 'The AI request failed.'
-    );
+    if (signal?.aborted) throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
+    try {
+      return { ...parseSqlComparisonAiResponse(raw, snapshot), inputTruncated };
+    } catch (error) {
+      if (!(error instanceof SqlComparisonAiError) || error.kind !== 'malformed' || attempt > 0) {
+        throw error;
+      }
+      onRetry();
+    }
   }
-  if (signal?.aborted) throw new SqlComparisonAiError('cancelled', 'The AI request was cancelled.');
-  return parseSqlComparisonAiResponse(raw, snapshot);
+  throw invalidResponse('The AI response did not match the required comparison format.');
 }

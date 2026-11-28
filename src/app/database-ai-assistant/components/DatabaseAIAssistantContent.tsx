@@ -222,7 +222,7 @@ export default function DatabaseAIAssistantContent() {
                   <Database size={16} />
                 </span>
                 <div>
-                  <h1 className="text-lg font-semibold text-foreground">
+                  <h1 className="text-page-title text-foreground">
                     {t.dbAssistantHeroTitle} {t.dbAssistantHeroTitleGradient}
                   </h1>
                   <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">

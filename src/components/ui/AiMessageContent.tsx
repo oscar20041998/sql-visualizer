@@ -79,7 +79,7 @@ export function AiMessageContent({ content }: { content: string }) {
     parts.push(
       <pre
         key={key++}
-        className="overflow-x-auto rounded-lg border border-border bg-background/60 p-3 text-xs font-mono leading-relaxed text-foreground scrollbar-thin"
+        className="overflow-x-auto rounded-lg border border-border bg-background/60 p-3 text-code font-mono text-foreground scrollbar-thin"
       >
         <code>{match[2]}</code>
       </pre>

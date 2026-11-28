@@ -65,7 +65,7 @@ export const QueryInputPanel: React.FC<QueryInputPanelProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <Heading
                 id={headingId}
-                className="flex items-center gap-2 text-sm font-semibold text-foreground"
+                className="flex items-center gap-2 text-card-title text-foreground"
               >
                 {icon}
                 <span className="min-w-0 truncate">{title}</span>

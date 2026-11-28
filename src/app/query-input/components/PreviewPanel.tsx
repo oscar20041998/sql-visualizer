@@ -5,6 +5,7 @@ import Editor from '@monaco-editor/react';
 import { Copy, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
+import { monacoTypography, prepareMonacoTypography } from '@/lib/monacoTypography';
 import type { Translations } from '@/lib/i18n';
 import { QueryInputPanel } from './QueryInputPanel';
 
@@ -70,12 +71,13 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ currentSql, inputMod
             language="sql"
             theme={settings.theme === 'dark' ? 'vs-dark' : 'vs'}
             value={currentSql}
+            onMount={prepareMonacoTypography}
             options={{
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               wordWrap: 'on',
-              fontSize: 12,
+              ...monacoTypography,
               automaticLayout: true,
               padding: { top: 12, bottom: 12 },
               lineNumbers: 'on',

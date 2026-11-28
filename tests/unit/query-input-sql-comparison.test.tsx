@@ -98,10 +98,12 @@ vi.mock('@/app/smart-sql-editor/components/SmartSQLEditor', () => ({
     onSqlChange,
     onFormatError,
     apiRef,
+    onOpenComparison,
   }: {
     initialSql: string;
     onSqlChange?: (sql: string) => void;
     onFormatError?: (error: FormatError) => void;
+    onOpenComparison?: () => void;
     apiRef?: {
       current: {
         getSql: () => string;
@@ -126,6 +128,9 @@ vi.mock('@/app/smart-sql-editor/components/SmartSQLEditor', () => ({
     }, [apiRef, sql]);
     return (
       <>
+        <button type="button" aria-label="Open comparison" onClick={onOpenComparison}>
+          Compare
+        </button>
         <button type="button" onClick={() => setIsCompareMode((current) => !current)}>
           Toggle editor comparison
         </button>
@@ -212,8 +217,14 @@ async function renderPage(locale: 'en' | 'vi' = 'en') {
 }
 
 async function openComparison(t: ReturnType<typeof getT>) {
-  fireEvent.click(await screen.findByRole('button', { name: t.comparisonOpenPanel }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Open comparison' }));
   await screen.findByRole('button', { name: t.comparisonRun });
+}
+
+async function showComparisonDiff(t: ReturnType<typeof getT>) {
+  await screen.findByRole('region', { name: t.comparisonSummary });
+  fireEvent.click(screen.getByRole('tab', { name: t.comparisonDiffTab }));
+  return screen.findByTestId('sql-diff');
 }
 
 beforeEach(async () => {
@@ -225,6 +236,15 @@ beforeEach(async () => {
 });
 
 describe('Query Input SQL comparison editor source', () => {
+  it('uses the editor Compare action as the single comparison entry point', async () => {
+    const { t } = await renderPage();
+
+    expect(screen.queryByRole('button', { name: t.comparisonOpenPanel })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open comparison' }));
+
+    expect(screen.getByRole('complementary', { name: t.comparisonTitle })).toBeVisible();
+  });
+
   it('renders supported filter findings with relevant before and after evidence', async () => {
     const afterSql = "SELECT id FROM orders WHERE status = 'closed';";
     const actualComparison = (await vi.importActual(
@@ -315,7 +335,7 @@ describe('Query Input SQL comparison editor source', () => {
     expect(screen.getAllByText('WHERE clause changed.').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/could not be fully parsed|unsupported/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
-    expect(await screen.findByText(t.comparisonAiPartial)).toBeInTheDocument();
+    expect(await screen.findByText(t.comparisonAiCompleted)).toBeInTheDocument();
     expect(screen.getByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
     expect(screen.getByText(t.comparisonNotVerified)).toBeInTheDocument();
   });
@@ -414,7 +434,7 @@ describe('Query Input SQL comparison editor source', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
 
-    const diff = await screen.findByTestId('sql-diff');
+    const diff = await showComparisonDiff(t);
     expect(diff).toHaveAttribute('data-original', INITIAL_SQL);
     expect(diff).toHaveAttribute('data-modified', afterSql);
   });
@@ -430,7 +450,7 @@ describe('Query Input SQL comparison editor source', () => {
 
     expect(screen.getByRole('textbox', { name: 'SQL editor' })).toHaveValue(editedSql);
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    const diff = await screen.findByTestId('sql-diff');
+    const diff = await showComparisonDiff(t);
     expect(diff).toHaveAttribute('data-original', INITIAL_SQL);
     expect(diff).toHaveAttribute('data-modified', editedSql);
   });
@@ -487,7 +507,7 @@ describe('Query Input SQL comparison editor source', () => {
         target: { value: afterSql },
       });
       fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-      await screen.findByTestId('sql-diff');
+      await screen.findByRole('button', { name: t.comparisonRequestAi });
 
       expect(screen.getByRole('textbox', { name: 'SQL editor' })).toHaveValue(afterSql);
       fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
@@ -509,9 +529,9 @@ describe('Query Input SQL comparison editor source', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
 
-    await screen.findByTestId('sql-diff');
-    expect(screen.getByTestId('sql-diff')).toHaveAttribute('data-original', INITIAL_SQL);
-    expect(screen.getByTestId('sql-diff')).toHaveAttribute('data-modified', afterSql);
+    const diff = await showComparisonDiff(t);
+    expect(diff).toHaveAttribute('data-original', INITIAL_SQL);
+    expect(diff).toHaveAttribute('data-modified', afterSql);
     expect(screen.getByRole('textbox', { name: 'SQL editor' })).toHaveValue(afterSql);
 
     const newerSql = 'SELECT id, status FROM orders;';
@@ -533,7 +553,7 @@ describe('Query Input SQL comparison editor source', () => {
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
 
     const mainDiff = await screen.findByTestId('main-sql-diff');
-    const comparisonDiff = await screen.findByTestId('sql-diff');
+    const comparisonDiff = await showComparisonDiff(t);
     expect(mainDiff).toHaveAttribute('data-original', INITIAL_SQL);
     expect(mainDiff).toHaveAttribute('data-modified', afterSql);
     expect(comparisonDiff).toHaveAttribute('data-original', INITIAL_SQL);
@@ -549,7 +569,7 @@ describe('Query Input SQL comparison editor source', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
 
-    const diff = await screen.findByTestId('sql-diff');
+    const diff = await showComparisonDiff(t);
     fireEvent.change(screen.getByRole('textbox', { name: 'SQL editor' }), {
       target: { value: 'SELECT id, status FROM orders;' },
     });
@@ -572,7 +592,7 @@ describe('Query Input SQL comparison editor source', () => {
 
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
 
-    const diff = await screen.findByTestId('sql-diff');
+    const diff = await showComparisonDiff(t);
     expect(diff).toHaveAttribute('data-original', INITIAL_SQL);
     expect(diff).toHaveAttribute('data-modified', afterSql);
   });
@@ -588,7 +608,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
 
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
@@ -614,7 +634,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
 
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
@@ -631,6 +651,93 @@ describe('Query Input SQL comparison editor source', () => {
     expect(
       await screen.findByText('Final AI interpretation with grounded evidence.')
     ).toBeInTheDocument();
+  });
+
+  it('marks AI output partial when its input was truncated even if static analysis completed', async () => {
+    requestComparisonAiMock.mockResolvedValue({ ...testAiAssessment, inputTruncated: true });
+    const { t } = await renderPage();
+    await openComparison(t);
+    fireEvent.change(screen.getByRole('textbox', { name: 'SQL editor' }), {
+      target: { value: 'SELECT id FROM orders;' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
+    fireEvent.click(await screen.findByRole('button', { name: t.comparisonRequestAi }));
+    expect(await screen.findByText(t.comparisonAiPartial)).toBeInTheDocument();
+    expect(screen.getByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
+  });
+
+  it('retains the complete received stream as unvalidated output when AI validation fails', async () => {
+    const raw = '{"changeExplanation":"Partial explanation","evidence":["first evidence"],"limitations":["unfinished';
+    requestComparisonAiMock.mockImplementation((...args: unknown[]) => {
+      const onDelta = args[4] as (fragment: string) => void;
+      onDelta(raw);
+      return Promise.reject(new SqlComparisonAiError('malformed', 'Invalid response'));
+    });
+    const { t } = await renderPage();
+    await openComparison(t);
+    fireEvent.change(screen.getByRole('textbox', { name: 'SQL editor' }), {
+      target: { value: 'SELECT id FROM orders;' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
+    fireEvent.click(await screen.findByRole('button', { name: t.comparisonRequestAi }));
+
+    expect(await screen.findByText(t.comparisonAiMalformed)).toBeInTheDocument();
+    const output = screen.getByRole('region', { name: t.comparisonAiUnverifiedOutput });
+    expect(output).toHaveTextContent('Partial explanation');
+    expect(output).toHaveTextContent('first evidence');
+    expect(screen.getByText(raw)).not.toBeVisible();
+    fireEvent.click(screen.getByText(t.comparisonAiRawOutput));
+    expect(screen.getByText(raw)).toBeVisible();
+    expect(screen.getByRole('button', { name: t.comparisonRetryAi })).toBeInTheDocument();
+  });
+
+  it('shows recovery progress and preserves both unvalidated attempts on failure', async () => {
+    const first = '{"changeExplanation":"First incomplete';
+    const second = '{"changeExplanation":"Second incomplete';
+    let failRetry!: () => void;
+    requestComparisonAiMock.mockImplementation((...args: unknown[]) => {
+      const onDelta = args[4] as (fragment: string) => void;
+      const onRetry = args[6] as () => void;
+      onDelta(first);
+      onRetry();
+      onDelta(second);
+      return new Promise((_resolve, reject) => {
+        failRetry = () => reject(new SqlComparisonAiError('malformed', 'Invalid response'));
+      });
+    });
+    const { t } = await renderPage();
+    await openComparison(t);
+    fireEvent.change(screen.getByRole('textbox', { name: 'SQL editor' }), {
+      target: { value: 'SELECT id FROM orders;' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
+    fireEvent.click(await screen.findByRole('button', { name: t.comparisonRequestAi }));
+    expect(await screen.findByText(t.comparisonAiRecovering)).toBeInTheDocument();
+    expect(screen.getByText('Second incomplete')).toBeInTheDocument();
+    await act(async () => failRetry());
+    expect(screen.getByText(t.comparisonAiMalformed)).toBeInTheDocument();
+    expect(screen.getByText(first)).toBeInTheDocument();
+    expect(screen.getByText(second)).toBeInTheDocument();
+    expect(screen.getByText(t.comparisonAiPreviousOutput)).toBeInTheDocument();
+  });
+
+  it('does not let a cancelled request overwrite a later AI retry', async () => {
+    let rejectOld!: (reason: Error) => void;
+    requestComparisonAiMock
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectOld = reject; }))
+      .mockResolvedValueOnce(testAiAssessment);
+    const { t } = await renderPage();
+    await openComparison(t);
+    fireEvent.change(screen.getByRole('textbox', { name: 'SQL editor' }), {
+      target: { value: 'SELECT id FROM orders;' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
+    fireEvent.click(await screen.findByRole('button', { name: t.comparisonRequestAi }));
+    fireEvent.click(await screen.findByRole('button', { name: t.comparisonCancelAi }));
+    fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
+    expect(await screen.findByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
+    await act(async () => rejectOld(new SqlComparisonAiError('cancelled', 'Cancelled')));
+    expect(screen.getByText(testAiAssessment.changeExplanation)).toBeInTheDocument();
   });
 
   it('renders validated AI assessment fields separately from deterministic findings', async () => {
@@ -652,7 +759,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
     const aiAssessment = await screen.findByRole('region', { name: t.comparisonAiTitle });
@@ -676,7 +783,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
 
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
@@ -698,7 +805,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
 
     expect(await screen.findByText(t.comparisonAiUnavailable)).toBeInTheDocument();
@@ -728,7 +835,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: 'SELECT id FROM orders;' },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -760,7 +867,7 @@ describe('Query Input SQL comparison editor source', () => {
       target: { value: comparedSql },
     });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRun }));
-    await screen.findByTestId('sql-diff');
+    await screen.findByRole('button', { name: t.comparisonRequestAi });
     fireEvent.click(screen.getByRole('button', { name: t.comparisonRequestAi }));
     await waitFor(() => expect(requestComparisonAiMock).toHaveBeenCalledOnce());
 

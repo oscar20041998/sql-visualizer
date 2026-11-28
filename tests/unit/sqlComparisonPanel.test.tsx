@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SqlComparisonPanel from '@/app/smart-sql-editor/components/SqlComparisonPanel';
 import { SidePanelRail } from '@/app/smart-sql-editor/components/SidePanelTab';
 import { useAppStore } from '@/lib/store';
@@ -110,6 +110,20 @@ function Harness({
 }
 
 describe('SQL comparison result panel', () => {
+  it('keeps the closing panel briefly for animation without leaving it interactive', async () => {
+    const { rerender } = render(
+      <SqlComparisonPanel locale="en" isOpen onToggle={vi.fn()} result={RESULT} />
+    );
+    const panel = screen.getByRole('complementary', { name: 'Before / After comparison' });
+    const backdrop = panel.parentElement!;
+    rerender(<SqlComparisonPanel locale="en" isOpen={false} onToggle={vi.fn()} result={RESULT} />);
+
+    expect(panel).toHaveAttribute('data-closing', 'true');
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+    expect(backdrop).toHaveAttribute('inert');
+    await waitFor(() => expect(panel).not.toBeInTheDocument());
+  });
+
   it('reveals the AI section when a request starts without following later stream updates', () => {
     const onToggle = vi.fn();
     const props = { locale: 'en' as const, isOpen: true, onToggle, onRequestAi: vi.fn() };
@@ -150,6 +164,7 @@ describe('SQL comparison result panel', () => {
 
   it('labels both diff panes as Before and After', () => {
     render(<SqlComparisonPanel locale="en" isOpen onToggle={vi.fn()} result={RESULT} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
 
     expect(screen.getByText('Before (Original)')).toBeInTheDocument();
     expect(screen.getByText('After (Modified)')).toBeInTheDocument();
@@ -195,6 +210,7 @@ describe('SQL comparison result panel', () => {
       const { getByTestId } = render(
         <SqlComparisonPanel locale="en" isOpen onToggle={vi.fn()} result={RESULT} />
       );
+      fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
       expect(getByTestId('sql-diff')).toHaveAttribute('data-render-side-by-side', 'false');
       expect(getByTestId('sql-diff')).toHaveAttribute('data-height', 'min(68vh, 760px)');
       expect(getByTestId('sql-diff')).toHaveAttribute('data-render-indicators', 'true');
@@ -239,6 +255,14 @@ describe('SQL comparison result panel', () => {
 
     expect(screen.getByRole('complementary', { name: 'Before / After comparison' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Close SQL comparison' })).toHaveFocus();
+    expect(screen.queryByTestId('sql-diff')).not.toBeInTheDocument();
+    expect(screen.getAllByText('WHERE clause changed.')).toHaveLength(2);
+    expect(screen.getByText('Semantic equivalence')).toBeInTheDocument();
+    expect(
+      screen.getByText('Static analysis only. SQL has not been executed.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
     expect(screen.getByTestId('sql-diff')).toHaveAttribute(
       'data-original',
       RESULT.snapshot.beforeSql
@@ -247,16 +271,12 @@ describe('SQL comparison result panel', () => {
       'data-modified',
       RESULT.snapshot.afterSql
     );
-    expect(screen.getAllByText('WHERE clause changed.')).toHaveLength(2);
-    expect(screen.getByText('Semantic equivalence')).toBeInTheDocument();
-    expect(
-      screen.getByText('Static analysis only. SQL has not been executed.')
-    ).toBeInTheDocument();
   });
 
   it('keeps the diff editor theme in sync with the application theme', () => {
     const { getByTestId } = render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Open SQL comparison' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
 
     expect(getByTestId('sql-diff')).toHaveAttribute('data-monaco-theme', 'vs-dark');
 
@@ -276,6 +296,7 @@ describe('SQL comparison result panel', () => {
     expect(screen.queryByTestId('sql-diff')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open SQL comparison' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
     expect(screen.getByTestId('sql-diff')).toBeInTheDocument();
   });
 
@@ -365,7 +386,7 @@ describe('SQL comparison result panel', () => {
       />
     );
     expect(screen.getByText('Generating AI interpretation…')).toHaveAttribute('role', 'status');
-    expect(screen.getByText('Streaming summary')).toBeInTheDocument();
+    expect(screen.getAllByText('Streaming summary')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Cancel AI request' })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Request AI interpretation' })
@@ -377,7 +398,7 @@ describe('SQL comparison result panel', () => {
         result={{ ...RESULT, ai: { status: 'completed', explanation: null, assessment } }}
       />
     );
-    expect(screen.getByText('AI assessment complete.')).toHaveAttribute('role', 'status');
+    expect(screen.getByText('AI response received and structurally validated.')).toHaveAttribute('role', 'status');
     expect(screen.getByText(assessment.changeExplanation)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry AI assessment' })).not.toBeInTheDocument();
 
@@ -392,7 +413,7 @@ describe('SQL comparison result panel', () => {
       />
     );
     expect(
-      screen.getByText('Partial AI assessment: deterministic parser coverage is incomplete.')
+      screen.getByText('Partial AI assessment: SQL or analysis facts were shortened to fit the context limit.')
     ).toHaveAttribute('role', 'status');
 
     rerender(
@@ -456,6 +477,48 @@ describe('SQL comparison result panel', () => {
     expect(onCancelAi).not.toHaveBeenCalled();
   });
 
+  it('keeps every AI assessment field available when switching between analysis and diff', () => {
+    const fields = [
+      'Change explanation',
+      'Impact summary',
+      'Risk to verify',
+      'Additional recommendation',
+      'Evidence details',
+      'Assumption details',
+      'Verification steps',
+      'Limitations',
+    ].map((label) => `${label}: ${'complete output '.repeat(30).trimEnd()}`);
+    const assessment = {
+      verdict: 'good' as const,
+      changeExplanation: fields[0],
+      impactAfterChange: fields[1],
+      extraRiskToVerify: fields[2],
+      extraRecommendation: fields[3],
+      evidence: [fields[4]],
+      assumptions: [fields[5]],
+      verificationSteps: [fields[6]],
+      limitations: [fields[7]],
+    };
+    render(
+      <SqlComparisonPanel
+        locale="en"
+        isOpen
+        onToggle={vi.fn()}
+        result={{ ...RESULT, ai: { status: 'completed', explanation: null, assessment } }}
+      />
+    );
+
+    expect(screen.queryByTestId('sql-diff')).not.toBeInTheDocument();
+    for (const field of fields) expect(screen.getByText(field)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'SQL diff' }));
+    expect(screen.getByTestId('sql-diff')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'AI Assessment' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    for (const field of fields) expect(screen.getByText(field)).toBeInTheDocument();
+  });
+
   it('renders comparison labels and AI states in English and Vietnamese', () => {
     const assessment = {
       verdict: 'good' as const,
@@ -476,10 +539,8 @@ describe('SQL comparison result panel', () => {
         result={{ ...RESULT, ai: { status: 'completed', explanation: null, assessment } }}
       />
     );
-    expect(screen.getByText('Trước (Bản gốc)')).toBeInTheDocument();
-    expect(screen.getByText('Sau (Bản đã sửa)')).toBeInTheDocument();
     expect(screen.getByText('Đánh giá bằng AI')).toBeInTheDocument();
-    expect(screen.getByText('Đã hoàn tất đánh giá AI.')).toHaveAttribute('role', 'status');
+    expect(screen.getByText('Đã nhận và xác thực cấu trúc phản hồi AI.')).toHaveAttribute('role', 'status');
     expect(screen.getByText('Đánh giá thay đổi')).toBeInTheDocument();
     expect(screen.getByText('Giải thích về sự thay đổi')).toBeInTheDocument();
     expect(screen.getByText('Tác động sau khi thay đổi')).toBeInTheDocument();
@@ -491,6 +552,11 @@ describe('SQL comparison result panel', () => {
     expect(screen.getByText('Giả định')).toBeInTheDocument();
     expect(screen.getByText('Đề xuất xác minh')).toBeInTheDocument();
     expect(screen.getByText('Giới hạn của AI')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'So sánh SQL' }));
+    expect(screen.getByText('Trước (Bản gốc)')).toBeInTheDocument();
+    expect(screen.getByText('Sau (Bản đã sửa)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Phân tích' }));
 
     rerender(
       <SqlComparisonPanel

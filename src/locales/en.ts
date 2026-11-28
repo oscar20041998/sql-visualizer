@@ -197,6 +197,10 @@ const en = {
   comparisonRunning: 'Comparing SQL…',
   comparisonOpenPanel: 'Open SQL comparison',
   comparisonClosePanel: 'Close SQL comparison',
+  comparisonViewTabs: 'Comparison views',
+  comparisonAnalysisTab: 'Analysis',
+  comparisonDiffTab: 'SQL diff',
+  comparisonEmpty: 'Run a comparison to see findings and SQL differences.',
   comparisonChanges: 'Structural changes',
   comparisonFindings: 'Review findings',
   comparisonSummary: 'Comparison summary',
@@ -256,6 +260,8 @@ const en = {
   comparisonResultComparison: 'Database result comparison',
   comparisonExecutionPlan: 'Execution plan',
   comparisonAiTitle: 'AI Assessment',
+  comparisonAiUnverifiedOutput: 'Incomplete AI output (not validated)',
+  comparisonAiRawOutput: 'Show raw AI output',
   comparisonAiVerdict: 'Change verdict',
   comparisonAiVerdictGood: 'SAFE (Good)',
   comparisonAiVerdictNotGood: 'NOT SAFE (Not Good)',
@@ -263,8 +269,10 @@ const en = {
   comparisonAiImpactAfterChange: 'Impact after the change',
   comparisonAiExtraRisk: 'Risks to verify',
   comparisonAiExtraRecommendation: 'Recommendation',
-  comparisonAiCompleted: 'AI assessment complete.',
-  comparisonAiPartial: 'Partial AI assessment: deterministic parser coverage is incomplete.',
+  comparisonAiCompleted: 'AI response received and structurally validated.',
+  comparisonAiPartial: 'Partial AI assessment: SQL or analysis facts were shortened to fit the context limit.',
+  comparisonSyntaxInvalid: 'SQL could not be parsed for the selected dialect.',
+  comparisonSyntaxLocation: '(line {line}, column {column})',
   comparisonAiStale: 'AI assessment was not applied because the compared SQL is stale.',
   comparisonAiEvidence: 'AI evidence',
   comparisonAiAssumptions: 'Assumptions',
@@ -273,9 +281,11 @@ const en = {
   comparisonAiNotRequested: 'AI assessment has not been requested.',
   comparisonAiNotNeeded: 'AI assessment is not needed because the SQL is identical.',
   comparisonAiLoading: 'Generating AI interpretation…',
+  comparisonAiRecovering: 'The AI response was incomplete or invalid. Trying once more…',
+  comparisonAiPreviousOutput: 'Show previous unvalidated AI output',
   comparisonAiUnavailable: 'AI explanation is unavailable; deterministic results are still shown.',
   comparisonAiMalformed:
-    'AI response could not be validated; deterministic results are still shown.',
+    'After an automatic retry, the AI response is still incomplete, invalid, or lacks verifiable SQL evidence. Deterministic results are still shown.',
   comparisonAiFailed: 'AI explanation failed; deterministic results are still shown.',
   comparisonAnalysisOnly: 'Static analysis only. SQL has not been executed.',
   comparisonParserUnsupported:
@@ -1095,19 +1105,19 @@ const en = {
     'Please explicitly define your projection columns to reduce I/O and network overhead.',
   lintingDistinct: 'DISTINCT_OPERATIONS',
   lintingDistinctMessage:
-    'Using DISTINCT or COUNT(DISTINCT) often forces expensive sort/hash operations.',
+    'DISTINCT or COUNT(DISTINCT) may add sort or hash work, depending on the plan and data volume.',
   lintingDistinctSuggestion:
-    'Consider pre-aggregating, grouping earlier, or removing duplicates at a more selective stage.',
+    'Confirm duplicate removal is required, then deduplicate at the narrowest stage that preserves the result.',
   lintingOrPredicate: 'OR_PREDICATE',
   lintingOrPredicateMessage:
-    'OR predicates can prevent efficient index usage and widen the scan set.',
+    'An OR predicate can make index access less selective or harder to optimize; check the execution plan.',
   lintingOrPredicateSuggestion:
-    'Split the predicate into separate branches or rewrite it with UNION ALL / JOIN when appropriate.',
+    'If branches are mutually exclusive and equivalent, compare separate branches or UNION ALL without changing the result.',
   lintingInSubquery: 'IN_SUBQUERY',
   lintingInSubqueryMessage:
-    'IN (subquery) or NOT IN clauses can be less efficient than EXISTS or JOIN.',
+    'IN or NOT IN subqueries can have different null semantics and plan costs than EXISTS or JOIN.',
   lintingInSubquerySuggestion:
-    'Prefer EXISTS or JOIN for correlated filtering when the subquery returns a set of keys.',
+    'Check null handling, correlation, and the execution plan before choosing an equivalent EXISTS or JOIN rewrite.',
   lintingFunctionOnColumn: 'FUNCTION_ON_COLUMN',
   lintingFunctionOnColumnMessage:
     'Applying functions to columns in predicates can block index usage and increase CPU cost.',
@@ -1137,9 +1147,9 @@ const en = {
   lintingNullComparisonSuggestion: 'Use IS NULL or IS NOT NULL.',
   lintingLeadingWildcard: 'LEADING_WILDCARD_LIKE',
   lintingLeadingWildcardMessage:
-    'A leading wildcard in LIKE commonly prevents an index range scan.',
+    'A leading wildcard in LIKE may prevent a B-tree index range scan, depending on the database and index.',
   lintingLeadingWildcardSuggestion:
-    'Use a prefix search or a dedicated full-text search when business requirements allow it.',
+    'If requirements allow, use a prefix search or a suitable full-text or trigram index.',
   lintingNonAggregateHaving: 'NON_AGGREGATE_HAVING',
   lintingNonAggregateHavingMessage:
     'HAVING appears to filter non-aggregated values after grouping has completed.',
@@ -1147,9 +1157,9 @@ const en = {
     'Move non-aggregate filters to WHERE so fewer rows enter the grouping stage.',
   lintingScalarSubquery: 'SCALAR_SUBQUERY_IN_SELECT',
   lintingScalarSubqueryMessage:
-    'A subquery in the SELECT list may be evaluated repeatedly for result rows.',
+    'A scalar subquery in SELECT may be evaluated for each output row unless the database optimizes it.',
   lintingScalarSubquerySuggestion:
-    'Consider a pre-aggregated LEFT JOIN while preserving the original cardinality and calculations.',
+    'Check the execution plan; consider a join or pre-aggregation only if it preserves row counts, null behavior, and calculations.',
   lintingSubqueryOrderBy: 'SUBQUERY_ORDER_BY',
   lintingSubqueryOrderByMessage:
     'ORDER BY inside a subquery can cause an unnecessary sort when row order is not consumed there.',

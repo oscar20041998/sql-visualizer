@@ -5,6 +5,7 @@ import MonacoEditor from '@monaco-editor/react';
 import { Clipboard, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '@/lib/store';
+import { monacoTypography, prepareMonacoTypography } from '@/lib/monacoTypography';
 import type {
   CodeGenerationOptions,
   GenerationDiagnostic,
@@ -227,7 +228,9 @@ export function CodeGeneratorPanel(_props: CodeGeneratorPanelProps) {
             language="java"
             theme={theme === 'dark' ? 'vs-dark' : 'vs'}
             value={selectedOutputFile?.source ?? generated.source}
+            onMount={prepareMonacoTypography}
             options={{
+              ...monacoTypography,
               ariaLabel: t.generatorGeneratedCode,
               readOnly: true,
               minimap: { enabled: false },

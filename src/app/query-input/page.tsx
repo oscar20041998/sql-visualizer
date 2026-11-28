@@ -54,6 +54,7 @@ import { EmptyStateTips } from './components/EmptyStateTips';
 import { QueryInputPanel } from './components/QueryInputPanel';
 import { CodeGeneratorPanel } from './components/CodeGeneratorPanel';
 import { ObjectIntelligencePanel, type ObjectIntelligenceHandle } from './components/ObjectIntelligencePanel';
+import styles from './SmartEditorWorkbench.module.css';
 
 // Sample queries
 const SAMPLE_SQL = `WITH monthly_revenue AS (
@@ -656,8 +657,10 @@ export default function QueryInputContent() {
         : current
     );
 
+    let streamedResponse = '';
+    let previousResponse = '';
+    let retrying = false;
     try {
-      let streamedResponse = '';
       const assessment = await requestSqlComparisonExplanation(
         snapshot,
         settings.aiConfig ?? DEFAULT_SETTINGS.aiConfig!,
@@ -665,17 +668,22 @@ export default function QueryInputContent() {
         controller.signal,
         (fragment) => {
           streamedResponse += fragment;
-          const streaming = extractPartialSqlComparisonFields(streamedResponse);
-          if (Object.keys(streaming).length === 0 || controller.signal.aborted) return;
+          const responseSoFar = streamedResponse;
+          const streaming = extractPartialSqlComparisonFields(responseSoFar);
+          const priorResponse = previousResponse;
+          const isRetrying = retrying;
+          if (controller.signal.aborted || comparisonAiAbortRef.current !== controller) return;
           setComparisonResult((current) =>
             current?.snapshot.runId === snapshot.runId
               ? {
                   ...current,
                   ai: {
                     status: 'pending',
-                    explanation: streaming.changeExplanation ?? null,
+                    explanation: responseSoFar,
                     assessment: null,
                     streaming,
+                    retrying: isRetrying,
+                    previousExplanation: priorResponse || null,
                   },
                 }
               : current
@@ -687,21 +695,34 @@ export default function QueryInputContent() {
             (finding) => finding.origin === 'deterministic'
           ),
           limitations: comparisonResult.limitations,
+        },
+        () => {
+          retrying = true;
+          previousResponse = streamedResponse;
+          streamedResponse = '';
+          if (controller.signal.aborted || comparisonAiAbortRef.current !== controller) return;
+          setComparisonResult((current) =>
+            current?.snapshot.runId === snapshot.runId
+              ? { ...current, ai: { ...current.ai, retrying: true } }
+              : current
+          );
         }
       );
       const stillCurrent =
         !controller.signal.aborted &&
+        comparisonAiAbortRef.current === controller &&
         comparisonRunRef.current === Number(snapshot.runId.replace('comparison-', '')) &&
         smartEditorSqlRef.current === snapshot.afterSql &&
         (editorApiRef.current?.getOriginalSql() ?? smartEditorInitialSql) === snapshot.beforeSql &&
         dialect === snapshot.dialect;
+      if (comparisonAiAbortRef.current !== controller || controller.signal.aborted) return;
       setComparisonResult((current) =>
         current?.snapshot.runId === snapshot.runId
           ? {
               ...current,
               ai: stillCurrent
                 ? {
-                    status: current.status === 'partial' ? 'partial' : 'completed',
+                    status: assessment.inputTruncated ? 'partial' : 'completed',
                     explanation: null,
                     assessment,
                   }
@@ -710,6 +731,7 @@ export default function QueryInputContent() {
           : current
       );
     } catch (error) {
+      if (comparisonAiAbortRef.current !== controller || controller.signal.aborted) return;
       const status =
         error instanceof SqlComparisonAiError
           ? error.kind === 'cancelled'
@@ -718,7 +740,16 @@ export default function QueryInputContent() {
           : 'failed';
       setComparisonResult((current) =>
         current?.snapshot.runId === snapshot.runId
-          ? { ...current, ai: { status, explanation: null, assessment: null } }
+          ? {
+              ...current,
+              ai: {
+                status,
+                explanation: streamedResponse || previousResponse || null,
+                assessment: null,
+                streaming: extractPartialSqlComparisonFields(streamedResponse || previousResponse),
+                previousExplanation: streamedResponse ? previousResponse || null : null,
+              },
+            }
           : current
       );
     } finally {
@@ -819,7 +850,7 @@ export default function QueryInputContent() {
     <>
       {/* The right-edge rail the collapsed Optimize / Explainer / Format-error launchers pack
        * into. It must sit above all three so they share one column. */}
-      <SidePanelRail>
+      <SidePanelRail mobileRow presentation="workbench">
         <div className="mx-auto max-w-[112rem] space-y-4 px-4 py-5 sm:px-6 lg:px-7">
           <LoadingOverlay
             visible={isAnalyzing}
@@ -844,16 +875,17 @@ export default function QueryInputContent() {
 
           {/* Smart Editor Tab - Fullscreen */}
           {inputMode === 'smart-editor' && (
-            <div className="smart-sql-editor-theme flex min-h-[calc(100vh-11rem)] flex-col">
+            <div className={`smart-sql-editor-theme ${styles.workbench}`}>
               <div
                 id="query-input-tabpanel"
                 role="tabpanel"
                 aria-labelledby={`tab-${inputMode}`}
-                className="mt-4 flex flex-col gap-4"
+                className="mt-3 max-sm:mt-8 flex min-h-0 flex-1 flex-col gap-3"
               >
-                <div className="flex min-h-[620px] flex-col gap-3 lg:flex-row lg:items-stretch">
-                  <div className="flex min-h-[620px] flex-1 flex-col">
+                <div className={styles.editor}>
+                  <div className={styles.editorColumn}>
                     <SmartSQLEditor
+                      presentation="workbench"
                       initialSql={
                         jumpSql || smartEditorInitialSql || 'SELECT * FROM table LIMIT 10;'
                       }
@@ -870,6 +902,7 @@ export default function QueryInputContent() {
                       onOptimizationResult={setOptimizationResult}
                       onFormatError={handleFormatError}
                       apiRef={editorApiRef}
+                      onOpenComparison={() => setIsComparisonPanelOpen(true)}
                     />
                   </div>
                   {formatError && (
@@ -894,6 +927,7 @@ export default function QueryInputContent() {
                     onRunComparison={handleRunComparison}
                     onRequestAi={handleRequestComparisonAi}
                     onCancelAi={handleCancelComparisonAi}
+                    showLauncher={false}
                   />
                 </div>
 

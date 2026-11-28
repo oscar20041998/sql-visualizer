@@ -120,11 +120,12 @@ export const SQL_COMPARISON_TEMPLATES: PromptTemplateMap = {
       facts: { required: true },
       beforeSql: { required: true },
       afterSql: { required: true },
+      lengthInstruction: { required: false, default: '100-200 words' },
     },
     text: `Review this SQL Before/After comparison. Return JSON only with:
 - "verdict": exactly "good" (the change is judged safe) or "not_good" (the change is judged unsafe or uncertain).
-- "changeExplanation": string, 100-200 words explaining what changed.
-- "impactAfterChange": string, 100-200 words explaining how behavior is affected after the change.
+- "changeExplanation": string, {{lengthInstruction}} explaining what changed.
+- "impactAfterChange": string, {{lengthInstruction}} explaining how behavior is affected after the change.
 - "extraRiskToVerify": string, the main risk the user should verify.
 - "extraRecommendation": string, the most useful next action.
 - arrays of strings "evidence", "assumptions", "verificationSteps", and "limitations".

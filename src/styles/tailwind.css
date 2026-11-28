@@ -1,6 +1,6 @@
 /* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full
  * nav: existing shell kept · signature: existing SQL workbench kept · states: existing states kept
- * axes: cool neutral paper/Geist/selected accent · contrast: verify · v2.0.0 */
+ * axes: cool neutral paper/selected accent · contrast: verify · v2.0.0 */
 /* Hallmark · pre-emit critique: P3 H4 E3 S4 R4 V3 · weakest: execution, refine presentation only and verify against existing route tests */
 /* Hallmark · dismissed 19 · preserve the existing legal footer copy under the UI-only scope */
 @import './tokens.css';
@@ -53,8 +53,6 @@ dt:not([class*='text-destructive']):not([class*='text-warning']):not([class*='te
   --input: #21262d;
   --ring: #6ee7f7;
   --radius: 0.5rem;
-  --font-sans: var(--font-geist-sans), 'Geist', sans-serif;
-  --font-mono: var(--font-geist-mono), 'Geist Mono', monospace;
 
   /* Semantic colors */
   --success: #3fb950;
@@ -126,6 +124,8 @@ html[data-theme='light'] {
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    font-size: var(--text-md);
+    line-height: var(--leading-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -227,8 +227,9 @@ html[data-theme='light'] {
 
   .code-block {
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    line-height: 1.6;
+    font-size: var(--text-code);
+    line-height: var(--leading-code);
+    letter-spacing: var(--tracking-code);
     tab-size: 2;
   }
 

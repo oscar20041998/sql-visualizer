@@ -72,7 +72,7 @@ export default function CTEAnalysisContent() {
       {/* Header */}
       <header className="floating-header mb-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <h1 className="text-page-title text-foreground flex items-center gap-2">
             <span className="floating-header-icon"><Layers size={20} aria-hidden /></span>
             {t.cteTitle}
           </h1>

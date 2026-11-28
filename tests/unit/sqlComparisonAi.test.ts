@@ -5,6 +5,7 @@ import type { ComparisonSnapshot } from '@/lib/sql/sqlComparison';
 import {
   buildSqlComparisonPrompt,
   extractPartialSqlComparisonExplanation,
+  extractPartialSqlComparisonFields,
   parseSqlComparisonAiResponse,
   requestSqlComparisonExplanation,
   SqlComparisonAiError,
@@ -130,6 +131,13 @@ describe('SQL comparison AI adapter', () => {
     ).toMatchObject({ verdict: 'not_good' });
   });
 
+  it('rejects evidence that only matches after changing literal case or spaces', () => {
+    const invalid = validResponse.replace("WHERE status = 'open'", "WHERE status = 'OPEN'");
+    expect(() => parseSqlComparisonAiResponse(invalid, snapshot)).toThrow(
+      expect.objectContaining({ kind: 'malformed' })
+    );
+  });
+
   it('extracts readable partial explanation text while the JSON response streams', () => {
     expect(extractPartialSqlComparisonExplanation('{"summary":"The filter was removed')).toBe(
       'The filter was removed'
@@ -138,6 +146,16 @@ describe('SQL comparison AI adapter', () => {
       'Line one\nLine two'
     );
     expect(extractPartialSqlComparisonExplanation('{"evidence":[')).toBeNull();
+  });
+
+  it('extracts complete streamed list items and partial explanations without inventing missing fields', () => {
+    const raw = '{"verdict":"not_good","changeExplanation":"Bản After đã đổi định dạng",'
+      + '"evidence":["SELECT \\"x\\"","WHERE id = 1"],"limitations":["Chưa xong';
+    expect(extractPartialSqlComparisonFields(raw)).toEqual({
+      verdict: 'not_good',
+      changeExplanation: 'Bản After đã đổi định dạng',
+      evidence: ['SELECT "x"', 'WHERE id = 1'],
+    });
   });
 
   it('streams the configured provider response and passes cancellation through', async () => {
@@ -166,7 +184,61 @@ describe('SQL comparison AI adapter', () => {
       expect.objectContaining({ jsonMode: true, signal: controller.signal }),
       expect.any(Function)
     );
+    const prompt = vi.mocked(streamWithAI).mock.calls[0][1].prompt ?? '';
+    expect(prompt).toContain('Output contract');
+    expect(prompt).toContain('"verificationSteps", "limitations"');
+    expect(prompt).toContain('one or two short sentences explaining what changed');
+    expect(prompt).not.toContain('100-200 words');
     expect(fragments).toEqual(['response fragment']);
+  });
+
+  it('retries one invalid response and only accepts a complete grounded assessment', async () => {
+    const partial = '{"verdict":"not_good","changeExplanation":"Incomplete';
+    const seen: string[] = [];
+    vi.mocked(streamWithAI)
+      .mockImplementationOnce(async (
+        _config: Parameters<typeof streamWithAI>[0],
+        _request: Parameters<typeof streamWithAI>[1],
+        onDelta: Parameters<typeof streamWithAI>[2]
+      ) => {
+        onDelta(partial);
+        return partial;
+      })
+      .mockImplementationOnce(async (
+        _config: Parameters<typeof streamWithAI>[0],
+        _request: Parameters<typeof streamWithAI>[1],
+        onDelta: Parameters<typeof streamWithAI>[2]
+      ) => {
+        onDelta(validResponse);
+        return validResponse;
+      });
+    const onRetry = vi.fn(() => seen.push('retry'));
+    const result = await requestSqlComparisonExplanation(
+      snapshot, DEFAULT_SETTINGS.aiConfig!, 'en', undefined,
+      (fragment) => seen.push(fragment), undefined, onRetry
+    );
+    expect(result.verdict).toBe('not_good');
+    expect(seen).toEqual([partial, 'retry', validResponse]);
+    expect(streamWithAI).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(streamWithAI).mock.calls[1][1].prompt).toContain('Previous response was invalid');
+  });
+
+  it('stops after one recovery attempt if evidence is still invalid', async () => {
+    const invalid = validResponse.replace("WHERE status = 'open'", 'DROP TABLE users');
+    vi.mocked(streamWithAI).mockResolvedValue(invalid);
+    await expect(requestSqlComparisonExplanation(snapshot, DEFAULT_SETTINGS.aiConfig!, 'en'))
+      .rejects.toMatchObject({ kind: 'malformed' });
+    expect(streamWithAI).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not dispatch recovery after cancellation', async () => {
+    const controller = new AbortController();
+    vi.mocked(streamWithAI).mockResolvedValue('{"verdict":');
+    await expect(requestSqlComparisonExplanation(
+      snapshot, DEFAULT_SETTINGS.aiConfig!, 'en', controller.signal, undefined, undefined,
+      () => controller.abort()
+    )).rejects.toMatchObject({ kind: 'cancelled' });
+    expect(streamWithAI).toHaveBeenCalledTimes(1);
   });
 
   it('fits both SQL snapshots and the output reservation into the configured context window', async () => {
@@ -195,8 +267,9 @@ describe('SQL comparison AI adapter', () => {
     });
     vi.mocked(streamWithAI).mockResolvedValue(response);
 
-    await requestSqlComparisonExplanation(longSnapshot, config, 'en');
+    const result = await requestSqlComparisonExplanation(longSnapshot, config, 'en');
 
+    expect(result.inputTruncated).toBe(true);
     const request = vi.mocked(streamWithAI).mock.calls[0][1];
     const budget = buildContextBudget(2048, 512);
     const prompt = request.prompt ?? '';

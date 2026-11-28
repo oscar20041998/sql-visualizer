@@ -36,6 +36,8 @@ import AiFeatureAnnouncement, { useAnnouncementVisibility } from './AiFeatureAnn
 import AiFollowUpChat from './AiFollowUpChat';
 import AiCteBatchPanel from './AiCteBatchPanel';
 import SidePanelTab from './SidePanelTab';
+import { usePanelPresence } from './usePanelPresence';
+import motionStyles from './SidePanelMotion.module.css';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
 import { useCapabilityLock } from '@/lib/useCapabilityLock';
 
@@ -443,6 +445,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
 
   // Docked as a right-side drawer so the editor keeps the full width until this is needed.
   const [isOpen, setIsOpen] = useState(false);
+  const isPresent = usePanelPresence(isOpen);
   const [isRunning, setIsRunning] = useState(false);
   const [turns, setTurns] = useState<ExplainTurn[]>([]);
   const [explainedSql, setExplainedSql] = useState('');
@@ -755,15 +758,19 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
         />
       )}
 
-      {isOpen && (
+      {isPresent && (
         <div
-          className="fixed inset-0 z-[60] bg-background/60 motion-safe:animate-fade-in"
+          className={`fixed inset-0 z-[60] backdrop-blur-[2px] ${motionStyles.backdrop} ${!isOpen ? 'pointer-events-none' : ''}`}
+          data-closing={!isOpen}
+          aria-hidden={!isOpen}
+          inert={!isOpen}
           onClick={() => setIsOpen(false)}
         >
           <div
             ref={containerRef}
             onClick={(event) => event.stopPropagation()}
-            className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl motion-safe:animate-slide-in-right sm:max-w-2xl"
+            data-closing={!isOpen}
+            className={`smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl sm:max-w-2xl ${motionStyles.drawer}`}
           >
             {/* Header */}
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
@@ -896,7 +903,7 @@ export const AiSqlExplainer: React.FC<AiSqlExplainerProps> = ({ sql, optimizatio
               {/* Context-window meter: makes the token cost of the query visible up front. */}
               {sql.trim() && (
                 <span
-                  className={`ml-auto font-mono text-[11px] ${
+                  className={`ml-auto tabular-nums text-[11px] ${
                     preflight.overflows ? 'text-warning' : 'text-muted-foreground'
                   }`}
                   title={t.aiContextMeterHint}

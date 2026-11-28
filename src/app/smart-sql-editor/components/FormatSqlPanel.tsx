@@ -12,6 +12,7 @@ export interface FormatSqlPanelProps {
   isFormatting: boolean;
   /** Runs the existing format action; on error the page surfaces the FormatErrorPanel. */
   onFormat: () => void;
+  compact?: boolean;
 }
 
 /**
@@ -24,18 +25,25 @@ export interface FormatSqlPanelProps {
  * in the parent editor - so success and error behaviour are unchanged, including the error panel
  * the page opens when formatting fails.
  */
-export const FormatSqlPanel: React.FC<FormatSqlPanelProps> = ({ sql, isFormatting, onFormat }) => {
+export const FormatSqlPanel: React.FC<FormatSqlPanelProps> = ({
+  sql,
+  isFormatting,
+  onFormat,
+  compact = false,
+}) => {
   const settings = useAppStore((state) => state.settings);
   const t = getT(settings.locale);
 
   return (
-    <div className="flex px-4 pt-3">
+    <div className={compact ? 'flex p-0' : 'flex px-4 pt-3'}>
       <button
         type="button"
         onClick={onFormat}
         disabled={isFormatting || !sql.trim()}
         aria-label={t.formatSqlButton}
-        className="flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className={`flex items-center gap-2 rounded-lg border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          compact ? 'min-h-9 active:translate-y-px' : ''
+        }`}
       >
         <Zap size={12} aria-hidden="true" />
         {isFormatting ? t.smartEditorFormatting : t.smartEditorFormat}

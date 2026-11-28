@@ -96,6 +96,7 @@ export interface SqlComparisonAiAssessment {
   assumptions: string[];
   verificationSteps: string[];
   limitations: string[];
+  inputTruncated?: boolean;
 }
 
 export interface SqlComparisonAiStreamedFields {
@@ -104,6 +105,10 @@ export interface SqlComparisonAiStreamedFields {
   impactAfterChange?: string;
   extraRiskToVerify?: string;
   extraRecommendation?: string;
+  evidence?: string[];
+  assumptions?: string[];
+  verificationSteps?: string[];
+  limitations?: string[];
 }
 
 export interface ComparisonResult {
@@ -125,6 +130,8 @@ export interface ComparisonResult {
     explanation: string | null;
     assessment: SqlComparisonAiAssessment | null;
     streaming?: SqlComparisonAiStreamedFields | null;
+    retrying?: boolean;
+    previousExplanation?: string | null;
   };
 }
 
@@ -173,65 +180,25 @@ function clauseStartsAt(sql: string, index: number) {
   return CLAUSE_STARTS.find((clause) => clause.pattern.test(tail));
 }
 
-function findTopLevelClauses(sql: string): ClauseSpan[] {
+function findTopLevelClauses(sql: string, dialect: SqlDialect): ClauseSpan[] {
   const starts: Array<{ index: number; kind: StructuralChangeKind; label: string }> = [];
   let depth = 0;
-  let index = 0;
-  let quote: "'" | '"' | '`' | ']' | null = null;
-
-  while (index < sql.length) {
-    const char = sql[index];
-    const next = sql[index + 1];
-    if (quote) {
-      if (quote === ']' && char === ']') quote = null;
-      else if (char === quote) {
-        if (quote !== "'" && next === quote) index += 1;
-        else if (next !== quote || quote === "'") quote = null;
-      }
-      index += 1;
-      continue;
-    }
-    if (char === "'" || char === '"' || char === '`') {
-      quote = char;
-      index += 1;
-      continue;
-    }
-    if (char === '[') {
-      quote = ']';
-      index += 1;
-      continue;
-    }
-    if (char === '-' && next === '-') {
-      index += 2;
-      while (index < sql.length && sql[index] !== '\n') index += 1;
-      continue;
-    }
-    if (char === '/' && next === '*') {
-      index += 2;
-      while (index < sql.length && !(sql[index] === '*' && sql[index + 1] === '/')) index += 1;
-      index = Math.min(sql.length, index + 2);
-      continue;
-    }
-    if (char === '(') {
+  for (const token of tokenizeComparisonSql(sql, dialect)) {
+    if (token.kind !== 'symbol' && token.kind !== 'word') continue;
+    if (token.text === '(') {
       depth += 1;
-      index += 1;
       continue;
     }
-    if (char === ')') {
+    if (token.text === ')') {
       depth = Math.max(0, depth - 1);
-      index += 1;
       continue;
     }
-    if (depth === 0 && /[A-Za-z_]/.test(char)) {
-      const start = index;
-      while (index < sql.length && /[A-Za-z_]/.test(sql[index])) index += 1;
-      const clause = clauseStartsAt(sql, start);
-      if (clause && (start === 0 || !/[\w]/.test(sql[start - 1]))) {
-        starts.push({ index: start, kind: clause.kind, label: clause.label });
+    if (depth === 0 && token.kind === 'word') {
+      const clause = clauseStartsAt(sql, token.start);
+      if (clause) {
+        starts.push({ index: token.start, kind: clause.kind, label: clause.label });
       }
-      continue;
     }
-    index += 1;
   }
 
   return starts.map((start, position) => {
@@ -241,20 +208,96 @@ function findTopLevelClauses(sql: string): ClauseSpan[] {
   });
 }
 
-function canonicalSql(sql: string): string {
-  return stripSqlComments(sql)
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([(),;=<>+*/-])\s*/g, '$1')
-    .trim()
-    .toLowerCase();
+interface ComparisonToken {
+  text: string;
+  kind: 'word' | 'quoted' | 'symbol' | 'comment';
+  start: number;
+  end: number;
 }
 
-function canonicalClause(text: string): string {
-  return text
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([(),;=<>+*/-])\s*/g, '$1')
-    .trim()
-    .toLowerCase();
+function tokenizeComparisonSql(sql: string, dialect: SqlDialect): ComparisonToken[] {
+  const tokens: ComparisonToken[] = [];
+  const startsLineComment = (position: number) =>
+    sql.startsWith('--', position) &&
+    (dialect !== 'mysql' || position + 2 === sql.length || /\s/.test(sql[position + 2]));
+  let index = 0;
+  while (index < sql.length) {
+    if (/\s/.test(sql[index])) {
+      index += 1;
+      continue;
+    }
+    const start = index;
+    const tail = sql.slice(index);
+    const dollar = dialect === 'postgresql' ? /^\$(?:[a-zA-Z_]\w*)?\$/.exec(tail)?.[0] : undefined;
+    const oracleQuote = dialect === 'oracle' ? /^[qQ]'([^'\s])/.exec(tail) : null;
+    let kind: ComparisonToken['kind'] = 'symbol';
+    if (dollar) {
+      const end = sql.indexOf(dollar, index + dollar.length);
+      index = end < 0 ? sql.length : end + dollar.length;
+      kind = 'quoted';
+    } else if (oracleQuote) {
+      const closing: Record<string, string> = { '[': ']', '(': ')', '{': '}', '<': '>' };
+      const terminator = `${closing[oracleQuote[1]] ?? oracleQuote[1]}'`;
+      const end = sql.indexOf(terminator, index + oracleQuote[0].length);
+      index = end < 0 ? sql.length : end + terminator.length;
+      kind = 'quoted';
+    } else if (startsLineComment(index) || tail.startsWith('/*') || (dialect === 'mysql' && tail.startsWith('#'))) {
+      const block = tail.startsWith('/*');
+      const end = sql.indexOf(block ? '*/' : '\n', index + (block ? 2 : 1));
+      index = end < 0 ? sql.length : end + (block ? 2 : 0);
+      kind = 'comment';
+    } else if (sql[index] === "'" || sql[index] === '"' || sql[index] === '`' || (dialect === 'sqlserver' && sql[index] === '[')) {
+      const closing = sql[index] === '[' ? ']' : sql[index];
+      index += 1;
+      while (index < sql.length) {
+        if (sql[index] === '\\' && (dialect === 'mysql' || dialect === 'postgresql')) {
+          index += Math.min(2, sql.length - index);
+        } else if (sql[index] === closing) {
+          index += 1;
+          if (sql[index] === closing) index += 1;
+          else break;
+        } else index += 1;
+      }
+      kind = 'quoted';
+    } else if (/[\p{L}\p{N}_$]/u.test(sql[index])) {
+      index += 1;
+      while (index < sql.length && /[\p{L}\p{N}_$]/u.test(sql[index])) index += 1;
+      kind = 'word';
+    } else if (/[(),.;]/.test(sql[index])) {
+      index += 1;
+    } else {
+      index += 1;
+      while (
+        index < sql.length &&
+        /[+\-*\/%<>=!|&^~:]/.test(sql[index]) &&
+        !startsLineComment(index) &&
+        !sql.startsWith('/*', index)
+      ) index += 1;
+    }
+    tokens.push({ text: sql.slice(start, index), kind, start, end: index });
+  }
+  return tokens;
+}
+
+function canonicalSql(sql: string, dialect: SqlDialect): string {
+  const tokens = tokenizeComparisonSql(sql, dialect);
+  return JSON.stringify(tokens.map((token, position) => {
+    const previous = tokens[position - 1];
+    const separated = previous && previous.end !== token.start;
+    const adjacentLiterals = previous?.kind === 'quoted' && token.kind === 'quoted';
+    const sensitiveGap = separated && (
+      (previous.kind === 'word' && token.kind === 'quoted') ||
+      (previous.kind === 'quoted' && token.kind === 'word') ||
+      (dialect === 'mysql' && previous.kind === 'word' && token.text === '(') ||
+      (previous.text === '.' && token.kind === 'word') ||
+      (previous.kind === 'word' && token.text === '.')
+    );
+    return [separated && adjacentLiterals ? sql.slice(previous.end, token.start) : sensitiveGap ? 'gap' : '', token.text];
+  }));
+}
+
+function canonicalClause(text: string, dialect: SqlDialect): string {
+  return canonicalSql(text, dialect);
 }
 
 function evidenceFor(
@@ -378,10 +421,15 @@ export async function compareSqlSnapshots(snapshot: ComparisonSnapshot): Promise
       validateSqlDialect(snapshot.beforeSql, snapshot.dialect),
       validateSqlDialect(snapshot.afterSql, snapshot.dialect),
     ]);
-    const beforeClauses = findTopLevelClauses(snapshot.beforeSql);
-    const afterClauses = findTopLevelClauses(snapshot.afterSql);
+    const beforeClauses = findTopLevelClauses(snapshot.beforeSql, snapshot.dialect);
+    const afterClauses = findTopLevelClauses(snapshot.afterSql, snapshot.dialect);
     const beforeByLabel = spansByLabel(beforeClauses);
     const afterByLabel = spansByLabel(afterClauses);
+    const repeatedClauses =
+      beforeByLabel.size !== beforeClauses.length || afterByLabel.size !== afterClauses.length;
+    if (repeatedClauses) {
+      limitations.push('Repeated top-level clauses cannot be matched completely by the structural comparison.');
+    }
     const changes: StructuralChange[] = [];
 
     for (const label of new Set([...beforeByLabel.keys(), ...afterByLabel.keys()])) {
@@ -390,7 +438,7 @@ export async function compareSqlSnapshots(snapshot: ComparisonSnapshot): Promise
       const afterSpan = afterByLabel.get(label);
       const beforeValue = beforeSpan?.text ?? null;
       const afterValue = afterSpan?.text ?? null;
-      if (canonicalClause(beforeValue ?? '') === canonicalClause(afterValue ?? '')) continue;
+      if (canonicalClause(beforeValue ?? '', snapshot.dialect) === canonicalClause(afterValue ?? '', snapshot.dialect)) continue;
       const clause = [...beforeClauses, ...afterClauses].find((span) => span.label === label);
       if (!clause) continue;
       addChange(
@@ -487,12 +535,19 @@ export async function compareSqlSnapshots(snapshot: ComparisonSnapshot): Promise
         'One or both SQL statements could not be fully parsed into supported AST facts.'
       );
     }
+    for (const [side, parsed] of [['Before', beforeAst], ['After', afterAst]] as const) {
+      if (parsed.parseStatus === 'invalid') {
+        const diagnostic = parsed.diagnostics.find((item) => item.code === 'invalid-sql');
+        if (diagnostic) limitations.push(`${side} SQL: ${diagnostic.message}`);
+      }
+    }
     if (!beforeDialect.valid || !afterDialect.valid) {
       limitations.push('Dialect validation reported a mismatch or incomplete validation.');
     }
 
     const formattingOnly =
-      changes.length === 0 && canonicalSql(snapshot.beforeSql) === canonicalSql(snapshot.afterSql);
+      changes.length === 0 &&
+      canonicalSql(snapshot.beforeSql, snapshot.dialect) === canonicalSql(snapshot.afterSql, snapshot.dialect);
     if (formattingOnly) {
       addChange(
         changes,
@@ -522,7 +577,8 @@ export async function compareSqlSnapshots(snapshot: ComparisonSnapshot): Promise
     }
 
     const partial =
-      parserIncomplete || !beforeDialect.valid || !afterDialect.valid || cteMatchingUncertain;
+      parserIncomplete || !beforeDialect.valid || !afterDialect.valid || cteMatchingUncertain ||
+      repeatedClauses || changes.some((change) => change.kind === 'unknown');
     const findings: ComparisonFinding[] = changes
       .filter((change) => ['filter', 'join', 'write-scope', 'pagination'].includes(change.kind))
       .map((change, index) => ({

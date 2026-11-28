@@ -149,7 +149,7 @@ export default function QueryHistoryPanel() {
   return (
     <div className="mx-auto max-w-[112rem] space-y-6 px-4 py-5 sm:px-6 lg:px-7">
       <header className="floating-header px-4 py-3 sm:px-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+        <h1 className="flex items-center gap-2 text-page-title text-foreground">
           <span className="floating-header-icon"><History size={20} aria-hidden="true" /></span>
           {t.queryHistoryTitle}
         </h1>
@@ -265,7 +265,7 @@ export default function QueryHistoryPanel() {
                 {visibleResults.map(({ entry, score }) => (
                   <tr key={entry.id} className="align-top">
                     <td className="w-2/5 px-4 py-3">
-                      <pre className="max-h-20 overflow-hidden whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-foreground">
+                      <pre className="max-h-20 overflow-hidden whitespace-pre-wrap break-words font-mono text-code text-foreground">
                         {entry.sql.slice(0, 240)}
                       </pre>
                       {score !== null && (

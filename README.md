@@ -442,6 +442,16 @@ This project uses Tailwind CSS with extensive customization:
 - **CSS Animations** - Smooth transitions with float, slideUp, fadeIn, and shimmer keyframes
 - **PostCSS & Autoprefixer** - Automatic vendor prefixing and CSS optimization
 
+### Typography
+
+Inter is the UI font; JetBrains Mono is used for SQL, code, and database identifiers.
+Both are self-hosted through `next/font`, with Latin and Vietnamese subsets, swap
+display, and system fallbacks. Shared font stacks, sizes, and line heights live in
+`src/styles/tokens.css`; Tailwind exposes `font-sans`, `font-mono`,
+`text-page-title`, `text-section-title`, `text-card-title`, `text-code`, and
+`text-metadata`. Monaco editors share the settings in `src/lib/monacoTypography.ts`.
+These typography tokens are independent of light and dark theme colors.
+
 ## ⚙️ Centralized Constants Management
 
 All repeated values, thresholds, and patterns are organized in a single source of truth file for improved maintainability:

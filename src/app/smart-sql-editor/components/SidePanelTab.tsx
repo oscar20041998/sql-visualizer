@@ -7,7 +7,13 @@ import { createPortal } from 'react-dom';
  * The rail element the launchers are packed into, or `null` before it mounts / when no
  * {@link SidePanelRail} is mounted above.
  */
-const RailContext = createContext<HTMLElement | null>(null);
+interface RailContextValue {
+  element: HTMLElement | null;
+  mobileRow: boolean;
+  presentation: 'standard' | 'workbench';
+}
+
+const RailContext = createContext<RailContextValue | null>(null);
 
 /**
  * The right-edge rail that collapsed panels stack into.
@@ -17,16 +23,29 @@ const RailContext = createContext<HTMLElement | null>(null);
  * the whole group is centred on the viewport. Nothing is reserved for a tab that isn't rendered,
  * so a two-panel page has no hole where the third one would have been.
  */
-export const SidePanelRail: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+export const SidePanelRail: React.FC<{
+  children?: React.ReactNode;
+  mobileRow?: boolean;
+  presentation?: 'standard' | 'workbench';
+}> = ({ children, mobileRow = false, presentation = 'standard' }) => {
   const [rail, setRail] = useState<HTMLDivElement | null>(null);
+  const railPresentationClass =
+    presentation === 'workbench'
+      ? 'right-3 flex-col items-center gap-1 rounded-xl border border-border bg-card/95 p-1 shadow-xl backdrop-blur-sm'
+      : 'right-0 flex-col items-end gap-1.5';
 
   return (
-    <RailContext.Provider value={rail}>
+    <RailContext.Provider value={{ element: rail, mobileRow, presentation }}>
       {children}
       <div
         ref={setRail}
         data-side-panel-rail=""
-        className="pointer-events-none fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-end gap-1.5"
+        data-presentation={presentation}
+        className={`pointer-events-none fixed top-1/2 z-40 flex -translate-y-1/2 ${railPresentationClass} ${
+          mobileRow
+            ? 'max-sm:right-4 max-sm:top-[17rem] max-sm:translate-y-0 max-sm:flex-row max-sm:items-center'
+            : ''
+        }`}
       />
     </RailContext.Provider>
   );
@@ -45,6 +64,12 @@ const TONE_STYLES: Record<SidePanelTabTone, string> = {
   primary: 'border-primary bg-primary text-primary-foreground hover:bg-primary/90',
   neutral: 'border-border bg-card text-foreground hover:bg-muted',
   danger: 'border-danger/40 bg-card text-danger hover:bg-muted hover:text-danger/80',
+};
+
+const DOCK_TONE_STYLES: Record<SidePanelTabTone, string> = {
+  primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  neutral: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  danger: 'text-danger hover:bg-danger/10',
 };
 
 export interface SidePanelTabProps {
@@ -87,7 +112,10 @@ export const SidePanelTab: React.FC<SidePanelTabProps> = ({
   ariaLabel,
   ariaExpanded,
 }) => {
-  const rail = useContext(RailContext);
+  const railContext = useContext(RailContext);
+  const rail = railContext?.element ?? null;
+  const mobileRow = railContext?.mobileRow ?? false;
+  const workbenchDock = railContext?.presentation === 'workbench';
 
   const tab = (
     <button
@@ -98,12 +126,28 @@ export const SidePanelTab: React.FC<SidePanelTabProps> = ({
       aria-expanded={ariaExpanded}
       data-panel-tab-rank={rank}
       style={{ order: rank }}
-      className={`pointer-events-auto group flex items-center gap-0 rounded-l-lg border border-r-0 px-2.5 py-2 shadow-lg transition-all duration-200 hover:gap-2 hover:pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${TONE_STYLES[tone]}`}
+      className={
+        workbenchDock
+          ? `pointer-events-auto group relative z-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-transparent transition-[background-color,color,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 hover:z-10 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none ${DOCK_TONE_STYLES[tone]}`
+          : `pointer-events-auto group flex items-center gap-0 rounded-l-lg border border-r-0 px-2.5 py-2 shadow-lg transition-[gap,padding,background-color,border-color,color] duration-200 hover:gap-2 hover:pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              mobileRow ? 'max-sm:rounded-lg max-sm:border-r' : ''
+            } ${TONE_STYLES[tone]}`
+      }
     >
       {icon}
-      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold tracking-wide opacity-0 transition-all duration-200 group-hover:max-w-[12rem] group-hover:opacity-100">
-        {label}
-      </span>
+      {workbenchDock ? (
+        <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none max-sm:hidden">
+          {label}
+        </span>
+      ) : (
+        <span
+          className={`max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-opacity duration-200 group-hover:max-w-[12rem] group-hover:opacity-100 ${
+            mobileRow ? 'max-sm:hidden' : ''
+          }`}
+        >
+          {label}
+        </span>
+      )}
     </button>
   );
 

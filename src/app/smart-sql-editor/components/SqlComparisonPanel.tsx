@@ -5,6 +5,7 @@ import { ArrowLeftRight, ChevronRight } from 'lucide-react';
 import { DiffEditor } from '@monaco-editor/react';
 import { getT, type Locale } from '@/lib/i18n';
 import { useAppStore } from '@/lib/store';
+import { monacoTypography, prepareMonacoTypography } from '@/lib/monacoTypography';
 import type {
   ComparisonResult,
   SqlComparisonAiStreamedFields,
@@ -12,17 +13,21 @@ import type {
 } from '@/lib/sql/sqlComparison';
 import { LIMITATION_EMPTY_STATEMENT } from '@/lib/sql/sqlComparison';
 import SidePanelTab from './SidePanelTab';
+import { usePanelPresence } from './usePanelPresence';
+import motionStyles from './SidePanelMotion.module.css';
 
-const aiFieldClass = 'space-y-1 rounded border-l-2 border-primary bg-muted p-3';
+const aiFieldClass = 'min-w-0 space-y-1 rounded border-l-2 border-primary bg-muted p-3';
 const aiHeadingClass = 'text-xs font-medium text-muted-foreground';
 
 // Shows all five AI fields; fields not streamed yet show a placeholder.
 function AiCoreFields({
   fields,
   t,
+  onlyAvailable = false,
 }: {
   fields: SqlComparisonAiStreamedFields;
   t: ReturnType<typeof getT>;
+  onlyAvailable?: boolean;
 }) {
   const placeholder = '…';
   const items = [
@@ -33,30 +38,55 @@ function AiCoreFields({
   ];
   return (
     <>
-      <div className={aiFieldClass}>
-        <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
-        <p
-          className={
-            fields.verdict === undefined
-              ? 'font-semibold text-muted-foreground'
+      {(!onlyAvailable || fields.verdict !== undefined) && (
+        <div className={aiFieldClass}>
+          <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
+          <p
+            className={`min-w-0 whitespace-pre-wrap break-words ${
+              fields.verdict === undefined
+                ? 'font-semibold text-muted-foreground'
+                : fields.verdict === 'good'
+                  ? 'font-semibold text-success'
+                  : 'font-semibold text-destructive'
+            }`}
+          >
+            {fields.verdict === undefined
+              ? placeholder
               : fields.verdict === 'good'
-                ? 'font-semibold text-success'
-                : 'font-semibold text-destructive'
-          }
-        >
-          {fields.verdict === undefined
-            ? placeholder
-            : fields.verdict === 'good'
-              ? t.comparisonAiVerdictGood
-              : t.comparisonAiVerdictNotGood}
-        </p>
-      </div>
-      {items.map(({ label, value }) => (
-        <div key={label} className={aiFieldClass}>
-          <h4 className={aiHeadingClass}>{label}</h4>
-          <p className="whitespace-pre-wrap">{value || placeholder}</p>
+                ? t.comparisonAiVerdictGood
+                : t.comparisonAiVerdictNotGood}
+          </p>
         </div>
-      ))}
+      )}
+      {items
+        .filter(({ value }) => !onlyAvailable || value)
+        .map(({ label, value }) => (
+          <div key={label} className={aiFieldClass}>
+            <h4 className={aiHeadingClass}>{label}</h4>
+            <p className="whitespace-pre-wrap break-words">{value || placeholder}</p>
+          </div>
+        ))}
+      {(
+        [
+          [t.comparisonAiEvidence, fields.evidence],
+          [t.comparisonAiAssumptions, fields.assumptions],
+          [t.comparisonAiVerification, fields.verificationSteps],
+          [t.comparisonAiLimitations, fields.limitations],
+        ] as const
+      ).map(([label, values]) =>
+        values?.length ? (
+          <div key={label} className={aiFieldClass}>
+            <h4 className={aiHeadingClass}>{label}</h4>
+            <ul className="list-disc space-y-1 pl-5">
+              {values.map((value, index) => (
+                <li key={`${label}-${index}`} className="whitespace-pre-wrap break-words">
+                  {value}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null
+      )}
     </>
   );
 }
@@ -71,6 +101,7 @@ export interface SqlComparisonPanelProps {
   onRunComparison?: () => void;
   onRequestAi?: () => void;
   onCancelAi?: () => void;
+  showLauncher?: boolean;
 }
 
 export default function SqlComparisonPanel({
@@ -83,11 +114,14 @@ export default function SqlComparisonPanel({
   onRunComparison,
   onRequestAi,
   onCancelAi,
+  showLauncher = true,
 }: SqlComparisonPanelProps) {
   const t = getT(locale);
   const theme = useAppStore((store) => store.settings.theme);
   const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs';
   const [isWideViewport, setIsWideViewport] = useState(false);
+  const [activeView, setActiveView] = useState<'diff' | 'analysis'>('analysis');
+  const isPresent = usePanelPresence(isOpen);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const aiSectionRef = useRef<HTMLElement | null>(null);
@@ -126,10 +160,18 @@ export default function SqlComparisonPanel({
   };
   // The analysis lib produces English limitation sentences (they also feed the AI
   // prompt context); map the known ones to the active locale and pass the rest through.
-  const limitationText = (limitation: string): string =>
-    limitation === LIMITATION_EMPTY_STATEMENT
-      ? t.comparisonLimitationBothStatementsRequired
-      : limitation;
+  const limitationText = (limitation: string): string => {
+    if (limitation === LIMITATION_EMPTY_STATEMENT) return t.comparisonLimitationBothStatementsRequired;
+    const syntax = /^(Before|After) SQL: The SQL could not be parsed for the selected dialect(?: \(line (\d+), column (\d+)\))?\.$/.exec(limitation);
+    if (syntax) {
+      const side = syntax[1] === 'Before' ? t.comparisonBefore : t.comparisonAfter;
+      const location = syntax[2] && syntax[3]
+        ? ` ${t.comparisonSyntaxLocation.replace('{line}', syntax[2]).replace('{column}', syntax[3])}`
+        : '';
+      return `${side}: ${t.comparisonSyntaxInvalid}${location}`;
+    }
+    return limitation;
+  };
   const renderEvidence = (evidence: SqlEvidence, key: string) => {
     const sideLabel = evidence.side === 'before' ? t.comparisonBefore : t.comparisonAfter;
     const preview = evidence.text.length > 240;
@@ -167,9 +209,11 @@ export default function SqlComparisonPanel({
   useEffect(() => {
     if (!isOpen) {
       if (wasOpenRef.current) {
-        Promise.resolve().then(() =>
-          document.querySelector<HTMLButtonElement>('[data-panel-tab-rank="3"]')?.focus()
-        );
+        Promise.resolve().then(() => {
+          const trigger = document.querySelector<HTMLButtonElement>('[data-comparison-trigger]');
+          const launcher = document.querySelector<HTMLButtonElement>('[data-panel-tab-rank="3"]');
+          (trigger ?? launcher)?.focus();
+        });
       }
       wasOpenRef.current = false;
       return;
@@ -188,18 +232,20 @@ export default function SqlComparisonPanel({
     const section = aiSectionRef.current;
     if (
       !isOpen ||
+      activeView !== 'analysis' ||
       isStale ||
       result?.status === 'stale' ||
       result?.ai.status !== 'pending' ||
       !container ||
       !section
-    ) return;
+    )
+      return;
     container.scrollTop +=
       section.getBoundingClientRect().top - container.getBoundingClientRect().top;
-  }, [isOpen, isStale, result?.status, result?.ai.status]);
+  }, [activeView, isOpen, isStale, result?.status, result?.ai.status]);
 
-  if (!isOpen) {
-    return (
+  const launcher =
+    !isOpen && showLauncher ? (
       <SidePanelTab
         rank={3}
         icon={<ArrowLeftRight size={16} className="shrink-0" aria-hidden="true" />}
@@ -208,383 +254,526 @@ export default function SqlComparisonPanel({
         ariaExpanded={false}
         onClick={() => onToggle(true)}
       />
-    );
-  }
+    ) : null;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-background/60"
-      onClick={() => onToggle(false)}
-      role="presentation"
-    >
-      <aside
-        id="sql-comparison-panel"
-        aria-label={t.comparisonTitle}
-        onClick={(event) => event.stopPropagation()}
-        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl sm:w-[92vw] sm:max-w-[1100px]"
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">{t.comparisonTitle}</h2>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={() => onToggle(false)}
-            aria-expanded="true"
-            aria-controls="sql-comparison-panel"
-            title={t.comparisonClosePanel}
-            className="flex h-8 w-8 items-center justify-center rounded border border-border bg-transparent text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChevronRight size={16} aria-hidden="true" />
-            <span className="sr-only">{t.comparisonClosePanel}</span>
-          </button>
-        </div>
+    <>
+      {launcher}
+      {isPresent && (
         <div
-          ref={scrollContainerRef}
-          className="flex-1 space-y-4 scrollbar-thin overflow-y-auto p-4"
+          className={`fixed inset-0 z-[60] backdrop-blur-[2px] ${motionStyles.backdrop} ${!isOpen ? 'pointer-events-none' : ''}`}
+          data-closing={!isOpen}
+          aria-hidden={!isOpen}
+          inert={!isOpen}
+          onClick={() => onToggle(false)}
+          role="presentation"
         >
-          {onRunComparison && (
-            <button
-              type="button"
-              disabled={isRunning}
-              onClick={onRunComparison}
-              className="min-h-10 rounded-md border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          <aside
+            id="sql-comparison-panel"
+            aria-label={t.comparisonTitle}
+            onClick={(event) => event.stopPropagation()}
+            data-closing={!isOpen}
+            className={`smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl sm:w-[92vw] sm:max-w-[1100px] ${motionStyles.drawer}`}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <h2 className="text-sm font-semibold text-foreground">{t.comparisonTitle}</h2>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={() => onToggle(false)}
+                aria-expanded="true"
+                aria-controls="sql-comparison-panel"
+                title={t.comparisonClosePanel}
+                className="flex h-8 w-8 items-center justify-center rounded border border-border bg-transparent text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronRight size={16} aria-hidden="true" />
+                <span className="sr-only">{t.comparisonClosePanel}</span>
+              </button>
+            </div>
+            <div
+              role="tablist"
+              aria-label={t.comparisonViewTabs}
+              className="flex gap-1 border-b border-border px-4 py-2"
             >
-              {isRunning ? t.comparisonRunning : t.comparisonRun}
-            </button>
-          )}
-          {isRunning && <p role="status">{t.comparisonRunning}</p>}
-          {result && (
-            <section
-              aria-label={t.comparisonTitle}
-              className="space-y-4 border-t border-border pt-4"
+              <button
+                id="sql-comparison-tab-analysis"
+                type="button"
+                role="tab"
+                aria-selected={activeView === 'analysis'}
+                aria-controls="sql-comparison-tabpanel"
+                onClick={() => setActiveView('analysis')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  activeView === 'analysis'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                {t.comparisonAnalysisTab}
+              </button>
+              <button
+                id="sql-comparison-tab-diff"
+                type="button"
+                role="tab"
+                aria-selected={activeView === 'diff'}
+                aria-controls="sql-comparison-tabpanel"
+                onClick={() => setActiveView('diff')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  activeView === 'diff'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                {t.comparisonDiffTab}
+              </button>
+            </div>
+            <div
+              ref={scrollContainerRef}
+              id="sql-comparison-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`sql-comparison-tab-${activeView}`}
+              tabIndex={0}
+              className="min-h-0 min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4 scrollbar-thin"
             >
-              {(isStale || result.status === 'stale') && (
-                <p role="status" className="border-l-2 border-warning pl-3 text-sm font-medium">
-                  {t.comparisonStale}
-                </p>
-              )}
-              {result.status === 'no_changes' && (
-                <div
-                  role="status"
-                  className="rounded-lg border border-border bg-muted/50 p-3 text-sm"
+              {onRunComparison && (
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  onClick={onRunComparison}
+                  className="min-h-10 rounded-md border border-border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <p className="font-medium text-foreground">{t.comparisonNoChanges}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t.comparisonNoChangesDetail}
-                  </p>
-                </div>
+                  {isRunning ? t.comparisonRunning : t.comparisonRun}
+                </button>
               )}
-              {result.status === 'partial' && (
-                <p role="status" className="text-sm font-medium">
-                  {t.comparisonPartial}
-                </p>
+              {isRunning && <p role="status">{t.comparisonRunning}</p>}
+              {!result && !isRunning && (
+                <p className="text-sm text-muted-foreground">{t.comparisonEmpty}</p>
               )}
-              {result.status === 'failed' && (
-                <p role="status" className="text-sm font-medium">
-                  {t.comparisonFailed}
-                </p>
-              )}
-              {result.changes.some((change) => change.kind === 'formatting-only') && (
-                <p role="status" className="text-sm">
-                  {t.comparisonFormattingOnly}
-                </p>
-              )}
-              <section
-                aria-label={t.comparisonSummary}
-                className="space-y-2 rounded-lg border border-border bg-muted/30 p-4"
-              >
-                <h3 className="text-sm font-semibold">{t.comparisonSummary}</h3>
-                <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonTextDifferences}</dt>
-                    <dd>
-                      {result.status === 'no_changes'
-                        ? t.comparisonNoTextDifferences
-                        : t.comparisonTextDifferencesDetected}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonStructuralFindings}</dt>
-                    <dd>{result.findings.length || t.comparisonNone}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonAnalysisLimitations}</dt>
-                    <dd>{result.limitations.length || t.comparisonNone}</dd>
-                  </div>
-                </dl>
-              </section>
-              <p className="text-xs text-muted-foreground">{t.comparisonAnalysisOnly}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs font-medium text-foreground">
-                <p>{t.comparisonBeforeLabel}</p>
-                <p>{t.comparisonAfterLabel}</p>
-              </div>
-              <div className="h-[min(68vh,760px)] min-h-[320px] overflow-hidden rounded border border-border">
-                <DiffEditor
-                  key={result.snapshot.runId}
-                  height="min(68vh, 760px)"
-                  language="sql"
-                  original={result.snapshot.beforeSql}
-                  modified={result.snapshot.afterSql}
-                  options={{
-                    readOnly: true,
-                    originalEditable: false,
-                    renderSideBySide: isWideViewport,
-                    renderIndicators: true,
-                    renderOverviewRuler: true,
-                    minimap: { enabled: false },
-                    wordWrap: 'on',
-                  }}
-                  theme={monacoTheme}
-                />
-              </div>
-              {result.changes.length > 0 && (
-                <section aria-label={t.comparisonChanges} className="space-y-2">
-                  <h3 className="text-sm font-semibold">{t.comparisonChanges}</h3>
-                  <ul className="space-y-2">
-                    {result.changes.map((change) => (
-                      <li key={change.id} className="border-l-2 border-border pl-3 text-sm">
-                        <p className="font-medium">{change.summary}</p>
-                        {change.support !== 'supported' && (
-                          <p className="text-xs text-muted-foreground">{t.comparisonPartial}</p>
-                        )}
-                        {[...change.beforeEvidence, ...change.afterEvidence].map(
-                          (evidence, index) =>
-                            renderEvidence(evidence, `${change.id}-evidence-${index}`)
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              {result.findings.length > 0 && (
-                <section aria-label={t.comparisonFindings} className="space-y-2">
-                  <h3 className="text-sm font-semibold">{t.comparisonFindings}</h3>
-                  {result.findings.map((finding) => (
-                    <article
-                      key={finding.id}
-                      className="space-y-1 border-l-2 border-warning pl-3 text-sm"
+              {result && (
+                <section
+                  aria-label={t.comparisonTitle}
+                  className="space-y-4 border-t border-border pt-4"
+                >
+                  {(isStale || result.status === 'stale') && (
+                    <p role="status" className="border-l-2 border-warning pl-3 text-sm font-medium">
+                      {t.comparisonStale}
+                    </p>
+                  )}
+                  {result.status === 'no_changes' && (
+                    <div
+                      role="status"
+                      className="rounded-lg border border-border bg-muted/50 p-3 text-sm"
                     >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-medium">{finding.title}</h4>
-                        <span className="text-xs text-muted-foreground">
-                          {t.comparisonSeverity}: {severityLabels[finding.severity]}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {finding.origin === 'deterministic'
-                            ? t.comparisonDeterministicOrigin
-                            : t.comparisonAiOrigin}
-                        </span>
+                      <p className="font-medium text-foreground">{t.comparisonNoChanges}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t.comparisonNoChangesDetail}
+                      </p>
+                    </div>
+                  )}
+                  {result.status === 'partial' && (
+                    <p role="status" className="text-sm font-medium">
+                      {t.comparisonPartial}
+                    </p>
+                  )}
+                  {result.status === 'failed' && (
+                    <p role="status" className="text-sm font-medium">
+                      {t.comparisonFailed}
+                    </p>
+                  )}
+                  {result.changes.some((change) => change.kind === 'formatting-only') && (
+                    <p role="status" className="text-sm">
+                      {t.comparisonFormattingOnly}
+                    </p>
+                  )}
+                  <section
+                    aria-label={t.comparisonSummary}
+                    className="space-y-2 border-y border-border py-3"
+                  >
+                    <h3 className="text-sm font-semibold">{t.comparisonSummary}</h3>
+                    <dl className="grid grid-cols-1 text-sm sm:grid-cols-3">
+                      <div className="py-2 sm:py-1 sm:pr-3">
+                        <dt className="text-muted-foreground">{t.comparisonTextDifferences}</dt>
+                        <dd>
+                          {result.status === 'no_changes'
+                            ? t.comparisonNoTextDifferences
+                            : t.comparisonTextDifferencesDetected}
+                        </dd>
                       </div>
-                      <p>{finding.description}</p>
-                      {finding.potentialImpact && (
-                        <p className="text-muted-foreground">
-                          {t.comparisonPotentialImpact}: {finding.potentialImpact}
-                        </p>
-                      )}
-                      {finding.recommendation && (
-                        <p className="text-muted-foreground">
-                          {t.comparisonRecommendation}: {finding.recommendation}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {t.comparisonVerification}:{' '}
-                        {valueLabel(
-                          {
-                            not_verified: t.comparisonNotVerified,
-                            recommended: t.comparisonRecommended,
-                            verified_by_static_rule: t.comparisonVerifiedByStaticRule,
-                          },
-                          finding.verificationStatus
-                        )}
-                      </p>
-                      {finding.evidence.map((evidence, index) =>
-                        renderEvidence(evidence, `${finding.id}-evidence-${index}`)
-                      )}
-                    </article>
-                  ))}
-                </section>
-              )}
-              <section aria-label={t.comparisonAssessment} className="space-y-2">
-                <h3 className="text-sm font-semibold">{t.comparisonAssessment}</h3>
-                <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonEquivalence}</dt>
-                    <dd>{valueLabel(equivalenceLabels, result.assessment.equivalence)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonExecutionSafety}</dt>
-                    <dd>{valueLabel(safetyLabels, result.assessment.executionSafety)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonPerformance}</dt>
-                    <dd>{valueLabel(performanceLabels, result.assessment.performance)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonVerification}</dt>
-                    <dd>
-                      {result.findings.some(
-                        (finding) => finding.verificationStatus === 'verified_by_static_rule'
-                      )
-                        ? t.comparisonVerifiedByStaticRule
-                        : result.findings.some(
-                              (finding) => finding.verificationStatus === 'recommended'
-                            )
-                          ? t.comparisonRecommended
-                          : t.comparisonNotVerified}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonStaticAnalysis}</dt>
-                    <dd>{valueLabel(staticLabels, result.assessment.staticAnalysis)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonResultComparison}</dt>
-                    <dd>{t.comparisonResultsNotPerformed}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">{t.comparisonExecutionPlan}</dt>
-                    <dd>{t.comparisonPlanNotAvailable}</dd>
-                  </div>
-                </dl>
-              </section>
-              {result.limitations.map((limitation, index) => (
-                <p key={`limitation-${index}`} className="text-sm text-muted-foreground">
-                  {limitationText(limitation)}
-                </p>
-              ))}
-              <section
-                ref={aiSectionRef}
-                aria-label={t.comparisonAiTitle}
-                className="space-y-2 border-t border-border pt-4"
-              >
-                <h3 className="text-base font-semibold text-primary">{t.comparisonAiTitle}</h3>
-                {isStale || result.status === 'stale' ? (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {t.comparisonAiStale}
-                  </p>
-                ) : result.status === 'no_changes' ? (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {t.comparisonAiNotNeeded}
-                  </p>
-                ) : result.ai.status === 'skipped' ? (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {t.comparisonAiNotRequested}
-                  </p>
-                ) : result.ai.status === 'pending' ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <p role="status">{t.comparisonAiLoading}</p>
-                      {onCancelAi && (
-                        <button
-                          type="button"
-                          onClick={onCancelAi}
-                          className="rounded border border-border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          {t.comparisonCancelAi}
-                        </button>
-                      )}
-                    </div>
-                    <div aria-live="polite" className="space-y-3 text-sm">
-                      <AiCoreFields fields={result.ai.streaming ?? {}} t={t} />
-                    </div>
-                  </div>
-                ) : result.ai.assessment ? (
-                  <div className="space-y-3 text-sm">
-                    {result.ai.status === 'partial' && (
-                      <p role="status" className="text-muted-foreground">
-                        {t.comparisonAiPartial}
-                      </p>
-                    )}
-                    {result.ai.status === 'completed' && (
-                      <p role="status" className="text-muted-foreground">
-                        {t.comparisonAiCompleted}
-                      </p>
-                    )}
-                    <div className={aiFieldClass}>
-                      <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
-                      <p
-                        className={
-                          result.ai.assessment.verdict === 'good'
-                            ? 'font-semibold text-success'
-                            : 'font-semibold text-destructive'
-                        }
+                      <div className="border-t border-border py-2 sm:border-t-0 sm:border-l sm:px-3 sm:py-1">
+                        <dt className="text-muted-foreground">{t.comparisonStructuralFindings}</dt>
+                        <dd>{result.findings.length || t.comparisonNone}</dd>
+                      </div>
+                      <div className="border-t border-border py-2 sm:border-t-0 sm:border-l sm:px-3 sm:py-1">
+                        <dt className="text-muted-foreground">{t.comparisonAnalysisLimitations}</dt>
+                        <dd>{result.limitations.length || t.comparisonNone}</dd>
+                      </div>
+                    </dl>
+                  </section>
+                  {activeView === 'diff' && (
+                    <>
+                      <p className="text-xs text-muted-foreground">{t.comparisonAnalysisOnly}</p>
+                      <div
+                        className={`grid gap-2 text-xs font-medium text-foreground ${
+                          isWideViewport ? 'grid-cols-2' : 'grid-cols-1'
+                        }`}
                       >
-                        {result.ai.assessment.verdict === 'good'
-                          ? t.comparisonAiVerdictGood
-                          : t.comparisonAiVerdictNotGood}
-                      </p>
-                    </div>
-                    <div className={aiFieldClass}>
-                      <h4 className={aiHeadingClass}>{t.comparisonAiChangeExplanation}</h4>
-                      <p className="whitespace-pre-wrap">
-                        {result.ai.assessment.changeExplanation}
-                      </p>
-                    </div>
-                    <div className={aiFieldClass}>
-                      <h4 className={aiHeadingClass}>{t.comparisonAiImpactAfterChange}</h4>
-                      <p className="whitespace-pre-wrap">
-                        {result.ai.assessment.impactAfterChange}
-                      </p>
-                    </div>
-                    <div className={aiFieldClass}>
-                      <h4 className={aiHeadingClass}>{t.comparisonAiExtraRisk}</h4>
-                      <p className="whitespace-pre-wrap">
-                        {result.ai.assessment.extraRiskToVerify}
-                      </p>
-                    </div>
-                    <div className={aiFieldClass}>
-                      <h4 className={aiHeadingClass}>{t.comparisonAiExtraRecommendation}</h4>
-                      <p className="whitespace-pre-wrap">
-                        {result.ai.assessment.extraRecommendation}
-                      </p>
-                    </div>
-                    {(
-                      [
-                        ['comparisonAiEvidence', result.ai.assessment.evidence],
-                        ['comparisonAiAssumptions', result.ai.assessment.assumptions],
-                        ['comparisonAiVerification', result.ai.assessment.verificationSteps],
-                        ['comparisonAiLimitations', result.ai.assessment.limitations],
-                      ] as const
-                    ).map(([label, items]) =>
-                      items.length ? (
-                        <div key={label} className={aiFieldClass}>
-                          <h4 className={aiHeadingClass}>{t[label]}</h4>
-                          <ul className="list-disc space-y-1 pl-5">
-                            {items.map((item, index) => (
-                              <li key={`${label}-${index}`}>{item}</li>
+                        <p>{t.comparisonBeforeLabel}</p>
+                        <p>{t.comparisonAfterLabel}</p>
+                      </div>
+                      <div className="h-[min(68vh,760px)] min-h-[320px] min-w-0 overflow-hidden rounded border border-border">
+                        <DiffEditor
+                          key={result.snapshot.runId}
+                          height="min(68vh, 760px)"
+                          language="sql"
+                          original={result.snapshot.beforeSql}
+                          modified={result.snapshot.afterSql}
+                          onMount={prepareMonacoTypography}
+                          options={{
+                            ...monacoTypography,
+                            readOnly: true,
+                            originalEditable: false,
+                            renderSideBySide: isWideViewport,
+                            renderIndicators: true,
+                            renderOverviewRuler: true,
+                            minimap: { enabled: false },
+                            wordWrap: 'on',
+                          }}
+                          theme={monacoTheme}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {activeView === 'analysis' && (
+                    <>
+                      <p className="text-xs text-muted-foreground">{t.comparisonAnalysisOnly}</p>
+                      {result.changes.length > 0 && (
+                        <section aria-label={t.comparisonChanges} className="space-y-2">
+                          <h3 className="text-sm font-semibold">{t.comparisonChanges}</h3>
+                          <ul className="space-y-2">
+                            {result.changes.map((change) => (
+                              <li
+                                key={change.id}
+                                className="min-w-0 border-l-2 border-border pl-3 text-sm"
+                              >
+                                <p className="break-words font-medium">{change.summary}</p>
+                                {change.support !== 'supported' && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {t.comparisonPartial}
+                                  </p>
+                                )}
+                                {[...change.beforeEvidence, ...change.afterEvidence].map(
+                                  (evidence, index) =>
+                                    renderEvidence(evidence, `${change.id}-evidence-${index}`)
+                                )}
+                              </li>
                             ))}
                           </ul>
-                        </div>
-                      ) : null
-                    )}
-                  </div>
-                ) : (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {result.ai.status === 'unavailable'
-                      ? t.comparisonAiUnavailable
-                      : result.ai.status === 'malformed'
-                        ? t.comparisonAiMalformed
-                        : t.comparisonAiFailed}
-                  </p>
-                )}
-                {result.status !== 'no_changes' &&
-                  onRequestAi &&
-                  !isStale &&
-                  result.status !== 'stale' &&
-                  ['skipped', 'unavailable', 'malformed', 'failed'].includes(result.ai.status) && (
-                    <button
-                      type="button"
-                      onClick={onRequestAi}
-                      className="rounded border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {result.ai.status === 'skipped' ? t.comparisonRequestAi : t.comparisonRetryAi}
-                    </button>
+                        </section>
+                      )}
+                      {result.findings.length > 0 && (
+                        <section aria-label={t.comparisonFindings} className="space-y-2">
+                          <h3 className="text-sm font-semibold">{t.comparisonFindings}</h3>
+                          {result.findings.map((finding) => (
+                            <article
+                              key={finding.id}
+                              className="min-w-0 space-y-1 border-l-2 border-warning pl-3 text-sm"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-medium">{finding.title}</h4>
+                                <span className="text-xs text-muted-foreground">
+                                  {t.comparisonSeverity}: {severityLabels[finding.severity]}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {finding.origin === 'deterministic'
+                                    ? t.comparisonDeterministicOrigin
+                                    : t.comparisonAiOrigin}
+                                </span>
+                              </div>
+                              <p className="break-words">{finding.description}</p>
+                              {finding.potentialImpact && (
+                                <p className="break-words text-muted-foreground">
+                                  {t.comparisonPotentialImpact}: {finding.potentialImpact}
+                                </p>
+                              )}
+                              {finding.recommendation && (
+                                <p className="break-words text-muted-foreground">
+                                  {t.comparisonRecommendation}: {finding.recommendation}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                {t.comparisonVerification}:{' '}
+                                {valueLabel(
+                                  {
+                                    not_verified: t.comparisonNotVerified,
+                                    recommended: t.comparisonRecommended,
+                                    verified_by_static_rule: t.comparisonVerifiedByStaticRule,
+                                  },
+                                  finding.verificationStatus
+                                )}
+                              </p>
+                              {finding.evidence.map((evidence, index) =>
+                                renderEvidence(evidence, `${finding.id}-evidence-${index}`)
+                              )}
+                            </article>
+                          ))}
+                        </section>
+                      )}
+                      <section aria-label={t.comparisonAssessment} className="space-y-2">
+                        <h3 className="text-sm font-semibold">{t.comparisonAssessment}</h3>
+                        <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonEquivalence}</dt>
+                            <dd>{valueLabel(equivalenceLabels, result.assessment.equivalence)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonExecutionSafety}</dt>
+                            <dd>{valueLabel(safetyLabels, result.assessment.executionSafety)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonPerformance}</dt>
+                            <dd>{valueLabel(performanceLabels, result.assessment.performance)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonVerification}</dt>
+                            <dd>
+                              {result.findings.some(
+                                (finding) =>
+                                  finding.verificationStatus === 'verified_by_static_rule'
+                              )
+                                ? t.comparisonVerifiedByStaticRule
+                                : result.findings.some(
+                                      (finding) => finding.verificationStatus === 'recommended'
+                                    )
+                                  ? t.comparisonRecommended
+                                  : t.comparisonNotVerified}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonStaticAnalysis}</dt>
+                            <dd>{valueLabel(staticLabels, result.assessment.staticAnalysis)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">
+                              {t.comparisonResultComparison}
+                            </dt>
+                            <dd>{t.comparisonResultsNotPerformed}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">{t.comparisonExecutionPlan}</dt>
+                            <dd>{t.comparisonPlanNotAvailable}</dd>
+                          </div>
+                        </dl>
+                      </section>
+                      {result.limitations.map((limitation, index) => (
+                        <p key={`limitation-${index}`} className="text-sm text-muted-foreground">
+                          {limitationText(limitation)}
+                        </p>
+                      ))}
+                      <section
+                        ref={aiSectionRef}
+                        aria-label={t.comparisonAiTitle}
+                        className="space-y-2 border-t border-border pt-4"
+                      >
+                        <h3 className="text-base font-semibold text-primary">
+                          {t.comparisonAiTitle}
+                        </h3>
+                        {isStale || result.status === 'stale' ? (
+                          <p role="status" className="text-sm text-muted-foreground">
+                            {t.comparisonAiStale}
+                          </p>
+                        ) : result.status === 'no_changes' ? (
+                          <p role="status" className="text-sm text-muted-foreground">
+                            {t.comparisonAiNotNeeded}
+                          </p>
+                        ) : result.ai.status === 'skipped' ? (
+                          <p role="status" className="text-sm text-muted-foreground">
+                            {t.comparisonAiNotRequested}
+                          </p>
+                        ) : result.ai.status === 'pending' ? (
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p role="status">
+                                {result.ai.retrying ? t.comparisonAiRecovering : t.comparisonAiLoading}
+                              </p>
+                              {onCancelAi && (
+                                <button
+                                  type="button"
+                                  onClick={onCancelAi}
+                                  className="rounded border border-border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  {t.comparisonCancelAi}
+                                </button>
+                              )}
+                            </div>
+                            <div aria-live="polite" className="space-y-3 text-sm">
+                              <AiCoreFields fields={result.ai.streaming ?? {}} t={t} />
+                            </div>
+                            {result.ai.explanation && (
+                              <details className="min-w-0 text-sm">
+                                <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                  {t.comparisonAiRawOutput}
+                                </summary>
+                                <pre className="mt-2 whitespace-pre-wrap break-words">
+                                  {result.ai.explanation}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        ) : result.ai.assessment ? (
+                          <div className="space-y-3 text-sm">
+                            {result.ai.status === 'partial' && (
+                              <p role="status" className="text-muted-foreground">
+                                {t.comparisonAiPartial}
+                              </p>
+                            )}
+                            {result.ai.status === 'completed' && (
+                              <p role="status" className="text-muted-foreground">
+                                {t.comparisonAiCompleted}
+                              </p>
+                            )}
+                            <div className={aiFieldClass}>
+                              <h4 className={aiHeadingClass}>{t.comparisonAiVerdict}</h4>
+                              <p
+                                className={`min-w-0 whitespace-pre-wrap break-words ${
+                                  result.ai.assessment.verdict === 'good'
+                                    ? 'font-semibold text-success'
+                                    : 'font-semibold text-destructive'
+                                }`}
+                              >
+                                {result.ai.assessment.verdict === 'good'
+                                  ? t.comparisonAiVerdictGood
+                                  : t.comparisonAiVerdictNotGood}
+                              </p>
+                            </div>
+                            <div className={aiFieldClass}>
+                              <h4 className={aiHeadingClass}>{t.comparisonAiChangeExplanation}</h4>
+                              <p className="min-w-0 whitespace-pre-wrap break-words">
+                                {result.ai.assessment.changeExplanation}
+                              </p>
+                            </div>
+                            <div className={aiFieldClass}>
+                              <h4 className={aiHeadingClass}>{t.comparisonAiImpactAfterChange}</h4>
+                              <p className="min-w-0 whitespace-pre-wrap break-words">
+                                {result.ai.assessment.impactAfterChange}
+                              </p>
+                            </div>
+                            <div className={aiFieldClass}>
+                              <h4 className={aiHeadingClass}>{t.comparisonAiExtraRisk}</h4>
+                              <p className="min-w-0 whitespace-pre-wrap break-words">
+                                {result.ai.assessment.extraRiskToVerify}
+                              </p>
+                            </div>
+                            <div className={aiFieldClass}>
+                              <h4 className={aiHeadingClass}>
+                                {t.comparisonAiExtraRecommendation}
+                              </h4>
+                              <p className="min-w-0 whitespace-pre-wrap break-words">
+                                {result.ai.assessment.extraRecommendation}
+                              </p>
+                            </div>
+                            {(
+                              [
+                                ['comparisonAiEvidence', result.ai.assessment.evidence],
+                                ['comparisonAiAssumptions', result.ai.assessment.assumptions],
+                                [
+                                  'comparisonAiVerification',
+                                  result.ai.assessment.verificationSteps,
+                                ],
+                                ['comparisonAiLimitations', result.ai.assessment.limitations],
+                              ] as const
+                            ).map(([label, items]) =>
+                              items.length ? (
+                                <div key={label} className={aiFieldClass}>
+                                  <h4 className={aiHeadingClass}>{t[label]}</h4>
+                                  <ul className="list-disc space-y-1 pl-5">
+                                    {items.map((item, index) => (
+                                      <li key={`${label}-${index}`} className="break-words">
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null
+                            )}
+                          </div>
+                        ) : (
+                          <div className="min-w-0 space-y-3">
+                            <p role="status" className="text-sm text-muted-foreground">
+                              {result.ai.status === 'unavailable'
+                                ? t.comparisonAiUnavailable
+                                : result.ai.status === 'malformed'
+                                  ? t.comparisonAiMalformed
+                                  : t.comparisonAiFailed}
+                            </p>
+                            {result.ai.explanation && (
+                              <section
+                                aria-label={t.comparisonAiUnverifiedOutput}
+                                className="min-w-0 space-y-2"
+                              >
+                                <h4 className="text-sm font-medium">
+                                  {t.comparisonAiUnverifiedOutput}
+                                </h4>
+                                {result.ai.streaming &&
+                                Object.keys(result.ai.streaming).length > 0 ? (
+                                  <>
+                                    <AiCoreFields
+                                      fields={result.ai.streaming}
+                                      t={t}
+                                      onlyAvailable
+                                    />
+                                    <details className="min-w-0 text-sm">
+                                      <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                        {t.comparisonAiRawOutput}
+                                      </summary>
+                                      <pre className="mt-2 whitespace-pre-wrap break-words">
+                                        {result.ai.explanation}
+                                      </pre>
+                                    </details>
+                                  </>
+                                ) : (
+                                  <p className="whitespace-pre-wrap break-words text-sm">
+                                    {result.ai.explanation}
+                                  </p>
+                                )}
+                              </section>
+                            )}
+                          </div>
+                        )}
+                        {result.ai.previousExplanation && !result.ai.assessment && (
+                          <details className="min-w-0 text-sm">
+                            <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                              {t.comparisonAiPreviousOutput}
+                            </summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-words">
+                              {result.ai.previousExplanation}
+                            </pre>
+                          </details>
+                        )}
+                        {result.status !== 'no_changes' &&
+                          onRequestAi &&
+                          !isStale &&
+                          result.status !== 'stale' &&
+                          ['skipped', 'unavailable', 'malformed', 'failed'].includes(
+                            result.ai.status
+                          ) && (
+                            <button
+                              type="button"
+                              onClick={onRequestAi}
+                              className="rounded border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {result.ai.status === 'skipped'
+                                ? t.comparisonRequestAi
+                                : t.comparisonRetryAi}
+                            </button>
+                          )}
+                      </section>
+                    </>
                   )}
-              </section>
-            </section>
-          )}
+                </section>
+              )}
+            </div>
+          </aside>
         </div>
-      </aside>
-    </div>
+      )}
+    </>
   );
 }

@@ -39,6 +39,8 @@ import {
   type FormatExplanation,
 } from '@/lib/ai/formatErrorAi';
 import SidePanelTab from './SidePanelTab';
+import { usePanelPresence } from './usePanelPresence';
+import motionStyles from './SidePanelMotion.module.css';
 
 export interface FormatErrorPanelProps {
   /** Latest failed-format diagnostic. Retained by the parent while the panel is closed. */
@@ -197,6 +199,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
   // --- Explain state (US2) -------------------------------------------------------------------
   const [explanation, setExplanation] = useState<FormatExplanation | null>(null);
+  const isPresent = usePanelPresence(isOpen);
   const [explainPhase, setExplainPhase] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [explainFailure, setExplainFailure] = useState<FormatAiFailureKind>('error');
 
@@ -338,8 +341,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
 
   // Collapsed: a slim launcher in the right-edge rail (see SidePanelTab). It takes the bottom
   // slot so the rail reads as one evenly spaced column and no tab covers another's hit area.
-  if (!isOpen) {
-    return (
+  const launcher = !isOpen ? (
       <SidePanelTab
         rank={2}
         tone="danger"
@@ -349,12 +351,17 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         ariaExpanded={false}
         onClick={() => onToggle(true)}
       />
-    );
-  }
+    ) : null;
 
   return (
+    <>
+    {launcher}
+    {isPresent && (
     <div
-      className="fixed inset-0 z-[60] bg-background/60 motion-safe:animate-fade-in"
+      className={`fixed inset-0 z-[60] backdrop-blur-[2px] ${motionStyles.backdrop} ${!isOpen ? 'pointer-events-none' : ''}`}
+      data-closing={!isOpen}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       onClick={() => onToggle(false)}
       role="presentation"
     >
@@ -362,7 +369,8 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         id="format-error-report"
         aria-label={t.formatErrorPanelTitle}
         onClick={(event) => event.stopPropagation()}
-        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl motion-safe:animate-slide-in-right sm:max-w-xl"
+        data-closing={!isOpen}
+        className={`smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl sm:max-w-xl ${motionStyles.drawer}`}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-border bg-danger/10 px-4 py-3">
@@ -444,7 +452,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                   <h4 className="mb-1 text-xs font-medium text-muted-foreground normal-case tracking-normal">
                     {t.formatErrorPanelSnippetLabel}
                   </h4>
-                  <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-2 font-mono text-xs text-foreground">
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded border border-border bg-muted/50 p-2 font-mono text-code text-foreground">
                     {error.snippet}
                   </pre>
                 </div>
@@ -535,7 +543,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                   <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
                     {t.formatErrorPanelOriginalSqlLabel}
                   </h4>
-                  <pre className="max-h-72 overflow-auto rounded border border-border bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
+                  <pre className="max-h-72 overflow-auto rounded border border-border bg-background/80 p-3 font-mono text-code text-foreground scrollbar-thin scrollbar-thumb-rounded">
                     <code>{renderHighlightedSql(replacementRegion.snippet)}</code>
                   </pre>
                 </div>
@@ -574,7 +582,7 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
                       </p>
                     </div>
                   )}
-                  <pre className="max-h-72 overflow-auto rounded border border-success/30 bg-background/80 p-3 font-mono text-xs leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-rounded">
+                  <pre className="max-h-72 overflow-auto rounded border border-success/30 bg-background/80 p-3 font-mono text-code text-foreground scrollbar-thin scrollbar-thumb-rounded">
                     <code>{renderHighlightedSql(explanation.replacementSql)}</code>
                   </pre>
                 </>
@@ -659,6 +667,8 @@ export const FormatErrorPanel: React.FC<FormatErrorPanelProps> = ({
         </div>
       </aside>
     </div>
+    )}
+    </>
   );
 };
 

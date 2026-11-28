@@ -122,6 +122,47 @@ describe('SQL structural comparison', () => {
     expect(result.findings).toEqual([]);
   });
 
+  it.each([
+    ["SELECT id FROM orders WHERE status = 'A B';", "SELECT id FROM orders WHERE status = 'a b';", 'postgresql'],
+    ["SELECT id FROM orders WHERE status = 'a + b';", "SELECT id FROM orders WHERE status = 'a+b';", 'postgresql'],
+    ['SELECT "CaseName" FROM orders;', 'SELECT "casename" FROM orders;', 'postgresql'],
+    ["SELECT 'first'\n'second';", "SELECT 'first' 'second';", 'postgresql'],
+    ['SELECT COUNT(*) FROM orders;', 'SELECT COUNT (*) FROM orders;', 'mysql'],
+    ['SELECT /*+ INDEX(o idx_a) */ id FROM orders o;', 'SELECT /*+ INDEX(o idx_b) */ id FROM orders o;', 'oracle'],
+  ] as const)('does not classify meaningful text changes as formatting only', async (
+    before: string, after: string, dialect: ComparisonSnapshot['dialect']
+  ) => {
+    const result = await compareSqlSnapshots(snapshot(before, after, dialect));
+    expect(result.changes.some((change) => change.kind !== 'formatting-only')).toBe(true);
+  });
+
+  it('does not mistake keywords inside dollar-quoted values for top-level clauses', async () => {
+    const result = await compareSqlSnapshots(snapshot(
+      'SELECT $$FROM x WHERE a$$ AS text FROM orders WHERE active = 1;',
+      'SELECT $$FROM x WHERE b$$ AS text FROM orders WHERE active = 1;'
+    ));
+    expect(result.changes.some((change) => change.kind === 'projection')).toBe(true);
+    expect(result.changes.some((change) => change.kind === 'filter')).toBe(false);
+  });
+
+  it('reports an unclassified text change as partial rather than complete', async () => {
+    const result = await compareSqlSnapshots(snapshot(
+      '-- original\nSELECT id FROM orders;',
+      '-- changed\nSELECT id FROM orders;'
+    ));
+    expect(result.changes[0]?.kind).toBe('unknown');
+    expect(result.status).toBe('partial');
+  });
+
+  it('marks repeated top-level clauses as partial instead of claiming complete coverage', async () => {
+    const result = await compareSqlSnapshots(snapshot(
+      'SELECT id FROM a UNION SELECT id FROM b',
+      'SELECT id FROM c UNION SELECT id FROM b'
+    ));
+    expect(result.status).toBe('partial');
+    expect(result.limitations.join(' ')).toMatch(/Repeated top-level clauses/);
+  });
+
   it('retains available facts and reports partial results for invalid SQL', async () => {
     const result = await compareSqlSnapshots(
       snapshot('SELECT id FROM orders;', 'SELECT FROM WHERE (', 'postgresql')
@@ -130,6 +171,7 @@ describe('SQL structural comparison', () => {
     expect(result.status).toBe('partial');
     expect(result.assessment.staticAnalysis).toBe('partial');
     expect(result.limitations.length).toBeGreaterThan(0);
+    expect(result.limitations.some((limitation) => limitation.startsWith('After SQL:'))).toBe(true);
     expect(result.assessment.equivalence).toBe('inconclusive');
   });
 

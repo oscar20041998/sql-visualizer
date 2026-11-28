@@ -1,0 +1,66 @@
+/* Hallmark · component: side panels · theme: existing brand · v2.0.0 */
+/* Hallmark · critique: short, restrained motion keeps attention on the active panel */
+/* Hallmark · waive 26b · not a form control, no aria-disabled anywhere · motion-only stylesheet; controls own interaction states */
+.backdrop {
+  background-color: color-mix(in srgb, var(--background) 68%, transparent);
+  animation: backdrop-enter 180ms ease-out both;
+}
+
+.drawer {
+  animation: drawer-enter 180ms ease-out both;
+}
+
+.backdrop[data-closing='true'] {
+  animation: backdrop-exit 180ms ease-in both;
+}
+
+.drawer[data-closing='true'] {
+  animation: drawer-exit 180ms ease-in both;
+}
+
+@keyframes backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes backdrop-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes drawer-enter {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-exit {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .drawer {
+    animation: none !important;
+  }
+}

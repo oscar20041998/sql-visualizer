@@ -38,6 +38,23 @@ const ERROR: FormatError = {
 };
 
 describe('SidePanelRail', () => {
+  it('uses the workbench dock presentation without changing launcher activation', () => {
+    const onClick = vi.fn();
+    render(
+      <SidePanelRail presentation="workbench">
+        <SidePanelTab rank={0} icon={<span />} label="Optimize" onClick={onClick} />
+      </SidePanelRail>
+    );
+
+    const rail = railElement();
+    const launcher = screen.getByRole('button', { name: 'Optimize' });
+
+    expect(rail).toHaveAttribute('data-presentation', 'workbench');
+    expect(rail.className).toContain('rounded-xl');
+    fireEvent.click(launcher);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it('packs every launcher into one flex column, so none can overlap', () => {
     render(
       <SidePanelRail>

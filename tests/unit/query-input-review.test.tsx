@@ -28,8 +28,20 @@ vi.mock('@/components/ui/QueryHistoryPanel', () => ({ default: () => null }));
 vi.mock('@/app/smart-sql-editor/components/SmartSQLEditor', () => ({ default: () => null }));
 vi.mock('@/app/smart-sql-editor/components/AiSqlExplainer', () => ({ default: () => null }));
 vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, options }: { value?: string; options?: { readOnly?: boolean } }) => (
-    <pre data-testid="sql-preview" data-readonly={String(options?.readOnly === true)}>
+  default: ({
+    value,
+    options,
+  }: {
+    value?: string;
+    options?: { readOnly?: boolean; fontFamily?: string; fontSize?: number; lineHeight?: number };
+  }) => (
+    <pre
+      data-testid="sql-preview"
+      data-readonly={String(options?.readOnly === true)}
+      data-font={options?.fontFamily}
+      data-font-size={options?.fontSize}
+      data-line-height={options?.lineHeight}
+    >
       {value ?? ''}
     </pre>
   ),
@@ -105,6 +117,9 @@ describe('Query Input resolved SQL review (specs/008-query-input-ux T024 / US3)'
     // The preview mirrors the current SQL exactly and cannot be edited in place.
     await waitFor(() => expect(screen.getByTestId('sql-preview').textContent).toBe(CLEAN_SQL));
     expect(screen.getByTestId('sql-preview')).toHaveAttribute('data-readonly', 'true');
+    expect(screen.getByTestId('sql-preview')).toHaveAttribute('data-font', 'var(--font-mono)');
+    expect(screen.getByTestId('sql-preview')).toHaveAttribute('data-font-size', '14');
+    expect(screen.getByTestId('sql-preview')).toHaveAttribute('data-line-height', '22');
     expect(screen.getByRole('heading', { name: t.sqlReview })).toBeInTheDocument();
   });
 

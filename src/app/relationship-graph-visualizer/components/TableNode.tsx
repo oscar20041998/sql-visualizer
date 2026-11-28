@@ -64,9 +64,9 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
           <Table2 size={10} style={{ color: nodeColor, flexShrink: 0 }} />
           <span
             style={{
-              fontSize: 10,
+              fontSize: 'var(--text-metadata)',
               fontWeight: 600,
-              fontFamily: 'monospace',
+              fontFamily: 'var(--font-mono)',
               color: nodeColor,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -75,7 +75,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
           >
             {name}
           </span>
-          <span style={{ fontSize: 9, color: nodeColor }}>{sourceType}</span>
+          <span style={{ fontSize: 'var(--text-metadata)', color: nodeColor }}>{sourceType}</span>
         </div>
       </div>
     );
@@ -128,9 +128,9 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
         <Table2 size={12} style={{ color: nodeColor, flexShrink: 0 }} />
         <span
           style={{
-            fontSize: 12,
+            fontSize: 'var(--text-metadata)',
             fontWeight: 600,
-            fontFamily: 'monospace',
+            fontFamily: 'var(--font-mono)',
             color: nodeColor,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -153,8 +153,8 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
       >
         <span
           style={{
-            fontSize: 10,
-            fontFamily: 'monospace',
+            fontSize: 'var(--text-metadata)',
+            fontFamily: 'var(--font-mono)',
             padding: '2px 6px',
             borderRadius: 4,
             background: `${nodeColor}22`,
@@ -163,7 +163,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
         >
           {tableType}
         </span>
-        <span style={{ fontSize: 10, fontFamily: 'monospace', color: subText }}>
+        <span style={{ fontSize: 'var(--text-metadata)', color: subText }}>
           {totalFields} field{totalFields !== 1 ? 's' : ''}
         </span>
       </div>
@@ -171,7 +171,14 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
       {/* Columns */}
       <div style={{ padding: '8px 12px' }}>
         {alias && (
-          <p style={{ fontSize: 10, fontFamily: 'monospace', color: subText, marginBottom: 4 }}>
+          <p
+            style={{
+              fontSize: 'var(--text-metadata)',
+              fontFamily: 'var(--font-mono)',
+              color: subText,
+              marginBottom: 4,
+            }}
+          >
             AS {alias}
           </p>
         )}
@@ -193,8 +200,8 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
                 />
                 <span
                   style={{
-                    fontSize: 10,
-                    fontFamily: 'monospace',
+                    fontSize: 'var(--text-metadata)',
+                    fontFamily: 'var(--font-mono)',
                     color: bodyText,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -206,13 +213,15 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
               </div>
             ))}
             {columns.length > 4 && (
-              <p style={{ fontSize: 10, paddingLeft: 12, color: mutedText }}>
+              <p style={{ fontSize: 'var(--text-metadata)', paddingLeft: 12, color: mutedText }}>
                 +{columns.length - 4} more
               </p>
             )}
           </div>
         ) : (
-          <p style={{ fontSize: 10, fontStyle: 'italic', color: mutedText }}>No columns detected</p>
+          <p style={{ fontSize: 'var(--text-metadata)', fontStyle: 'italic', color: mutedText }}>
+            No columns detected
+          </p>
         )}
       </div>
     </div>

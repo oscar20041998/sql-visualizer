@@ -194,7 +194,7 @@ export default function SmartSQLEditorPage() {
           {/* Header */}
           <div className="px-4 pt-5 sm:px-6">
             <header className="floating-header mx-auto max-w-7xl px-4 py-3 sm:px-5">
-              <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+              <h1 className="flex items-center gap-2 text-page-title text-foreground">
                 <span className="floating-header-icon"><Code2 size={20} aria-hidden /></span>
                 {t.editorPageTitle}
               </h1>

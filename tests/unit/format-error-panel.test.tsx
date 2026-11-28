@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import FormatErrorPanel from '@/app/smart-sql-editor/components/FormatErrorPanel';
 import { getT } from '@/lib/i18n';
 import { FormatAiError, type FormatExplanation } from '@/lib/ai/formatErrorAi';
@@ -239,13 +239,15 @@ describe('FormatErrorPanel (US1)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('closes and reopens from the toggle control, keeping the error available', () => {
+  it('closes and reopens from the toggle control, keeping the error available', async () => {
     render(<Harness />);
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelClose }));
-    expect(
-      screen.queryByText('Parse error at token: ; at line 1 column 16')
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Parse error at token: ; at line 1 column 16')
+      ).not.toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole('button', { name: t.formatErrorPanelOpen }));
     expect(screen.getByText('Parse error at token: ; at line 1 column 16')).toBeInTheDocument();

@@ -75,6 +75,19 @@ module.exports = {
         display: ['var(--font-display)', 'sans-serif'],
         body: ['var(--font-body)', 'sans-serif'],
       },
+      fontSize: {
+        'page-title': [
+          'var(--text-display)',
+          { lineHeight: 'var(--leading-heading)', letterSpacing: 'var(--tracking-display)', fontWeight: '600' },
+        ],
+        'section-title': [
+          'var(--text-section)',
+          { lineHeight: 'var(--leading-heading)', letterSpacing: 'var(--tracking-display)', fontWeight: '600' },
+        ],
+        'card-title': ['var(--text-title)', { lineHeight: '1.4', fontWeight: '600' }],
+        code: ['var(--text-code)', { lineHeight: 'var(--leading-code)', letterSpacing: 'var(--tracking-code)' }],
+        metadata: ['var(--text-metadata)', { lineHeight: '1.5' }],
+      },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
         'slide-up': 'slideUp 0.25s ease-out',

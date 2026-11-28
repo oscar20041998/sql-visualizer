@@ -525,7 +525,7 @@ export default function SettingsContent() {
       {/* Header */}
       <header className="floating-header mb-4 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-3 text-2xl font-semibold text-foreground">
+          <h1 className="flex items-center gap-3 text-page-title text-foreground">
             <span className="floating-header-icon"><Settings size={20} aria-hidden /></span>
             {t.settingsTitle}
           </h1>

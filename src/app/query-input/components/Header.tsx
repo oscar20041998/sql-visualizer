@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({ t }) => {
 
   return (
     <div className="min-w-0">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+      <h1 className="flex items-center gap-2 text-page-title text-foreground">
         <span className="floating-header-icon"><Code2 size={20} aria-hidden /></span>
         {t.queryInputTitle}
       </h1>

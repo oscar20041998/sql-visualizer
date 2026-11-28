@@ -4,6 +4,7 @@ import {
   generateWithAI,
   generateWithCloudKey,
   generateWithCloudKeyStream,
+  streamWithAI,
   resolveHintedTableReferences,
 } from '@/lib/ai/aiService';
 import { DEFAULT_AI_CONFIG } from '@/lib/store';
@@ -77,6 +78,24 @@ beforeEach(() => {
   process.env.GEMINI_API_KEY = GEMINI_KEY;
   process.env.OPENAI_API_KEY = 'sk-test-openai';
   vi.unstubAllGlobals();
+});
+
+describe('OpenAI-compatible streaming', () => {
+  it('reads the final SSE data line even when it has no trailing newline', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      'data: {"choices":[{"delta":{"content":"first "}}]}\n\ndata: {"choices":[{"delta":{"content":"last"}}]}'
+    )));
+    const fragments: string[] = [];
+    const result = await streamWithAI(DEFAULT_AI_CONFIG, { prompt: 'test' }, (part) => fragments.push(part));
+    expect(result).toBe('first last');
+    expect(fragments).toEqual(['first ', 'last']);
+  });
+
+  it('surfaces invalid stream frames rather than silently dropping data', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('data: {invalid}\n\n')));
+    await expect(streamWithAI(DEFAULT_AI_CONFIG, { prompt: 'test' }, () => {}))
+      .rejects.toThrow('invalid stream frame');
+  });
 });
 
 describe('GET /api/ai/models provider authentication', () => {

@@ -12,14 +12,14 @@
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
-  --text-md: 1rem;
+  --text-md: 0.9375rem;
   --text-lg: 1.2rem;
   --text-xl: 1.44rem;
   --text-2xl: 1.728rem;
   --text-3xl: 2.074rem;
   --text-display-s: 1.44rem;
-  --text-display: 1.728rem;
-  --text-section: 1.2rem;
+  --text-display: 1.875rem;
+  --text-section: 1.375rem;
   --text-title: 1rem;
   --text-lead: 1rem;
 
@@ -58,9 +58,17 @@
   --color-accent-ink: var(--primary-foreground);
   --color-focus: var(--ring);
 
-  --font-display: var(--font-geist-sans), 'Geist', sans-serif;
-  --font-body: var(--font-geist-sans), 'Geist', sans-serif;
-  --font-outlier: var(--font-geist-mono), 'Geist Mono', monospace;
+  --font-sans: var(--font-inter), 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-outlier: var(--font-mono);
+  --text-code: 0.875rem;
+  --text-metadata: 0.75rem;
+  --leading-body: 1.55;
+  --leading-heading: 1.25;
+  --leading-code: 1.6;
+  --tracking-code: 0;
   --radius-card: calc(var(--radius) + 2px);
   --radius-pill: 999px;
   --rule-hair: 1px;

@@ -6,6 +6,7 @@ import type { editor as MonacoEditorNS } from 'monaco-editor';
 import { format } from 'sql-formatter';
 import { useAppStore } from '@/lib/store';
 import { getT } from '@/lib/i18n';
+import { monacoTypography, prepareMonacoTypography } from '@/lib/monacoTypography';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -157,7 +158,7 @@ const editorOptions: MonacoEditorNS.IStandaloneEditorConstructionOptions = {
   language: 'sql',
   minimap: { enabled: true, maxColumn: 40 },
   wordWrap: 'on',
-  fontSize: 14,
+  ...monacoTypography,
   lineNumbers: 'on',
   scrollBeyondLastLine: false,
   automaticLayout: true,
@@ -169,7 +170,7 @@ const editorOptions: MonacoEditorNS.IStandaloneEditorConstructionOptions = {
 const diffEditorOptions: MonacoEditorNS.IDiffEditorConstructionOptions = {
   minimap: { enabled: true, maxColumn: 40 },
   wordWrap: 'on',
-  fontSize: 14,
+  ...monacoTypography,
   scrollBeyondLastLine: false,
   automaticLayout: true,
   padding: { top: 16, bottom: 16 },
@@ -208,6 +209,8 @@ export const SmartSQLEditor: React.FC<{
    * panel calls it after the user explicitly confirms.
    */
   apiRef?: React.MutableRefObject<SmartSQLEditorApi | null>;
+  presentation?: 'standard' | 'workbench';
+  onOpenComparison?: () => void;
 }> = ({
   initialSql = 'SELECT * FROM table_name LIMIT 10;',
   onSqlChange,
@@ -216,7 +219,10 @@ export const SmartSQLEditor: React.FC<{
   jumpToLine,
   onJumpHandled,
   apiRef,
+  presentation = 'standard',
+  onOpenComparison,
 }) => {
+  const isWorkbench = presentation === 'workbench';
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const jumpDecorationsRef = useRef<string[]>([]);
@@ -503,6 +509,7 @@ export const SmartSQLEditor: React.FC<{
     ) => {
       editorRef.current = editor;
       monacoRef.current = monacoInstance;
+      prepareMonacoTypography(editor, monacoInstance);
       editor.setValue(state.currentSql);
       if (jumpToLine) {
         // Defer one tick so the model/layout is settled before revealing the line.
@@ -1104,14 +1111,80 @@ export const SmartSQLEditor: React.FC<{
       : t.smartEditorNoChangesSummary,
   };
 
+  const editorButtons = (
+    <>
+      <button
+        onClick={
+          isWorkbench && !state.isDiffMode && onOpenComparison
+            ? onOpenComparison
+            : handleToggleDiffMode
+        }
+        disabled={!isWorkbench && !state.hasChanges}
+        data-comparison-trigger={isWorkbench ? '' : undefined}
+        className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          state.isDiffMode
+            ? 'border-primary bg-primary/15 text-primary hover:bg-primary/20'
+            : 'border-border bg-muted text-foreground hover:bg-secondary'
+        } ${isWorkbench ? 'active:translate-y-px' : ''}`}
+        title={
+          isWorkbench && !state.isDiffMode
+            ? t.comparisonTitle
+            : state.hasChanges
+              ? 'Compare with original'
+              : t.smartEditorNoChangesToCompare
+        }
+      >
+        <GitCompare size={12} />
+        {state.isDiffMode ? t.smartEditorEditorView : t.smartEditorCompare}
+      </button>
+
+      <button
+        onClick={handleCopyToClipboard}
+        className={`inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          isWorkbench ? 'active:translate-y-px' : ''
+        }`}
+      >
+        {state.copiedToClipboard ? (
+          <>
+            <Check size={12} />
+            {t.smartEditorCopied}
+          </>
+        ) : (
+          <>
+            <Copy size={12} />
+            {t.smartEditorCopy}
+          </>
+        )}
+      </button>
+
+      {state.hasChanges && (
+        <button
+          onClick={handleResetToOriginal}
+          disabled={state.isOptimizing}
+          className={`inline-flex min-h-9 items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+            isWorkbench ? 'active:translate-y-px' : ''
+          }`}
+          title={t.smartEditorResetTitle}
+        >
+          <RotateCcw size={12} />
+          {t.smartEditorReset}
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-lg border border-border bg-card">
+    <div
+      className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden border border-border ${
+        isWorkbench ? 'gap-0 rounded-md bg-background' : 'gap-3 rounded-lg bg-card'
+      }`}
+    >
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 px-4 pt-4 pb-0">
+      <div className={`flex flex-col ${isWorkbench ? 'gap-2 px-3 py-3' : 'gap-3 px-4 pt-4 pb-0'}`}>
         {/* Title Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-foreground">{t.smartEditorTitle}</h2>
+            <h2 className="text-section-title text-foreground">{t.smartEditorTitle}</h2>
             <span
               role="status"
               className={`rounded-full border px-2 py-0.5 text-xs ${
@@ -1123,56 +1196,28 @@ export const SmartSQLEditor: React.FC<{
               {state.hasChanges ? t.smartEditorModified : t.smartEditorOriginal}
             </span>
           </div>
-        </div>
 
-        {/* Action Buttons — Format and Analyze/Optimize now live as right-edge toggle tabs. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleToggleDiffMode}
-            disabled={!state.hasChanges}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-              state.isDiffMode
-                ? 'border-primary bg-primary/15 text-primary hover:bg-primary/20'
-                : 'border-border bg-muted text-foreground hover:bg-secondary'
-            }`}
-            title={state.hasChanges ? 'Compare with original' : t.smartEditorNoChangesToCompare}
-          >
-            <GitCompare size={12} />
-            {state.isDiffMode ? t.smartEditorEditorView : t.smartEditorCompare}
-          </button>
-
-          <button
-            onClick={handleCopyToClipboard}
-            className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {state.copiedToClipboard ? (
-              <>
-                <Check size={12} />
-                {t.smartEditorCopied}
-              </>
-            ) : (
-              <>
-                <Copy size={12} />
-                {t.smartEditorCopy}
-              </>
-            )}
-          </button>
-
-          {state.hasChanges && (
-            <button
-              onClick={handleResetToOriginal}
-              disabled={state.isOptimizing}
-              className="inline-flex min-h-9 items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              title={t.smartEditorResetTitle}
-            >
-              <RotateCcw size={12} />
-              {t.smartEditorReset}
-            </button>
+          {isWorkbench && (
+            <div className="flex flex-wrap items-center gap-2">
+              <FormatSqlPanel
+                sql={state.currentSql}
+                isFormatting={state.isFormatting}
+                onFormat={() => void handleFormatSQL()}
+                compact
+              />
+              {editorButtons}
+            </div>
           )}
         </div>
 
+        {!isWorkbench && <div className="flex flex-wrap items-center gap-2">{editorButtons}</div>}
+
         {/* Stats Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 border-b border-border ${
+            isWorkbench ? 'pb-2' : 'pb-3'
+          }`}
+        >
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="font-mono">
               {state.hasChanges ? (
@@ -1260,64 +1305,92 @@ export const SmartSQLEditor: React.FC<{
         onDiscardRequirementCandidate={handleDiscardRequirementCandidate}
       />
 
-      <FormatSqlPanel
-        sql={state.currentSql}
-        isFormatting={state.isFormatting}
-        onFormat={() => void handleFormatSQL()}
-      />
+      {!isWorkbench && (
+        <FormatSqlPanel
+          sql={state.currentSql}
+          isFormatting={state.isFormatting}
+          onFormat={() => void handleFormatSQL()}
+        />
+      )}
 
-      <div className="px-4">
-        <LintingAlerts sql={state.currentSql} collapsible />
-      </div>
+      <div
+        className={
+          isWorkbench
+            ? 'grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 px-3 pb-2 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)] xl:grid-rows-1'
+            : 'flex min-h-0 flex-1 flex-col gap-3 px-4'
+        }
+      >
+        <div
+          className={`relative flex min-h-0 min-w-0 flex-1 ${
+            isWorkbench ? '' : 'flex-col'
+          }`}
+        >
+          {!isWorkbench && <LintingAlerts sql={state.currentSql} collapsible />}
 
-      {/* Editor Container */}
-      <div className="relative flex-1 min-h-0 w-full">
-        {state.isDiffMode ? (
-          <DiffEditor
-            original={state.originalSql}
-            modified={state.currentSql}
-            language="sql"
-            theme={monacoTheme}
-            options={{ ...diffEditorOptions, readOnly: true }}
-            className="min-h-0 w-full"
-            height="100%"
-          />
-        ) : (
-          <Editor
-            value={state.currentSql}
-            language="sql"
-            theme={monacoTheme}
-            options={{ ...editorOptions, readOnly: state.isOptimizing }}
-            saveViewState={true}
-            onMount={handleEditorMount}
-            onChange={(value) => {
-              currentSqlRef.current = value ?? '';
-              setState((prev) => ({
-                ...prev,
-                currentSql: value ?? '',
-              }));
-            }}
-            className="min-h-0 w-full"
-            height="100%"
-          />
-        )}
+          {/* Editor Container */}
+          <div className="relative flex min-h-0 min-w-0 flex-1">
+            {state.isDiffMode ? (
+              <DiffEditor
+                original={state.originalSql}
+                modified={state.currentSql}
+                language="sql"
+                theme={monacoTheme}
+                options={{ ...diffEditorOptions, readOnly: true }}
+                onMount={prepareMonacoTypography}
+                className="h-full min-h-0 w-full"
+                height="100%"
+              />
+            ) : (
+              <Editor
+                value={state.currentSql}
+                language="sql"
+                theme={monacoTheme}
+                options={{ ...editorOptions, readOnly: state.isOptimizing }}
+                saveViewState={true}
+                onMount={handleEditorMount}
+                onChange={(value) => {
+                  currentSqlRef.current = value ?? '';
+                  setState((prev) => ({
+                    ...prev,
+                    currentSql: value ?? '',
+                  }));
+                }}
+                className="h-full min-h-0 w-full"
+                height="100%"
+              />
+            )}
 
-        {/* Blocks editing while the AI rewrites this query in place, so the user cannot type
-         * into content that is about to be replaced by the streamed result. */}
-        {state.isOptimizing && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <RefreshCw size={16} className="motion-safe:animate-spin text-primary" />
-              <span className="text-sm font-medium text-foreground">
-                {t.smartEditorEditorLockedNotice}
-              </span>
-            </div>
+            {/* Blocks editing while the AI rewrites this query in place, so the user cannot type
+             * into content that is about to be replaced by the streamed result. */}
+            {state.isOptimizing && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <RefreshCw size={16} className="motion-safe:animate-spin text-primary" />
+                  <span className="text-sm font-medium text-foreground">
+                    {t.smartEditorEditorLockedNotice}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+
+        {isWorkbench && (
+          <aside
+            aria-label={t.lintingAlertsTitle}
+            className="min-h-0 max-h-36 min-w-0 overflow-y-auto rounded-md border border-border bg-card/60 p-3 xl:max-h-none xl:p-4"
+          >
+            <LintingAlerts sql={state.currentSql} collapsible />
+          </aside>
         )}
       </div>
 
       {/* Status Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/60 px-4 text-xs text-muted-foreground ${
+          isWorkbench ? 'py-2' : 'py-3'
+        }`}
+      >
         <div className="flex items-center gap-2">
           <FileText size={12} className="text-muted-foreground" />
           <span>{state.isDiffMode ? t.smartEditorComparingMode : t.smartEditorSingleMode}</span>

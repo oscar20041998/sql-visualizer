@@ -632,7 +632,7 @@ export default function GuidelineContent() {
             <BookOpen size={20} className="text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">{t.guidelineTitle}</h1>
+            <h1 className="text-page-title text-foreground">{t.guidelineTitle}</h1>
             <p className="text-xs text-muted-foreground">{t.guidelineSubtitle}</p>
           </div>
         </div>

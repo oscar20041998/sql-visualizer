@@ -25,6 +25,8 @@ import type { DatabaseKnowledgeSource } from '@/lib/ai/databaseAssistant';
 import LockedFeatureNotice from '@/components/ui/LockedFeatureNotice';
 import { useCapabilityLock } from '@/lib/useCapabilityLock';
 import SidePanelTab from '@/app/smart-sql-editor/components/SidePanelTab';
+import { usePanelPresence } from './usePanelPresence';
+import motionStyles from './SidePanelMotion.module.css';
 
 /** Renders the raw streamed JSON as a short "waiting" message until real content has arrived. */
 function buildOptimizeProgressMessage(raw: string, waitingLabel: string): string {
@@ -142,6 +144,7 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
 
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [localInstruction, setLocalInstruction] = useState(instructionDraft);
+  const isPresent = usePanelPresence(isOpen);
 
   // A guest sees the locked explanation INSIDE the optimize panel (specs/013 US2 / FR-015):
   // the launcher tab, header and close affordance stay rendered so the lock is discoverable
@@ -167,12 +170,11 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
     onSubmitInstruction(localInstruction);
   }, [localInstruction, onInstructionDraftChange, onSubmitInstruction]);
 
-  if (!isOpen) {
+  const launcher = !isOpen ? (
     // The collapsed launcher must portal into the page's SidePanelRail (rank 0, primary tone) so the
     // Optimize, Explainer and Format-error tabs pack into one column. A hand-rolled `fixed right-0`
     // button here used to sit outside the rail with its own hard-coded offset, so it still overlapped
     // the other launchers — the exact defect the rail exists to remove.
-    return (
       <SidePanelTab
         rank={0}
         tone="primary"
@@ -181,16 +183,21 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         ariaLabel={t.smartEditorOptimizeModalTitle}
         onClick={onOpen}
       />
-    );
-  }
+    ) : null;
 
   const hasUnappliedProposals =
     (optimizeResult?.proposals.length ?? 0) >
     optimizeResult?.proposals.filter((p) => appliedProposalIds.includes(p.id)).length!;
 
   return (
+    <>
+    {launcher}
+    {isPresent && (
     <div
-      className="fixed inset-0 z-[60] bg-background/60 backdrop-blur-sm animate-fade-in"
+      className={`fixed inset-0 z-[60] backdrop-blur-[2px] ${motionStyles.backdrop} ${!isOpen ? 'pointer-events-none' : ''}`}
+      data-closing={!isOpen}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       onClick={onClose}
     >
       <div
@@ -198,7 +205,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         aria-modal="true"
         aria-labelledby="optimize-query-modal-heading"
         onClick={(event) => event.stopPropagation()}
-        className="smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl animate-slide-in-right sm:max-w-2xl"
+        data-closing={!isOpen}
+        className={`smart-sql-editor-theme fixed inset-y-0 right-0 z-[60] flex h-full w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl sm:max-w-2xl ${motionStyles.drawer}`}
       >
         <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4">
           <h2
@@ -977,6 +985,8 @@ export const OptimizeQueryModal: React.FC<OptimizeQueryModalProps> = ({
         </div>
       </div>
     </div>
+    )}
+    </>
   );
 };
 

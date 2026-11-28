@@ -197,6 +197,10 @@ const vi = {
   comparisonRunning: 'Đang so sánh SQL…',
   comparisonOpenPanel: 'Mở bảng so sánh SQL',
   comparisonClosePanel: 'Đóng bảng so sánh SQL',
+  comparisonViewTabs: 'Chế độ xem so sánh',
+  comparisonAnalysisTab: 'Phân tích',
+  comparisonDiffTab: 'So sánh SQL',
+  comparisonEmpty: 'Chạy so sánh để xem phát hiện và khác biệt SQL.',
   comparisonChanges: 'Thay đổi cấu trúc',
   comparisonFindings: 'Phát hiện cần xem xét',
   comparisonSummary: 'Tóm tắt so sánh',
@@ -256,6 +260,8 @@ const vi = {
   comparisonResultComparison: 'So sánh kết quả cơ sở dữ liệu',
   comparisonExecutionPlan: 'Kế hoạch thực thi',
   comparisonAiTitle: 'Đánh giá bằng AI',
+  comparisonAiUnverifiedOutput: 'Nội dung AI chưa hoàn chỉnh (chưa được xác thực)',
+  comparisonAiRawOutput: 'Xem nội dung AI gốc',
   comparisonAiVerdict: 'Đánh giá thay đổi',
   comparisonAiVerdictGood: 'AN TOÀN (Good)',
   comparisonAiVerdictNotGood: 'KHÔNG AN TOÀN (Not Good)',
@@ -263,8 +269,10 @@ const vi = {
   comparisonAiImpactAfterChange: 'Tác động sau khi thay đổi',
   comparisonAiExtraRisk: 'Rủi ro cần kiểm tra',
   comparisonAiExtraRecommendation: 'Khuyến nghị',
-  comparisonAiCompleted: 'Đã hoàn tất đánh giá AI.',
-  comparisonAiPartial: 'Đánh giá AI một phần: phạm vi phân tích cú pháp chưa đầy đủ.',
+  comparisonAiCompleted: 'Đã nhận và xác thực cấu trúc phản hồi AI.',
+  comparisonAiPartial: 'Đánh giá AI một phần: SQL hoặc dữ liệu phân tích đã bị rút gọn để phù hợp giới hạn ngữ cảnh.',
+  comparisonSyntaxInvalid: 'Không thể phân tích cú pháp SQL theo phương ngữ đã chọn.',
+  comparisonSyntaxLocation: '(dòng {line}, cột {column})',
   comparisonAiStale: 'Không áp dụng đánh giá AI vì SQL được so sánh đã cũ.',
   comparisonAiEvidence: 'Bằng chứng từ AI',
   comparisonAiAssumptions: 'Giả định',
@@ -273,8 +281,11 @@ const vi = {
   comparisonAiNotRequested: 'Chưa yêu cầu đánh giá bằng AI.',
   comparisonAiNotNeeded: 'Không cần đánh giá bằng AI vì SQL giống hệt nhau.',
   comparisonAiLoading: 'Đang tạo diễn giải từ AI…',
+  comparisonAiRecovering: 'Phản hồi AI chưa đầy đủ hoặc không hợp lệ. Đang thử lại một lần…',
+  comparisonAiPreviousOutput: 'Xem nội dung AI chưa xác thực trước đó',
   comparisonAiUnavailable: 'Không có diễn giải AI; kết quả xác định vẫn được hiển thị.',
-  comparisonAiMalformed: 'Không thể xác thực phản hồi AI; kết quả xác định vẫn được hiển thị.',
+  comparisonAiMalformed:
+    'Sau khi tự thử lại, phản hồi AI vẫn chưa đầy đủ, không hợp lệ hoặc thiếu bằng chứng SQL có thể đối chiếu. Kết quả phân tích xác định vẫn được hiển thị.',
   comparisonAiFailed: 'Diễn giải AI thất bại; kết quả xác định vẫn được hiển thị.',
   comparisonAnalysisOnly: 'Chỉ phân tích tĩnh. SQL chưa được thực thi.',
   comparisonParserUnsupported:
@@ -1091,19 +1102,19 @@ const vi = {
     'Vui lòng xác định rõ các cột chiếu của bạn để giảm I/O và độ trễ mạng.',
   lintingDistinct: 'DISTINCT_OPERATIONS',
   lintingDistinctMessage:
-    'Sử dụng DISTINCT hoặc COUNT(DISTINCT) thường buộc phải thực hiện các thao tác sort/hash tốn kém.',
+    'DISTINCT hoặc COUNT(DISTINCT) có thể phát sinh bước sắp xếp hoặc băm, tùy kế hoạch thực thi và lượng dữ liệu.',
   lintingDistinctSuggestion:
-    'Hãy cân nhắc tiền tổng hợp, nhóm sớm hơn, hoặc loại bỏ trùng lặp ở giai đoạn lọc chọn lọc hơn.',
+    'Xác nhận việc loại bỏ dòng trùng là cần thiết, rồi thực hiện ở bước sớm nhất mà vẫn giữ nguyên kết quả.',
   lintingOrPredicate: 'OR_PREDICATE',
   lintingOrPredicateMessage:
-    'Các điều kiện OR có thể khiến việc dùng chỉ mục hiệu quả trở nên khó khăn và mở rộng tập quét.',
+    'Điều kiện OR có thể làm giảm tính chọn lọc của chỉ mục hoặc khiến tối ưu hóa khó hơn; hãy kiểm tra kế hoạch thực thi.',
   lintingOrPredicateSuggestion:
-    'Chia điều kiện thành các nhánh riêng hoặc viết lại bằng UNION ALL / JOIN khi phù hợp.',
+    'Nếu các nhánh loại trừ lẫn nhau và tương đương, hãy so sánh phương án tách nhánh hoặc UNION ALL mà không đổi kết quả.',
   lintingInSubquery: 'IN_SUBQUERY',
   lintingInSubqueryMessage:
-    'Các mệnh đề IN (subquery) hoặc NOT IN có thể kém hiệu quả hơn EXISTS hoặc JOIN.',
+    'Truy vấn con IN hoặc NOT IN có thể khác EXISTS hoặc JOIN về xử lý NULL và chi phí theo kế hoạch thực thi.',
   lintingInSubquerySuggestion:
-    'Ưu tiên EXISTS hoặc JOIN cho việc lọc có liên quan khi subquery trả về tập khóa phù hợp.',
+    'Kiểm tra NULL, quan hệ tương quan và kế hoạch thực thi trước khi chọn cách viết lại tương đương bằng EXISTS hoặc JOIN.',
   lintingFunctionOnColumn: 'FUNCTION_ON_COLUMN',
   lintingFunctionOnColumnMessage:
     'Áp dụng hàm lên cột trong điều kiện truy vấn có thể chặn việc dùng chỉ mục và tăng chi phí CPU.',
@@ -1135,9 +1146,9 @@ const vi = {
   lintingNullComparisonSuggestion: 'Dùng IS NULL hoặc IS NOT NULL.',
   lintingLeadingWildcard: 'LIKE_KÝ_TỰ_ĐẠI_DIỆN_ĐẦU',
   lintingLeadingWildcardMessage:
-    'Ký tự đại diện ở đầu LIKE thường ngăn việc quét theo khoảng của chỉ mục.',
+    'Ký tự đại diện ở đầu LIKE có thể ngăn quét theo khoảng bằng chỉ mục B-tree, tùy cơ sở dữ liệu và chỉ mục.',
   lintingLeadingWildcardSuggestion:
-    'Dùng tìm kiếm theo tiền tố hoặc full-text search khi yêu cầu nghiệp vụ cho phép.',
+    'Nếu yêu cầu nghiệp vụ cho phép, hãy dùng tìm kiếm theo tiền tố hoặc chỉ mục full-text/trigram phù hợp.',
   lintingNonAggregateHaving: 'HAVING_KHÔNG_TỔNG_HỢP',
   lintingNonAggregateHavingMessage:
     'HAVING có vẻ đang lọc giá trị không tổng hợp sau khi hoàn tất bước gom nhóm.',
@@ -1145,9 +1156,9 @@ const vi = {
     'Chuyển bộ lọc không tổng hợp sang WHERE để giảm số dòng đi vào bước gom nhóm.',
   lintingScalarSubquery: 'TRUY_VẤN_CON_TRONG_SELECT',
   lintingScalarSubqueryMessage:
-    'Truy vấn con trong danh sách SELECT có thể được thực thi lặp lại cho từng dòng kết quả.',
+    'Truy vấn con vô hướng trong SELECT có thể được tính cho từng dòng kết quả nếu cơ sở dữ liệu không tối ưu hóa nó.',
   lintingScalarSubquerySuggestion:
-    'Cân nhắc LEFT JOIN với dữ liệu được tổng hợp trước, đồng thời giữ nguyên số lượng dòng và phép tính.',
+    'Kiểm tra kế hoạch thực thi; chỉ cân nhắc JOIN hoặc tiền tổng hợp nếu giữ nguyên số dòng, cách xử lý NULL và phép tính.',
   lintingSubqueryOrderBy: 'ORDER_BY_TRONG_TRUY_VẤN_CON',
   lintingSubqueryOrderByMessage:
     'ORDER BY trong truy vấn con có thể gây sắp xếp không cần thiết khi thứ tự không được sử dụng tại đó.',

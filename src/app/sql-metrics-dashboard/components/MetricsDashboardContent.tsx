@@ -89,7 +89,7 @@ export default function MetricsDashboardContent() {
     return (
       <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <header className="floating-header px-4 py-3 sm:px-5">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <h1 className="text-page-title text-foreground flex items-center gap-2">
             <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
             {t.metricsTitle}
           </h1>
@@ -116,7 +116,7 @@ export default function MetricsDashboardContent() {
     return (
       <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <header className="floating-header px-4 py-3 sm:px-5">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <h1 className="text-page-title text-foreground flex items-center gap-2">
             <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
             {t.metricsTitle}
           </h1>
@@ -182,7 +182,7 @@ export default function MetricsDashboardContent() {
       {/* Header */}
       <header className="floating-header mb-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          <h1 className="text-page-title text-foreground flex items-center gap-2">
             <span className="floating-header-icon"><BarChart3 size={20} aria-hidden /></span>
             {t.metricsTitle}
           </h1>
