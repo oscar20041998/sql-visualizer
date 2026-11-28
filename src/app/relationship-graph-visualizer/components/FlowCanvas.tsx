@@ -31,7 +31,7 @@ import type { JoinType, JoinEdge, TableNode as SqlTableNode } from '@/lib/sql/sq
 import TableNode, { type TableNodeData } from './TableNode';
 import LabeledEdge from './LabeledEdge';
 import { getJoinColor } from '@/app/common/colorConstant';
-import { CATEGORY_CHROME } from '../lib/graphVisibility';
+import { CATEGORY_CHROME, CATEGORY_CHROME_LIGHT } from '../lib/graphVisibility';
 import {
   computePlacements,
   queryFingerprint,
@@ -244,7 +244,9 @@ const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(({ tables, join
 
     // Build nodes
     const rfNodes: Node<TableNodeData>[] = graphTables.map((table, i) => {
-      const nodeColor = CATEGORY_CHROME[table.sourceType];
+      const nodeColor = (graphTheme === 'light' ? CATEGORY_CHROME_LIGHT : CATEGORY_CHROME)[
+        table.sourceType
+      ];
       const isHighlighted =
         selectedNodeId === null ||
         selectedNodeId === table.id ||

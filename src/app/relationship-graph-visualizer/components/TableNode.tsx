@@ -21,8 +21,8 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
 
   const cardBg = isLight ? '#ffffff' : '#111827';
   const bodyText = isLight ? '#334155' : '#cbd5e1';
-  const subText = isLight ? '#64748b' : '#94a3b8';
-  const mutedText = isLight ? '#94a3b8' : '#64748b';
+  const subText = isLight ? '#475569' : '#94a3b8';
+  const mutedText = '#64748b';
   const tableType = sourceType;
   const accessibleName = `${name}, ${sourceType}${alias ? `, alias ${alias}` : ''}`;
   const totalFields = columns.length;
@@ -41,7 +41,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
             : isHighlighted
               ? `0 0 6px ${nodeColor}44`
               : 'none',
-          opacity: isHighlighted ? 1 : 0.5,
+          opacity: isHighlighted || isLight ? 1 : 0.5,
           borderRadius: 8,
           padding: '6px 10px',
           minWidth: 120,
@@ -94,7 +94,7 @@ const TableNode = memo(function TableNodeComponent({ data }: { data: TableNodeDa
           : isHighlighted
             ? `0 0 10px ${nodeColor}55`
             : `0 6px 16px ${isLight ? 'rgba(15,23,42,0.12)' : 'rgba(2,6,23,0.45)'}`,
-        opacity: isHighlighted ? 1 : 0.6,
+        opacity: isHighlighted || isLight ? 1 : 0.6,
         borderRadius: 12,
         minWidth: 170,
         maxWidth: 230,

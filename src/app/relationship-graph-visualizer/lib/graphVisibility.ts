@@ -86,3 +86,11 @@ export const CATEGORY_CHROME: Record<SqlSourceType, string> = {
   VIEW: '#34d399',
   UNKNOWN: '#94a3b8',
 };
+
+export const CATEGORY_CHROME_LIGHT: Record<SqlSourceType, string> = {
+  TABLE: '#075985',
+  CTE: '#6b21a8',
+  SUBQUERY: '#854d0e',
+  VIEW: '#166534',
+  UNKNOWN: '#475569',
+};
