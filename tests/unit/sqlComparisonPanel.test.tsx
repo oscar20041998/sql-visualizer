@@ -110,6 +110,44 @@ function Harness({
 }
 
 describe('SQL comparison result panel', () => {
+  it('reveals the AI section when a request starts without following later stream updates', () => {
+    const onToggle = vi.fn();
+    const props = { locale: 'en' as const, isOpen: true, onToggle, onRequestAi: vi.fn() };
+    const { rerender } = render(<SqlComparisonPanel {...props} result={RESULT} />);
+    const section = screen.getByRole('region', { name: 'AI Assessment' });
+    const container = section.closest('.overflow-y-auto') as HTMLDivElement;
+    container.scrollTop = 300;
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({ top: 50 } as DOMRect);
+    vi.spyOn(section, 'getBoundingClientRect').mockReturnValue({ top: 200 } as DOMRect);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Request AI interpretation' }));
+    expect(props.onRequestAi).toHaveBeenCalledOnce();
+    const pending: ComparisonResult = {
+      ...RESULT,
+      ai: { status: 'pending', explanation: null, assessment: null },
+    };
+    rerender(<SqlComparisonPanel {...props} result={pending} />);
+    expect(container.scrollTop).toBe(450);
+    expect(screen.getByText('Generating AI interpretation…')).toBeInTheDocument();
+
+    container.scrollTop = 100;
+    rerender(
+      <SqlComparisonPanel
+        {...props}
+        result={{ ...pending, ai: { ...pending.ai, streaming: { changeExplanation: 'First' } } }}
+      />
+    );
+    rerender(
+      <SqlComparisonPanel
+        {...props}
+        result={{ ...pending, ai: { ...pending.ai, streaming: { changeExplanation: 'First second' } } }}
+      />
+    );
+    expect(container.scrollTop).toBe(100);
+    expect(screen.getByText('First second')).toBeInTheDocument();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
   it('labels both diff panes as Before and After', () => {
     render(<SqlComparisonPanel locale="en" isOpen onToggle={vi.fn()} result={RESULT} />);
 

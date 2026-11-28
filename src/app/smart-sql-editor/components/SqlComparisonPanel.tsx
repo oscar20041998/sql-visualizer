@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, ChevronRight } from 'lucide-react';
 import { DiffEditor } from '@monaco-editor/react';
 import { getT, type Locale } from '@/lib/i18n';
@@ -89,6 +89,8 @@ export default function SqlComparisonPanel({
   const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs';
   const [isWideViewport, setIsWideViewport] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const aiSectionRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
   const valueLabel = (values: Record<string, string>, value: string) =>
     values[value] ?? t.comparisonNotAssessed;
@@ -181,6 +183,21 @@ export default function SqlComparisonPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onToggle]);
 
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    const section = aiSectionRef.current;
+    if (
+      !isOpen ||
+      isStale ||
+      result?.status === 'stale' ||
+      result?.ai.status !== 'pending' ||
+      !container ||
+      !section
+    ) return;
+    container.scrollTop +=
+      section.getBoundingClientRect().top - container.getBoundingClientRect().top;
+  }, [isOpen, isStale, result?.status, result?.ai.status]);
+
   if (!isOpen) {
     return (
       <SidePanelTab
@@ -221,7 +238,10 @@ export default function SqlComparisonPanel({
             <span className="sr-only">{t.comparisonClosePanel}</span>
           </button>
         </div>
-        <div className="flex-1 space-y-4 scrollbar-thin overflow-y-auto p-4">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 space-y-4 scrollbar-thin overflow-y-auto p-4"
+        >
           {onRunComparison && (
             <button
               type="button"
@@ -433,6 +453,7 @@ export default function SqlComparisonPanel({
                 </p>
               ))}
               <section
+                ref={aiSectionRef}
                 aria-label={t.comparisonAiTitle}
                 className="space-y-2 border-t border-border pt-4"
               >
